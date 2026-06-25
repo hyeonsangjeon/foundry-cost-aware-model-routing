@@ -1,0 +1,20 @@
+# TEMPLATE — copy to `samples/pricing/your-tenant.yaml` (gitignored) and fill in
+# YOUR tenant's real per-1M-token rates. Do NOT commit the filled file.
+#
+# Replace every <...> with a number. Live evals read this file to produce
+# measured ($/resolved) results (labels.measured = true) scoped to your rates.
+#
+# unit: USD per 1,000,000 tokens, by token kind.
+
+version: 1
+currency: USD
+unit: per_1m_tokens
+
+models:
+  mini-fast:     { input: <input>, cached: <cached>, output: <output>, reasoning: <reasoning> }
+  swift-coder:   { input: <input>, cached: <cached>, output: <output>, reasoning: <reasoning> }
+  balanced-pro:  { input: <input>, cached: <cached>, output: <output>, reasoning: <reasoning> }
+  deep-reasoner: { input: <input>, cached: <cached>, output: <output>, reasoning: <reasoning> }
+  premium-max:   { input: <input>, cached: <cached>, output: <output>, reasoning: <reasoning> }
+
+default: { input: <input>, cached: <cached>, output: <output>, reasoning: <reasoning> }

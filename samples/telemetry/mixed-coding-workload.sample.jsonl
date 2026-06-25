@@ -1,0 +1,100 @@
+{"task_id": "t-0001", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1232, "cached": 448, "output": 418, "reasoning": 168}}
+{"task_id": "t-0002", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1539, "cached": 526, "output": 223, "reasoning": 215}}
+{"task_id": "t-0003", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 6415, "cached": 3049, "output": 1138, "reasoning": 1929}, "diff_size_lines": 428}
+{"task_id": "t-0004", "class": "plan", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1446, "cached": 473, "output": 644, "reasoning": 916}}
+{"task_id": "t-0005", "class": "validate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 428, "cached": 148, "output": 124, "reasoning": 154}}
+{"task_id": "t-0006", "class": "test", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1921, "cached": 796, "output": 232, "reasoning": 297}}
+{"task_id": "t-0007", "class": "plan", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 5133, "cached": 2865, "output": 919, "reasoning": 2006}}
+{"task_id": "t-0008", "class": "validate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 866, "cached": 489, "output": 110, "reasoning": 163}}
+{"task_id": "t-0009", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1296, "cached": 557, "output": 207, "reasoning": 230}}
+{"task_id": "t-0010", "class": "validate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1476, "cached": 780, "output": 234, "reasoning": 188}}
+{"task_id": "t-0011", "class": "validate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 608, "cached": 298, "output": 252, "reasoning": 275}}
+{"task_id": "t-0012", "class": "plan", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 2126, "cached": 981, "output": 782, "reasoning": 630}}
+{"task_id": "t-0013", "class": "test", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1786, "cached": 856, "output": 670, "reasoning": 100}}
+{"task_id": "t-0014", "class": "test", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 929, "cached": 523, "output": 675, "reasoning": 285}}
+{"task_id": "t-0015", "class": "validate", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 1139, "cached": 424, "output": 310, "reasoning": 103}}
+{"task_id": "t-0016", "class": "test", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 861, "cached": 383, "output": 243, "reasoning": 474}}
+{"task_id": "t-0017", "class": "test", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1253, "cached": 424, "output": 414, "reasoning": 114}}
+{"task_id": "t-0018", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 6503, "cached": 2980, "output": 938, "reasoning": 942}, "diff_size_lines": 453}
+{"task_id": "t-0019", "class": "validate", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 2031, "cached": 1054, "output": 526, "reasoning": 354}}
+{"task_id": "t-0020", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 866, "cached": 373, "output": 247, "reasoning": 189}}
+{"task_id": "t-0021", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 847, "cached": 270, "output": 276, "reasoning": 195}}
+{"task_id": "t-0022", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1213, "cached": 444, "output": 186, "reasoning": 266}}
+{"task_id": "t-0023", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 503, "cached": 287, "output": 186, "reasoning": 79}}
+{"task_id": "t-0024", "class": "repo_patch", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 3611, "cached": 1384, "output": 2312, "reasoning": 1241}, "diff_size_lines": 723}
+{"task_id": "t-0025", "class": "validate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 444, "cached": 196, "output": 274, "reasoning": 144}}
+{"task_id": "t-0026", "class": "test", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1533, "cached": 504, "output": 297, "reasoning": 148}}
+{"task_id": "t-0027", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 5469, "cached": 3057, "output": 1441, "reasoning": 1356}, "diff_size_lines": 75}
+{"task_id": "t-0028", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 801, "cached": 415, "output": 181, "reasoning": 286}}
+{"task_id": "t-0029", "class": "repo_patch", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 4052, "cached": 1446, "output": 1552, "reasoning": 1108}, "diff_size_lines": 670}
+{"task_id": "t-0030", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 682, "cached": 255, "output": 204, "reasoning": 221}}
+{"task_id": "t-0031", "class": "plan", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 4641, "cached": 1462, "output": 1348, "reasoning": 700}}
+{"task_id": "t-0032", "class": "test", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 1021, "cached": 590, "output": 974, "reasoning": 205}}
+{"task_id": "t-0033", "class": "test", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 1456, "cached": 647, "output": 571, "reasoning": 487}}
+{"task_id": "t-0034", "class": "test", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 1148, "cached": 345, "output": 397, "reasoning": 411}}
+{"task_id": "t-0035", "class": "validate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1013, "cached": 432, "output": 232, "reasoning": 93}}
+{"task_id": "t-0036", "class": "generate", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 2433, "cached": 842, "output": 683, "reasoning": 460}}
+{"task_id": "t-0037", "class": "repo_patch", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1735, "cached": 802, "output": 1250, "reasoning": 1334}, "diff_size_lines": 238}
+{"task_id": "t-0038", "class": "test", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1327, "cached": 764, "output": 310, "reasoning": 249}}
+{"task_id": "t-0039", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 2465, "cached": 1369, "output": 1640, "reasoning": 564}, "diff_size_lines": 90}
+{"task_id": "t-0040", "class": "plan", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 2463, "cached": 1434, "output": 813, "reasoning": 545}}
+{"task_id": "t-0041", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1785, "cached": 867, "output": 454, "reasoning": 100}}
+{"task_id": "t-0042", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1795, "cached": 708, "output": 439, "reasoning": 347}}
+{"task_id": "t-0043", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 870, "cached": 364, "output": 190, "reasoning": 150}}
+{"task_id": "t-0044", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1214, "cached": 702, "output": 384, "reasoning": 241}}
+{"task_id": "t-0045", "class": "generate", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 866, "cached": 519, "output": 537, "reasoning": 557}}
+{"task_id": "t-0046", "class": "validate", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 805, "cached": 363, "output": 525, "reasoning": 159}}
+{"task_id": "t-0047", "class": "test", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 989, "cached": 557, "output": 455, "reasoning": 94}}
+{"task_id": "t-0048", "class": "test", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 716, "cached": 365, "output": 296, "reasoning": 264}}
+{"task_id": "t-0049", "class": "plan", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 3666, "cached": 1429, "output": 408, "reasoning": 1435}}
+{"task_id": "t-0050", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 875, "cached": 496, "output": 285, "reasoning": 139}}
+{"task_id": "t-0051", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 3273, "cached": 1575, "output": 1157, "reasoning": 977}, "diff_size_lines": 371}
+{"task_id": "t-0052", "class": "test", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1398, "cached": 631, "output": 445, "reasoning": 164}}
+{"task_id": "t-0053", "class": "plan", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1195, "cached": 655, "output": 345, "reasoning": 816}}
+{"task_id": "t-0054", "class": "test", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 968, "cached": 475, "output": 415, "reasoning": 116}}
+{"task_id": "t-0055", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1052, "cached": 492, "output": 302, "reasoning": 208}}
+{"task_id": "t-0056", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 633, "cached": 348, "output": 300, "reasoning": 68}}
+{"task_id": "t-0057", "class": "test", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1003, "cached": 313, "output": 420, "reasoning": 165}}
+{"task_id": "t-0058", "class": "validate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1018, "cached": 414, "output": 84, "reasoning": 203}}
+{"task_id": "t-0059", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 810, "cached": 457, "output": 331, "reasoning": 366}}
+{"task_id": "t-0060", "class": "test", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1971, "cached": 1138, "output": 583, "reasoning": 179}}
+{"task_id": "t-0061", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 652, "cached": 368, "output": 391, "reasoning": 118}}
+{"task_id": "t-0062", "class": "plan", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 2001, "cached": 760, "output": 574, "reasoning": 565}}
+{"task_id": "t-0063", "class": "plan", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1942, "cached": 1082, "output": 791, "reasoning": 379}}
+{"task_id": "t-0064", "class": "validate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 935, "cached": 366, "output": 234, "reasoning": 104}}
+{"task_id": "t-0065", "class": "validate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 733, "cached": 365, "output": 214, "reasoning": 66}}
+{"task_id": "t-0066", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 819, "cached": 483, "output": 414, "reasoning": 80}}
+{"task_id": "t-0067", "class": "validate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 809, "cached": 407, "output": 251, "reasoning": 113}}
+{"task_id": "t-0068", "class": "generate", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 1789, "cached": 1007, "output": 229, "reasoning": 194}}
+{"task_id": "t-0069", "class": "repo_patch", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 4729, "cached": 1572, "output": 800, "reasoning": 334}, "diff_size_lines": 324}
+{"task_id": "t-0070", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 869, "cached": 517, "output": 261, "reasoning": 273}}
+{"task_id": "t-0071", "class": "plan", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 2702, "cached": 846, "output": 415, "reasoning": 574}}
+{"task_id": "t-0072", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 6259, "cached": 3228, "output": 1702, "reasoning": 1806}, "diff_size_lines": 221}
+{"task_id": "t-0073", "class": "test", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 590, "cached": 339, "output": 479, "reasoning": 308}}
+{"task_id": "t-0074", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 7434, "cached": 4237, "output": 855, "reasoning": 1874}, "diff_size_lines": 539}
+{"task_id": "t-0075", "class": "test", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1075, "cached": 547, "output": 256, "reasoning": 214}}
+{"task_id": "t-0076", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 3571, "cached": 2078, "output": 1461, "reasoning": 1761}, "diff_size_lines": 198}
+{"task_id": "t-0077", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1216, "cached": 668, "output": 357, "reasoning": 360}}
+{"task_id": "t-0078", "class": "validate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 500, "cached": 236, "output": 224, "reasoning": 182}}
+{"task_id": "t-0079", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 5809, "cached": 2920, "output": 1504, "reasoning": 1305}, "diff_size_lines": 543}
+{"task_id": "t-0080", "class": "validate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1422, "cached": 462, "output": 186, "reasoning": 228}}
+{"task_id": "t-0081", "class": "test", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1996, "cached": 654, "output": 517, "reasoning": 271}}
+{"task_id": "t-0082", "class": "generate", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 1513, "cached": 555, "output": 691, "reasoning": 333}}
+{"task_id": "t-0083", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 454, "cached": 270, "output": 121, "reasoning": 143}}
+{"task_id": "t-0084", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 2596, "cached": 1468, "output": 1532, "reasoning": 1248}, "diff_size_lines": 219}
+{"task_id": "t-0085", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 5145, "cached": 1920, "output": 1612, "reasoning": 1218}, "diff_size_lines": 25}
+{"task_id": "t-0086", "class": "plan", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 2710, "cached": 990, "output": 1675, "reasoning": 1638}}
+{"task_id": "t-0087", "class": "test", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 2464, "cached": 1151, "output": 611, "reasoning": 175}}
+{"task_id": "t-0088", "class": "validate", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 873, "cached": 471, "output": 466, "reasoning": 131}}
+{"task_id": "t-0089", "class": "plan", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 3789, "cached": 2216, "output": 1009, "reasoning": 949}}
+{"task_id": "t-0090", "class": "validate", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 1577, "cached": 866, "output": 501, "reasoning": 236}}
+{"task_id": "t-0091", "class": "repo_patch", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 3303, "cached": 1247, "output": 1572, "reasoning": 1321}, "diff_size_lines": 273}
+{"task_id": "t-0092", "class": "plan", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 3688, "cached": 1642, "output": 1657, "reasoning": 1913}}
+{"task_id": "t-0093", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1050, "cached": 388, "output": 132, "reasoning": 158}}
+{"task_id": "t-0094", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 1194, "cached": 412, "output": 133, "reasoning": 105}}
+{"task_id": "t-0095", "class": "generate", "difficulty": "easy", "domain": "synthetic-coding", "tokens": {"input": 638, "cached": 203, "output": 357, "reasoning": 132}}
+{"task_id": "t-0096", "class": "generate", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 1711, "cached": 545, "output": 388, "reasoning": 292}}
+{"task_id": "t-0097", "class": "repo_patch", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 7265, "cached": 2222, "output": 2514, "reasoning": 2553}, "diff_size_lines": 572}
+{"task_id": "t-0098", "class": "plan", "difficulty": "medium", "domain": "synthetic-coding", "tokens": {"input": 2940, "cached": 1634, "output": 705, "reasoning": 1098}}
+{"task_id": "t-0099", "class": "plan", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 4502, "cached": 2430, "output": 1331, "reasoning": 1985}}
+{"task_id": "t-0100", "class": "validate", "difficulty": "hard", "domain": "synthetic-coding", "tokens": {"input": 1398, "cached": 602, "output": 296, "reasoning": 180}}

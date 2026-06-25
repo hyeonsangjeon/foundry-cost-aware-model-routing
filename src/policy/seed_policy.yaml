@@ -1,0 +1,44 @@
+# Seed routing policy - task class -> ordered candidate models.
+#
+# Every prior below is an illustrative placeholder, not a measured number.
+# Model identifiers are generic stand-ins. Replace this file with local
+# telemetry-derived values before using it for any real routing decision.
+#
+# Contract (enforced by src/policy/schema.py:PolicyTable.validate):
+#   - all five task classes present, each with >= 1 candidate
+#   - candidates ordered by prior_usd_resolved (non-decreasing)
+#   - 0 <= prior_pass <= 1 ; prior_usd_resolved > 0 ; no duplicate models per class
+
+version: 1
+
+classes:
+  # Planning / decomposition.
+  plan:
+    - { model: swift-coder,   prior_pass: 0.55, prior_usd_resolved: 0.40 }
+    - { model: balanced-pro,  prior_pass: 0.72, prior_usd_resolved: 1.10 }
+    - { model: deep-reasoner, prior_pass: 0.86, prior_usd_resolved: 2.80 }
+
+  # Small, deterministic generation.
+  generate:
+    - { model: mini-fast,     prior_pass: 0.74, prior_usd_resolved: 0.12 }
+    - { model: swift-coder,   prior_pass: 0.80, prior_usd_resolved: 0.35 }
+    - { model: balanced-pro,  prior_pass: 0.88, prior_usd_resolved: 1.05 }
+
+  # Test generation.
+  test:
+    - { model: mini-fast,     prior_pass: 0.68, prior_usd_resolved: 0.15 }
+    - { model: swift-coder,   prior_pass: 0.79, prior_usd_resolved: 0.38 }
+    - { model: balanced-pro,  prior_pass: 0.86, prior_usd_resolved: 1.00 }
+
+  # Validation / checking.
+  validate:
+    - { model: mini-fast,     prior_pass: 0.71, prior_usd_resolved: 0.14 }
+    - { model: balanced-pro,  prior_pass: 0.85, prior_usd_resolved: 0.95 }
+    - { model: deep-reasoner, prior_pass: 0.90, prior_usd_resolved: 2.50 }
+
+  # Repository patch.
+  repo_patch:
+    - { model: swift-coder,   prior_pass: 0.48, prior_usd_resolved: 0.55 }
+    - { model: balanced-pro,  prior_pass: 0.66, prior_usd_resolved: 1.40 }
+    - { model: deep-reasoner, prior_pass: 0.79, prior_usd_resolved: 3.10 }
+    - { model: premium-max,   prior_pass: 0.82, prior_usd_resolved: 5.20 }

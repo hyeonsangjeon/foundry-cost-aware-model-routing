@@ -1,0 +1,94 @@
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Virtual envs ---
+.venv/
+venv/
+env/
+
+# --- Node ---
+node_modules/
+
+# --- Local-only notes/specs (NEVER commit) ---
+# Keep private plans, build harnesses, launch notes, and private diagrams here.
+local/
+.local/
+internal/
+private/
+_internal/
+_private/
+notes/
+drafts/
+scratch/
+
+# Catch future local/private markdown drafts.
+*.internal.md
+*.private.md
+*.local.md
+*-internal.md
+*-private.md
+
+# --- Cloud / local deployment state (may embed endpoints, ids, keys) ---
+.azure/
+*.azd
+local.settings.json
+**/local.settings.json
+
+# --- Secrets & live data (NEVER commit) ---
+# Real endpoints, tenant/subscription ids, deployment names, keys, and raw
+# live responses stay local. Offline synthetic samples (*.sample.*) and the
+# placeholder templates (*.example.*) ARE meant to be committed.
+
+# env files (keep only the placeholder sample)
+.env
+.env.*
+!.env.sample
+
+# keys / certificates / credentials
+*.key
+*.pem
+*.pfx
+*.p12
+*.cer
+*.crt
+id_rsa
+credentials.json
+secrets/
+*.secret
+*.secrets.*
+
+# tenant-specific pricing & filled task inputs (templates stay tracked)
+samples/pricing/your-tenant.yaml
+samples/pricing/your-tenant.local.yaml
+!samples/pricing/your-tenant.example.yaml
+samples/tasks/*.local.json
+
+# raw live responses / measured traces & reports (labels.measured = true)
+**/*.live.json
+**/*.measured.json
+samples/responses/*.live.json
+evals/out/
+evals/**/*.local.*
+reports/*.local.*
+
+# deploy artifacts that may carry resource ids / endpoints
+scripts/.deploy-*
+*.resource-ids.txt
+.deploy-state/

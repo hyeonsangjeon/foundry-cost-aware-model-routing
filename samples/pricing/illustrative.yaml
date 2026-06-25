@@ -1,0 +1,22 @@
+# Illustrative per-1M-token rates (USD). DUMMY values for OFFLINE PROJECTION ONLY
+# (labels.measured = false). These are not anyone's published prices.
+#
+# To get measured numbers, copy this file to:
+#   samples/pricing/your-tenant.yaml      (gitignored — never committed)
+# and replace every rate with YOUR tenant's actual per-1M-token rates.
+#
+# unit: USD per 1,000,000 tokens, by token kind. 'default' applies to any model
+# not listed explicitly.
+
+version: 1
+currency: USD
+unit: per_1m_tokens
+
+models:
+  mini-fast:     { input: 0.15, cached: 0.04, output: 0.60,  reasoning: 0.60 }
+  swift-coder:   { input: 0.50, cached: 0.13, output: 1.50,  reasoning: 1.50 }
+  balanced-pro:  { input: 2.00, cached: 0.50, output: 8.00,  reasoning: 8.00 }
+  deep-reasoner: { input: 3.00, cached: 0.75, output: 15.00, reasoning: 15.00 }
+  premium-max:   { input: 5.00, cached: 1.25, output: 20.00, reasoning: 20.00 }
+
+default: { input: 1.00, cached: 0.25, output: 4.00, reasoning: 4.00 }
