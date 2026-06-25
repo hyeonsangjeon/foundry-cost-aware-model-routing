@@ -11,3 +11,4 @@ All notable changes to this project are documented here.
   live responses, and deploy artifacts.
 - Router core for rule-based classification, deterministic candidate selection,
   trace construction, and offline signal fixtures.
+- Local budget gate, replay scripts, and eval summary for sample fixtures.

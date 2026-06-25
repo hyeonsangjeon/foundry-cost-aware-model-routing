@@ -7,6 +7,7 @@ from typing import Any
 
 from policy import Candidate, TaskClass
 
+from .budget import BudgetDecision
 from .select import SelectionResult
 
 
@@ -16,6 +17,7 @@ def build_trace(
     task_class: TaskClass,
     candidates: tuple[Candidate, ...],
     selection: SelectionResult,
+    budget: BudgetDecision | None = None,
     measured: bool = False,
 ) -> dict[str, Any]:
     """Build a serializable trace for a completed offline decision."""
@@ -33,6 +35,7 @@ def build_trace(
             for rank, candidate in enumerate(candidates)
         ],
         "mode": selection.mode,
+        "budget": _budget_payload(budget),
         "attempts": [
             {
                 "model": attempt.model,
@@ -58,3 +61,13 @@ def _chosen_cost(selection: SelectionResult) -> float | None:
             value = attempt.signals.get("cost_usd")
             return float(value) if isinstance(value, int | float) else None
     return None
+
+
+def _budget_payload(budget: BudgetDecision | None) -> dict[str, Any] | None:
+    if budget is None:
+        return None
+    return {
+        "selection_mode": budget.selection_mode,
+        "value": budget.value,
+        "reason": budget.reason,
+    }
