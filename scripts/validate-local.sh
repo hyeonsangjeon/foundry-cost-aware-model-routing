@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Local validation gate for cost-aware model routing.
-# Grows per build phase — see docs/20-agent-build-harness.md.
-# Phase 0: shell syntax · python compile · no-secret scan · .env.sample check.
+# Phase 0+: shell syntax, python compile, no-secret scan, .env.sample check.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -44,8 +43,7 @@ else
 fi
 
 say "no-secret scan"
-# Tier-1 discipline: no real keys, tokens, connection strings, private keys,
-# or live Azure endpoints in the tree.
+# No real keys, tokens, connection strings, private keys, or live endpoints in the tree.
 secret_re='(gh[opsu]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{10,}|AccountKey=[A-Za-z0-9+/=]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|[A-Za-z0-9-]+\.(openai\.azure\.com|azure-api\.net|vault\.azure\.net))'
 scan=$(ls_files \
   | grep -vE '^(scripts/validate-local\.sh|\.github/workflows/ci\.yml)$' \

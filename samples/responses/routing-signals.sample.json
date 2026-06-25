@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "tasks": {
+    "t-0001": {
+      "mini-fast": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.0021 },
+      "swift-coder": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.0044 },
+      "balanced-pro": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.0118 }
+    },
+    "t-0003": {
+      "swift-coder": { "applies": true, "compiles": false, "tests_pass": false, "lint_pass": true, "cost_usd": 0.0305 },
+      "balanced-pro": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.0742 },
+      "deep-reasoner": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.1660 },
+      "premium-max": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.3120 }
+    },
+    "t-0004": {
+      "swift-coder": { "applies": true, "compiles": true, "tests_pass": false, "lint_pass": true, "cost_usd": 0.0068 },
+      "balanced-pro": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.0186 },
+      "deep-reasoner": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.0491 }
+    },
+    "t-0005": {
+      "mini-fast": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.0013 },
+      "balanced-pro": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.0088 },
+      "deep-reasoner": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.0235 }
+    },
+    "t-0006": {
+      "mini-fast": { "applies": true, "compiles": true, "tests_pass": false, "lint_pass": true, "cost_usd": 0.0043 },
+      "swift-coder": { "applies": true, "compiles": true, "tests_pass": false, "lint_pass": true, "cost_usd": 0.0094 },
+      "balanced-pro": { "applies": true, "compiles": true, "tests_pass": true, "lint_pass": true, "cost_usd": 0.0270 }
+    }
+  }
+}

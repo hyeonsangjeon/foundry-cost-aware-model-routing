@@ -5,9 +5,9 @@ annotated with two priors: ``prior_pass`` (how often it solves this class) and
 ``prior_usd_resolved`` (gross cost per solved task). Candidates are ordered
 cheapest-first so the selector can consult them cheapest-clean-first.
 
-All priors shipped in ``seed_policy.yaml`` are **Tier-2** operational
-placeholders — illustrative, not measured. Refresh them from your own routing
-telemetry. See docs/01-concept.md ("Claim-authority labels").
+All priors shipped in ``seed_policy.yaml`` are illustrative placeholders, not
+measured production values. Refresh them from local telemetry before relying on
+them for decisions.
 """
 
 from __future__ import annotations
