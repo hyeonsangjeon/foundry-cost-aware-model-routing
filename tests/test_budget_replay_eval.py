@@ -6,12 +6,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from evals.baselines import baseline_cost_usd, baseline_model_for_task
-
 from policy import Candidate, load_default_policy
 from router import (
     BudgetGate,
     PricingTable,
+    baseline_cost_usd,
+    baseline_model_for_task,
     load_signal_fixture,
     load_workload,
     route_tasks,

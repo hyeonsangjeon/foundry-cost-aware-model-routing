@@ -1,15 +1,20 @@
 PY ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
+WORKLOAD ?= samples/telemetry/mixed-coding-workload.sample.jsonl
+SIGNALS ?= samples/responses/routing-signals.sample.json
+PRICING ?= samples/pricing/illustrative.yaml
 
-.PHONY: help tour dev check replay evals lint test clean
+.PHONY: help tour dev check replay replay-all evals evals-all lint test clean
 
 help:
 	@echo "Targets:"
-	@echo "  dev     Install the package with dev extras (ruff, pytest)"
-	@echo "  check   Run the local validation gate (scripts/validate-local.sh)"
-	@echo "  replay  Run sample routing replay"
-	@echo "  evals   Summarize sample routing replay"
-	@echo "  lint    ruff check . (if installed)"
-	@echo "  test    pytest (if installed)"
+	@echo "  dev         Install the package with dev extras (ruff, pytest)"
+	@echo "  check       Run the local validation gate (scripts/validate-local.sh)"
+	@echo "  replay      Run sample routing replay (curated fixture)"
+	@echo "  replay-all  Replay the whole workload with deterministic offline signals"
+	@echo "  evals       Summarize sample routing replay (curated fixture)"
+	@echo "  evals-all   Summarize the whole workload with deterministic offline signals"
+	@echo "  lint        ruff check . (if installed)"
+	@echo "  test        pytest (if installed)"
 
 tour:
 	@echo "Model-routing experiment scaffold"
@@ -22,10 +27,16 @@ check:
 	@bash scripts/validate-local.sh
 
 replay:
-	@$(PY) samples/python/replay_route.py samples/telemetry/mixed-coding-workload.sample.jsonl
+	@$(PY) samples/python/replay_route.py $(WORKLOAD)
+
+replay-all:
+	@$(PY) samples/python/replay_route.py $(WORKLOAD) --synth
 
 evals:
-	@$(PY) evals/run.py --workload samples/telemetry/mixed-coding-workload.sample.jsonl --signals samples/responses/routing-signals.sample.json --pricing samples/pricing/illustrative.yaml
+	@$(PY) evals/run.py --workload $(WORKLOAD) --signals $(SIGNALS) --pricing $(PRICING)
+
+evals-all:
+	@$(PY) evals/run.py --workload $(WORKLOAD) --pricing $(PRICING) --synth
 
 lint:
 	@ruff check .
