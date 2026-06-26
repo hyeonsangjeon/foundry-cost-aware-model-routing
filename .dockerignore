@@ -1,0 +1,40 @@
+# Keep the build context minimal and free of secrets, caches, and local-only notes.
+.git
+.gitignore
+.github
+
+# Local-only material (never ship to an image).
+local/
+internal/
+notes/
+drafts/
+
+# Virtualenvs and tooling caches.
+.venv
+venv
+__pycache__/
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Build artifacts.
+build/
+dist/
+*.egg-info
+src/*.egg-info
+
+# Secrets / environment files (defense in depth; none are tracked).
+.env
+.env.*
+*.key
+*.pem
+*.pfx
+
+# Dev-only assets not needed at runtime.
+tests/
+scripts/
+Makefile
+azure.yaml
+infra/
+.azure/

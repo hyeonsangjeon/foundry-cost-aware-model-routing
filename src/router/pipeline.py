@@ -8,13 +8,15 @@ formatting live in exactly one place.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from policy import PolicyTable, load_default_policy
+from policy import PolicyTable, TaskClass, load_default_policy
 
 from .baseline import baseline_cost_usd
+from .classify import classify_task
 from .offline import (
     load_signal_fixture,
     load_workload,
@@ -22,6 +24,7 @@ from .offline import (
     route_tasks,
     summarize_traces,
     synthesize_signals,
+    synthesize_task_signals,
 )
 from .pricing import PricingTable
 
@@ -63,6 +66,82 @@ def resolve_paths(
         "signals": Path(signals) if signals is not None else base / DEFAULT_SIGNALS,
         "pricing": Path(pricing) if pricing is not None else base / DEFAULT_PRICING,
     }
+
+
+def load_default_pricing(root: Path | str | None = None) -> PricingTable:
+    """Load the bundled illustrative pricing table (offline sample data)."""
+
+    return PricingTable.from_yaml(resolve_paths(root=root)["pricing"])
+
+
+def policy_summary(policy: PolicyTable | None = None) -> dict[str, Any]:
+    """Summarize a policy as version + ordered candidates per task class."""
+
+    policy = policy or load_default_policy()
+    return {
+        "version": policy.version,
+        "classes": {
+            task_class.value: [
+                {
+                    "model": candidate.model,
+                    "rank": rank,
+                    "prior_pass": candidate.prior_pass,
+                    "prior_usd_resolved": candidate.prior_usd_resolved,
+                }
+                for rank, candidate in enumerate(policy.candidates_for(task_class))
+            ]
+            for task_class in TaskClass
+        },
+    }
+
+
+def route_payload(
+    task: Mapping[str, Any],
+    *,
+    signals: Mapping[str, Mapping[str, Any]] | None = None,
+    synth: bool = False,
+    policy: PolicyTable | None = None,
+    pricing: PricingTable | None = None,
+) -> dict[str, Any]:
+    """Route a single in-memory task payload and return its trace.
+
+    When ``synth`` is true or no ``signals`` are supplied, deterministic offline
+    check signals are synthesized for the task's policy candidates.
+    """
+
+    policy = policy or load_default_policy()
+    if synth or signals is None:
+        candidates = policy.candidates_for(classify_task(task))
+        signals = synthesize_task_signals(task, candidates)
+    return route_task(task, signals, policy=policy, pricing=pricing)
+
+
+def batch_route_payload(
+    tasks: Sequence[Mapping[str, Any]],
+    *,
+    signals_by_task: Mapping[str, Mapping[str, Mapping[str, Any]]] | None = None,
+    synth: bool = False,
+    policy: PolicyTable | None = None,
+    pricing: PricingTable | None = None,
+) -> dict[str, Any]:
+    """Route many in-memory task payloads deterministically and summarize them."""
+
+    policy = policy or load_default_policy()
+    traces: list[dict[str, Any]] = []
+    for task in tasks:
+        task_signals = None
+        if not synth and signals_by_task is not None:
+            task_signals = signals_by_task.get(str(task.get("task_id")))
+        traces.append(
+            route_payload(
+                task,
+                signals=task_signals,
+                synth=synth,
+                policy=policy,
+                pricing=pricing,
+            )
+        )
+    return {"traces": traces, "summary": summarize_traces(traces)}
 
 
 def _load_context(

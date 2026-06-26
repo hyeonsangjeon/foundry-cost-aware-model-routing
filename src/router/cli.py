@@ -44,6 +44,11 @@ def build_parser() -> argparse.ArgumentParser:
     _add_data_args(evals)
     evals.set_defaults(func=_cmd_evals)
 
+    serve = subparsers.add_parser("serve", help="Run the offline routing HTTP service.")
+    serve.add_argument("--host", default="127.0.0.1", help="bind host (default 127.0.0.1)")
+    serve.add_argument("--port", type=int, default=8000, help="bind port (default 8000)")
+    serve.set_defaults(func=_cmd_serve)
+
     return parser
 
 
@@ -104,6 +109,12 @@ def _cmd_evals(args: argparse.Namespace) -> int:
     )
     print(format_eval_report(report))
     return 0
+
+
+def _cmd_serve(args: argparse.Namespace) -> int:
+    from . import server
+
+    return server.serve(host=args.host, port=args.port)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -118,3 +118,19 @@ def test_cli_output_is_deterministic(capsys: pytest.CaptureFixture[str]) -> None
     cli.main(["replay", "--synth", "--json"])
     second = capsys.readouterr().out
     assert first == second
+
+
+def test_serve_help_lists_host_and_port(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["serve", "--help"])
+    assert excinfo.value.code == 0
+    out = capsys.readouterr().out
+    assert "--host" in out
+    assert "--port" in out
+
+
+def test_serve_defaults_are_loopback() -> None:
+    parser = cli.build_parser()
+    args = parser.parse_args(["serve"])
+    assert args.host == "127.0.0.1"
+    assert args.port == 8000
