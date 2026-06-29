@@ -54,6 +54,32 @@ jobs:
             cost-router --version
             cost-router replay --synth
             cost-router evals --synth
+            cost-router serve --help
           else
             echo "cost-router console script not installed"
           fi
+
+      - name: Service smoke (offline endpoints)
+        run: |
+          python - <<'PY'
+          import json
+          from router.server import RouterService
+
+          svc = RouterService()
+          assert svc.dispatch("GET", "/healthz").status == 200
+          assert svc.dispatch("GET", "/policy").status == 200
+          task = {"task_id": "t-0001", "class": "generate",
+                  "tokens": {"input": 1232, "cached": 448, "output": 418, "reasoning": 168}}
+          resp = svc.dispatch("POST", "/route", json.dumps({"task": task, "synth": True}).encode())
+          assert resp.status == 200 and resp.payload["trace"]["chosen"], resp.payload
+          print("service smoke ok:", resp.payload["trace"]["chosen"])
+          PY
+
+      - name: Docker build (optional)
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker build -t cost-router:ci .
+          else
+            echo "docker not available on runner; skipping image build"
+          fi
+
