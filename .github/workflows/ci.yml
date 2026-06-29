@@ -43,6 +43,17 @@ jobs:
         run: |
           if [ -f samples/python/replay_route.py ]; then
             python samples/python/replay_route.py samples/telemetry/mixed-coding-workload.sample.jsonl
+            python samples/python/replay_route.py samples/telemetry/mixed-coding-workload.sample.jsonl --synth
           else
             echo "sample replay not present"
+          fi
+
+      - name: CLI smoke (cost-router)
+        run: |
+          if command -v cost-router >/dev/null 2>&1; then
+            cost-router --version
+            cost-router replay --synth
+            cost-router evals --synth
+          else
+            echo "cost-router console script not installed"
           fi

@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from policy import PolicyTable, load_default_policy
+from policy import Candidate, PolicyTable, load_default_policy
 
 from .budget import BudgetDecision, BudgetGate
 from .classify import classify_task
 from .pricing import PricingTable
 from .select import SelectionResult, SignalMap, compare_select, ordered_select
 from .trace import build_trace
+
+_QUALITY_CHECKS = ("compiles", "tests_pass", "lint_pass")
+_DIFFICULTY_PENALTY = {"easy": 0.0, "medium": 0.08, "hard": 0.18}
+_DEFAULT_PENALTY = 0.10
 
 
 def load_workload(path: Path | str) -> dict[str, dict[str, Any]]:
@@ -34,6 +39,66 @@ def load_signal_fixture(path: Path | str) -> dict[str, SignalMap]:
     if not isinstance(tasks, dict):
         raise ValueError("signal fixture must contain a top-level 'tasks' mapping")
     return {str(task_id): signals for task_id, signals in tasks.items()}
+
+
+def synthesize_signals(
+    workload: Mapping[str, Mapping[str, Any]],
+    policy: PolicyTable | None = None,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    """Deterministically derive offline check signals for an entire workload.
+
+    Each task is classified, its policy candidates are looked up, and a stable
+    set of boolean checks is produced per candidate model. The result depends
+    only on the task id, model name, difficulty, and prior_pass, so it never
+    touches the network and is identical on every run and platform.
+    """
+
+    policy = policy or load_default_policy()
+    signals: dict[str, dict[str, dict[str, Any]]] = {}
+    for task_id, task in workload.items():
+        candidates = policy.candidates_for(classify_task(task))
+        signals[str(task_id)] = synthesize_task_signals(task, candidates)
+    return signals
+
+
+def synthesize_task_signals(
+    task: Mapping[str, Any],
+    candidates: tuple[Candidate, ...],
+) -> dict[str, dict[str, Any]]:
+    """Build deterministic per-model check signals for one task.
+
+    The most expensive candidate always resolves cleanly, so every task has a
+    guaranteed clean fallback. Cheaper candidates pass each quality check only
+    when a stable hash of (task_id, model, check) clears a prior-derived
+    threshold, which yields a realistic mix of clean-first and escalated runs.
+    """
+
+    task_id = str(task.get("task_id", ""))
+    penalty = _DIFFICULTY_PENALTY.get(str(task.get("difficulty", "")).lower(), _DEFAULT_PENALTY)
+    last_index = len(candidates) - 1
+    signals: dict[str, dict[str, Any]] = {}
+    for index, candidate in enumerate(candidates):
+        if index == last_index:
+            signals[candidate.model] = {
+                "applies": True,
+                **{check: True for check in _QUALITY_CHECKS},
+            }
+            continue
+        threshold = _clamp_unit(candidate.prior_pass - penalty)
+        row: dict[str, Any] = {"applies": True}
+        for check in _QUALITY_CHECKS:
+            row[check] = _stable_unit(task_id, candidate.model, check) < threshold
+        signals[candidate.model] = row
+    return signals
+
+
+def _stable_unit(*parts: str) -> float:
+    digest = hashlib.sha256("|".join(parts).encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") / float(1 << 64)
+
+
+def _clamp_unit(value: float) -> float:
+    return max(0.0, min(1.0, value))
 
 
 def route_task(

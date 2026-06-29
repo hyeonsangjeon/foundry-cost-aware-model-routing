@@ -13,37 +13,44 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from policy import load_default_policy  # noqa: E402
-from router import PricingTable, load_signal_fixture, load_workload, route_task  # noqa: E402
+from router.pipeline import (  # noqa: E402
+    DEFAULT_PRICING,
+    DEFAULT_SIGNALS,
+    DEFAULT_WORKLOAD,
+    run_route_once,
+)
 
-DEFAULT_WORKLOAD = ROOT / "samples" / "telemetry" / "mixed-coding-workload.sample.jsonl"
-DEFAULT_SIGNALS = ROOT / "samples" / "responses" / "routing-signals.sample.json"
-DEFAULT_PRICING = ROOT / "samples" / "pricing" / "illustrative.yaml"
+DEFAULT_WORKLOAD_PATH = ROOT / DEFAULT_WORKLOAD
+DEFAULT_SIGNALS_PATH = ROOT / DEFAULT_SIGNALS
+DEFAULT_PRICING_PATH = ROOT / DEFAULT_PRICING
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Print one sample routing trace.")
     parser.add_argument("--task-id", default="t-0001")
-    parser.add_argument("--workload", type=Path, default=DEFAULT_WORKLOAD)
-    parser.add_argument("--signals", type=Path, default=DEFAULT_SIGNALS)
-    parser.add_argument("--pricing", type=Path, default=DEFAULT_PRICING)
+    parser.add_argument("--workload", type=Path, default=DEFAULT_WORKLOAD_PATH)
+    parser.add_argument("--signals", type=Path, default=DEFAULT_SIGNALS_PATH)
+    parser.add_argument("--pricing", type=Path, default=DEFAULT_PRICING_PATH)
+    parser.add_argument(
+        "--synth",
+        action="store_true",
+        help="synthesize deterministic signals for every workload task (offline)",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    workload = load_workload(args.workload)
-    signals = load_signal_fixture(args.signals)
-    if args.task_id not in workload:
-        raise SystemExit(f"unknown task id: {args.task_id}")
-    if args.task_id not in signals:
-        raise SystemExit(f"no sample signals for task id: {args.task_id}")
-    trace = route_task(
-        workload[args.task_id],
-        signals[args.task_id],
-        policy=load_default_policy(),
-        pricing=PricingTable.from_yaml(args.pricing),
-    )
+    try:
+        trace = run_route_once(
+            task_id=args.task_id,
+            workload_path=args.workload,
+            pricing_path=args.pricing,
+            signals_path=None if args.synth else args.signals,
+            synth=args.synth,
+        )
+    except KeyError as exc:
+        raise SystemExit(str(exc).strip('"')) from exc
     print(json.dumps(trace, indent=2, sort_keys=True))
     return 0
 
