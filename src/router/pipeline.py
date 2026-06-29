@@ -8,12 +8,13 @@ formatting live in exactly one place.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from policy import PolicyTable, TaskClass, load_default_policy
+from policy import PolicyTable, TaskClass, diff_policies, format_diff, load_default_policy
 
 from .baseline import baseline_cost_usd
 from .classify import classify_task
@@ -31,6 +32,7 @@ from .pricing import PricingTable
 DEFAULT_WORKLOAD = Path("samples/telemetry/mixed-coding-workload.sample.jsonl")
 DEFAULT_SIGNALS = Path("samples/responses/routing-signals.sample.json")
 DEFAULT_PRICING = Path("samples/pricing/illustrative.yaml")
+POLICY_ENV_VAR = "COST_ROUTER_POLICY"
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,30 @@ def load_default_pricing(root: Path | str | None = None) -> PricingTable:
     """Load the bundled illustrative pricing table (offline sample data)."""
 
     return PricingTable.from_yaml(resolve_paths(root=root)["pricing"])
+
+
+def resolve_policy_path(policy: Path | str | None = None) -> Path | None:
+    """Resolve the policy source with precedence: CLI arg > env var > bundled.
+
+    Returns ``None`` when neither an explicit path nor ``COST_ROUTER_POLICY`` is
+    set, signalling that the bundled seed policy should be used.
+    """
+
+    if policy is not None:
+        return Path(policy)
+    env_value = os.environ.get(POLICY_ENV_VAR)
+    if env_value:
+        return Path(env_value)
+    return None
+
+
+def load_policy(policy: Path | str | None = None) -> PolicyTable:
+    """Load and validate a policy, honouring the CLI > env > bundled precedence."""
+
+    path = resolve_policy_path(policy)
+    if path is None:
+        return load_default_policy()
+    return PolicyTable.from_yaml(path).validate()
 
 
 def policy_summary(policy: PolicyTable | None = None) -> dict[str, Any]:
@@ -148,8 +174,9 @@ def _load_context(
     *,
     workload_path: Path | str,
     pricing_path: Path | str,
+    policy_path: Path | str | None = None,
 ) -> tuple[PolicyTable, dict[str, dict[str, Any]], PricingTable]:
-    policy = load_default_policy()
+    policy = load_policy(policy_path)
     workload = load_workload(workload_path)
     pricing = PricingTable.from_yaml(pricing_path)
     return policy, workload, pricing
@@ -175,11 +202,12 @@ def run_replay(
     pricing_path: Path | str,
     signals_path: Path | str | None = None,
     synth: bool = False,
+    policy_path: Path | str | None = None,
 ) -> ReplayReport:
     """Route every task that has signals and return traces plus a summary."""
 
     policy, workload, pricing = _load_context(
-        workload_path=workload_path, pricing_path=pricing_path
+        workload_path=workload_path, pricing_path=pricing_path, policy_path=policy_path
     )
     signals = _signals_for(
         synth=synth, workload=workload, policy=policy, signals_path=signals_path
@@ -195,11 +223,12 @@ def run_route_once(
     pricing_path: Path | str,
     signals_path: Path | str | None = None,
     synth: bool = False,
+    policy_path: Path | str | None = None,
 ) -> dict[str, Any]:
     """Route a single task and return its trace."""
 
     policy, workload, pricing = _load_context(
-        workload_path=workload_path, pricing_path=pricing_path
+        workload_path=workload_path, pricing_path=pricing_path, policy_path=policy_path
     )
     if task_id not in workload:
         raise KeyError(f"unknown task id: {task_id}")
@@ -211,21 +240,13 @@ def run_route_once(
     return route_task(workload[task_id], signals[task_id], policy=policy, pricing=pricing)
 
 
-def run_evals(
+def _eval_traces(
     *,
-    workload_path: Path | str,
-    pricing_path: Path | str,
-    signals_path: Path | str | None = None,
-    synth: bool = False,
+    policy: PolicyTable,
+    workload: dict[str, dict[str, Any]],
+    pricing: PricingTable,
+    signals: dict[str, Any],
 ) -> dict[str, Any]:
-    """Summarize routed cost/coverage against the always-most-expensive baseline."""
-
-    policy, workload, pricing = _load_context(
-        workload_path=workload_path, pricing_path=pricing_path
-    )
-    signals = _signals_for(
-        synth=synth, workload=workload, policy=policy, signals_path=signals_path
-    )
     selected = {task_id: workload[task_id] for task_id in signals}
     traces = route_tasks(selected, signals, policy=policy, pricing=pricing)
     routed = summarize_traces(traces)
@@ -242,6 +263,85 @@ def run_evals(
         "delta_pct": delta_pct,
         "mode_counts": routed["mode_counts"],
         "reason_counts": routed["reason_counts"],
+        "by_class": summarize_by_class(traces),
+    }
+
+
+def run_evals(
+    *,
+    workload_path: Path | str,
+    pricing_path: Path | str,
+    signals_path: Path | str | None = None,
+    synth: bool = False,
+    policy_path: Path | str | None = None,
+) -> dict[str, Any]:
+    """Summarize routed cost/coverage against the always-most-expensive baseline."""
+
+    policy, workload, pricing = _load_context(
+        workload_path=workload_path, pricing_path=pricing_path, policy_path=policy_path
+    )
+    signals = _signals_for(
+        synth=synth, workload=workload, policy=policy, signals_path=signals_path
+    )
+    return _eval_traces(policy=policy, workload=workload, pricing=pricing, signals=signals)
+
+
+def summarize_by_class(traces: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Group traces by task class with count/accepted/cost per class."""
+
+    out: dict[str, dict[str, Any]] = {}
+    for trace in traces:
+        cls = str(trace.get("class"))
+        bucket = out.setdefault(cls, {"tasks": 0, "accepted": 0, "cost_usd": 0.0})
+        bucket["tasks"] += 1
+        bucket["accepted"] += 1 if _trace_accepted(trace) else 0
+        bucket["cost_usd"] = round(bucket["cost_usd"] + _cost(trace), 6)
+    return out
+
+
+def _trace_accepted(trace: dict[str, Any]) -> bool:
+    chosen = trace.get("chosen")
+    for attempt in trace.get("attempts", []):
+        if attempt.get("model") == chosen:
+            return bool(attempt.get("accepted"))
+    return False
+
+
+def regression_report(
+    *,
+    workload_path: Path | str,
+    pricing_path: Path | str,
+    candidate_policy_path: Path | str,
+    base_policy_path: Path | str | None = None,
+    signals_path: Path | str | None = None,
+    synth: bool = False,
+) -> dict[str, Any]:
+    """Compare a candidate policy against a base policy on the same workload.
+
+    Both policies route identical tasks/pricing/signals so the deltas isolate the
+    policy change. The result is deterministic for a given workload and ``synth``.
+    """
+
+    workload = load_workload(workload_path)
+    pricing = PricingTable.from_yaml(pricing_path)
+    base = load_policy(base_policy_path)
+    candidate = PolicyTable.from_yaml(candidate_policy_path).validate()
+    base_signals = _signals_for(
+        synth=synth, workload=workload, policy=base, signals_path=signals_path
+    )
+    cand_signals = _signals_for(
+        synth=synth, workload=workload, policy=candidate, signals_path=signals_path
+    )
+    base_eval = _eval_traces(policy=base, workload=workload, pricing=pricing, signals=base_signals)
+    cand_eval = _eval_traces(
+        policy=candidate, workload=workload, pricing=pricing, signals=cand_signals
+    )
+    return {
+        "base": base_eval,
+        "candidate": cand_eval,
+        "cost_delta_usd": round(cand_eval["routed_total_usd"] - base_eval["routed_total_usd"], 6),
+        "coverage_delta": round(cand_eval["coverage"] - base_eval["coverage"], 6),
+        "diff": format_diff(diff_policies(base, candidate)),
     }
 
 
@@ -291,6 +391,33 @@ def format_eval_report(report: dict[str, Any]) -> str:
     lines.append("reason_counts:")
     for reason, count in sorted(report["reason_counts"].items()):
         lines.append(f"  {reason}: {count}")
+    by_class = report.get("by_class")
+    if by_class:
+        lines.append("by_class:")
+        for cls, stats in sorted(by_class.items()):
+            lines.append(
+                f"  {cls}: tasks={stats['tasks']} "
+                f"accepted={stats['accepted']} cost=${stats['cost_usd']:.6f}"
+            )
+    return "\n".join(lines)
+
+
+def format_regression_report(report: dict[str, Any]) -> str:
+    """Render a base-vs-candidate regression report as a human-readable block."""
+
+    base, cand = report["base"], report["candidate"]
+    lines = [
+        report["diff"],
+        "",
+        "regression (candidate vs base):",
+        f"  tasks: {cand['tasks']} (base {base['tasks']})",
+        f"  coverage: {cand['coverage']:.1%} (base {base['coverage']:.1%}, "
+        f"delta {report['coverage_delta']:+.4f})",
+        f"  routed_total_usd: {cand['routed_total_usd']:.6f} "
+        f"(base {base['routed_total_usd']:.6f}, delta {report['cost_delta_usd']:+.6f})",
+        f"  baseline_total_usd: {cand['baseline_total_usd']:.6f}",
+        f"  delta_pct vs baseline: {cand['delta_pct']:.1%} (base {base['delta_pct']:.1%})",
+    ]
     return "\n".join(lines)
 
 

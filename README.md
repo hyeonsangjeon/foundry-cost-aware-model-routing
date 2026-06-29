@@ -80,3 +80,24 @@ its build context:
 make docker-build          # docker build -t cost-router:local .
 make docker-run            # serves on http://127.0.0.1:8000
 ```
+
+## Policy ops & regression guard
+
+Inspect, validate, diff, and simulate routing policies — and check cost/coverage
+regressions before changing one:
+
+```bash
+cost-router policy show
+cost-router policy validate --policy src/policy/seed_policy.yaml
+cost-router policy diff --candidate samples/policy/candidate.example.yaml
+cost-router policy simulate --policy samples/policy/candidate.example.yaml --synth
+cost-router policy regression --candidate samples/policy/candidate.example.yaml --synth
+```
+
+`replay`, `route-once`, `evals`, and `serve` all accept an optional `--policy PATH`.
+Resolution precedence is **CLI `--policy` > `COST_ROUTER_POLICY` env var > bundled
+seed**; the service binds whichever policy was chosen at startup (requests can't
+pick a file). The regression report is deterministic for a given workload — over
+the synthetic 100-row workload the bundled candidate routes for `$1.478647` vs the
+seed's `$1.659167` (≈11% cheaper) at unchanged 100% coverage. All models stay
+generic placeholders.

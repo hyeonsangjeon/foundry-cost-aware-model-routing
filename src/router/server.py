@@ -33,12 +33,11 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from policy import load_default_policy
-
 from . import __version__
 from .pipeline import (
     batch_route_payload,
     load_default_pricing,
+    load_policy,
     policy_summary,
     route_payload,
 )
@@ -70,7 +69,7 @@ class RouterService:
         policy: Any | None = None,
         pricing: PricingTable | None = None,
     ) -> None:
-        self.policy = policy or load_default_policy()
+        self.policy = policy or load_policy()
         if pricing is not None:
             self.pricing: PricingTable | None = pricing
         else:
@@ -214,10 +213,16 @@ def make_server(
     port: int = 8000,
     *,
     service: RouterService | None = None,
+    policy_path: str | None = None,
 ) -> ThreadingHTTPServer:
-    """Build (but do not start) a threaded HTTP server bound to ``host:port``."""
+    """Build (but do not start) a threaded HTTP server bound to ``host:port``.
 
-    service = service or RouterService()
+    The policy is resolved once here (``policy_path`` > ``COST_ROUTER_POLICY`` >
+    bundled seed). Requests can never pick a different policy file.
+    """
+
+    if service is None:
+        service = RouterService(policy=load_policy(policy_path))
     handler = type("RouterRequestHandler", (_RouterRequestHandler,), {"service": service})
     return ThreadingHTTPServer((host, port), handler)
 
@@ -227,10 +232,11 @@ def serve(
     port: int = 8000,
     *,
     service: RouterService | None = None,
+    policy_path: str | None = None,
 ) -> int:
     """Run the offline routing service until interrupted."""
 
-    httpd = make_server(host, port, service=service)
+    httpd = make_server(host, port, service=service, policy_path=policy_path)
     bound_host, bound_port = httpd.server_address[0], httpd.server_address[1]
     print(f"cost-router serving on http://{bound_host}:{bound_port} (offline)")
     try:
