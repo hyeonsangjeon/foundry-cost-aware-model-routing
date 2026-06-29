@@ -24,6 +24,7 @@ from .offline import (
     route_task,
     route_tasks,
     summarize_traces,
+    synthesize_shared_signals,
     synthesize_signals,
     synthesize_task_signals,
 )
@@ -318,30 +319,35 @@ def regression_report(
 ) -> dict[str, Any]:
     """Compare a candidate policy against a base policy on the same workload.
 
-    Both policies route identical tasks/pricing/signals so the deltas isolate the
-    policy change. The result is deterministic for a given workload and ``synth``.
+    Both policies route the identical workload, pricing, and a single shared set
+    of evaluation signals, so the deltas isolate the routing change alone. With
+    ``synth=True`` the shared signals are synthesized once from the *union* of
+    both policies' candidates (base-preferred priors, union fallback forced
+    clean); with ``synth=False`` both policies read the same checked-in fixture.
+    The result is deterministic for a given workload and ``synth``.
     """
 
     workload = load_workload(workload_path)
     pricing = PricingTable.from_yaml(pricing_path)
     base = load_policy(base_policy_path)
     candidate = PolicyTable.from_yaml(candidate_policy_path).validate()
-    base_signals = _signals_for(
-        synth=synth, workload=workload, policy=base, signals_path=signals_path
-    )
-    cand_signals = _signals_for(
-        synth=synth, workload=workload, policy=candidate, signals_path=signals_path
-    )
-    base_eval = _eval_traces(policy=base, workload=workload, pricing=pricing, signals=base_signals)
-    cand_eval = _eval_traces(
-        policy=candidate, workload=workload, pricing=pricing, signals=cand_signals
-    )
+    if synth:
+        signals = synthesize_shared_signals(workload, base, candidate)
+        signal_kind = "shared-synth"
+    else:
+        if signals_path is None:
+            raise ValueError("signals_path is required when synth is False")
+        signals = load_signal_fixture(signals_path)
+        signal_kind = "fixture"
+    base_eval = _eval_traces(policy=base, workload=workload, pricing=pricing, signals=signals)
+    cand_eval = _eval_traces(policy=candidate, workload=workload, pricing=pricing, signals=signals)
     return {
         "base": base_eval,
         "candidate": cand_eval,
         "cost_delta_usd": round(cand_eval["routed_total_usd"] - base_eval["routed_total_usd"], 6),
         "coverage_delta": round(cand_eval["coverage"] - base_eval["coverage"], 6),
         "diff": format_diff(diff_policies(base, candidate)),
+        "evaluation": {"signals": signal_kind, "tasks": len(signals)},
     }
 
 
@@ -406,8 +412,13 @@ def format_regression_report(report: dict[str, Any]) -> str:
     """Render a base-vs-candidate regression report as a human-readable block."""
 
     base, cand = report["base"], report["candidate"]
+    evaluation = report.get("evaluation", {})
     lines = [
         report["diff"],
+        "",
+        f"evaluation: signals={evaluation.get('signals', '?')} "
+        f"tasks={evaluation.get('tasks', '?')} "
+        "(base and candidate scored on identical shared signals)",
         "",
         "regression (candidate vs base):",
         f"  tasks: {cand['tasks']} (base {base['tasks']})",

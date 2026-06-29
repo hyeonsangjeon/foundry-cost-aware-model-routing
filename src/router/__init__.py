@@ -9,6 +9,7 @@ from .offline import (
     route_task,
     route_tasks,
     summarize_traces,
+    synthesize_shared_signals,
     synthesize_signals,
     synthesize_task_signals,
 )
@@ -77,6 +78,7 @@ __all__ = [
     "run_route_once",
     "summarize_by_class",
     "summarize_traces",
+    "synthesize_shared_signals",
     "synthesize_signals",
     "synthesize_task_signals",
 ]

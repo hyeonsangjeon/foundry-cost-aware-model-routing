@@ -8,7 +8,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from policy import Candidate, PolicyTable, load_default_policy
+from policy import Candidate, PolicyTable, TaskClass, load_default_policy
 
 from .budget import BudgetDecision, BudgetGate
 from .classify import classify_task
@@ -90,6 +90,53 @@ def synthesize_task_signals(
             row[check] = _stable_unit(task_id, candidate.model, check) < threshold
         signals[candidate.model] = row
     return signals
+
+
+def synthesize_shared_signals(
+    workload: Mapping[str, Mapping[str, Any]],
+    base: PolicyTable,
+    candidate: PolicyTable,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    """Deterministic evaluation signals shared by a base/candidate regression.
+
+    Each task's offline checks are derived once from the *union* of both
+    policies' candidates for the task class, so the base and candidate policies
+    are scored on identical signals. Shared models take their evaluation prior
+    from the base policy (candidate-only models use the candidate prior), and the
+    guaranteed clean fallback is the most expensive model in the union — not
+    either policy's own last candidate.
+
+    This isolates genuine routing changes: raising a ``prior_pass`` alone leaves
+    the signals untouched, while dropping an expensive fallback exposes the
+    coverage risk it creates. The result depends only on task ids/difficulty and
+    the two policies, so it is identical on every run and never hits the network.
+    """
+
+    union_by_class: dict[TaskClass, tuple[Candidate, ...]] = {}
+    signals: dict[str, dict[str, dict[str, Any]]] = {}
+    for task_id, task in workload.items():
+        task_class = classify_task(task)
+        union = union_by_class.get(task_class)
+        if union is None:
+            union = _union_candidates(base, candidate, task_class)
+            union_by_class[task_class] = union
+        signals[str(task_id)] = synthesize_task_signals(task, union)
+    return signals
+
+
+def _union_candidates(
+    base: PolicyTable,
+    candidate: PolicyTable,
+    task_class: TaskClass,
+) -> tuple[Candidate, ...]:
+    """Merge both policies' candidates for a class, base prior winning on ties."""
+
+    merged: dict[str, Candidate] = {}
+    for cand in candidate.classes.get(task_class, ()):
+        merged[cand.model] = cand
+    for cand in base.classes.get(task_class, ()):
+        merged[cand.model] = cand
+    return tuple(sorted(merged.values(), key=lambda cand: cand.prior_usd_resolved))
 
 
 def _stable_unit(*parts: str) -> float:

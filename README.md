@@ -97,7 +97,17 @@ cost-router policy regression --candidate samples/policy/candidate.example.yaml 
 `replay`, `route-once`, `evals`, and `serve` all accept an optional `--policy PATH`.
 Resolution precedence is **CLI `--policy` > `COST_ROUTER_POLICY` env var > bundled
 seed**; the service binds whichever policy was chosen at startup (requests can't
-pick a file). The regression report is deterministic for a given workload — over
-the synthetic 100-row workload the bundled candidate routes for `$1.478647` vs the
-seed's `$1.659167` (≈11% cheaper) at unchanged 100% coverage. All models stay
-generic placeholders.
+pick a file).
+
+The regression report scores the base and candidate policies on **one shared set
+of evaluation signals** so the deltas isolate the routing change. With `--synth`
+the signals are synthesized once from the *union* of both policies' candidates:
+shared models keep the base policy's prior, and the most expensive model in the
+union is the guaranteed clean fallback. Raising a candidate's `prior_pass` alone
+therefore leaves the signals untouched (zero delta), while dropping an expensive
+fallback exposes the coverage risk it creates instead of hiding it. Over the
+synthetic 100-row workload the bundled candidate (which removes the `premium-max`
+fallback from `repo_patch`) routes for `$1.337137` vs the seed's `$1.659167`, but
+coverage drops to `93%` (base `100%`) — the report surfaces that trade-off rather
+than masking it. The result is deterministic for a given workload, and all models
+stay generic placeholders.
