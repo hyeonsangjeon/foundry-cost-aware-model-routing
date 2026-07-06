@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from router.offline import load_workload
+from router.pipeline import load_policy
 from router.server import RouterService, make_server
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -123,9 +124,70 @@ def test_unknown_route_is_404(service: RouterService) -> None:
     assert service.dispatch("GET", "/nope").status == 404
 
 
+def test_dashboard_serves_offline_html(service: RouterService) -> None:
+    for route in ("/", "/dashboard"):
+        response = service.dispatch("GET", route)
+        assert response.status == 200
+        assert response.media_type.startswith("text/html")
+        assert "<!DOCTYPE html>" in response.payload
+        assert "cost-router" in response.payload
+        assert "labels.measured=false" in response.payload
+
+
+def test_dashboard_has_no_external_references(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    # offline + public-scope: no CDN/font/script origins of any kind.
+    for needle in ("http://", "https://", "//cdn", "src=\"//"):
+        assert needle not in html
+
+
+def test_replay_curated_reports_before_after(service: RouterService) -> None:
+    response = service.dispatch("GET", "/replay?synth=false")
+    assert response.status == 200
+    summary = response.payload["summary"]
+    assert summary["tasks"] == 5
+    assert summary["total_cost_usd"] == 0.055038
+    assert summary["baseline_total_usd"] == 0.127136
+    assert summary["delta_usd"] == 0.072098
+    assert summary["measured"] is False
+    assert summary["baseline_total_usd"] > summary["total_cost_usd"]
+
+
+def test_replay_synth_matches_known_totals(service: RouterService) -> None:
+    response = service.dispatch("GET", "/replay?synth=true")
+    payload = response.payload
+    assert len(payload["traces"]) == 100
+    summary = payload["summary"]
+    assert summary["tasks"] == 100
+    assert summary["total_cost_usd"] == 1.659167
+    assert summary["baseline_total_usd"] == 2.226910
+    assert summary["delta_usd"] == 0.567743
+    assert summary["measured"] is False
+    chosen = {trace["chosen"] for trace in payload["traces"]}
+    assert chosen <= PLACEHOLDER_MODELS
+
+
+def test_replay_defaults_to_curated(service: RouterService) -> None:
+    assert service.dispatch("GET", "/replay").payload["summary"]["tasks"] == 5
+
+
+def test_replay_uses_injected_policy() -> None:
+    candidate = ROOT / "samples" / "policy" / "candidate.example.yaml"
+    injected = RouterService(policy=load_policy(candidate))
+    seeded = RouterService()
+    injected_total = injected.dispatch("GET", "/replay?synth=true").payload["summary"][
+        "total_cost_usd"
+    ]
+    seeded_total = seeded.dispatch("GET", "/replay?synth=true").payload["summary"][
+        "total_cost_usd"
+    ]
+    assert injected_total != seeded_total
+
+
 def test_wrong_method_is_405(service: RouterService) -> None:
     assert service.dispatch("POST", "/healthz").status == 405
     assert service.dispatch("GET", "/route").status == 405
+    assert service.dispatch("POST", "/replay").status == 405
 
 
 def test_invalid_json_is_400(service: RouterService) -> None:

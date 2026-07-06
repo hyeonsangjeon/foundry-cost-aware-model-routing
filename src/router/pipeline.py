@@ -213,6 +213,45 @@ def run_replay(
     signals = _signals_for(
         synth=synth, workload=workload, policy=policy, signals_path=signals_path
     )
+    return _replay_report(workload, signals, policy=policy, pricing=pricing)
+
+
+def run_bundled_replay(
+    *,
+    policy: PolicyTable | None = None,
+    synth: bool = False,
+    root: Path | str | None = None,
+) -> ReplayReport:
+    """Replay the bundled sample workload with an in-memory policy.
+
+    Shares the exact routing/summary path as :func:`run_replay` but sources the
+    workload, signals, and pricing from the checked-in samples so an already
+    loaded policy (e.g. a running service's injected policy) can be reused
+    without touching a policy file again. Offline and deterministic.
+    """
+
+    policy = policy or load_default_policy()
+    paths = resolve_paths(root=root)
+    workload = load_workload(paths["workload"])
+    pricing = PricingTable.from_yaml(paths["pricing"])
+    signals = _signals_for(
+        synth=synth,
+        workload=workload,
+        policy=policy,
+        signals_path=None if synth else paths["signals"],
+    )
+    return _replay_report(workload, signals, policy=policy, pricing=pricing)
+
+
+def _replay_report(
+    workload: Mapping[str, Mapping[str, Any]],
+    signals: Mapping[str, Any],
+    *,
+    policy: PolicyTable,
+    pricing: PricingTable,
+) -> ReplayReport:
+    """Route the signalled tasks and attach the naive-vs-routed before/after."""
+
     traces = route_tasks(workload, signals, policy=policy, pricing=pricing)
     summary = summarize_traces(traces)
     routed_tasks = {task_id: workload[task_id] for task_id in signals if task_id in workload}

@@ -43,6 +43,10 @@ src = ["src", "samples", "evals", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+# Inline HTML/CSS/JS template: line-length is not meaningful for markup.
+"src/router/dashboard.py" = ["E501"]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]

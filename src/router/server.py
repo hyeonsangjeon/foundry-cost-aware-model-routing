@@ -32,28 +32,37 @@ import json
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
+from .dashboard import DASHBOARD_HTML
 from .pipeline import (
     batch_route_payload,
     load_default_pricing,
     load_policy,
     policy_summary,
     route_payload,
+    run_bundled_replay,
 )
 from .pricing import PricingTable
 
-_KNOWN_ROUTES = {"/healthz", "/policy", "/route", "/batch-route"}
+_KNOWN_ROUTES = {"/", "/dashboard", "/healthz", "/policy", "/replay", "/route", "/batch-route"}
 _PRICING_OFF = {"none", "off", "disabled", "false"}
 _PRICING_DEFAULT = {"illustrative", "default", "sample", "on", "true"}
+_TRUTHY = {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True)
 class ServiceResponse:
-    """A status code plus a JSON-serializable payload."""
+    """A status code, a payload, and the media type used to encode it.
+
+    ``application/json`` payloads are ``json.dumps``-ed; any other media type
+    treats ``payload`` as already-rendered text/bytes (used for the dashboard).
+    """
 
     status: int
-    payload: dict[str, Any]
+    payload: Any
+    media_type: str = "application/json"
 
 
 class RouterService:
@@ -93,6 +102,14 @@ class RouterService:
 
     def policy_view(self) -> ServiceResponse:
         return ServiceResponse(200, policy_summary(self.policy))
+
+    def dashboard(self) -> ServiceResponse:
+        return ServiceResponse(200, DASHBOARD_HTML, media_type="text/html; charset=utf-8")
+
+    def replay(self, path: str) -> ServiceResponse:
+        synth = _query_flag(path, "synth")
+        report = run_bundled_replay(policy=self.policy, synth=synth)
+        return ServiceResponse(200, {"traces": report.traces, "summary": report.summary})
 
     def route(self, body: bytes) -> ServiceResponse:
         parsed = _load_json_object(body)
@@ -138,10 +155,14 @@ class RouterService:
 
     def dispatch(self, method: str, path: str, body: bytes = b"") -> ServiceResponse:
         route = path.split("?", 1)[0].rstrip("/") or "/"
+        if method == "GET" and route in ("/", "/dashboard"):
+            return self.dashboard()
         if method == "GET" and route == "/healthz":
             return self.healthz()
         if method == "GET" and route == "/policy":
             return self.policy_view()
+        if method == "GET" and route == "/replay":
+            return self.replay(path)
         if method == "POST" and route == "/route":
             return self.route(body)
         if method == "POST" and route == "/batch-route":
@@ -166,6 +187,11 @@ class RouterService:
 
 def _error(status: int, message: str) -> ServiceResponse:
     return ServiceResponse(status, {"error": message})
+
+
+def _query_flag(path: str, name: str) -> bool:
+    values = parse_qs(urlsplit(path).query).get(name, ["false"])
+    return str(values[0]).strip().lower() in _TRUTHY
 
 
 def _load_json_object(body: bytes) -> dict[str, Any] | ServiceResponse:
@@ -197,9 +223,14 @@ class _RouterRequestHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length) if length > 0 else b""
         result = self.service.dispatch(method, self.path, body)
-        data = json.dumps(result.payload).encode("utf-8")
+        if result.media_type.startswith("application/json"):
+            data = json.dumps(result.payload).encode("utf-8")
+        elif isinstance(result.payload, bytes):
+            data = result.payload
+        else:
+            data = str(result.payload).encode("utf-8")
         self.send_response(result.status)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", result.media_type)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
