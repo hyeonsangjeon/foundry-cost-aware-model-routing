@@ -26,6 +26,25 @@ cost-router route-once --task-id t-0003
 cost-router evals --synth       # routed vs. always-most-expensive baseline
 ```
 
+### The 30-second before / after
+
+`make replay` (and `cost-router replay`) end with a naive-vs-routed block: the
+naive column bills the most expensive candidate for every task, the routed
+column is cost-aware routing (cheapest candidate that passes its own checks,
+escalate only on failure). Over the full 100-row synthetic workload:
+
+```text
+before / after  (offline projection over synthetic data; labels.measured=false)
+  BEFORE  naive: premium model on every task   $2.226910
+  AFTER   cost-aware routing                   $1.659167
+  SAVED   $0.567743  (25.5% lower)  at 100.0% coverage
+  strategy  single-route=74 ensemble=26  |  clean-first=19 compared=18 escalated=55 tie-broken=8
+```
+
+These numbers are an **offline projection over synthetic data**, not a measured
+result — every trace carries `labels.measured=false`. Real savings depend on
+your own workload mix and rates. All model names are generic placeholders.
+
 The same flows are available without installing, via `make` or `python -m router`:
 
 ```bash

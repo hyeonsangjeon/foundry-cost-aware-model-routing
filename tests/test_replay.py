@@ -1,0 +1,87 @@
+"""Phase 4 acceptance: the offline replay and its naive-vs-routed 'aha' block.
+
+The replay must be deterministic, internally consistent (every task lands in
+exactly one strategy bucket), never cost more than the naive premium baseline,
+and stay honestly labelled as an offline projection (``measured`` is False).
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from router.pipeline import format_replay_json, format_replay_text, run_replay
+
+ROOT = Path(__file__).resolve().parents[1]
+WORKLOAD = ROOT / "samples" / "telemetry" / "mixed-coding-workload.sample.jsonl"
+SIGNALS = ROOT / "samples" / "responses" / "routing-signals.sample.json"
+PRICING = ROOT / "samples" / "pricing" / "illustrative.yaml"
+
+
+def _curated():
+    return run_replay(workload_path=WORKLOAD, pricing_path=PRICING, signals_path=SIGNALS)
+
+
+def _synth():
+    return run_replay(workload_path=WORKLOAD, pricing_path=PRICING, synth=True)
+
+
+@pytest.mark.parametrize("build", [_curated, _synth])
+def test_replay_is_deterministic(build) -> None:
+    first, second = build(), build()
+    assert first.traces == second.traces
+    assert first.summary == second.summary
+
+
+@pytest.mark.parametrize("build", [_curated, _synth])
+def test_strategy_buckets_partition_the_workload(build) -> None:
+    summary = build().summary
+    tasks = summary["tasks"]
+    # Every routed task falls into exactly one mode and one reason bucket.
+    assert sum(summary["mode_counts"].values()) == tasks
+    assert sum(summary["reason_counts"].values()) == tasks
+    assert summary["accepted"] <= tasks
+
+
+@pytest.mark.parametrize("build", [_curated, _synth])
+def test_routing_never_beats_a_zero_and_stays_under_baseline(build) -> None:
+    summary = build().summary
+    baseline = summary["baseline_total_usd"]
+    routed = summary["total_cost_usd"]
+    assert 0.0 < routed <= baseline
+    assert summary["delta_usd"] == round(baseline - routed, 6)
+    assert summary["delta_pct"] == pytest.approx(summary["delta_usd"] / baseline)
+
+
+@pytest.mark.parametrize("build", [_curated, _synth])
+def test_offline_replay_is_honestly_labelled(build) -> None:
+    report = build()
+    assert report.summary["measured"] is False
+    assert all(trace["labels"]["measured"] is False for trace in report.traces)
+
+
+def test_synth_before_after_matches_known_projection() -> None:
+    # Pins the 30-second "aha": naive premium-on-every-task vs cost-aware routing
+    # over the full 100-row synthetic workload. Deterministic and network-free.
+    summary = _synth().summary
+    assert summary["tasks"] == 100
+    assert summary["coverage"] == 1.0
+    assert summary["baseline_total_usd"] == 2.226910
+    assert summary["total_cost_usd"] == 1.659167
+    assert summary["delta_usd"] == 0.567743
+
+
+def test_before_after_block_renders_in_text_not_json() -> None:
+    report = _synth()
+    text = format_replay_text(report)
+    assert "before / after" in text
+    assert "BEFORE  naive" in text
+    assert "AFTER   cost-aware routing" in text
+    assert "SAVED" in text
+    assert "labels.measured=false" in text
+    # The JSON view stays a pure trace list for machine consumers.
+    payload = json.loads(format_replay_json(report))
+    assert isinstance(payload, list)
+    assert "before / after" not in format_replay_json(report)

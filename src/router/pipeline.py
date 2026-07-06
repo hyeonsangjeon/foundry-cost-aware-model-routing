@@ -214,7 +214,15 @@ def run_replay(
         synth=synth, workload=workload, policy=policy, signals_path=signals_path
     )
     traces = route_tasks(workload, signals, policy=policy, pricing=pricing)
-    return ReplayReport(traces=traces, summary=summarize_traces(traces))
+    summary = summarize_traces(traces)
+    routed_tasks = {task_id: workload[task_id] for task_id in signals if task_id in workload}
+    baseline = baseline_cost_usd(routed_tasks, policy, pricing)
+    delta = round(baseline - summary["total_cost_usd"], 6)
+    summary["baseline_total_usd"] = baseline
+    summary["delta_usd"] = delta
+    summary["delta_pct"] = (delta / baseline) if baseline else 0.0
+    summary["measured"] = False
+    return ReplayReport(traces=traces, summary=summary)
 
 
 def run_route_once(
@@ -372,7 +380,38 @@ def format_replay_text(report: ReplayReport) -> str:
         f"coverage={summary['coverage']:.1%} "
         f"cost=${summary['total_cost_usd']:.6f}"
     )
+    lines.extend(_format_before_after(summary))
     return "\n".join(lines)
+
+
+def _format_before_after(summary: Mapping[str, Any]) -> list[str]:
+    """Render the 30-second naive-vs-routed 'aha' block (offline projection).
+
+    Omitted when the summary carries no baseline (e.g. legacy callers), so the
+    per-task + summary output stays intact.
+    """
+
+    if "baseline_total_usd" not in summary:
+        return []
+    baseline = float(summary["baseline_total_usd"])
+    routed = float(summary["total_cost_usd"])
+    delta = float(summary.get("delta_usd", baseline - routed))
+    delta_pct = float(summary.get("delta_pct", 0.0))
+    coverage = float(summary.get("coverage", 0.0))
+    mode_counts = summary.get("mode_counts", {})
+    reason_counts = summary.get("reason_counts", {})
+    single = int(mode_counts.get("ordered", 0))
+    ensemble = int(mode_counts.get("compare", 0))
+    routes = " ".join(f"{reason}={count}" for reason, count in sorted(reason_counts.items()))
+    return [
+        "",
+        "before / after  (offline projection over synthetic data; labels.measured=false)",
+        f"  BEFORE  naive: premium model on every task   ${baseline:.6f}",
+        f"  AFTER   cost-aware routing                   ${routed:.6f}",
+        f"  SAVED   ${delta:.6f}  ({delta_pct:.1%} lower)  at {coverage:.1%} coverage",
+        f"  strategy  single-route={single} ensemble={ensemble}"
+        + (f"  |  {routes}" if routes else ""),
+    ]
 
 
 def format_replay_json(report: ReplayReport) -> str:
