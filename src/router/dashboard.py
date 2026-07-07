@@ -356,7 +356,7 @@ async function runReplay() {
       "<td>" + t.task_id + "</td>" +
       "<td>" + t.class + "</td>" +
       "<td class='mode-" + t.mode + "'>" + t.mode + "</td>" +
-      "<td title=\"" + chosenTitle + "\">" + t.chosen + "</td>" +
+      "<td title='" + chosenTitle + "'>" + t.chosen + "</td>" +
       "<td><span class='pill reason-" + t.reason + "'>" + t.reason + "</span></td>" +
       "<td>" + usd(t.cost_usd) + "</td>";
     body.insertBefore(tr, body.firstChild);

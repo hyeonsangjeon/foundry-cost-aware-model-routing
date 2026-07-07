@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
+import shutil
+import subprocess
 import threading
 import urllib.error
 import urllib.request
@@ -159,6 +162,24 @@ def test_dashboard_has_no_external_references(service: RouterService) -> None:
     # offline + public-scope: no CDN/font/script origins of any kind.
     for needle in ("http://", "https://", "//cdn", "src=\"//"):
         assert needle not in html
+
+
+def test_dashboard_inline_script_is_well_formed(service: RouterService, tmp_path) -> None:
+    html = service.dispatch("GET", "/").payload
+    match = re.search(r"<script>(.*)</script>", html, re.S)
+    assert match, "dashboard must contain an inline <script> block"
+    script = match.group(1)
+    # A '\"' collapsed by Python triple-quote escaping corrupts a JS attribute
+    # into an empty-string concat like: title="" + var. Guard against that class.
+    assert '="" +' not in script
+    assert '="">' not in script
+    # If a JS engine is available, do a real syntax check too.
+    node = shutil.which("node")
+    if node:
+        js = tmp_path / "dashboard.js"
+        js.write_text(script, encoding="utf-8")
+        proc = subprocess.run([node, "--check", str(js)], capture_output=True, text=True)
+        assert proc.returncode == 0, proc.stderr
 
 
 def test_replay_curated_reports_before_after(service: RouterService) -> None:
