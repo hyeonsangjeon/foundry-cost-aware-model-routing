@@ -182,6 +182,58 @@ def test_dashboard_inline_script_is_well_formed(service: RouterService, tmp_path
         assert proc.returncode == 0, proc.stderr
 
 
+def test_dashboard_rounds_away_false_precision(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    # P1.1: six-decimal dollars read as fake precision — must not appear anywhere.
+    assert "toFixed(6)" not in script
+    # totals use a 2-decimal formatter; sub-cent values fall back to 4.
+    assert "toFixed(2)" in script
+    assert "usdSmart" in script and "usdAvg" in script
+
+
+def test_dashboard_shows_workload_mix_caveat(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    # P1.2: caveat sits next to the headline, not only in the footer.
+    assert "Savings depend on workload mix" in html
+    assert 'id="mixCaveat"' in html
+    # honesty labels must remain intact.
+    assert "labels.measured=false" in html
+    assert "offline projection over synthetic data" in html
+
+
+def test_dashboard_has_coverage_guard_affordances(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    # P2.4: a coverage < 100% run must be able to flip to a warning state.
+    assert 'id="covNote"' in html
+    assert "coverage dropped" in html
+    assert ".covnote" in html  # warning style is defined
+    assert ".v.warn" in html   # coverage KPI can turn red
+
+
+def test_coverage_state_warns_below_full(service: RouterService, tmp_path) -> None:
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    fn = re.search(r"function coverageState\(cov\) \{.*?\n\}", script, re.S)
+    assert fn, "coverageState function must be present"
+    program = fn.group(0) + (
+        "\nconst full = coverageState(1);"
+        "\nconst low = coverageState(0.9);"
+        "\nif (full.warn !== false) throw new Error('full should not warn');"
+        "\nif (low.warn !== true) throw new Error('low should warn');"
+        "\nif (!/coverage dropped/.test(low.note)) throw new Error('missing note');"
+        "\nconsole.log('ok');\n"
+    )
+    js = tmp_path / "cov.js"
+    js.write_text(program, encoding="utf-8")
+    proc = subprocess.run([node, str(js)], capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    assert "ok" in proc.stdout
+
+
 def test_replay_curated_reports_before_after(service: RouterService) -> None:
     response = service.dispatch("GET", "/replay?synth=false")
     assert response.status == 200

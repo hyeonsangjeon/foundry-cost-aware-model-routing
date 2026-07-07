@@ -44,6 +44,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   @media (min-width: 960px) { main { grid-template-columns: 320px 1fr; align-items: start; } }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
   .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  details > summary.psum { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin: 0 0 12px; cursor: pointer; font-weight: 600; list-style: revert; }
+  details[open] > summary.psum { margin-bottom: 12px; }
   .panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 18px 0 8px; }
   .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
   button {
@@ -63,7 +66,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 14px; }
   .kpi { background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
   .kpi .v { font-size: 18px; font-weight: 700; }
+  .kpi .v.warn { color: var(--red); }
   .kpi .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .covnote { display: none; margin-top: 10px; padding: 8px 12px; font-size: 12px;
+    color: var(--amber); border: 1px solid var(--amber); border-radius: 6px; background: rgba(210,153,34,.08); }
+  .covnote.show { display: block; }
 
   .cards { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 6px; }
   @media (min-width: 720px) { .cards { grid-template-columns: 1fr 1fr; } }
@@ -130,13 +137,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 </header>
 <main>
   <section class="panel" id="policyPanel">
-    <h2>Policy — class → candidates (cheapest first)</h2>
+    <details id="policyDetails" open>
+    <summary class="psum">Policy — class → candidates (cheapest first)</summary>
     <div id="policy">loading…</div>
     <h3>Model tiers — what these names mean</h3>
     <div id="catalog"><small style="color:var(--muted)">loading…</small></div>
     <div class="foot">Generic placeholder tiers — not real product names. They stand in for a
       lightweight/high-volume model, an efficient coder, a balanced general model, a deliberate
       reasoner, and a premium frontier model.</div>
+    </details>
   </section>
 
   <section class="panel">
@@ -156,6 +165,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <div class="bar after"><span id="afterBar"></span></div>
     </div>
     <div class="saved"><span id="savedPct">0.0%</span> lower <small id="savedAbs">— run a replay to project savings</small></div>
+    <div class="foot" id="mixCaveat">Savings depend on workload mix and placeholder pricing — this is one synthetic run, not a guaranteed number.</div>
 
     <div class="kpis" id="kpis">
       <div class="kpi"><div class="v" id="kTasks">—</div><div class="k">tasks</div></div>
@@ -164,6 +174,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <div class="kpi"><div class="v" id="kEnsemble">—</div><div class="k">ensemble</div></div>
       <div class="kpi"><div class="v" id="kAvg">—</div><div class="k">avg $/task</div></div>
     </div>
+    <div class="covnote" id="covNote"></div>
 
     <h2 style="margin-top:22px">Aggregated statistics</h2>
     <div class="cards">
@@ -206,9 +217,19 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
-const usd = (n) => "$" + Number(n).toFixed(6);
-const usd4 = (n) => "$" + Number(n).toFixed(4);
+// Display rounding (P1): totals at 2 decimals; sub-cent values keep up to 4 so
+// tiny per-task/model costs don't collapse to $0.00. Underlying data is untouched.
+const usd = (n) => "$" + Number(n).toFixed(2);
+const usdSmart = (n) => (Math.abs(Number(n)) >= 0.01 ? usd(n) : "$" + Number(n).toFixed(4));
+const usdAvg = (n) => "$" + Number(n).toFixed(4);
 const pct = (n) => (Number(n) * 100).toFixed(1) + "%";
+
+// Pure presentation decision for the coverage guard (P2.4): 100% is the claim,
+// anything less is a quality regression that must warn.
+function coverageState(cov) {
+  if (Number(cov) >= 1) return { warn: false, note: "" };
+  return { warn: true, note: "\\u26A0 coverage dropped — savings came at a quality cost." };
+}
 
 let MODEL_ORDER = [];   // cheapest first
 let MODEL_INDEX = {};   // model -> palette index 0..4
@@ -278,7 +299,7 @@ function renderByClass(byClass) {
       "<span style='color:var(--green)'>" + pct(v.saved_pct) + " saved</span></div>" +
       "<div class='track' style='width:" + trackPct + "%'>" +
       "<span class='fill-routed' style='width:" + fillPct + "%'></span></div>" +
-      "<div class='aggrow-f'>routed " + usd4(v.routed_usd) + " · naive " + usd4(v.baseline_usd) +
+      "<div class='aggrow-f'>routed " + usd(v.routed_usd) + " · naive " + usd(v.baseline_usd) +
       " · " + v.tasks + " tasks</div></div>";
   }).join("");
 }
@@ -291,14 +312,14 @@ function renderByModel(byModel) {
     const w = (100 * v.routed_usd / maxCost).toFixed(2);
     return "<div class='aggrow'>" +
       "<div class='aggrow-h'><span class='mdot m" + i + "'>" + m + tierTag(m) + "</span>" +
-      "<span>" + v.tasks + " tasks · " + usd4(v.routed_usd) + "</span></div>" +
+      "<span>" + v.tasks + " tasks · " + usdSmart(v.routed_usd) + "</span></div>" +
       "<div class='track full'><span class='m" + i + "' style='width:" + w + "%'></span></div></div>";
   }).join("");
 }
 
 function renderModeReason(modeCounts, modeCost, reasonCounts) {
   $("byMode").innerHTML = Object.entries(modeCounts).map(([k, c]) =>
-    "<div class='chip'><b>" + k + "</b> " + c + " tasks <small>· " + usd4(modeCost[k] || 0) +
+    "<div class='chip'><b>" + k + "</b> " + c + " tasks <small>· " + usd(modeCost[k] || 0) +
     "</small></div>").join("");
   $("byReason").innerHTML = Object.entries(reasonCounts).map(([k, c]) =>
     "<span class='pill reason-" + k + "'>" + k + " · " + c + "</span>").join(" ");
@@ -310,10 +331,16 @@ function renderAggregation(s) {
   renderByModel(bd.by_model || {});
   renderModeReason(s.mode_counts || {}, bd.mode_cost_usd || {}, bd.reason_counts || {});
   $("kTasks").textContent = s.tasks;
-  $("kCov").textContent = pct(s.coverage);
+  const cov = coverageState(s.coverage);
+  const covEl = $("kCov");
+  covEl.textContent = pct(s.coverage);
+  covEl.className = "v" + (cov.warn ? " warn" : "");
+  const note = $("covNote");
+  note.textContent = cov.note;
+  note.className = "covnote" + (cov.warn ? " show" : "");
   $("kSingle").textContent = (s.mode_counts.ordered || 0);
   $("kEnsemble").textContent = (s.mode_counts.compare || 0);
-  $("kAvg").textContent = usd4(s.total_cost_usd / (s.tasks || 1));
+  $("kAvg").textContent = usdAvg(s.total_cost_usd / (s.tasks || 1));
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -358,7 +385,7 @@ async function runReplay() {
       "<td class='mode-" + t.mode + "'>" + t.mode + "</td>" +
       "<td title='" + chosenTitle + "'>" + t.chosen + "</td>" +
       "<td><span class='pill reason-" + t.reason + "'>" + t.reason + "</span></td>" +
-      "<td>" + usd(t.cost_usd) + "</td>";
+      "<td>" + usdSmart(t.cost_usd) + "</td>";
     body.insertBefore(tr, body.firstChild);
     $("afterVal").textContent = usd(acc);
     $("afterBar").style.width = (100 * acc / before).toFixed(2) + "%";
@@ -372,6 +399,7 @@ async function runReplay() {
 }
 
 $("run").addEventListener("click", runReplay);
+if (window.innerWidth < 960) { const d = $("policyDetails"); if (d) d.removeAttribute("open"); }
 loadHealth();
 loadPolicy();
 </script>
