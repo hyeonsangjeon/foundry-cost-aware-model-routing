@@ -23,7 +23,7 @@ from policy import (
     load_default_policy,
 )
 
-from .baseline import baseline_cost_usd, baseline_model_for_task
+from .baseline import baseline_cost_usd, baseline_model_for_task, single_tier_summary
 from .classify import classify_task
 from .offline import (
     load_signal_fixture,
@@ -284,7 +284,60 @@ def _replay_report(
     summary["delta_pct"] = (delta / baseline) if baseline else 0.0
     summary["measured"] = False
     summary["breakdown"] = aggregate_replay(traces, routed_tasks, policy=policy, pricing=pricing)
+    summary["strategies"] = _strategy_comparison(
+        routed_tasks, signals, summary, policy=policy, pricing=pricing
+    )
+    summary["escalated_tasks"] = _count_escalated(traces)
     return ReplayReport(traces=traces, summary=summary)
+
+
+def _strategy_comparison(
+    routed_tasks: Mapping[str, Mapping[str, Any]],
+    signals: Mapping[str, Any],
+    summary: Mapping[str, Any],
+    *,
+    policy: PolicyTable,
+    pricing: PricingTable,
+) -> dict[str, dict[str, float]]:
+    """Cost + coverage for all-mini, all-premium, and the cost-aware mix.
+
+    all-mini/all-premium reuse :func:`single_tier_summary` (same signals, same
+    clean predicate); the mix is the routed result already in ``summary``. This
+    surfaces the trade-off: cheapest-only is cheaper but loses coverage, premium
+    holds coverage but costs the most, and only the mix wins on both.
+    """
+
+    mini = single_tier_summary(routed_tasks, signals, policy, pricing, cheapest=True)
+    premium = single_tier_summary(routed_tasks, signals, policy, pricing, cheapest=False)
+    return {
+        "all_mini": {
+            "total_cost_usd": mini["total_cost_usd"],
+            "coverage": mini["coverage"],
+        },
+        "all_premium": {
+            "total_cost_usd": premium["total_cost_usd"],
+            "coverage": premium["coverage"],
+        },
+        "mix": {
+            "total_cost_usd": summary["total_cost_usd"],
+            "coverage": summary["coverage"],
+        },
+    }
+
+
+def _count_escalated(traces: Sequence[Mapping[str, Any]]) -> int:
+    """Count tasks routed to a tier above the cheapest candidate for their class."""
+
+    escalated = 0
+    for trace in traces:
+        candidates = trace.get("candidates") or []
+        if not candidates:
+            continue
+        cheapest = min(candidates, key=lambda item: item.get("prior_usd_resolved", 0.0))
+        chosen = trace.get("chosen")
+        if chosen and chosen != cheapest.get("model"):
+            escalated += 1
+    return escalated
 
 
 def aggregate_replay(

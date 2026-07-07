@@ -100,3 +100,6 @@ reports/*.local.*
 scripts/.deploy-*
 *.resource-ids.txt
 .deploy-state/
+
+# Generated static Vercel export (build with scripts/build_static_site.py)
+cost-router-dashboard/

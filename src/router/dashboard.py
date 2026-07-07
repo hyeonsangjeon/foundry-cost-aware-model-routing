@@ -61,6 +61,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .bar > span { display: block; height: 100%; width: 0; transition: width .35s ease; }
   .bar.before > span { background: var(--red); }
   .bar.after > span { background: var(--green); }
+  .strats { margin: 12px 0 4px; }
+  .strat { margin: 12px 0; }
+  .strat .lbl { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; margin-bottom: 4px; gap: 10px; }
+  .stag { display: inline-block; font-weight: 700; padding: 1px 6px; border-radius: 4px; font-size: 11px; margin-right: 7px; }
+  .stag.prem { background: rgba(248,81,73,.15); color: var(--red); }
+  .stag.mini { background: rgba(210,153,34,.15); color: var(--amber); }
+  .stag.mix { background: rgba(63,185,80,.15); color: var(--green); }
+  .bar.prem > span { background: var(--red); }
+  .bar.mini > span { background: var(--amber); }
+  .bar.mix > span { background: var(--green); }
+  .covline { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+  .covline small { color: var(--muted); font-size: 11px; }
+  .covpill { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .covpill.ok { color: var(--green); border-color: var(--green); }
+  .covpill.warn { color: var(--amber); border-color: var(--amber); font-weight: 700; }
+  .takeaway { margin-top: 12px; padding: 10px 12px; font-size: 12.5px; line-height: 1.55;
+    border-left: 3px solid var(--accent); background: var(--panel2); border-radius: 4px; }
+  .usage-split { margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
   .saved { font-size: 22px; font-weight: 700; color: var(--green); margin-top: 6px; }
   .saved small { font-size: 12px; color: var(--muted); font-weight: 400; }
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 14px; }
@@ -156,16 +174,26 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <span id="progress" class="badge">idle</span>
     </div>
 
-    <div class="barwrap">
-      <div class="lbl"><span>BEFORE — premium model on every task</span><b id="beforeVal">$0.000000</b></div>
-      <div class="bar before"><span id="beforeBar"></span></div>
-    </div>
-    <div class="barwrap">
-      <div class="lbl"><span>AFTER — cost-aware routing</span><b id="afterVal">$0.000000</b></div>
-      <div class="bar after"><span id="afterBar"></span></div>
+    <div class="strats" id="strats">
+      <div class="strat">
+        <div class="lbl"><span><span class="stag prem">all-premium</span>premium model on every task</span><b id="premVal">—</b></div>
+        <div class="bar prem"><span id="premBar"></span></div>
+        <div class="covline"><span class="covpill" id="premCov">coverage —</span><small>holds coverage, but the most expensive</small></div>
+      </div>
+      <div class="strat">
+        <div class="lbl"><span><span class="stag mini">all-mini</span>cheapest tier on every task</span><b id="miniVal">—</b></div>
+        <div class="bar mini"><span id="miniBar"></span></div>
+        <div class="covline"><span class="covpill" id="miniCov">coverage —</span><small>cheapest, but the cheap tier fails the hard tasks</small></div>
+      </div>
+      <div class="strat">
+        <div class="lbl"><span><span class="stag mix">cost-aware mix</span>cheap-first, escalate only the hard tasks</span><b id="afterVal">—</b></div>
+        <div class="bar mix"><span id="afterBar"></span></div>
+        <div class="covline"><span class="covpill" id="mixCov">coverage —</span><small>the only both-win: full coverage below premium cost</small></div>
+      </div>
     </div>
     <div class="saved"><span id="savedPct">0.0%</span> lower <small id="savedAbs">— run a replay to project savings</small></div>
     <div class="foot" id="mixCaveat">Savings depend on workload mix and placeholder pricing — this is one synthetic run, not a guaranteed number.</div>
+    <div class="takeaway" id="takeaway">Run a replay to compare all-mini vs all-premium vs the cost-aware mix — each single-tier strategy fails on one axis; only the mix keeps full coverage below premium cost.</div>
 
     <div class="kpis" id="kpis">
       <div class="kpi"><div class="v" id="kTasks">—</div><div class="k">tasks</div></div>
@@ -185,6 +213,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <div class="card">
         <h3>Model usage — tasks &amp; routed cost</h3>
         <div id="byModel"><small style="color:var(--muted)">run a replay…</small></div>
+        <div class="usage-split" id="usageSplit"></div>
       </div>
       <div class="card">
         <h3>Routing mode</h3>
@@ -217,6 +246,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
+// Endpoint map — defaults hit this service's live JSON routes. A static export
+// (e.g. Vercel) injects window.__ENDPOINTS__ to point at pre-rendered files.
+const EP = (typeof window !== "undefined" && window.__ENDPOINTS__) || {
+  health: "/healthz",
+  policy: "/policy",
+  replay: (synth) => "/replay?synth=" + synth,
+};
 // Display rounding (P1): totals at 2 decimals; sub-cent values keep up to 4 so
 // tiny per-task/model costs don't collapse to $0.00. Underlying data is untouched.
 const usd = (n) => "$" + Number(n).toFixed(2);
@@ -237,7 +273,7 @@ let MODEL_META = {};    // model -> {tier, reasoning, role}
 
 async function loadHealth() {
   try {
-    const h = await (await fetch("/healthz")).json();
+    const h = await (await fetch(EP.health)).json();
     $("health").textContent = h.status === "ok" ? "● healthy · offline" : "unhealthy";
     if (h.status === "ok") $("health").classList.add("ok");
   } catch (e) { $("health").textContent = "unreachable"; }
@@ -251,7 +287,7 @@ function tierTag(model) {
 }
 
 async function loadPolicy() {
-  const p = await (await fetch("/policy")).json();
+  const p = await (await fetch(EP.policy)).json();
   $("polver").textContent = "policy v" + p.version;
 
   const catalog = p.catalog || [];
@@ -329,6 +365,7 @@ function renderAggregation(s) {
   const bd = s.breakdown || {};
   renderByClass(bd.by_class || {});
   renderByModel(bd.by_model || {});
+  renderUsageSplit(bd.by_model || {});
   renderModeReason(s.mode_counts || {}, bd.mode_cost_usd || {}, bd.reason_counts || {});
   $("kTasks").textContent = s.tasks;
   const cov = coverageState(s.coverage);
@@ -345,57 +382,113 @@ function renderAggregation(s) {
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
+// P2: name the cheap-vs-premium volume split with the run's real counts.
+function renderUsageSplit(byModel) {
+  const el = $("usageSplit");
+  if (!el) return;
+  const used = MODEL_ORDER.filter((m) => byModel[m]);
+  if (used.length < 2) { el.textContent = ""; return; }
+  const tasksFor = (m) => (byModel[m] ? byModel[m].tasks : 0);
+  const cheapTwo = MODEL_ORDER.slice(0, 2).filter((m) => byModel[m]);
+  const cheapCount = cheapTwo.reduce((a, m) => a + tasksFor(m), 0);
+  const top = used[used.length - 1];
+  el.innerHTML = "Cheap tiers carried the volume: <b>" + cheapTwo.join(", ") + "</b> handled <b>" +
+    cheapCount + "</b> tasks, while the premium tier <b>" + top + "</b> handled only the <b>" +
+    tasksFor(top) + "</b> hardest.";
+}
+
+function setCov(id, cov) {
+  const el = $(id);
+  if (!el) return;
+  const st = coverageState(cov);
+  el.textContent = "coverage " + pct(cov) + (st.warn ? " \\u26A0" : "");
+  el.className = "covpill " + (st.warn ? "warn" : "ok");
+}
+
+// P1: three-way comparison — all-mini vs all-premium vs the cost-aware mix.
+function renderStrategies(s) {
+  const st = s.strategies || {};
+  const prem = st.all_premium || { total_cost_usd: s.baseline_total_usd, coverage: 1 };
+  const mini = st.all_mini || { total_cost_usd: s.total_cost_usd, coverage: s.coverage };
+  const scale = prem.total_cost_usd || 1;
+  $("premVal").textContent = usd(prem.total_cost_usd);
+  $("premBar").style.width = "100%";
+  setCov("premCov", prem.coverage);
+  $("miniVal").textContent = usd(mini.total_cost_usd);
+  $("miniBar").style.width = (100 * mini.total_cost_usd / scale).toFixed(2) + "%";
+  setCov("miniCov", mini.coverage);
+  setCov("mixCov", s.coverage);
+  $("takeaway").textContent =
+    "Cheapest-only is cheaper but drops coverage to " + pct(mini.coverage) +
+    " — the cheap tier fails the hard tasks. Premium-only holds " + pct(prem.coverage) +
+    " coverage but costs the most. The cost-aware mix is the only strategy that keeps " +
+    pct(s.coverage) + " coverage below premium cost.";
+}
+
+let running = false;
+
 async function runReplay() {
+  if (running) return;
+  running = true;
   const btn = $("run");
   btn.disabled = true;
-  $("traceBody").innerHTML = "";
-  const synth = $("synth").checked;
-  $("progress").textContent = "routing…";
-  let data;
+  $("progress").textContent = "routing\\u2026";
   try {
-    data = await (await fetch("/replay?synth=" + synth)).json();
-  } catch (e) {
-    $("progress").textContent = "error";
+    $("traceBody").innerHTML = "";
+    const synth = $("synth").checked;
+    let data;
+    try {
+      data = await (await fetch(EP.replay(synth))).json();
+    } catch (e) {
+      $("progress").textContent = "error \\u2014 could not load replay";
+      return;
+    }
+    const s = data.summary;
+    const before = s.baseline_total_usd, after = s.total_cost_usd;
+
+    // fill aggregates + the 3-way strategy comparison immediately
+    renderAggregation(s);
+    renderStrategies(s);
+
+    // P3: headline names the mechanism, not just the percentage
+    const byModel = (s.breakdown && s.breakdown.by_model) || {};
+    const usedTop = MODEL_ORDER.filter((m) => byModel[m]).slice(-1)[0];
+    const topCount = usedTop && byModel[usedTop] ? byModel[usedTop].tasks : 0;
+    $("savedPct").textContent = pct(s.delta_pct);
+    $("savedAbs").textContent = "lower \\u2014 cheap-first routing; only " + topCount + " of " +
+      s.tasks + " tasks needed the top " + (usedTop || "premium") + " tier, held at " +
+      pct(s.coverage) + " coverage \\u00b7 saved " + usd(s.delta_usd) + ".";
+
+    // animate the per-task trace, accumulating the mix cost against the premium scale
+    const body = $("traceBody");
+    const step = data.traces.length > 30 ? 12 : 260;
+    let acc = 0;
+    for (let i = 0; i < data.traces.length; i++) {
+      const t = data.traces[i];
+      acc += Number(t.cost_usd || 0);
+      const tr = document.createElement("tr");
+      const meta = MODEL_META[t.chosen];
+      const chosenTitle = meta ? (meta.tier + " \\u2014 " + meta.role) : "";
+      tr.innerHTML =
+        "<td>" + t.task_id + "</td>" +
+        "<td>" + t.class + "</td>" +
+        "<td class='mode-" + t.mode + "'>" + t.mode + "</td>" +
+        "<td title='" + chosenTitle + "'>" + t.chosen + "</td>" +
+        "<td><span class='pill reason-" + t.reason + "'>" + t.reason + "</span></td>" +
+        "<td>" + usdSmart(t.cost_usd) + "</td>";
+      body.insertBefore(tr, body.firstChild);
+      $("afterVal").textContent = usd(acc);
+      $("afterBar").style.width = (100 * acc / (before || 1)).toFixed(2) + "%";
+      $("progress").textContent = "routed " + (i + 1) + "/" + data.traces.length;
+      if (step > 20 || i % 5 === 0) await sleep(step);
+    }
+    $("afterVal").textContent = usd(after);
+    $("afterBar").style.width = (100 * after / (before || 1)).toFixed(2) + "%";
+    $("progress").textContent = "done \\u00b7 " + s.tasks + " tasks";
+  } finally {
+    running = false;
     btn.disabled = false;
-    return;
   }
-  const s = data.summary;
-  const before = s.baseline_total_usd, after = s.total_cost_usd;
-
-  // fill the aggregate stats immediately from the full summary
-  renderAggregation(s);
-  $("beforeVal").textContent = usd(before);
-  $("beforeBar").style.width = "100%";
-  $("savedPct").textContent = pct(s.delta_pct);
-  $("savedAbs").textContent = "— saved " + usd(s.delta_usd) + " at " + pct(s.coverage) + " coverage";
-
-  // animate the per-task trace, accumulating routed cost against the fixed baseline
-  const body = $("traceBody");
-  const step = data.traces.length > 30 ? 12 : 260;
-  let acc = 0;
-  for (let i = 0; i < data.traces.length; i++) {
-    const t = data.traces[i];
-    acc += Number(t.cost_usd || 0);
-    const tr = document.createElement("tr");
-    const meta = MODEL_META[t.chosen];
-    const chosenTitle = meta ? (meta.tier + " — " + meta.role) : "";
-    tr.innerHTML =
-      "<td>" + t.task_id + "</td>" +
-      "<td>" + t.class + "</td>" +
-      "<td class='mode-" + t.mode + "'>" + t.mode + "</td>" +
-      "<td title='" + chosenTitle + "'>" + t.chosen + "</td>" +
-      "<td><span class='pill reason-" + t.reason + "'>" + t.reason + "</span></td>" +
-      "<td>" + usdSmart(t.cost_usd) + "</td>";
-    body.insertBefore(tr, body.firstChild);
-    $("afterVal").textContent = usd(acc);
-    $("afterBar").style.width = (100 * acc / before).toFixed(2) + "%";
-    $("progress").textContent = "routed " + (i + 1) + "/" + data.traces.length;
-    if (step > 20 || i % 5 === 0) await sleep(step);
-  }
-  $("afterVal").textContent = usd(after);
-  $("afterBar").style.width = (100 * after / before).toFixed(2) + "%";
-  $("progress").textContent = "done · " + s.tasks + " tasks";
-  btn.disabled = false;
 }
 
 $("run").addEventListener("click", runReplay);

@@ -73,6 +73,47 @@ def test_synth_before_after_matches_known_projection() -> None:
     assert summary["delta_usd"] == 0.567743
 
 
+@pytest.mark.parametrize("build", [_curated, _synth])
+def test_three_way_strategy_tradeoff(build) -> None:
+    # The dashboard's core message: neither single-tier strategy wins on both
+    # axes. all-mini is cheapest but drops coverage; all-premium holds coverage
+    # but costs the most; only the cost-aware mix keeps full coverage below the
+    # premium cost.
+    summary = build().summary
+    strat = summary["strategies"]
+    assert set(strat) == {"all_mini", "all_premium", "mix"}
+    mini, prem, mix = strat["all_mini"], strat["all_premium"], strat["mix"]
+
+    # Cost ordering: cheapest-only < mix < premium-only.
+    assert mini["total_cost_usd"] < mix["total_cost_usd"] < prem["total_cost_usd"]
+
+    # Coverage: premium and mix hold 100%; cheapest-only visibly drops below.
+    assert prem["coverage"] == 1.0
+    assert mix["coverage"] == 1.0
+    assert mini["coverage"] < 1.0
+
+    # The single-tier baselines reconcile with the headline totals so the bars
+    # animate against the same numbers the KPIs show.
+    assert prem["total_cost_usd"] == summary["baseline_total_usd"]
+    assert mix["total_cost_usd"] == summary["total_cost_usd"]
+
+
+def test_synth_strategy_numbers_are_pinned() -> None:
+    # Deterministic three-way projection over the full synthetic workload.
+    strat = _synth().summary["strategies"]
+    assert strat["all_mini"] == {"total_cost_usd": 0.187913, "coverage": 0.22}
+    assert strat["all_premium"] == {"total_cost_usd": 2.226910, "coverage": 1.0}
+    assert strat["mix"] == {"total_cost_usd": 1.659167, "coverage": 1.0}
+
+
+@pytest.mark.parametrize("build", [_curated, _synth])
+def test_escalated_task_count_is_present_and_bounded(build) -> None:
+    summary = build().summary
+    escalated = summary["escalated_tasks"]
+    assert isinstance(escalated, int)
+    assert 0 <= escalated <= summary["tasks"]
+
+
 def test_before_after_block_renders_in_text_not_json() -> None:
     report = _synth()
     text = format_replay_text(report)

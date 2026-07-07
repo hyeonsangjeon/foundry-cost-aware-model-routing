@@ -234,6 +234,90 @@ def test_coverage_state_warns_below_full(service: RouterService, tmp_path) -> No
     assert "ok" in proc.stdout
 
 
+def test_dashboard_shows_three_way_strategy_comparison(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    # P1: three labeled strategies, each with its own cost + coverage element.
+    for label in ("all-mini", "all-premium", "cost-aware mix"):
+        assert label in html
+    for cost_id in ('id="miniVal"', 'id="premVal"', 'id="afterVal"'):
+        assert cost_id in html
+    for cov_id in ('id="miniCov"', 'id="premCov"', 'id="mixCov"'):
+        assert cov_id in html
+    # coverage pills carry a shared style with an ok/warn split.
+    assert ".covpill" in html
+    assert ".covpill.warn" in html
+    # a takeaway sentence states the conclusion.
+    assert 'id="takeaway"' in html
+
+
+def test_dashboard_headline_names_the_mechanism(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    # P3: headline names cheap-first + selective escalation, not just the %.
+    assert "cheap-first routing" in script
+    assert "needed the top" in script
+    # count comes from the run's top-tier usage, not a hard-coded number.
+    assert "MODEL_ORDER" in script and "by_model" in script
+
+
+def test_dashboard_states_cheap_vs_premium_volume_split(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    # P2: usage panel carries a split line filled from real counts.
+    assert 'id="usageSplit"' in html
+    assert "renderUsageSplit" in html
+    assert "Cheap tiers carried the volume" in html
+
+
+def test_dashboard_run_button_is_reentrancy_safe(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    # Bug fix: rapid clicks must not stack runs, and the button must always
+    # re-enable even if rendering throws (try/finally).
+    assert "let running = false" in script
+    assert "if (running) return" in script
+    assert "} finally {" in script
+    assert "btn.disabled = false" in script
+
+
+def test_render_strategies_wires_costs_coverage_and_takeaway(
+    service: RouterService, tmp_path
+) -> None:
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    set_cov = re.search(r"function setCov\(id, cov\) \{.*?\n\}", script, re.S)
+    render = re.search(r"function renderStrategies\(s\) \{.*?\n\}", script, re.S)
+    assert set_cov and render, "setCov + renderStrategies must be present"
+    program = (
+        "const els = {};\n"
+        "function $(id){ if(!els[id]) els[id]={style:{}}; return els[id]; }\n"
+        "function usd(n){ return '$' + Number(n).toFixed(2); }\n"
+        "function pct(n){ return (n*100).toFixed(1) + '%'; }\n"
+        "function coverageState(cov){ return {warn: cov < 1, "
+        "note: cov < 1 ? 'coverage dropped' : ''}; }\n"
+        + set_cov.group(0) + "\n" + render.group(0) + "\n"
+        "renderStrategies({strategies:{all_mini:{total_cost_usd:0.187913,coverage:0.22},"
+        "all_premium:{total_cost_usd:2.226910,coverage:1},"
+        "mix:{total_cost_usd:1.659167,coverage:1}},coverage:1,"
+        "baseline_total_usd:2.226910,total_cost_usd:1.659167});\n"
+        "if (els.premVal.textContent !== '$2.23') throw new Error('prem cost');\n"
+        "if (els.miniVal.textContent !== '$0.19') throw new Error('mini cost');\n"
+        "if (els.premBar.style.width !== '100%') throw new Error('prem scale');\n"
+        "if (els.miniCov.className.indexOf('warn') < 0) throw new Error('mini must warn');\n"
+        "if (els.premCov.className.indexOf('ok') < 0) throw new Error('prem must be ok');\n"
+        "if (els.mixCov.className.indexOf('ok') < 0) throw new Error('mix must be ok');\n"
+        "if (!/22.0%/.test(els.takeaway.textContent)) throw new Error('takeaway coverage');\n"
+        "console.log('ok');\n"
+    )
+    js = tmp_path / "strat.js"
+    js.write_text(program, encoding="utf-8")
+    proc = subprocess.run([node, str(js)], capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    assert "ok" in proc.stdout
+
+
 def test_replay_curated_reports_before_after(service: RouterService) -> None:
     response = service.dispatch("GET", "/replay?synth=false")
     assert response.status == 200
