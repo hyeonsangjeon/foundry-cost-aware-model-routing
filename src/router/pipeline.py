@@ -16,7 +16,7 @@ from typing import Any
 
 from policy import PolicyTable, TaskClass, diff_policies, format_diff, load_default_policy
 
-from .baseline import baseline_cost_usd
+from .baseline import baseline_cost_usd, baseline_model_for_task
 from .classify import classify_task
 from .offline import (
     load_signal_fixture,
@@ -261,7 +261,65 @@ def _replay_report(
     summary["delta_usd"] = delta
     summary["delta_pct"] = (delta / baseline) if baseline else 0.0
     summary["measured"] = False
+    summary["breakdown"] = aggregate_replay(traces, routed_tasks, policy=policy, pricing=pricing)
     return ReplayReport(traces=traces, summary=summary)
+
+
+def aggregate_replay(
+    traces: Sequence[Mapping[str, Any]],
+    routed_tasks: Mapping[str, Mapping[str, Any]],
+    *,
+    policy: PolicyTable,
+    pricing: PricingTable,
+) -> dict[str, Any]:
+    """Aggregate routed traces for dashboard-style statistics.
+
+    Returns per-class (routed vs naive-baseline cost + savings), per-chosen-model
+    (task count, routed cost), and per-mode/per-reason tallies. Deterministic and
+    derived only from the given traces/tasks — no re-routing.
+    """
+
+    by_class: dict[str, dict[str, Any]] = {}
+    by_model: dict[str, dict[str, Any]] = {}
+    mode_cost: dict[str, float] = {}
+    reason_counts: dict[str, int] = {}
+    for trace in traces:
+        cls = str(trace.get("class"))
+        model = str(trace.get("chosen"))
+        mode = str(trace.get("mode"))
+        reason = str(trace.get("reason"))
+        cost = float(trace.get("cost_usd") or 0.0)
+        cbucket = by_class.setdefault(
+            cls, {"tasks": 0, "routed_usd": 0.0, "baseline_usd": 0.0}
+        )
+        cbucket["tasks"] += 1
+        cbucket["routed_usd"] = round(cbucket["routed_usd"] + cost, 6)
+        mbucket = by_model.setdefault(model, {"tasks": 0, "routed_usd": 0.0})
+        mbucket["tasks"] += 1
+        mbucket["routed_usd"] = round(mbucket["routed_usd"] + cost, 6)
+        mode_cost[mode] = round(mode_cost.get(mode, 0.0) + cost, 6)
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+
+    for task in routed_tasks.values():
+        cls = classify_task(task)
+        model = baseline_model_for_task(task, policy)
+        cost = pricing.cost_usd(model, task.get("tokens", {})) if pricing else 0.0
+        cbucket = by_class.setdefault(
+            cls, {"tasks": 0, "routed_usd": 0.0, "baseline_usd": 0.0}
+        )
+        cbucket["baseline_usd"] = round(cbucket["baseline_usd"] + (cost or 0.0), 6)
+
+    for cbucket in by_class.values():
+        saved = round(cbucket["baseline_usd"] - cbucket["routed_usd"], 6)
+        cbucket["saved_usd"] = saved
+        cbucket["saved_pct"] = (saved / cbucket["baseline_usd"]) if cbucket["baseline_usd"] else 0.0
+
+    return {
+        "by_class": by_class,
+        "by_model": by_model,
+        "mode_cost_usd": mode_cost,
+        "reason_counts": reason_counts,
+    }
 
 
 def run_route_once(

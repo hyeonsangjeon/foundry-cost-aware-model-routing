@@ -85,3 +85,36 @@ def test_before_after_block_renders_in_text_not_json() -> None:
     payload = json.loads(format_replay_json(report))
     assert isinstance(payload, list)
     assert "before / after" not in format_replay_json(report)
+
+
+@pytest.mark.parametrize("build", [_curated, _synth])
+def test_breakdown_reconciles_with_top_line(build) -> None:
+    summary = build().summary
+    breakdown = summary["breakdown"]
+    assert set(breakdown) == {"by_class", "by_model", "mode_cost_usd", "reason_counts"}
+
+    by_class = breakdown["by_class"]
+    # Per-class routed/baseline costs sum back to the headline totals.
+    assert round(sum(c["routed_usd"] for c in by_class.values()), 6) == summary["total_cost_usd"]
+    assert (
+        round(sum(c["baseline_usd"] for c in by_class.values()), 6)
+        == summary["baseline_total_usd"]
+    )
+    assert sum(c["tasks"] for c in by_class.values()) == summary["tasks"]
+
+    by_model = breakdown["by_model"]
+    assert sum(m["tasks"] for m in by_model.values()) == summary["tasks"]
+    assert round(sum(m["routed_usd"] for m in by_model.values()), 6) == summary["total_cost_usd"]
+
+    # mode cost split reconciles with routed total; reason counts partition tasks.
+    assert round(sum(breakdown["mode_cost_usd"].values()), 6) == summary["total_cost_usd"]
+    assert sum(breakdown["reason_counts"].values()) == summary["tasks"]
+
+
+def test_breakdown_savings_are_non_negative_and_labelled() -> None:
+    by_class = _synth().summary["breakdown"]["by_class"]
+    for bucket in by_class.values():
+        assert bucket["saved_usd"] == round(bucket["baseline_usd"] - bucket["routed_usd"], 6)
+        assert bucket["saved_usd"] >= 0.0
+        assert 0.0 <= bucket["saved_pct"] <= 1.0
+

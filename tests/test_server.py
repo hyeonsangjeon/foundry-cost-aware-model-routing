@@ -171,6 +171,28 @@ def test_replay_defaults_to_curated(service: RouterService) -> None:
     assert service.dispatch("GET", "/replay").payload["summary"]["tasks"] == 5
 
 
+def test_replay_includes_aggregated_breakdown(service: RouterService) -> None:
+    summary = service.dispatch("GET", "/replay?synth=true").payload["summary"]
+    breakdown = summary["breakdown"]
+    assert set(breakdown) == {"by_class", "by_model", "mode_cost_usd", "reason_counts"}
+
+    by_class = breakdown["by_class"]
+    assert set(by_class) == {"plan", "generate", "test", "validate", "repo_patch"}
+    # per-class routed/baseline costs reconcile with the top-line totals
+    assert round(sum(c["routed_usd"] for c in by_class.values()), 6) == summary["total_cost_usd"]
+    assert (
+        round(sum(c["baseline_usd"] for c in by_class.values()), 6)
+        == summary["baseline_total_usd"]
+    )
+    for bucket in by_class.values():
+        assert bucket["saved_usd"] == round(bucket["baseline_usd"] - bucket["routed_usd"], 6)
+
+    by_model = breakdown["by_model"]
+    assert set(by_model) <= PLACEHOLDER_MODELS
+    assert sum(m["tasks"] for m in by_model.values()) == summary["tasks"]
+    assert sum(breakdown["reason_counts"].values()) == summary["tasks"]
+
+
 def test_replay_uses_injected_policy() -> None:
     candidate = ROOT / "samples" / "policy" / "candidate.example.yaml"
     injected = RouterService(policy=load_policy(candidate))
