@@ -14,7 +14,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from policy import PolicyTable, TaskClass, diff_policies, format_diff, load_default_policy
+from policy import (
+    PolicyTable,
+    TaskClass,
+    describe_model,
+    diff_policies,
+    format_diff,
+    load_default_policy,
+)
 
 from .baseline import baseline_cost_usd, baseline_model_for_task
 from .classify import classify_task
@@ -102,24 +109,39 @@ def load_policy(policy: Path | str | None = None) -> PolicyTable:
 
 
 def policy_summary(policy: PolicyTable | None = None) -> dict[str, Any]:
-    """Summarize a policy as version + ordered candidates per task class."""
+    """Summarize a policy as version + ordered candidates per task class.
+
+    Each candidate is enriched with its catalog ``tier``/``reasoning``/``role``
+    (a vendor-neutral description of what the placeholder represents), and a
+    deduplicated ``catalog`` of the models the policy actually uses is included
+    so consumers can render a legend without re-deriving it.
+    """
 
     policy = policy or load_default_policy()
-    return {
-        "version": policy.version,
-        "classes": {
-            task_class.value: [
-                {
-                    "model": candidate.model,
-                    "rank": rank,
-                    "prior_pass": candidate.prior_pass,
-                    "prior_usd_resolved": candidate.prior_usd_resolved,
-                }
-                for rank, candidate in enumerate(policy.candidates_for(task_class))
-            ]
-            for task_class in TaskClass
-        },
+    classes = {
+        task_class.value: [
+            {
+                "model": candidate.model,
+                "rank": rank,
+                "prior_pass": candidate.prior_pass,
+                "prior_usd_resolved": candidate.prior_usd_resolved,
+                **{k: v for k, v in describe_model(candidate.model).items() if k != "model"},
+            }
+            for rank, candidate in enumerate(policy.candidates_for(task_class))
+        ]
+        for task_class in TaskClass
     }
+    used_models: dict[str, float] = {}
+    for candidates in policy.classes.values():
+        for candidate in candidates:
+            prior = candidate.prior_usd_resolved
+            if candidate.model not in used_models or prior < used_models[candidate.model]:
+                used_models[candidate.model] = prior
+    catalog = [
+        describe_model(model)
+        for model in sorted(used_models, key=lambda m: used_models[m])
+    ]
+    return {"version": policy.version, "classes": classes, "catalog": catalog}
 
 
 def route_payload(

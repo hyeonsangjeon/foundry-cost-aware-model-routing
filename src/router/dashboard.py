@@ -107,6 +107,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .legend .li { font-size: 12px; }
   .legend .term { color: var(--cyan); font-weight: 600; }
   .legend .li small { color: var(--muted); }
+  .tiertag { font-size: 10px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--border); margin-left: 6px; white-space: nowrap; }
+  .t0 { color: var(--cyan); border-color: var(--cyan); }
+  .t1 { color: var(--accent); border-color: var(--accent); }
+  .t2 { color: var(--purple); border-color: var(--purple); }
+  .t3 { color: var(--amber); border-color: var(--amber); }
+  .t4 { color: var(--red); border-color: var(--red); }
+  .catrow { padding: 8px 0; border-bottom: 1px dashed var(--border); }
+  .catrow:last-child { border-bottom: 0; }
+  .catrow .h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .catrow .name { font-weight: 600; }
+  .catrow .role { color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .catrow .rw { font-size: 10px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -120,6 +132,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <section class="panel" id="policyPanel">
     <h2>Policy — class → candidates (cheapest first)</h2>
     <div id="policy">loading…</div>
+    <h3>Model tiers — what these names mean</h3>
+    <div id="catalog"><small style="color:var(--muted)">loading…</small></div>
+    <div class="foot">Generic placeholder tiers — not real product names. They stand in for a
+      lightweight/high-volume model, an efficient coder, a balanced general model, a deliberate
+      reasoner, and a premium frontier model.</div>
   </section>
 
   <section class="panel">
@@ -195,6 +212,7 @@ const pct = (n) => (Number(n) * 100).toFixed(1) + "%";
 
 let MODEL_ORDER = [];   // cheapest first
 let MODEL_INDEX = {};   // model -> palette index 0..4
+let MODEL_META = {};    // model -> {tier, reasoning, role}
 
 async function loadHealth() {
   try {
@@ -204,14 +222,23 @@ async function loadHealth() {
   } catch (e) { $("health").textContent = "unreachable"; }
 }
 
+function tierTag(model) {
+  const i = MODEL_INDEX[model];
+  const meta = MODEL_META[model];
+  if (i === undefined || !meta) return "";
+  return "<span class='tiertag t" + i + "'>" + meta.tier + "</span>";
+}
+
 async function loadPolicy() {
   const p = await (await fetch("/policy")).json();
   $("polver").textContent = "policy v" + p.version;
-  const price = {};
-  for (const cands of Object.values(p.classes))
-    for (const c of cands) price[c.model] = c.prior_usd_resolved;
-  MODEL_ORDER = Object.keys(price).sort((a, b) => price[a] - price[b]);
-  MODEL_ORDER.forEach((m, i) => { MODEL_INDEX[m] = Math.min(i, 4); });
+
+  const catalog = p.catalog || [];
+  MODEL_ORDER = catalog.map((c) => c.model);
+  catalog.forEach((c, i) => {
+    MODEL_INDEX[c.model] = Math.min(i, 4);
+    MODEL_META[c.model] = c;
+  });
 
   const box = $("policy");
   box.innerHTML = "";
@@ -223,11 +250,21 @@ async function loadPolicy() {
     for (const c of cands) {
       const row = document.createElement("div");
       row.className = "polrow";
-      row.innerHTML = "<span>" + c.model + "</span><span>pass " + c.prior_pass +
-        " · $" + c.prior_usd_resolved + "</span>";
+      if (c.role) row.title = c.tier + " — " + c.role;
+      row.innerHTML = "<span>" + c.model + tierTag(c.model) + "</span>" +
+        "<span>pass " + c.prior_pass + " · $" + c.prior_usd_resolved + "</span>";
       box.appendChild(row);
     }
   }
+
+  $("catalog").innerHTML = catalog.map((c) => {
+    const i = MODEL_INDEX[c.model];
+    return "<div class='catrow'><div class='h'>" +
+      "<span class='name mdot m" + i + "'>" + c.model + "</span>" +
+      "<span class='tiertag t" + i + "'>" + c.tier + "</span></div>" +
+      "<div class='rw'>reasoning: " + c.reasoning + "</div>" +
+      "<div class='role'>" + c.role + "</div></div>";
+  }).join("");
 }
 
 function renderByClass(byClass) {
@@ -253,7 +290,7 @@ function renderByModel(byModel) {
     const i = MODEL_INDEX[m];
     const w = (100 * v.routed_usd / maxCost).toFixed(2);
     return "<div class='aggrow'>" +
-      "<div class='aggrow-h'><span class='mdot m" + i + "'>" + m + "</span>" +
+      "<div class='aggrow-h'><span class='mdot m" + i + "'>" + m + tierTag(m) + "</span>" +
       "<span>" + v.tasks + " tasks · " + usd4(v.routed_usd) + "</span></div>" +
       "<div class='track full'><span class='m" + i + "' style='width:" + w + "%'></span></div></div>";
   }).join("");
@@ -313,11 +350,13 @@ async function runReplay() {
     const t = data.traces[i];
     acc += Number(t.cost_usd || 0);
     const tr = document.createElement("tr");
+    const meta = MODEL_META[t.chosen];
+    const chosenTitle = meta ? (meta.tier + " — " + meta.role) : "";
     tr.innerHTML =
       "<td>" + t.task_id + "</td>" +
       "<td>" + t.class + "</td>" +
       "<td class='mode-" + t.mode + "'>" + t.mode + "</td>" +
-      "<td>" + t.chosen + "</td>" +
+      "<td title=\"" + chosenTitle + "\">" + t.chosen + "</td>" +
       "<td><span class='pill reason-" + t.reason + "'>" + t.reason + "</span></td>" +
       "<td>" + usd(t.cost_usd) + "</td>";
     body.insertBefore(tr, body.firstChild);

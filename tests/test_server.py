@@ -60,6 +60,26 @@ def test_policy_lists_candidates_per_class(service: RouterService) -> None:
     generate = classes["generate"]
     assert [c["rank"] for c in generate] == list(range(len(generate)))
     assert all(c["model"] in PLACEHOLDER_MODELS for c in generate)
+    # every candidate carries its vendor-neutral tier/role description
+    assert all(c["tier"] and c["role"] for c in generate)
+
+
+def test_policy_serves_model_catalog(service: RouterService) -> None:
+    catalog = service.dispatch("GET", "/policy").payload["catalog"]
+    assert [c["model"] for c in catalog] == [
+        "mini-fast",
+        "swift-coder",
+        "balanced-pro",
+        "deep-reasoner",
+        "premium-max",
+    ]
+    assert all({"model", "tier", "reasoning", "role"} <= set(c) for c in catalog)
+
+
+def test_dashboard_explains_model_tiers(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    assert "Model tiers" in html
+    assert "tiertag" in html
 
 
 def test_route_synth_returns_trace_with_cost(service: RouterService) -> None:

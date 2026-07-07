@@ -9,11 +9,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .catalog import describe_model
 from .schema import PolicyTable, TaskClass, load_default_policy
 
 
 def show_text(policy: PolicyTable | None = None) -> str:
-    """Render a policy as version + cheapest-first candidates per class."""
+    """Render a policy as version + cheapest-first candidates per class.
+
+    A trailing "model tiers" legend explains what each generic placeholder model
+    stands for (lightweight, reasoning, premium, …) so the identifiers are
+    self-describing without referencing any real product name.
+    """
 
     policy = policy or load_default_policy()
     lines = [f"policy v{policy.version} — candidates per class (cheapest-first)"]
@@ -25,6 +31,20 @@ def show_text(policy: PolicyTable | None = None) -> str:
                 f"pass={candidate.prior_pass:.2f}  "
                 f"$/resolved={candidate.prior_usd_resolved:.2f}"
             )
+
+    seen: dict[str, float] = {}
+    for candidates in policy.classes.values():
+        for candidate in candidates:
+            prior = candidate.prior_usd_resolved
+            if candidate.model not in seen or prior < seen[candidate.model]:
+                seen[candidate.model] = prior
+    lines.append("\nmodel tiers (generic placeholders — not real product names):")
+    for model in sorted(seen, key=lambda m: seen[m]):
+        meta = describe_model(model)
+        lines.append(
+            f"  {model:<14} {meta['tier']} · reasoning={meta['reasoning']}\n"
+            f"                 {meta['role']}"
+        )
     return "\n".join(lines)
 
 
