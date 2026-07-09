@@ -16,233 +16,359 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>cost-router · offline routing dashboard</title>
+<title>cost-router · offline routing demo</title>
 <style>
   :root {
-    --bg: #0d1117; --panel: #161b22; --panel2: #1c2230; --border: #30363d;
-    --muted: #8b949e; --text: #e6edf3; --accent: #2f81f7; --green: #3fb950;
-    --amber: #d29922; --red: #f85149; --purple: #a371f7; --cyan: #39c5cf;
+    --bg: #eef2f6; --panel: #ffffff; --elev: #f5f8fa; --line: #dce3ea; --line2: #eaeff4;
+    --ink: #17222d; --muted: #5c6b7a; --faint: #8a97a4;
+    --brand: #0a6b3b; --brand2: #12874c; --brand-soft: #e7f4ec;
+    --blue: #1d6fd6; --green: #1a7f4b; --amber: #b7791f; --red: #c23b3b;
+    --purple: #6b4fbb; --cyan: #0e7490;
+    --m0: #0e7490; --m1: #1d6fd6; --m2: #6b4fbb; --m3: #b7791f; --m4: #c23b3b;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --shadow: 0 1px 2px rgba(16,24,32,.05), 0 6px 20px rgba(16,24,32,.06);
+    --radius: 14px;
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 13px; line-height: 1.5;
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 14px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
   }
-  header {
-    padding: 16px 24px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  .mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ---- header ---- */
+  header.top {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    flex-wrap: wrap; padding: 18px 28px; background: var(--panel);
+    border-bottom: 1px solid var(--line);
   }
-  h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+    background: var(--brand-soft); color: var(--brand); font-size: 17px; font-weight: 800;
+    border: 1px solid #cfe6da;
+  }
+  h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: -.01em; }
+  .brand .tag { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .badge {
-    font-size: 11px; padding: 2px 8px; border-radius: 999px;
-    border: 1px solid var(--border); color: var(--muted);
+    font-size: 11px; padding: 3px 9px; border-radius: 999px; font-weight: 500;
+    border: 1px solid var(--line); color: var(--muted); background: var(--panel);
+    white-space: nowrap;
   }
-  .badge.ok { color: var(--green); border-color: var(--green); }
-  .measured { color: var(--amber); }
-  main { padding: 24px; display: grid; gap: 24px; grid-template-columns: 1fr; max-width: 1180px; }
-  @media (min-width: 960px) { main { grid-template-columns: 320px 1fr; align-items: start; } }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
-  details > summary.psum { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
-    color: var(--muted); margin: 0 0 12px; cursor: pointer; font-weight: 600; list-style: revert; }
-  details[open] > summary.psum { margin-bottom: 12px; }
-  .panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 18px 0 8px; }
-  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-  button {
-    background: var(--accent); color: #fff; border: 0; border-radius: 6px;
-    padding: 8px 14px; font: inherit; cursor: pointer; font-weight: 600;
+  .badge.ok { color: var(--green); border-color: #b7dfc6; background: #eefaf1; }
+  .badge.measured { color: var(--amber); border-color: #ecd9ac; background: #fbf5e7; }
+
+  main {
+    max-width: 1080px; margin: 0 auto; padding: 26px 24px 48px;
+    display: flex; flex-direction: column; gap: 20px;
   }
-  button:disabled { opacity: .5; cursor: default; }
-  label.toggle { color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
-  .barwrap { margin: 10px 0; }
-  .barwrap .lbl { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
-  .bar { height: 22px; background: #21262d; border-radius: 4px; overflow: hidden; }
-  .bar > span { display: block; height: 100%; width: 0; transition: width .35s ease; }
-  .bar.before > span { background: var(--red); }
-  .bar.after > span { background: var(--green); }
-  .strats { margin: 12px 0 4px; }
-  .strat { margin: 12px 0; }
-  .strat .lbl { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; margin-bottom: 4px; gap: 10px; }
-  .stag { display: inline-block; font-weight: 700; padding: 1px 6px; border-radius: 4px; font-size: 11px; margin-right: 7px; }
-  .stag.prem { background: rgba(248,81,73,.15); color: var(--red); }
-  .stag.mini { background: rgba(210,153,34,.15); color: var(--amber); }
-  .stag.mix { background: rgba(63,185,80,.15); color: var(--green); }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px 24px; box-shadow: var(--shadow);
+  }
+  .eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--brand); margin: 0 0 6px;
+  }
+  h2.sec { font-size: 17px; font-weight: 700; margin: 0 0 3px; letter-spacing: -.01em; }
+  .sec-sub { font-size: 13px; color: var(--muted); margin: 0 0 16px; }
+
+  /* ---- hero ---- */
+  .hero .lead { font-size: 15.5px; margin: 0 0 18px; max-width: 60ch; }
+  .hero .lead b { color: var(--brand); }
+  .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    background: var(--brand2); color: #fff; border: 0; border-radius: 9px;
+    padding: 10px 18px; font: inherit; font-weight: 600; cursor: pointer;
+    box-shadow: 0 1px 2px rgba(10,107,59,.25); transition: background .15s, transform .05s;
+  }
+  .btn:hover { background: #0f7a44; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .55; cursor: default; box-shadow: none; }
+  label.toggle { color: var(--muted); display: flex; gap: 7px; align-items: center; cursor: pointer; font-size: 13px; }
+  label.toggle input { accent-color: var(--brand2); }
+
+  .headline { margin: 20px 0 4px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .hnum { font-family: var(--mono); font-size: 44px; font-weight: 700; color: var(--brand); line-height: 1; letter-spacing: -.02em; }
+  .hunit { font-size: 15px; color: var(--muted); font-weight: 500; }
+  .hsub { font-size: 13.5px; color: var(--ink); margin-top: 10px; max-width: 72ch; }
+  .caveat { font-size: 12px; color: var(--muted); margin: 10px 0 0; font-style: italic; }
+
+  /* ---- strategy comparison ---- */
+  .strats { display: flex; flex-direction: column; gap: 14px; }
+  .strat {
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--elev);
+  }
+  .strat.win { border-color: #b7dfc6; background: #f1faf4; box-shadow: 0 0 0 1px #cdebd9 inset; }
+  .strat .lbl { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 9px; }
+  .strat .name { font-size: 13.5px; color: var(--ink); }
+  .strat .desc { color: var(--muted); font-size: 12.5px; }
+  .stag { display: inline-block; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 11px; margin-right: 9px; font-family: var(--mono); }
+  .stag.prem { background: rgba(194,59,59,.12); color: var(--red); }
+  .stag.mini { background: rgba(183,121,31,.14); color: var(--amber); }
+  .stag.mix  { background: rgba(26,127,75,.14); color: var(--green); }
+  .strat .cost { font-family: var(--mono); font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .bar { height: 12px; background: #e6ebf0; border-radius: 999px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; width: 0; border-radius: 999px; transition: width .5s cubic-bezier(.4,0,.2,1); }
   .bar.prem > span { background: var(--red); }
   .bar.mini > span { background: var(--amber); }
-  .bar.mix > span { background: var(--green); }
-  .covline { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
-  .covline small { color: var(--muted); font-size: 11px; }
-  .covpill { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
-  .covpill.ok { color: var(--green); border-color: var(--green); }
-  .covpill.warn { color: var(--amber); border-color: var(--amber); font-weight: 700; }
-  .takeaway { margin-top: 12px; padding: 10px 12px; font-size: 12.5px; line-height: 1.55;
-    border-left: 3px solid var(--accent); background: var(--panel2); border-radius: 4px; }
-  .usage-split { margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
-  .saved { font-size: 22px; font-weight: 700; color: var(--green); margin-top: 6px; }
-  .saved small { font-size: 12px; color: var(--muted); font-weight: 400; }
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 14px; }
-  .kpi { background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
-  .kpi .v { font-size: 18px; font-weight: 700; }
+  .bar.mix  > span { background: var(--green); }
+  .covline { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+  .covline small { color: var(--muted); font-size: 12px; }
+  .covpill {
+    font-size: 11px; padding: 2px 9px; border-radius: 999px; font-weight: 600;
+    border: 1px solid var(--line); color: var(--muted); white-space: nowrap; font-family: var(--mono);
+  }
+  .covpill.ok { color: var(--green); border-color: #b7dfc6; background: #eefaf1; }
+  .covpill.warn { color: var(--amber); border-color: #ecd9ac; background: #fbf5e7; font-weight: 700; }
+  .win-flag { font-size: 11px; color: var(--brand); font-weight: 700; margin-left: 8px; }
+  .takeaway {
+    margin-top: 16px; padding: 13px 16px; font-size: 13.5px; line-height: 1.6;
+    border-left: 3px solid var(--brand2); background: var(--brand-soft); border-radius: 8px; color: #124a2e;
+  }
+
+  /* ---- KPI strip ---- */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .kpi { background: var(--elev); border: 1px solid var(--line); border-radius: 11px; padding: 13px 15px; }
+  .kpi .v { font-size: 22px; font-weight: 700; font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
   .kpi .v.warn { color: var(--red); }
-  .kpi .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .covnote { display: none; margin-top: 10px; padding: 8px 12px; font-size: 12px;
-    color: var(--amber); border: 1px solid var(--amber); border-radius: 6px; background: rgba(210,153,34,.08); }
+  .kpi .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+  .modes { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 16px; padding-top: 15px; border-top: 1px solid var(--line2); }
+  .mode-explain { font-size: 12.5px; color: var(--muted); max-width: 44ch; }
+  .mode-explain b { color: var(--ink); font-family: var(--mono); font-size: 12px; }
+  .covnote {
+    display: none; margin-top: 14px; padding: 10px 14px; font-size: 12.5px;
+    color: #8a5a12; border: 1px solid #ecd9ac; border-radius: 9px; background: #fbf5e7;
+  }
   .covnote.show { display: block; }
 
-  .cards { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 6px; }
-  @media (min-width: 720px) { .cards { grid-template-columns: 1fr 1fr; } }
-  .card { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
-  .card h3 { margin-top: 0; }
-  .aggrow { margin: 8px 0; }
-  .aggrow-h { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
-  .aggrow-f { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .track { height: 14px; background: #0d1117; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-  .track.full { width: 100%; }
-  .track > span { display: block; height: 100%; width: 0; transition: width .4s ease; }
-  .fill-routed { background: var(--green); }
-  .m0 { background: var(--cyan); } .m1 { background: var(--accent); }
-  .m2 { background: var(--purple); } .m3 { background: var(--amber); } .m4 { background: var(--red); }
-  .mdot::before { content: "\\25CF"; margin-right: 6px; }
-  .mdot.m0 { color: var(--cyan); } .mdot.m1 { color: var(--accent); }
-  .mdot.m2 { color: var(--purple); } .mdot.m3 { color: var(--amber); } .mdot.m4 { color: var(--red); }
-  .mdot { color: var(--text); }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12px; }
-  .chip b { color: var(--text); } .chip small { color: var(--muted); }
+  /* ---- progressive disclosure ---- */
+  details.disc { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  details.disc > summary {
+    list-style: none; cursor: pointer; padding: 16px 22px; font-weight: 600; font-size: 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  details.disc > summary::-webkit-details-marker { display: none; }
+  details.disc > summary .chev { color: var(--faint); font-size: 12px; transition: transform .2s; }
+  details.disc[open] > summary .chev { transform: rotate(90deg); }
+  details.disc > summary .sumsub { color: var(--muted); font-weight: 400; font-size: 12.5px; margin-left: auto; margin-right: 8px; }
+  .disc-body { padding: 4px 22px 22px; }
 
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
-  .tracewrap { max-height: 420px; overflow: auto; }
-  .pill { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); }
-  .reason-clean-first { color: var(--green); border-color: var(--green); }
-  .reason-escalated { color: var(--amber); border-color: var(--amber); }
-  .reason-compared, .reason-tie-broken { color: var(--purple); border-color: var(--purple); }
-  .mode-compare { color: var(--purple); }
+  .cards { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 720px) { .cards { grid-template-columns: 1fr 1fr; } }
+  .card { background: var(--elev); border: 1px solid var(--line); border-radius: 11px; padding: 16px; }
+  .card h3 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+  .aggrow { margin: 10px 0; }
+  .aggrow-h { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; margin-bottom: 4px; }
+  .aggrow-f { font-size: 11.5px; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+  .track { height: 13px; background: #e6ebf0; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .track.full { width: 100%; }
+  .track > span { display: block; height: 100%; width: 0; border-radius: 999px; transition: width .5s cubic-bezier(.4,0,.2,1); }
+  .fill-routed { background: var(--green); }
+  .m0 { background: var(--m0); } .m1 { background: var(--m1); }
+  .m2 { background: var(--m2); } .m3 { background: var(--m3); } .m4 { background: var(--m4); }
+  .mdot::before { content: "●"; margin-right: 7px; font-size: 10px; vertical-align: 1px; }
+  .mdot.m0::before { color: var(--m0); } .mdot.m1::before { color: var(--m1); }
+  .mdot.m2::before { color: var(--m2); } .mdot.m3::before { color: var(--m3); } .mdot.m4::before { color: var(--m4); }
+  .mdot { color: var(--ink); background: none !important; font-family: var(--mono); font-size: 12.5px; }
+  .usage-split { margin-top: 14px; font-size: 12.5px; color: var(--muted); line-height: 1.6; padding-top: 12px; border-top: 1px solid var(--line2); }
+  .usage-split b { color: var(--ink); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; font-size: 12.5px; font-family: var(--mono); }
+  .chip b { color: var(--ink); } .chip small { color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line2); white-space: nowrap; font-size: 12.5px; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-family: var(--sans); position: sticky; top: 0; background: var(--panel); }
+  .tracewrap { max-height: 460px; overflow: auto; border: 1px solid var(--line); border-radius: 11px; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font-family: var(--sans); }
+  .reason-clean-first { color: var(--green); border-color: #b7dfc6; background: #eefaf1; }
+  .reason-escalated { color: var(--amber); border-color: #ecd9ac; background: #fbf5e7; }
+  .reason-compared, .reason-tie-broken { color: var(--purple); border-color: #d3c8ee; background: #f2eefb; }
+  .mode-compare { color: var(--purple); font-weight: 600; }
   .mode-ordered { color: var(--muted); }
   tbody tr { animation: fade .25s ease; }
+  tbody tr:hover td { background: var(--elev); }
   @keyframes fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; } }
-  .polrow { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px dashed var(--border); }
-  .polrow:last-child { border-bottom: 0; }
-  .cls { color: var(--accent); margin: 10px 0 4px; font-size: 12px; }
-  .foot { color: var(--muted); font-size: 11px; margin-top: 10px; }
-  .legend { display: grid; grid-template-columns: 1fr; gap: 6px; }
-  @media (min-width: 720px) { .legend { grid-template-columns: 1fr 1fr; } }
-  .legend .li { font-size: 12px; }
-  .legend .term { color: var(--cyan); font-weight: 600; }
+
+  .legend { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .legend .li { font-size: 12.5px; }
+  .legend .term { color: var(--brand); font-weight: 700; font-family: var(--mono); }
   .legend .li small { color: var(--muted); }
-  .tiertag { font-size: 10px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--border); margin-left: 6px; white-space: nowrap; }
-  .t0 { color: var(--cyan); border-color: var(--cyan); }
-  .t1 { color: var(--accent); border-color: var(--accent); }
-  .t2 { color: var(--purple); border-color: var(--purple); }
-  .t3 { color: var(--amber); border-color: var(--amber); }
-  .t4 { color: var(--red); border-color: var(--red); }
-  .catrow { padding: 8px 0; border-bottom: 1px dashed var(--border); }
+
+  .cls { color: var(--brand); font-weight: 700; margin: 14px 0 5px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; font-family: var(--mono); }
+  .cls:first-child { margin-top: 0; }
+  .polrow { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px dashed var(--line); font-family: var(--mono); font-size: 12.5px; }
+  .polrow:last-child { border-bottom: 0; }
+  .tiertag { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); margin-left: 7px; white-space: nowrap; font-family: var(--sans); }
+  .t0 { color: var(--m0); border-color: #a9d7e0; } .t1 { color: var(--m1); border-color: #b7d2f4; }
+  .t2 { color: var(--m2); border-color: #d3c8ee; } .t3 { color: var(--m3); border-color: #ecd9ac; }
+  .t4 { color: var(--m4); border-color: #ecc0c0; }
+  .catrow { padding: 10px 0; border-bottom: 1px dashed var(--line); }
   .catrow:last-child { border-bottom: 0; }
   .catrow .h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .catrow .name { font-weight: 600; }
-  .catrow .role { color: var(--muted); font-size: 11px; margin-top: 3px; }
-  .catrow .rw { font-size: 10px; color: var(--muted); }
+  .catrow .name { font-weight: 600; font-family: var(--mono); font-size: 13px; }
+  .catrow .role { color: var(--ink); font-size: 12.5px; margin-top: 4px; }
+  .catrow .rw { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+  .foot { color: var(--muted); font-size: 11.5px; margin-top: 12px; line-height: 1.6; }
+  .foot.end { text-align: center; margin-top: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  @media (min-width: 760px) { .grid2 { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
 <body>
-<header>
-  <h1>cost-router</h1>
-  <span id="health" class="badge">checking…</span>
-  <span id="polver" class="badge">policy —</span>
-  <span class="badge measured">offline projection · labels.measured=false</span>
+<header class="top">
+  <div class="brand">
+    <div class="logo">&#9671;</div>
+    <div>
+      <h1>cost-router</h1>
+      <div class="tag">Cost-aware model routing over Microsoft Foundry &middot; offline demo</div>
+    </div>
+  </div>
+  <div class="badges">
+    <span id="health" class="badge">checking&#8230;</span>
+    <span id="polver" class="badge">policy &mdash;</span>
+    <span class="badge measured">offline projection &middot; labels.measured=false</span>
+  </div>
 </header>
 <main>
-  <section class="panel" id="policyPanel">
-    <details id="policyDetails" open>
-    <summary class="psum">Policy — class → candidates (cheapest first)</summary>
-    <div id="policy">loading…</div>
-    <h3>Model tiers — what these names mean</h3>
-    <div id="catalog"><small style="color:var(--muted)">loading…</small></div>
-    <div class="foot">Generic placeholder tiers — not real product names. They stand in for a
-      lightweight/high-volume model, an efficient coder, a balanced general model, a deliberate
-      reasoner, and a premium frontier model.</div>
-    </details>
-  </section>
 
-  <section class="panel">
-    <h2>Replay — naive vs cost-aware routing</h2>
+  <section class="panel hero">
+    <div class="eyebrow">The question</div>
+    <p class="lead">Can we cut inference cost <b>without losing coverage</b>? Route cheap-first &mdash;
+      try the cheapest capable model, and escalate to a stronger one only when the cheap one fails.</p>
     <div class="controls">
-      <button id="run">▶ Run replay</button>
+      <button id="run" class="btn">&#9654;&nbsp; Run replay</button>
       <label class="toggle"><input type="checkbox" id="synth" checked /> full synthetic workload (100 tasks)</label>
       <span id="progress" class="badge">idle</span>
     </div>
+    <div class="headline">
+      <span class="hnum" id="savedPct">0.0%</span>
+      <span class="hunit">lower cost</span>
+    </div>
+    <div class="hsub" id="savedAbs">&mdash; run a replay to project savings against an all-premium baseline.</div>
+    <p class="caveat" id="mixCaveat">Savings depend on workload mix and placeholder pricing &mdash; this is one synthetic run, not a guaranteed number.</p>
+  </section>
 
+  <section class="panel">
+    <h2 class="sec">Three strategies, one workload</h2>
+    <p class="sec-sub">Each single-tier strategy fails on one axis. Only the cost-aware mix wins on both cost and coverage.</p>
     <div class="strats" id="strats">
       <div class="strat">
-        <div class="lbl"><span><span class="stag prem">all-premium</span>premium model on every task</span><b id="premVal">—</b></div>
-        <div class="bar prem"><span id="premBar"></span></div>
-        <div class="covline"><span class="covpill" id="premCov">coverage —</span><small>holds coverage, but the most expensive</small></div>
-      </div>
-      <div class="strat">
-        <div class="lbl"><span><span class="stag mini">all-mini</span>cheapest tier on every task</span><b id="miniVal">—</b></div>
+        <div class="lbl">
+          <span class="name"><span class="stag mini">all-mini</span><span class="desc">cheapest tier on every task</span></span>
+          <b class="cost" id="miniVal">&mdash;</b>
+        </div>
         <div class="bar mini"><span id="miniBar"></span></div>
-        <div class="covline"><span class="covpill" id="miniCov">coverage —</span><small>cheapest, but the cheap tier fails the hard tasks</small></div>
+        <div class="covline"><span class="covpill" id="miniCov">coverage &mdash;</span><small>cheapest &mdash; but the cheap tier fails the hard tasks</small></div>
       </div>
       <div class="strat">
-        <div class="lbl"><span><span class="stag mix">cost-aware mix</span>cheap-first, escalate only the hard tasks</span><b id="afterVal">—</b></div>
+        <div class="lbl">
+          <span class="name"><span class="stag prem">all-premium</span><span class="desc">premium model on every task</span></span>
+          <b class="cost" id="premVal">&mdash;</b>
+        </div>
+        <div class="bar prem"><span id="premBar"></span></div>
+        <div class="covline"><span class="covpill" id="premCov">coverage &mdash;</span><small>holds coverage &mdash; but the most expensive</small></div>
+      </div>
+      <div class="strat win">
+        <div class="lbl">
+          <span class="name"><span class="stag mix">cost-aware mix</span><span class="desc">cheap-first, escalate only the hard tasks</span><span class="win-flag">&#10003; recommended</span></span>
+          <b class="cost" id="afterVal">&mdash;</b>
+        </div>
         <div class="bar mix"><span id="afterBar"></span></div>
-        <div class="covline"><span class="covpill" id="mixCov">coverage —</span><small>the only both-win: full coverage below premium cost</small></div>
+        <div class="covline"><span class="covpill" id="mixCov">coverage &mdash;</span><small>the only both-win: full coverage below premium cost</small></div>
       </div>
     </div>
-    <div class="saved"><span id="savedPct">0.0%</span> lower <small id="savedAbs">— run a replay to project savings</small></div>
-    <div class="foot" id="mixCaveat">Savings depend on workload mix and placeholder pricing — this is one synthetic run, not a guaranteed number.</div>
-    <div class="takeaway" id="takeaway">Run a replay to compare all-mini vs all-premium vs the cost-aware mix — each single-tier strategy fails on one axis; only the mix keeps full coverage below premium cost.</div>
+    <div class="takeaway" id="takeaway">Run a replay to compare all-mini vs all-premium vs the cost-aware mix &mdash; each single-tier strategy fails on one axis; only the mix keeps full coverage below premium cost.</div>
+  </section>
 
+  <section class="panel">
+    <h2 class="sec">At a glance</h2>
+    <p class="sec-sub">Headline numbers for this run.</p>
     <div class="kpis" id="kpis">
-      <div class="kpi"><div class="v" id="kTasks">—</div><div class="k">tasks</div></div>
-      <div class="kpi"><div class="v" id="kCov">—</div><div class="k">coverage</div></div>
-      <div class="kpi"><div class="v" id="kSingle">—</div><div class="k">single-route</div></div>
-      <div class="kpi"><div class="v" id="kEnsemble">—</div><div class="k">ensemble</div></div>
-      <div class="kpi"><div class="v" id="kAvg">—</div><div class="k">avg $/task</div></div>
+      <div class="kpi"><div class="v" id="kTasks">&mdash;</div><div class="k">tasks</div></div>
+      <div class="kpi"><div class="v" id="kCov">&mdash;</div><div class="k">coverage</div></div>
+      <div class="kpi"><div class="v" id="kSingle">&mdash;</div><div class="k">single-route</div></div>
+      <div class="kpi"><div class="v" id="kEnsemble">&mdash;</div><div class="k">ensemble</div></div>
+      <div class="kpi"><div class="v" id="kAvg">&mdash;</div><div class="k">avg $/task</div></div>
     </div>
     <div class="covnote" id="covNote"></div>
+    <div class="modes">
+      <div class="mode-explain"><b>single-route</b> &mdash; try candidates cheapest-first and take the first one that passes.</div>
+      <div class="mode-explain"><b>ensemble</b> &mdash; evaluate several models and keep the best; reserved for higher-value tasks.</div>
+    </div>
+  </section>
 
-    <h2 style="margin-top:22px">Aggregated statistics</h2>
-    <div class="cards">
-      <div class="card">
-        <h3>Cost by task class — routed vs naive</h3>
-        <div id="byClass"><small style="color:var(--muted)">run a replay…</small></div>
-      </div>
-      <div class="card">
-        <h3>Model usage — tasks &amp; routed cost</h3>
-        <div id="byModel"><small style="color:var(--muted)">run a replay…</small></div>
-        <div class="usage-split" id="usageSplit"></div>
-      </div>
-      <div class="card">
-        <h3>Routing mode</h3>
-        <div class="chips" id="byMode"><small style="color:var(--muted)">run a replay…</small></div>
-        <h3>Reason</h3>
-        <div class="chips" id="byReason"><small style="color:var(--muted)">run a replay…</small></div>
-      </div>
-      <div class="card">
-        <h3>What each column means</h3>
-        <div class="legend">
-          <div class="li"><span class="term">task</span> — synthetic task id.</div>
-          <div class="li"><span class="term">class</span> — task type: plan · generate · test · validate · repo_patch.</div>
-          <div class="li"><span class="term">mode</span> — <small><b>ordered</b> = try candidates cheapest-first, take the first clean one. <b>compare</b> = ensemble: evaluate several, keep the best.</small></div>
-          <div class="li"><span class="term">chosen</span> — placeholder model that handled the task.</div>
-          <div class="li"><span class="term">reason</span> — <small><b>clean-first</b> top pick passed · <b>escalated</b> cheaper failed, moved up · <b>compared</b> ensemble winner · <b>tie-broken</b> tie settled by cost.</small></div>
-          <div class="li"><span class="term">cost</span> — <small>projected USD for this task (offline, not measured).</small></div>
+  <details class="disc" open>
+    <summary><span class="chev">&#9656;</span> Breakdown <span class="sumsub">cost by class &middot; model usage &middot; routing modes</span></summary>
+    <div class="disc-body">
+      <div class="cards">
+        <div class="card">
+          <h3>Cost by task class &mdash; routed vs naive</h3>
+          <div id="byClass"><small style="color:var(--muted)">run a replay&#8230;</small></div>
+        </div>
+        <div class="card">
+          <h3>Model usage &mdash; tasks &amp; routed cost</h3>
+          <div id="byModel"><small style="color:var(--muted)">run a replay&#8230;</small></div>
+          <div class="usage-split" id="usageSplit"></div>
+        </div>
+        <div class="card">
+          <h3>Routing mode</h3>
+          <div class="chips" id="byMode"><small style="color:var(--muted)">run a replay&#8230;</small></div>
+          <h3 style="margin-top:16px">Reason</h3>
+          <div class="chips" id="byReason"><small style="color:var(--muted)">run a replay&#8230;</small></div>
+        </div>
+        <div class="card">
+          <h3>What each column means</h3>
+          <div class="legend">
+            <div class="li"><span class="term">task</span> &mdash; synthetic task id.</div>
+            <div class="li"><span class="term">class</span> &mdash; task type: plan &middot; generate &middot; test &middot; validate &middot; repo_patch.</div>
+            <div class="li"><span class="term">mode</span> &mdash; <small><b>ordered</b> = cheapest-first, take the first clean one &middot; <b>compare</b> = ensemble, keep the best.</small></div>
+            <div class="li"><span class="term">chosen</span> &mdash; placeholder model that handled the task.</div>
+            <div class="li"><span class="term">reason</span> &mdash; <small><b>clean-first</b> top pick passed &middot; <b>escalated</b> cheaper failed, moved up &middot; <b>compared</b> ensemble winner &middot; <b>tie-broken</b> settled by cost.</small></div>
+            <div class="li"><span class="term">cost</span> &mdash; <small>projected USD for this task (offline, not measured).</small></div>
+          </div>
         </div>
       </div>
     </div>
+  </details>
 
-    <h2 style="margin-top:22px">Per-task routing trace</h2>
-    <div class="tracewrap">
-      <table>
-        <thead><tr><th>task</th><th>class</th><th>mode</th><th>chosen</th><th>reason</th><th>cost</th></tr></thead>
-        <tbody id="traceBody"></tbody>
-      </table>
+  <details class="disc">
+    <summary><span class="chev">&#9656;</span> Per-task routing trace <span class="sumsub">every task, streamed live</span></summary>
+    <div class="disc-body">
+      <div class="tracewrap">
+        <table>
+          <thead><tr><th>task</th><th>class</th><th>mode</th><th>chosen</th><th>reason</th><th>cost</th></tr></thead>
+          <tbody id="traceBody"></tbody>
+        </table>
+      </div>
     </div>
-    <div class="foot">Numbers are an offline projection over synthetic data — not measured. Model names are generic placeholders.</div>
-  </section>
+  </details>
+
+  <details class="disc" id="policyDetails" open>
+    <summary><span class="chev">&#9656;</span> Policy &amp; model tiers <span class="sumsub">class &#8594; candidates, cheapest first</span></summary>
+    <div class="disc-body">
+      <div class="grid2">
+        <div>
+          <div id="policy">loading&#8230;</div>
+        </div>
+        <div>
+          <h3 style="margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Model tiers &mdash; what these names mean</h3>
+          <div id="catalog"><small style="color:var(--muted)">loading&#8230;</small></div>
+        </div>
+      </div>
+      <div class="foot">Generic placeholder tiers &mdash; not real product names. They stand in for a
+        lightweight/high-volume model, an efficient coder, a balanced general model, a deliberate
+        reasoner, and a premium frontier model.</div>
+    </div>
+  </details>
+
+  <div class="foot end">Numbers are an offline projection over synthetic data &mdash; not measured. Model names are generic placeholders.</div>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
