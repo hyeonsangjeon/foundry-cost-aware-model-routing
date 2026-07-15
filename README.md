@@ -1,5 +1,10 @@
 # Foundry Cost-Aware Model Routing
 
+[![ci](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/ci.yml/badge.svg)](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/ci.yml)
+[![docs](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/docs.yml/badge.svg)](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/)
+[![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Initial Python scaffold for model-routing experiments.
 
 This repository is intentionally kept small: source code, tests, placeholder
