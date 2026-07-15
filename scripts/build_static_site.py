@@ -1,9 +1,14 @@
 """Render the offline dashboard as a static, deployable site.
 
 The live service serves the dashboard plus ``/healthz``, ``/policy`` and
-``/replay`` JSON. For static hosting (e.g. a password-gated Vercel deployment)
-we pre-render those payloads to flat files and inject an endpoint map so the
-exact same dashboard HTML/JS fetches the files instead of live routes.
+``/replay`` JSON. For static hosting (e.g. GitHub Pages under a project
+sub-path, or a password-gated Vercel deployment) we pre-render those payloads
+to flat files and inject an endpoint map so the exact same dashboard HTML/JS
+fetches the files instead of live routes.
+
+The injected endpoints are **relative** (``healthz.json`` — no leading slash),
+so the export works no matter where it is mounted: the site root, a Vercel
+deployment, or ``…/foundry-cost-aware-model-routing/demo/`` on project Pages.
 
 Everything is generated deterministically from the bundled synthetic workload —
 no network, no secrets, generic placeholder models only. Numbers are identical
@@ -25,9 +30,9 @@ from router.server import RouterService  # noqa: E402
 
 _ENDPOINT_INJECTION = """<script>
 window.__ENDPOINTS__ = {
-  health: "/healthz.json",
-  policy: "/policy.json",
-  replay: function (synth) { return synth ? "/replay-synth.json" : "/replay-curated.json"; }
+  health: "healthz.json",
+  policy: "policy.json",
+  replay: function (synth) { return synth ? "replay-synth.json" : "replay-curated.json"; }
 };
 </script>
 """
