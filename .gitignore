@@ -103,3 +103,7 @@ scripts/.deploy-*
 
 # Generated static Vercel export (build with scripts/build_static_site.py)
 cost-router-dashboard/
+
+# MkDocs docs site build output (github.io) — built by CI, never committed
+/site/
+/_site/

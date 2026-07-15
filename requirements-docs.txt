@@ -1,0 +1,4 @@
+# Docs site toolchain (github.io). Isolated from the runtime package deps.
+# Build locally:  mkdocs build --strict
+# Serve locally:  mkdocs serve
+mkdocs-material>=9.5

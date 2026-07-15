@@ -8,11 +8,13 @@ HOST ?= 127.0.0.1
 PORT ?= 8000
 IMAGE ?= cost-router:local
 
-.PHONY: help tour dev check replay replay-all evals evals-all serve docker-build docker-run policy-validate policy-simulate policy-regression lint test clean
+.PHONY: help tour dev check replay replay-all evals evals-all serve docker-build docker-run policy-validate policy-simulate policy-regression lint test clean hero experiment docs docs-build
 
 help:
 	@echo "Targets:"
 	@echo "  dev               Install the package with dev extras (ruff, pytest)"
+	@echo "  hero              Run the flagship experiment (before/after in one command)"
+	@echo "  experiment        List named experiments (experiments/*.yaml)"
 	@echo "  check             Run the local validation gate (scripts/validate-local.sh)"
 	@echo "  replay            Run sample routing replay (curated fixture)"
 	@echo "  replay-all        Replay the whole workload with deterministic offline signals"
@@ -26,6 +28,8 @@ help:
 	@echo "  policy-regression Compare CANDIDATE vs POLICY on the synth workload"
 	@echo "  lint              ruff check . (if installed)"
 	@echo "  test              pytest (if installed)"
+	@echo "  docs              Serve the Korean docs site locally (mkdocs serve)"
+	@echo "  docs-build        Build the Korean docs site (mkdocs build --strict)"
 
 tour:
 	@echo "Model-routing experiment scaffold"
@@ -72,6 +76,18 @@ lint:
 
 test:
 	@$(PY) -m pytest
+
+hero:
+	@$(PY) -m router hero
+
+experiment:
+	@$(PY) -m router experiment list
+
+docs:
+	@$(PY) -m mkdocs serve
+
+docs-build:
+	@$(PY) -m mkdocs build --strict
 
 clean:
 	@find . -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true

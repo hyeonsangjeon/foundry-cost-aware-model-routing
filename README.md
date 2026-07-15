@@ -6,12 +6,31 @@ This repository is intentionally kept small: source code, tests, placeholder
 configuration, and synthetic sample data only. Internal planning material,
 private notes, launch notes, and diagrams stay outside Git.
 
-## Usage
+📘 **한국어 매뉴얼 · 실험노트 (github.io):**
+<https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
+
+## Quickstart (30 seconds)
 
 Everything runs offline against the checked-in synthetic samples — no network,
 no credentials, deterministic results.
 
-Install the package (provides the `cost-router` console script):
+```bash
+pip install -e .        # provides the `cost-router` console script
+cost-router hero        # the flagship experiment: before/after in one command
+```
+
+`cost-router hero` runs the flagship experiment (`experiments/hero.yaml`) and
+prints a punchy before/after, a spotlight task, and a reproducibility
+self-check — it exits non-zero if the offline projection ever drifts below the
+contracted floor. Add `--serve` to boot the dashboard and watch it live:
+
+```bash
+cost-router hero --serve   # then open http://127.0.0.1:8000
+```
+
+## Usage
+
+Install with dev tools (ruff, pytest) when you want to run the suite:
 
 ```bash
 make dev            # or: pip install -e ".[dev]"
@@ -24,6 +43,19 @@ cost-router replay              # curated sample fixture
 cost-router replay --synth      # deterministic signals for the whole workload
 cost-router route-once --task-id t-0003
 cost-router evals --synth       # routed vs. always-most-expensive baseline
+```
+
+### Experiments
+
+A named experiment is a small YAML (`experiments/*.yaml`) that pins a workload,
+its offline signals, pricing, and policy, plus an `expect` reproducibility
+contract. See [`experiments/`](experiments/) and the
+[Korean manual](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/experiments/).
+
+```bash
+cost-router experiment list          # list available experiments
+cost-router experiment run curated   # run one by name
+cost-router experiment run hero --json
 ```
 
 ### The 30-second before / after
