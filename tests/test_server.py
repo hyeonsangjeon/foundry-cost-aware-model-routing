@@ -344,6 +344,50 @@ def test_replay_synth_matches_known_totals(service: RouterService) -> None:
     assert chosen <= PLACEHOLDER_MODELS
 
 
+def test_replay_synth_includes_spotlight(service: RouterService) -> None:
+    summary = service.dispatch("GET", "/replay?synth=true").payload["summary"]
+    spot = summary["spotlight"]
+    # The auto spotlight is the accepted task with the widest naive/routed gap.
+    assert spot["task_id"] == "t-0078"
+    assert spot["class"] == "validate"
+    assert spot["chosen_model"] == "mini-fast"
+    assert spot["naive_model"] == "deep-reasoner"
+    assert spot["accepted"] is True
+    assert spot["naive_usd"] > spot["routed_usd"] > 0.0
+    assert spot["ratio"] == pytest.approx(24.09, abs=0.1)
+    assert spot["chosen_model"] in PLACEHOLDER_MODELS
+    assert spot["naive_model"] in PLACEHOLDER_MODELS
+
+
+def test_replay_curated_includes_spotlight(service: RouterService) -> None:
+    summary = service.dispatch("GET", "/replay?synth=false").payload["summary"]
+    spot = summary["spotlight"]
+    assert spot["task_id"] == "t-0005"
+    assert spot["accepted"] is True
+    assert spot["ratio"] > 1.0
+    # ratio reconciles with the two costs it is derived from.
+    assert spot["ratio"] == pytest.approx(spot["naive_usd"] / spot["routed_usd"], abs=0.01)
+
+
+def test_dashboard_shows_spotlight_panel(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    # A dedicated spotlight panel with both arms and the ratio element.
+    assert 'id="spotlightPanel"' in html
+    for element_id in (
+        'id="spotMeta"',
+        'id="spotRoutedModel"',
+        'id="spotRoutedCost"',
+        'id="spotNaiveModel"',
+        'id="spotNaiveCost"',
+        'id="spotRatio"',
+    ):
+        assert element_id in html
+    # rendered from the replay summary's spotlight field.
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    assert "renderSpotlight" in script
+    assert "s.spotlight" in script
+
+
 def test_replay_defaults_to_curated(service: RouterService) -> None:
     assert service.dispatch("GET", "/replay").payload["summary"]["tasks"] == 5
 

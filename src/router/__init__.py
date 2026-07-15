@@ -10,7 +10,6 @@ from .classify import Classifier, RuleBasedClassifier, classify_task
 from .experiment import (
     Experiment,
     ExperimentResult,
-    Spotlight,
     list_experiments,
     load_experiment,
     run_experiment,
@@ -49,6 +48,7 @@ from .pipeline import (
 from .pricing import PricingTable, TokenRates
 from .profile import TaskProfile, profile_task, stratify_traces
 from .select import SelectionAttempt, SelectionResult, compare_select, ordered_select
+from .spotlight import Spotlight, select_spotlight, spotlight_for
 from .trace import build_trace
 
 __version__ = "0.1.0"
@@ -100,6 +100,8 @@ __all__ = [
     "run_experiment",
     "run_replay",
     "run_route_once",
+    "select_spotlight",
+    "spotlight_for",
     "summarize_by_class",
     "summarize_traces",
     "stratify_traces",

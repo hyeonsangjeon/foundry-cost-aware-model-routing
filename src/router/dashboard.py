@@ -98,6 +98,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .hsub { font-size: 13.5px; color: var(--ink); margin-top: 10px; max-width: 72ch; }
   .caveat { font-size: 12px; color: var(--muted); margin: 10px 0 0; font-style: italic; }
 
+  /* ---- spotlight ---- */
+  .spotlight .spot-meta { font-family: var(--mono); font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+  .spot-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: stretch; margin: 6px 0 2px; }
+  .spot-arm { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--elev); }
+  .spot-arm.routed { border-color: #b7dfc6; background: #f1faf4; }
+  .spot-arm.naive { border-color: #ecd2d2; background: #fbf1f1; }
+  .spot-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+  .spot-arm.routed .spot-lbl { color: var(--green); }
+  .spot-arm.naive .spot-lbl { color: var(--red); }
+  .spot-model { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--ink); }
+  .spot-cost { font-family: var(--mono); font-size: 22px; font-weight: 700; margin-top: 4px; letter-spacing: -.01em; }
+  .spot-arm.routed .spot-cost { color: var(--brand); }
+  .spot-arm.naive .spot-cost { color: var(--red); }
+  .spot-vs { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0 4px; }
+  .spot-vs span { font-family: var(--mono); font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1; }
+  .spot-vs small { font-size: 11px; color: var(--muted); }
+  @media (max-width: 640px) { .spot-grid { grid-template-columns: 1fr; } .spot-vs { flex-direction: row; gap: 8px; } }
+
   /* ---- strategy comparison ---- */
   .strats { display: flex; flex-direction: column; gap: 14px; }
   .strat {
@@ -253,6 +271,27 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </div>
     <div class="hsub" id="savedAbs">&mdash; run a replay to project savings against an all-premium baseline.</div>
     <p class="caveat" id="mixCaveat">Savings depend on workload mix and placeholder pricing &mdash; this is one synthetic run, not a guaranteed number.</p>
+  </section>
+
+  <section class="panel spotlight" id="spotlightPanel" hidden>
+    <div class="eyebrow">The one task that makes it obvious</div>
+    <h2 class="sec">Spotlight <span class="spot-meta" id="spotMeta">&mdash;</span></h2>
+    <p class="sec-sub">The single task where cheap-first routing beat the all-premium arm by the widest margin &mdash;
+      same task, same checks, one picked the cheapest model that passed.</p>
+    <div class="spot-grid">
+      <div class="spot-arm routed">
+        <div class="spot-lbl">routed &middot; cost-aware</div>
+        <div class="spot-model" id="spotRoutedModel">&mdash;</div>
+        <div class="spot-cost" id="spotRoutedCost">&mdash;</div>
+      </div>
+      <div class="spot-vs"><span id="spotRatio">&mdash;</span><small>cheaper</small></div>
+      <div class="spot-arm naive">
+        <div class="spot-lbl">naive &middot; premium on every task</div>
+        <div class="spot-model" id="spotNaiveModel">&mdash;</div>
+        <div class="spot-cost" id="spotNaiveCost">&mdash;</div>
+      </div>
+    </div>
+    <p class="caveat">One synthetic task, placeholder pricing &mdash; an offline projection, not a measured saving.</p>
   </section>
 
   <section class="panel">
@@ -553,6 +592,19 @@ function renderStrategies(s) {
 
 let running = false;
 
+function renderSpotlight(sp) {
+  const panel = $("spotlightPanel");
+  if (!panel) return;
+  if (!sp) { panel.hidden = true; return; }
+  panel.hidden = false;
+  $("spotMeta").textContent = sp.task_id + " \\u00b7 " + sp["class"] + " \\u00b7 " + sp.reason;
+  $("spotRoutedModel").textContent = sp.chosen_model || "\\u2014";
+  $("spotRoutedCost").textContent = usdSmart(sp.routed_usd);
+  $("spotNaiveModel").textContent = sp.naive_model;
+  $("spotNaiveCost").textContent = usdSmart(sp.naive_usd);
+  $("spotRatio").textContent = Number(sp.ratio).toFixed(1) + "\\u00d7";
+}
+
 async function runReplay() {
   if (running) return;
   running = true;
@@ -575,6 +627,7 @@ async function runReplay() {
     // fill aggregates + the 3-way strategy comparison immediately
     renderAggregation(s);
     renderStrategies(s);
+    renderSpotlight(s.spotlight);
 
     // P3: headline names the mechanism, not just the percentage
     const byModel = (s.breakdown && s.breakdown.by_model) || {};

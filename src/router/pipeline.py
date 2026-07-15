@@ -49,6 +49,7 @@ from .offline import (
 )
 from .pricing import PricingTable
 from .profile import stratify_traces
+from .spotlight import select_spotlight
 
 DEFAULT_WORKLOAD = Path("samples/telemetry/mixed-coding-workload.sample.jsonl")
 DEFAULT_SIGNALS = Path("samples/responses/routing-signals.sample.json")
@@ -326,6 +327,8 @@ def _replay_report(
         routed_tasks, signals, summary, policy=policy, pricing=pricing
     )
     summary["escalated_tasks"] = _count_escalated(traces)
+    spotlight = select_spotlight(traces, pricing, "auto")
+    summary["spotlight"] = spotlight.to_dict() if spotlight else None
     if ledger_path is not None:
         summary["ledger"] = _append_ledger(
             ledger_path=ledger_path,

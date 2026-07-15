@@ -31,9 +31,9 @@ from .pipeline import (
     run_replay,
 )
 from .pricing import PricingTable
+from .spotlight import Spotlight, select_spotlight
 
 EXPERIMENTS_DIRNAME = "experiments"
-_SPOTLIGHT_OFF = {"", "none", "off", "false", "no"}
 
 
 @dataclass(frozen=True)
@@ -121,34 +121,6 @@ class Experiment:
             "pricing": self.pricing,
             "spotlight": self.spotlight,
             "expect": self.expect.to_dict(),
-        }
-
-
-@dataclass(frozen=True)
-class Spotlight:
-    """One task where cost-aware routing visibly beats the naive premium arm."""
-
-    task_id: str
-    task_class: str
-    chosen_model: str | None
-    naive_model: str
-    routed_usd: float
-    naive_usd: float
-    ratio: float
-    accepted: bool
-    reason: str
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "task_id": self.task_id,
-            "class": self.task_class,
-            "chosen_model": self.chosen_model,
-            "naive_model": self.naive_model,
-            "routed_usd": self.routed_usd,
-            "naive_usd": self.naive_usd,
-            "ratio": self.ratio,
-            "accepted": self.accepted,
-            "reason": self.reason,
         }
 
 
@@ -248,7 +220,7 @@ def run_experiment(
         ledger_path=ledger_path,
     )
     pricing = PricingTable.from_yaml(pricing_path)
-    spotlight = _select_spotlight(report, pricing, experiment.spotlight)
+    spotlight = select_spotlight(report.traces, pricing, experiment.spotlight)
     checks = _evaluate(report, experiment.expect)
     return ExperimentResult(
         experiment=experiment,
@@ -324,62 +296,6 @@ def _before_after_lines(summary: Mapping[str, Any]) -> list[str]:
         f"  AFTER   cost-aware routing                   ${routed:.6f}",
         f"  SAVED   ${delta:.6f}  ({delta_pct:.1%} lower)  at {coverage:.1%} coverage",
     ]
-
-
-def _select_spotlight(
-    report: ReplayReport,
-    pricing: PricingTable,
-    spec: str,
-) -> Spotlight | None:
-    key = (spec or "auto").strip().lower()
-    if key in _SPOTLIGHT_OFF:
-        return None
-    if key == "auto":
-        best: Spotlight | None = None
-        for trace in report.traces:
-            candidate = _spotlight_for(trace, pricing, require_accepted=True)
-            if candidate is not None and (best is None or candidate.ratio > best.ratio):
-                best = candidate
-        return best
-    for trace in report.traces:
-        if str(trace.get("task_id")) == spec:
-            return _spotlight_for(trace, pricing, require_accepted=False)
-    raise ValueError(f"spotlight task {spec!r} not found in experiment traces")
-
-
-def _spotlight_for(
-    trace: Mapping[str, Any],
-    pricing: PricingTable,
-    *,
-    require_accepted: bool,
-) -> Spotlight | None:
-    chosen = trace.get("chosen")
-    accepted = any(
-        attempt.get("model") == chosen and bool(attempt.get("accepted"))
-        for attempt in trace.get("attempts", [])
-    )
-    if require_accepted and not accepted:
-        return None
-    candidates = trace.get("candidates") or []
-    if not candidates:
-        return None
-    routed = float(trace.get("cost_usd") or 0.0)
-    if require_accepted and routed <= 0.0:
-        return None
-    naive_model = str(candidates[-1]["model"])
-    naive = pricing.cost_usd(naive_model, trace.get("tokens", {}))
-    ratio = round(naive / routed, 4) if routed else 0.0
-    return Spotlight(
-        task_id=str(trace.get("task_id")),
-        task_class=str(trace.get("class")),
-        chosen_model=str(chosen) if chosen is not None else None,
-        naive_model=naive_model,
-        routed_usd=round(routed, 6),
-        naive_usd=round(naive, 6),
-        ratio=ratio,
-        accepted=accepted,
-        reason=str(trace.get("reason")),
-    )
 
 
 def _evaluate(report: ReplayReport, expect: Expectation) -> tuple[Check, ...]:
