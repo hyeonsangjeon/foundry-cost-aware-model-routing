@@ -72,6 +72,16 @@ jobs:
             echo "cost-router console script not installed"
           fi
 
+      - name: Experiment reproducibility contract
+        run: |
+          if command -v cost-router >/dev/null 2>&1; then
+            cost-router experiment list
+            cost-router experiment run curated
+            cost-router hero
+          else
+            echo "cost-router console script not installed"
+          fi
+
       - name: Service smoke (offline endpoints)
         run: |
           python - <<'PY'
@@ -95,4 +105,22 @@ jobs:
           else
             echo "docker not available on runner; skipping image build"
           fi
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install docs toolchain
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-docs.txt
+
+      - name: Build docs (strict)
+        run: mkdocs build --strict
 
