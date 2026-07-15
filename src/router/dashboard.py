@@ -149,6 +149,22 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     border-left: 3px solid var(--brand2); background: var(--brand-soft); border-radius: 8px; color: #124a2e;
   }
 
+  /* ---- cost x coverage frontier ---- */
+  .frontier { margin-top: 18px; }
+  .frontier svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .fttl { font-size: 12.5px; color: var(--ink); font-weight: 600; margin: 2px 0 6px; }
+  .faxis { stroke: var(--line2); stroke-width: 1.2; }
+  .fgrid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; }
+  .fax-lbl { fill: var(--muted); font-size: 10px; font-family: var(--mono); }
+  .fzone { fill: rgba(26,127,75,.08); stroke: #cdebd9; stroke-width: 1; stroke-dasharray: 4 3; }
+  .fzone-lbl { fill: var(--green); font-size: 10px; font-weight: 700; }
+  .fconn { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 4 3; }
+  .fpt { stroke: #fff; stroke-width: 2; }
+  .fpt-mini { fill: var(--amber); } .fpt-prem { fill: var(--red); } .fpt-mix { fill: var(--green); }
+  .flbl { font-size: 11px; font-weight: 700; }
+  .flbl-mini { fill: var(--amber); } .flbl-prem { fill: var(--red); } .flbl-mix { fill: var(--green); }
+  .fsub { fill: var(--muted); font-size: 10px; font-family: var(--mono); }
+
   /* ---- KPI strip ---- */
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
   .kpi { background: var(--elev); border: 1px solid var(--line); border-radius: 11px; padding: 13px 15px; }
@@ -322,6 +338,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <div class="bar mix"><span id="afterBar"></span></div>
         <div class="covline"><span class="covpill" id="mixCov">coverage &mdash;</span><small>the only both-win: full coverage below premium cost</small></div>
       </div>
+    </div>
+    <div class="frontier">
+      <div class="fttl">Cost &times; coverage &mdash; the trade-off frontier</div>
+      <div id="frontier"><small style="color:var(--muted)">run a replay&#8230;</small></div>
     </div>
     <div class="takeaway" id="takeaway">Run a replay to compare all-mini vs all-premium vs the cost-aware mix &mdash; each single-tier strategy fails on one axis; only the mix keeps full coverage below premium cost.</div>
   </section>
@@ -590,6 +610,58 @@ function renderStrategies(s) {
     pct(s.coverage) + " coverage below premium cost.";
 }
 
+// Plot the three strategies as points in cost x coverage space. The desirable
+// corner is top-left (full coverage, low cost) — only the cost-aware mix lands
+// there; all-premium shares the coverage but sits far right (costlier), and
+// all-mini is cheap but collapses down the coverage axis. Inline SVG, no libs.
+function renderFrontier(s) {
+  const host = $("frontier");
+  if (!host) return;
+  const st = s.strategies || {};
+  const prem = st.all_premium || { total_cost_usd: s.baseline_total_usd, coverage: 1 };
+  const mini = st.all_mini || { total_cost_usd: s.total_cost_usd, coverage: s.coverage };
+  const mix = { total_cost_usd: s.total_cost_usd, coverage: s.coverage };
+  const W = 460, H = 250, L = 44, R = 20, T = 34, B = 40;
+  const pw = W - L - R, ph = H - T - B, yb = T + ph, x1 = W - R;
+  const costMax = Math.max(prem.total_cost_usd, mix.total_cost_usd, mini.total_cost_usd) || 1;
+  const X = (c) => (L + (c / costMax) * pw);
+  const Y = (v) => (T + (1 - Math.max(0, Math.min(1, v))) * ph);
+  let g = "";
+  [0, 0.5, 1].forEach((v) => {
+    const y = Y(v).toFixed(1);
+    g += "<line class='fgrid' x1='" + L + "' y1='" + y + "' x2='" + x1 + "' y2='" + y + "'/>";
+    g += "<text class='fax-lbl' x='" + (L - 7) + "' y='" + (Y(v) + 3).toFixed(1) + "' text-anchor='end'>" + (v * 100).toFixed(0) + "%</text>";
+  });
+  const zoneW = (X(mix.total_cost_usd) - L).toFixed(1), zoneH = (Y(0.95) - T).toFixed(1);
+  const zone =
+    "<rect class='fzone' x='" + L + "' y='" + T + "' width='" + zoneW + "' height='" + zoneH + "' rx='4'/>" +
+    "<text class='fzone-lbl' x='" + (L + 6) + "' y='" + (T + 13) + "'>both-win zone</text>";
+  const axes =
+    "<line class='faxis' x1='" + L + "' y1='" + yb + "' x2='" + x1 + "' y2='" + yb + "'/>" +
+    "<line class='faxis' x1='" + L + "' y1='" + T + "' x2='" + L + "' y2='" + yb + "'/>" +
+    "<text class='fax-lbl' x='" + L + "' y='" + (yb + 15) + "' text-anchor='start'>$0</text>" +
+    "<text class='fax-lbl' x='" + x1 + "' y='" + (yb + 15) + "' text-anchor='end'>cost \\u2192 " + usd(costMax) + "</text>" +
+    "<text class='fax-lbl' transform='rotate(-90 12 " + (T + ph / 2).toFixed(1) + ")' x='12' y='" + (T + ph / 2).toFixed(1) + "' text-anchor='middle'>coverage</text>";
+  const conn =
+    "<line class='fconn' x1='" + X(prem.total_cost_usd).toFixed(1) + "' y1='" + Y(prem.coverage).toFixed(1) +
+    "' x2='" + X(mix.total_cost_usd).toFixed(1) + "' y2='" + Y(mix.coverage).toFixed(1) + "'/>";
+  const dot = (o, cls, r) =>
+    "<circle class='fpt fpt-" + cls + "' cx='" + X(o.total_cost_usd).toFixed(1) + "' cy='" + Y(o.coverage).toFixed(1) + "' r='" + r + "'/>";
+  const label = (o, cls, name, anchor, dx, dy) => {
+    const x = (X(o.total_cost_usd) + dx).toFixed(1), y = (Y(o.coverage) + dy).toFixed(1);
+    return "<text class='flbl flbl-" + cls + "' x='" + x + "' y='" + y + "' text-anchor='" + anchor + "'>" + name + "</text>" +
+      "<text class='fsub' x='" + x + "' y='" + (Number(y) + 12).toFixed(1) + "' text-anchor='" + anchor + "'>" + usd(o.total_cost_usd) + " \\u00b7 " + pct(o.coverage) + "</text>";
+  };
+  const dots = dot(mini, "mini", 6) + dot(prem, "prem", 6) + dot(mix, "mix", 8);
+  const labels =
+    label(mini, "mini", "all-mini", "start", 11, 4) +
+    label(prem, "prem", "all-premium", "end", -10, -12) +
+    label(mix, "mix", "cost-aware mix", "end", -12, 20);
+  host.innerHTML =
+    "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='cost versus coverage frontier: only the cost-aware mix reaches full coverage at low cost'>" +
+    g + zone + axes + conn + dots + labels + "</svg>";
+}
+
 let running = false;
 
 function renderSpotlight(sp) {
@@ -627,6 +699,7 @@ async function runReplay() {
     // fill aggregates + the 3-way strategy comparison immediately
     renderAggregation(s);
     renderStrategies(s);
+    renderFrontier(s);
     renderSpotlight(s.spotlight);
 
     // P3: headline names the mechanism, not just the percentage
