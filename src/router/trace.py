@@ -8,6 +8,7 @@ from typing import Any
 from policy import Candidate, TaskClass
 
 from .budget import BudgetDecision
+from .profile import profile_task
 from .select import SelectionResult
 
 
@@ -22,9 +23,12 @@ def build_trace(
 ) -> dict[str, Any]:
     """Build a serializable trace for a completed offline decision."""
 
+    profile = profile_task(task)
     return {
         "task_id": task.get("task_id"),
         "class": task_class.value,
+        "difficulty": profile.difficulty,
+        "risk": profile.risk,
         "candidates": [
             {
                 "model": candidate.model,

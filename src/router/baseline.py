@@ -7,13 +7,15 @@ so it is the natural ceiling that routing is compared against.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Literal
 
-from policy import PolicyTable
+from policy import Candidate, PolicyTable
 
 from .classify import classify_task
 from .pricing import PricingTable
 from .select import is_clean
+
+BaselineArm = Literal["cost", "balanced", "quality"]
 
 
 def baseline_model_for_task(task: Mapping[str, Any], policy: PolicyTable) -> str:
@@ -82,3 +84,73 @@ def single_tier_summary(
         "tasks": counted,
         "accepted": accepted,
     }
+
+
+def single_call_baseline_arms(
+    workload: Mapping[str, Mapping[str, Any]],
+    signals: Mapping[str, Mapping[str, Mapping[str, Any]]],
+    policy: PolicyTable,
+    pricing: PricingTable,
+) -> dict[str, dict[str, Any]]:
+    """Score deterministic Cost/Balanced/Quality-equivalent single-call arms.
+
+    These are transparent placeholder baselines, not claims about a managed
+    router's internal implementation: ``cost`` picks the cheapest candidate for
+    each class, ``balanced`` picks the middle candidate, and ``quality`` picks
+    the most expensive candidate.
+    """
+
+    return {
+        arm: _single_call_arm(workload, signals, policy, pricing, arm=arm)
+        for arm in ("cost", "balanced", "quality")
+    }
+
+
+def _single_call_arm(
+    workload: Mapping[str, Mapping[str, Any]],
+    signals: Mapping[str, Mapping[str, Mapping[str, Any]]],
+    policy: PolicyTable,
+    pricing: PricingTable,
+    *,
+    arm: BaselineArm,
+) -> dict[str, Any]:
+    total = 0.0
+    accepted = 0
+    counted = 0
+    model_counts: dict[str, int] = {}
+    for task_id, task in workload.items():
+        task_signals = signals.get(str(task_id))
+        if task_signals is None:
+            continue
+        candidates = policy.candidates_for(classify_task(task))
+        pick = _arm_candidate(candidates, arm)
+        counted += 1
+        model_counts[pick.model] = model_counts.get(pick.model, 0) + 1
+        total += pricing.cost_usd(pick.model, task.get("tokens", {}))
+        row = task_signals.get(pick.model)
+        if row is not None and is_clean(row):
+            accepted += 1
+    return {
+        "selection": {
+            "cost": "cheapest-candidate",
+            "balanced": "middle-candidate",
+            "quality": "most-expensive-candidate",
+        }[arm],
+        "tasks": counted,
+        "accepted": accepted,
+        "coverage": (accepted / counted) if counted else 0.0,
+        "total_cost_usd": round(total, 6),
+        "model_counts": model_counts,
+        "labels": {"measured": False, "equivalent": "illustrative"},
+    }
+
+
+def _arm_candidate(
+    candidates: tuple[Candidate, ...],
+    arm: BaselineArm,
+) -> Candidate:
+    if arm == "cost":
+        return candidates[0]
+    if arm == "balanced":
+        return candidates[len(candidates) // 2]
+    return candidates[-1]

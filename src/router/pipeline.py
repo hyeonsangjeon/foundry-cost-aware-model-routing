@@ -23,8 +23,20 @@ from policy import (
     load_default_policy,
 )
 
-from .baseline import baseline_cost_usd, baseline_model_for_task, single_tier_summary
+from .baseline import (
+    baseline_cost_usd,
+    baseline_model_for_task,
+    single_call_baseline_arms,
+    single_tier_summary,
+)
 from .classify import classify_task
+from .ledger import (
+    JsonlLedger,
+    build_ledger_record,
+    require_valid_records,
+    verify_ledger,
+    verify_records,
+)
 from .offline import (
     load_signal_fixture,
     load_workload,
@@ -36,6 +48,7 @@ from .offline import (
     synthesize_task_signals,
 )
 from .pricing import PricingTable
+from .profile import stratify_traces
 
 DEFAULT_WORKLOAD = Path("samples/telemetry/mixed-coding-workload.sample.jsonl")
 DEFAULT_SIGNALS = Path("samples/responses/routing-signals.sample.json")
@@ -226,6 +239,7 @@ def run_replay(
     signals_path: Path | str | None = None,
     synth: bool = False,
     policy_path: Path | str | None = None,
+    ledger_path: Path | str | None = None,
 ) -> ReplayReport:
     """Route every task that has signals and return traces plus a summary."""
 
@@ -235,7 +249,14 @@ def run_replay(
     signals = _signals_for(
         synth=synth, workload=workload, policy=policy, signals_path=signals_path
     )
-    return _replay_report(workload, signals, policy=policy, pricing=pricing)
+    return _replay_report(
+        workload,
+        signals,
+        policy=policy,
+        pricing=pricing,
+        ledger_path=ledger_path,
+        signal_kind="synth" if synth else "fixture",
+    )
 
 
 def run_bundled_replay(
@@ -243,6 +264,7 @@ def run_bundled_replay(
     policy: PolicyTable | None = None,
     synth: bool = False,
     root: Path | str | None = None,
+    ledger_path: Path | str | None = None,
 ) -> ReplayReport:
     """Replay the bundled sample workload with an in-memory policy.
 
@@ -262,7 +284,14 @@ def run_bundled_replay(
         policy=policy,
         signals_path=None if synth else paths["signals"],
     )
-    return _replay_report(workload, signals, policy=policy, pricing=pricing)
+    return _replay_report(
+        workload,
+        signals,
+        policy=policy,
+        pricing=pricing,
+        ledger_path=ledger_path,
+        signal_kind="synth" if synth else "fixture",
+    )
 
 
 def _replay_report(
@@ -271,6 +300,8 @@ def _replay_report(
     *,
     policy: PolicyTable,
     pricing: PricingTable,
+    ledger_path: Path | str | None = None,
+    signal_kind: str = "fixture",
 ) -> ReplayReport:
     """Route the signalled tasks and attach the naive-vs-routed before/after."""
 
@@ -284,10 +315,27 @@ def _replay_report(
     summary["delta_pct"] = (delta / baseline) if baseline else 0.0
     summary["measured"] = False
     summary["breakdown"] = aggregate_replay(traces, routed_tasks, policy=policy, pricing=pricing)
+    summary["baseline_arms"] = single_call_baseline_arms(
+        routed_tasks,
+        signals,
+        policy,
+        pricing,
+    )
+    summary["strata"] = stratify_traces(traces)
     summary["strategies"] = _strategy_comparison(
         routed_tasks, signals, summary, policy=policy, pricing=pricing
     )
     summary["escalated_tasks"] = _count_escalated(traces)
+    if ledger_path is not None:
+        summary["ledger"] = _append_ledger(
+            ledger_path=ledger_path,
+            workload=routed_tasks,
+            signals=signals,
+            traces=traces,
+            policy=policy,
+            pricing=pricing,
+            signal_kind=signal_kind,
+        )
     return ReplayReport(traces=traces, summary=summary)
 
 
@@ -405,6 +453,7 @@ def run_route_once(
     signals_path: Path | str | None = None,
     synth: bool = False,
     policy_path: Path | str | None = None,
+    ledger_path: Path | str | None = None,
 ) -> dict[str, Any]:
     """Route a single task and return its trace."""
 
@@ -418,7 +467,18 @@ def run_route_once(
     )
     if task_id not in signals:
         raise KeyError(f"no sample signals for task id: {task_id}")
-    return route_task(workload[task_id], signals[task_id], policy=policy, pricing=pricing)
+    trace = route_task(workload[task_id], signals[task_id], policy=policy, pricing=pricing)
+    if ledger_path is not None:
+        _append_ledger(
+            ledger_path=ledger_path,
+            workload={task_id: workload[task_id]},
+            signals={task_id: signals[task_id]},
+            traces=[trace],
+            policy=policy,
+            pricing=pricing,
+            signal_kind="synth" if synth else "fixture",
+        )
+    return trace
 
 
 def _eval_traces(
@@ -445,6 +505,50 @@ def _eval_traces(
         "mode_counts": routed["mode_counts"],
         "reason_counts": routed["reason_counts"],
         "by_class": summarize_by_class(traces),
+        "baseline_arms": single_call_baseline_arms(selected, signals, policy, pricing),
+        "strata": stratify_traces(traces),
+    }
+
+
+def _append_ledger(
+    *,
+    ledger_path: Path | str,
+    workload: Mapping[str, Mapping[str, Any]],
+    signals: Mapping[str, Any],
+    traces: Sequence[Mapping[str, Any]],
+    policy: PolicyTable,
+    pricing: PricingTable,
+    signal_kind: str,
+) -> dict[str, Any]:
+    """Build, verify, append, then re-verify a batch of ledger records."""
+
+    records = []
+    for trace in traces:
+        task_id = str(trace.get("task_id"))
+        if task_id not in workload or task_id not in signals:
+            raise ValueError(f"cannot record ledger entry for unknown task {task_id!r}")
+        records.append(
+            build_ledger_record(
+                task=workload[task_id],
+                signals_by_model=signals[task_id],
+                trace=trace,
+                policy=policy,
+                pricing=pricing,
+                signal_kind=signal_kind,
+            )
+        )
+    batch_report = verify_records(records)
+    if not batch_report.ok:
+        raise ValueError("ledger batch failed deterministic replay before append")
+    store = JsonlLedger(ledger_path)
+    appended = store.append_many(records, validator=require_valid_records)
+    full_report = verify_ledger(ledger_path)
+    if not full_report.ok:
+        raise ValueError("ledger failed deterministic replay after append")
+    return {
+        "path": str(Path(ledger_path)),
+        "appended": len(appended),
+        **full_report.to_dict(),
     }
 
 
@@ -553,6 +657,15 @@ def format_replay_text(report: ReplayReport) -> str:
         f"cost=${summary['total_cost_usd']:.6f}"
     )
     lines.extend(_format_before_after(summary))
+    ledger = summary.get("ledger")
+    if ledger:
+        lines.append("")
+        lines.append(
+            f"ledger  path={ledger['path']} appended={ledger['appended']} "
+            f"matched={ledger['matched']}/{ledger['records']} "
+            f"completeness={ledger['completeness']:.1%} "
+            f"status={'PASS' if ledger['ok'] else 'FAIL'}"
+        )
     return "\n".join(lines)
 
 
@@ -615,6 +728,14 @@ def format_eval_report(report: dict[str, Any]) -> str:
             lines.append(
                 f"  {cls}: tasks={stats['tasks']} "
                 f"accepted={stats['accepted']} cost=${stats['cost_usd']:.6f}"
+            )
+    baseline_arms = report.get("baseline_arms")
+    if baseline_arms:
+        lines.append("single_call_baseline_arms:")
+        for arm, stats in baseline_arms.items():
+            lines.append(
+                f"  {arm}: coverage={stats['coverage']:.1%} "
+                f"cost=${stats['total_cost_usd']:.6f}"
             )
     return "\n".join(lines)
 

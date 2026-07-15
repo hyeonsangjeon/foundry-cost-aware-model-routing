@@ -57,6 +57,32 @@ With `--synth`, offline check signals are derived deterministically from each
 task's class, difficulty, and policy priors, so the full workload replays
 identically every time. All model names are generic placeholders.
 
+## Audit ledger & single-call baselines
+
+Record every decision from a replay (or one task) to an append-only JSONL ledger,
+then re-run the stored selection inputs and verify the canonical final payload:
+
+```bash
+cost-router replay --synth --ledger reports/routing.local.jsonl
+cost-router ledger replay --ledger reports/routing.local.jsonl
+```
+
+The ledger stores policy/pricing hashes, normalized task risk/difficulty,
+candidate order and signals, the gate decision, chosen model/cost, and honest
+offline labels. Verification passes only when all stored decisions reproduce
+byte-for-byte and required-field completeness is at least 99%.
+
+The current router selects one execution from **precomputed offline signals**;
+those signal inspections are not model calls. Ledger cost therefore uses the
+explicit `selected-execution-only` billing basis. A future live fan-out layer
+must account for every panel/judge call separately.
+
+Replay/eval summaries also expose three transparent **illustrative equivalents**
+for single-call comparisons: `cost` picks each class's cheapest candidate,
+`balanced` its middle candidate, and `quality` its most expensive candidate.
+They are deterministic placeholder baselines, not claims about a managed
+router's internal implementation.
+
 ## Service
 
 The same routing pipeline is available as a small offline HTTP service built on

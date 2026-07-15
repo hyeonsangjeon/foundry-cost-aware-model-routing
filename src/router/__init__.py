@@ -1,6 +1,10 @@
 """Router package for model-routing experiments."""
 
-from .baseline import baseline_cost_usd, baseline_model_for_task
+from .baseline import (
+    baseline_cost_usd,
+    baseline_model_for_task,
+    single_call_baseline_arms,
+)
 from .budget import BudgetDecision, BudgetGate
 from .classify import Classifier, RuleBasedClassifier, classify_task
 from .offline import (
@@ -35,6 +39,7 @@ from .pipeline import (
     summarize_by_class,
 )
 from .pricing import PricingTable, TokenRates
+from .profile import TaskProfile, profile_task, stratify_traces
 from .select import SelectionAttempt, SelectionResult, compare_select, ordered_select
 from .trace import build_trace
 
@@ -50,9 +55,11 @@ __all__ = [
     "SelectionAttempt",
     "SelectionResult",
     "TokenRates",
+    "TaskProfile",
     "__version__",
     "baseline_cost_usd",
     "baseline_model_for_task",
+    "single_call_baseline_arms",
     "batch_route_payload",
     "build_trace",
     "classify_task",
@@ -68,6 +75,7 @@ __all__ = [
     "load_workload",
     "ordered_select",
     "policy_summary",
+    "profile_task",
     "regression_report",
     "resolve_paths",
     "resolve_policy_path",
@@ -80,6 +88,7 @@ __all__ = [
     "run_route_once",
     "summarize_by_class",
     "summarize_traces",
+    "stratify_traces",
     "synthesize_shared_signals",
     "synthesize_signals",
     "synthesize_task_signals",

@@ -36,6 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
     replay = subparsers.add_parser("replay", help="Replay routing over the sample workload.")
     _add_data_args(replay)
     replay.add_argument("--policy", type=Path, default=None)
+    replay.add_argument(
+        "--ledger",
+        type=Path,
+        default=None,
+        help="append replay decisions to an offline JSONL audit ledger",
+    )
     replay.add_argument("--json", action="store_true", help="print traces as JSON")
     replay.set_defaults(func=_cmd_replay)
 
@@ -43,6 +49,12 @@ def build_parser() -> argparse.ArgumentParser:
     route_once.add_argument("--task-id", default="t-0001")
     _add_data_args(route_once)
     route_once.add_argument("--policy", type=Path, default=None)
+    route_once.add_argument(
+        "--ledger",
+        type=Path,
+        default=None,
+        help="append the decision to an offline JSONL audit ledger",
+    )
     route_once.set_defaults(func=_cmd_route_once)
 
     evals = subparsers.add_parser("evals", help="Summarize routed cost vs. baseline.")
@@ -57,6 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve.set_defaults(func=_cmd_serve)
 
     _build_policy_parser(subparsers)
+    _build_ledger_parser(subparsers)
     return parser
 
 
@@ -89,6 +102,20 @@ def _build_policy_parser(subparsers: argparse._SubParsersAction) -> None:
     regression.set_defaults(func=_cmd_policy_regression)
 
 
+def _build_ledger_parser(subparsers: argparse._SubParsersAction) -> None:
+    ledger = subparsers.add_parser(
+        "ledger",
+        help="Replay and verify an offline JSONL audit ledger.",
+    )
+    ledger_sub = ledger.add_subparsers(dest="ledger_command")
+    replay = ledger_sub.add_parser(
+        "replay",
+        help="Re-run stored decisions and compare canonical final payloads.",
+    )
+    replay.add_argument("--ledger", type=Path, required=True)
+    replay.set_defaults(func=_cmd_ledger_replay)
+
+
 def _add_data_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--workload", type=Path, default=None)
     parser.add_argument("--signals", type=Path, default=None)
@@ -110,13 +137,20 @@ def _signals_path(args: argparse.Namespace, paths: dict[str, Path]) -> Path | No
 
 def _cmd_replay(args: argparse.Namespace) -> int:
     paths = _paths(args)
-    report = run_replay(
-        workload_path=paths["workload"],
-        pricing_path=paths["pricing"],
-        signals_path=_signals_path(args, paths),
-        synth=args.synth,
-        policy_path=args.policy,
-    )
+    try:
+        report = run_replay(
+            workload_path=paths["workload"],
+            pricing_path=paths["pricing"],
+            signals_path=_signals_path(args, paths),
+            synth=args.synth,
+            policy_path=args.policy,
+            ledger_path=args.ledger,
+        )
+    except (OSError, ValueError) as exc:
+        if args.ledger is None:
+            raise
+        print(f"ledger error: {exc}")
+        return 1
     print(format_replay_json(report) if args.json else format_replay_text(report))
     return 0
 
@@ -131,9 +165,15 @@ def _cmd_route_once(args: argparse.Namespace) -> int:
             signals_path=_signals_path(args, paths),
             synth=args.synth,
             policy_path=args.policy,
+            ledger_path=args.ledger,
         )
     except KeyError as exc:
         raise SystemExit(str(exc).strip('"')) from exc
+    except (OSError, ValueError) as exc:
+        if args.ledger is None:
+            raise
+        print(f"ledger error: {exc}")
+        return 1
     print(json.dumps(trace, indent=2, sort_keys=True))
     return 0
 
@@ -217,6 +257,24 @@ def _cmd_policy_regression(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_ledger_replay(args: argparse.Namespace) -> int:
+    from .ledger import verify_ledger
+
+    try:
+        report = verify_ledger(args.ledger)
+    except (OSError, ValueError) as exc:
+        print(f"error: {exc}")
+        print("status: FAIL")
+        return 1
+    print(f"records: {report.records}")
+    print(f"matched: {report.matched}")
+    print(f"completeness: {report.completeness:.1%}")
+    print(f"status: {'PASS' if report.ok else 'FAIL'}")
+    if report.mismatches:
+        print(json.dumps(list(report.mismatches), indent=2, sort_keys=True))
+    return 0 if report.ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if not getattr(args, "command", None):
@@ -226,6 +284,9 @@ def main(argv: list[str] | None = None) -> int:
         from policy import show_text
 
         print(show_text(load_policy(None)))
+        return 0
+    if args.command == "ledger" and not getattr(args, "ledger_command", None):
+        print("usage: cost-router ledger replay --ledger PATH")
         return 0
     return args.func(args)
 
