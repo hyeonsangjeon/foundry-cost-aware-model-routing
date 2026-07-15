@@ -53,6 +53,7 @@ nav:
       - 소개와 방법론: lab-notebook/index.md
       - "실험 01 · 히어로": lab-notebook/01-hero.md
       - "실험 02 · 큐레이션 샘플": lab-notebook/02-curated.md
+      - "실험 03 · 커버리지 절벽": lab-notebook/03-coverage-cliff.md
   - 정직함 규약: honesty.md
 
 markdown_extensions:
