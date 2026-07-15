@@ -11,6 +11,13 @@ import json
 from pathlib import Path
 
 from . import __version__
+from .experiment import (
+    format_experiment_list,
+    format_experiment_text,
+    list_experiments,
+    load_experiment,
+    run_experiment,
+)
 from .pipeline import (
     format_eval_report,
     format_regression_report,
@@ -68,8 +75,29 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--policy", type=Path, default=None, help="policy YAML to serve")
     serve.set_defaults(func=_cmd_serve)
 
+    hero = subparsers.add_parser(
+        "hero",
+        help="Run the flagship experiment: before/after in one command.",
+    )
+    hero.add_argument("--json", action="store_true", help="print the result as JSON")
+    hero.add_argument(
+        "--ledger",
+        type=Path,
+        default=None,
+        help="append the hero run's decisions to an offline JSONL audit ledger",
+    )
+    hero.add_argument(
+        "--serve",
+        action="store_true",
+        help="after the run, boot the offline dashboard to watch it live",
+    )
+    hero.add_argument("--host", default="127.0.0.1", help="dashboard bind host with --serve")
+    hero.add_argument("--port", type=int, default=8000, help="dashboard bind port with --serve")
+    hero.set_defaults(func=_cmd_hero)
+
     _build_policy_parser(subparsers)
     _build_ledger_parser(subparsers)
+    _build_experiment_parser(subparsers)
     return parser
 
 
@@ -114,6 +142,28 @@ def _build_ledger_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     replay.add_argument("--ledger", type=Path, required=True)
     replay.set_defaults(func=_cmd_ledger_replay)
+
+
+def _build_experiment_parser(subparsers: argparse._SubParsersAction) -> None:
+    experiment = subparsers.add_parser(
+        "experiment",
+        help="List and run named offline experiments (experiments/*.yaml).",
+    )
+    experiment_sub = experiment.add_subparsers(dest="experiment_command")
+
+    listing = experiment_sub.add_parser("list", help="List available experiments.")
+    listing.set_defaults(func=_cmd_experiment_list)
+
+    run = experiment_sub.add_parser("run", help="Run one experiment by name.")
+    run.add_argument("name", help="experiment name (e.g. hero) or path to a YAML file")
+    run.add_argument("--json", action="store_true", help="print the result as JSON")
+    run.add_argument(
+        "--ledger",
+        type=Path,
+        default=None,
+        help="append the run's decisions to an offline JSONL audit ledger",
+    )
+    run.set_defaults(func=_cmd_experiment_run)
 
 
 def _add_data_args(parser: argparse.ArgumentParser) -> None:
@@ -275,6 +325,44 @@ def _cmd_ledger_replay(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def _run_named_experiment(name: str, *, as_json: bool, ledger: Path | None) -> int:
+    try:
+        experiment = load_experiment(name)
+        result = run_experiment(experiment, ledger_path=ledger)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"experiment error: {exc}")
+        return 1
+    if as_json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True, ensure_ascii=False))
+    else:
+        print(format_experiment_text(result))
+    return 0 if result.ok else 1
+
+
+def _cmd_experiment_list(args: argparse.Namespace) -> int:
+    print(format_experiment_list(list_experiments()))
+    return 0
+
+
+def _cmd_experiment_run(args: argparse.Namespace) -> int:
+    return _run_named_experiment(args.name, as_json=args.json, ledger=args.ledger)
+
+
+def _cmd_hero(args: argparse.Namespace) -> int:
+    code = _run_named_experiment("hero", as_json=args.json, ledger=args.ledger)
+    if not args.serve:
+        if not args.json:
+            print("")
+            print("next  cost-router serve   →  open the dashboard to watch it live")
+        return code
+    from . import server
+
+    if not args.json:
+        print("")
+        print(f"serving the offline dashboard on http://{args.host}:{args.port} (Ctrl-C to stop)")
+    return server.serve(host=args.host, port=args.port)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if not getattr(args, "command", None):
@@ -287,6 +375,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "ledger" and not getattr(args, "ledger_command", None):
         print("usage: cost-router ledger replay --ledger PATH")
+        return 0
+    if args.command == "experiment" and not getattr(args, "experiment_command", None):
+        print("usage: cost-router experiment [list|run <name>]")
         return 0
     return args.func(args)
 

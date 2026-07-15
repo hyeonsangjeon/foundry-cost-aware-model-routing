@@ -7,6 +7,14 @@ from .baseline import (
 )
 from .budget import BudgetDecision, BudgetGate
 from .classify import Classifier, RuleBasedClassifier, classify_task
+from .experiment import (
+    Experiment,
+    ExperimentResult,
+    Spotlight,
+    list_experiments,
+    load_experiment,
+    run_experiment,
+)
 from .offline import (
     load_signal_fixture,
     load_workload,
@@ -49,11 +57,14 @@ __all__ = [
     "BudgetDecision",
     "BudgetGate",
     "Classifier",
+    "Experiment",
+    "ExperimentResult",
     "PricingTable",
     "ReplayReport",
     "RuleBasedClassifier",
     "SelectionAttempt",
     "SelectionResult",
+    "Spotlight",
     "TokenRates",
     "TaskProfile",
     "__version__",
@@ -69,7 +80,9 @@ __all__ = [
     "format_regression_report",
     "format_replay_json",
     "format_replay_text",
+    "list_experiments",
     "load_default_pricing",
+    "load_experiment",
     "load_policy",
     "load_signal_fixture",
     "load_workload",
@@ -84,6 +97,7 @@ __all__ = [
     "route_tasks",
     "run_bundled_replay",
     "run_evals",
+    "run_experiment",
     "run_replay",
     "run_route_once",
     "summarize_by_class",
