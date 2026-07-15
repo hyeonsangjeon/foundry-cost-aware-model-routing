@@ -14,6 +14,11 @@ cost-router hero --serve
 브라우저에서 `http://127.0.0.1:8000`을 열면 대시보드가 뜹니다. 페이지는 외부 자산·폰트 없이
 단일 인라인 HTML/CSS/JS이며, 오직 이 서비스의 JSON 엔드포인트로만 same-origin fetch를 합니다.
 
+!!! success "설치 없이 바로 보기"
+    이 대시보드는 GitHub Pages에 정적으로도 게시돼 있어, 클론·설치 없이 바로 열 수 있습니다.
+
+    [:material-open-in-new: 라이브 데모 (자동 재생)](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1){ .md-button target=_blank }
+
 ## 무엇을 보여주나
 
 - **정책 표** — 클래스별 순위가 매겨진 후보 모델과 사전값
@@ -61,8 +66,14 @@ python scripts/build_static_site.py cost-router-dashboard
 ```
 
 `/healthz`, `/policy`, `/replay` JSON을 평면 파일로 굽고, 동일한 대시보드 HTML/JS가 라이브
-라우트 대신 그 파일들을 fetch하도록 엔드포인트 맵을 주입합니다. 결과는 결정론적이며 번들
-합성 워크로드에서만 생성됩니다.
+라우트 대신 그 파일들을 fetch하도록 엔드포인트 맵을 주입합니다. 주입되는 경로는 **상대경로**
+(`healthz.json` 등, 앞에 `/` 없음)라서 사이트 루트든, 프로젝트 Pages 하위 경로
+(`…/foundry-cost-aware-model-routing/demo/`)든 어디에 올려도 그대로 동작합니다. 결과는
+결정론적이며 번들 합성 워크로드에서만 생성됩니다.
+
+이 저장소의 `docs` 워크플로는 매뉴얼 사이트를 빌드한 뒤 이 스크립트로 대시보드를 `_site/demo/`에
+구워 함께 배포합니다. 그래서 위의 [라이브 데모](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1)가
+항상 최신 라우팅 결과를 반영합니다.
 
 ## 컨테이너로 실행
 

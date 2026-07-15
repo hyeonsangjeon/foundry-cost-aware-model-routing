@@ -14,6 +14,9 @@ private notes, launch notes, and diagrams stay outside Git.
 📘 **한국어 매뉴얼 · 실험노트 (github.io):**
 <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
 
+▶️ **Live interactive dashboard (no install, auto-plays):**
+<https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1>
+
 ## Quickstart (30 seconds)
 
 Everything runs offline against the checked-in synthetic samples — no network,
