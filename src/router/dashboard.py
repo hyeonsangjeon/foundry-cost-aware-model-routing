@@ -673,7 +673,13 @@ async function runReplay() {
 $("run").addEventListener("click", runReplay);
 if (window.innerWidth < 960) { const d = $("policyDetails"); if (d) d.removeAttribute("open"); }
 loadHealth();
-loadPolicy();
+loadPolicy().then(() => {
+  // Hero mode (cost-router hero --serve) opens the dashboard with ?run=1 so the
+  // before/after animates on load — no click needed. Policy must load first so
+  // MODEL_ORDER is populated before the replay renders.
+  const q = new URLSearchParams(window.location.search);
+  if (q.get("run") === "1" || q.has("autorun")) runReplay();
+});
 </script>
 </body>
 </html>

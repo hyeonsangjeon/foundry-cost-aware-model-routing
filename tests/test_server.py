@@ -182,6 +182,16 @@ def test_dashboard_inline_script_is_well_formed(service: RouterService, tmp_path
         assert proc.returncode == 0, proc.stderr
 
 
+def test_dashboard_autoruns_in_hero_mode(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    # cost-router hero --serve opens ?run=1 so the before/after animates on load.
+    assert "URLSearchParams" in script
+    assert 'q.get("run")' in script
+    # auto-run is chained after loadPolicy() so MODEL_ORDER is ready first.
+    assert "loadPolicy().then(" in script
+
+
 def test_dashboard_rounds_away_false_precision(service: RouterService) -> None:
     html = service.dispatch("GET", "/").payload
     script = re.search(r"<script>(.*)</script>", html, re.S).group(1)

@@ -41,7 +41,7 @@ reproducibility  PASS
 
 ```bash
 cost-router hero --serve   # 실행 후 오프라인 대시보드를 띄웁니다
-# 브라우저에서 http://127.0.0.1:8000 열기
+# 브라우저에서 http://127.0.0.1:8000/?run=1 열기 → 로드 즉시 자동 재생
 ```
 
 ## 무엇을 보게 되나요

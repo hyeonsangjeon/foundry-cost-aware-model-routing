@@ -25,7 +25,7 @@ self-check — it exits non-zero if the offline projection ever drifts below the
 contracted floor. Add `--serve` to boot the dashboard and watch it live:
 
 ```bash
-cost-router hero --serve   # then open http://127.0.0.1:8000
+cost-router hero --serve   # then open http://127.0.0.1:8000/?run=1 (auto-runs)
 ```
 
 ## Usage

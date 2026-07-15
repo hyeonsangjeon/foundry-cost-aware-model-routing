@@ -358,8 +358,10 @@ def _cmd_hero(args: argparse.Namespace) -> int:
     from . import server
 
     if not args.json:
+        url = f"http://{args.host}:{args.port}/?run=1"
         print("")
-        print(f"serving the offline dashboard on http://{args.host}:{args.port} (Ctrl-C to stop)")
+        print(f"serving the offline dashboard on {url} (Ctrl-C to stop)", flush=True)
+        print("open it to watch the before/after animate automatically", flush=True)
     return server.serve(host=args.host, port=args.port)
 
 

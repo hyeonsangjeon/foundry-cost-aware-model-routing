@@ -36,6 +36,9 @@ cost-router hero --serve       # 실행 후 대시보드 부팅 (http://127.0.0.
 cost-router hero --serve --host 0.0.0.0 --port 9000
 ```
 
+`--serve`는 `http://127.0.0.1:8000/?run=1`을 안내합니다. 이 주소를 열면 클릭 없이도
+before/after 애니메이션과 스포트라이트가 **로드 즉시** 재생됩니다(약 20초).
+
 ## experiment — 명명된 실험
 
 ```bash
