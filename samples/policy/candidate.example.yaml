@@ -1,0 +1,35 @@
+# Public-safe candidate policy used to demonstrate the regression guard.
+#
+# Same generic placeholder models as the seed policy, with illustrative priors
+# nudged so a base-vs-candidate comparison shows a measurable cost/coverage
+# delta. Not measured data. Replace with local telemetry before any real use.
+#
+# Contract identical to seed_policy.yaml (see src/policy/schema.py:PolicyTable).
+
+version: 2
+
+classes:
+  plan:
+    - { model: swift-coder,   prior_pass: 0.58, prior_usd_resolved: 0.40 }
+    - { model: balanced-pro,  prior_pass: 0.74, prior_usd_resolved: 1.10 }
+    - { model: deep-reasoner, prior_pass: 0.88, prior_usd_resolved: 2.80 }
+
+  generate:
+    - { model: mini-fast,     prior_pass: 0.78, prior_usd_resolved: 0.12 }
+    - { model: swift-coder,   prior_pass: 0.83, prior_usd_resolved: 0.35 }
+    - { model: balanced-pro,  prior_pass: 0.90, prior_usd_resolved: 1.05 }
+
+  test:
+    - { model: mini-fast,     prior_pass: 0.72, prior_usd_resolved: 0.15 }
+    - { model: swift-coder,   prior_pass: 0.82, prior_usd_resolved: 0.38 }
+    - { model: balanced-pro,  prior_pass: 0.88, prior_usd_resolved: 1.00 }
+
+  validate:
+    - { model: mini-fast,     prior_pass: 0.75, prior_usd_resolved: 0.14 }
+    - { model: balanced-pro,  prior_pass: 0.87, prior_usd_resolved: 0.95 }
+    - { model: deep-reasoner, prior_pass: 0.92, prior_usd_resolved: 2.50 }
+
+  repo_patch:
+    - { model: swift-coder,   prior_pass: 0.52, prior_usd_resolved: 0.55 }
+    - { model: balanced-pro,  prior_pass: 0.70, prior_usd_resolved: 1.40 }
+    - { model: deep-reasoner, prior_pass: 0.82, prior_usd_resolved: 3.10 }

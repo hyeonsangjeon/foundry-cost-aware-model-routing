@@ -8,29 +8,53 @@ formatting live in exactly one place.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from policy import PolicyTable, TaskClass, load_default_policy
+from policy import (
+    PolicyTable,
+    TaskClass,
+    describe_model,
+    diff_policies,
+    format_diff,
+    load_default_policy,
+)
 
-from .baseline import baseline_cost_usd
+from .baseline import (
+    baseline_cost_usd,
+    baseline_model_for_task,
+    single_call_baseline_arms,
+    single_tier_summary,
+)
 from .classify import classify_task
+from .ledger import (
+    JsonlLedger,
+    build_ledger_record,
+    require_valid_records,
+    verify_ledger,
+    verify_records,
+)
 from .offline import (
     load_signal_fixture,
     load_workload,
     route_task,
     route_tasks,
     summarize_traces,
+    synthesize_shared_signals,
     synthesize_signals,
     synthesize_task_signals,
 )
 from .pricing import PricingTable
+from .profile import stratify_traces
+from .spotlight import select_spotlight
 
 DEFAULT_WORKLOAD = Path("samples/telemetry/mixed-coding-workload.sample.jsonl")
 DEFAULT_SIGNALS = Path("samples/responses/routing-signals.sample.json")
 DEFAULT_PRICING = Path("samples/pricing/illustrative.yaml")
+POLICY_ENV_VAR = "COST_ROUTER_POLICY"
 
 
 @dataclass(frozen=True)
@@ -74,25 +98,64 @@ def load_default_pricing(root: Path | str | None = None) -> PricingTable:
     return PricingTable.from_yaml(resolve_paths(root=root)["pricing"])
 
 
+def resolve_policy_path(policy: Path | str | None = None) -> Path | None:
+    """Resolve the policy source with precedence: CLI arg > env var > bundled.
+
+    Returns ``None`` when neither an explicit path nor ``COST_ROUTER_POLICY`` is
+    set, signalling that the bundled seed policy should be used.
+    """
+
+    if policy is not None:
+        return Path(policy)
+    env_value = os.environ.get(POLICY_ENV_VAR)
+    if env_value:
+        return Path(env_value)
+    return None
+
+
+def load_policy(policy: Path | str | None = None) -> PolicyTable:
+    """Load and validate a policy, honouring the CLI > env > bundled precedence."""
+
+    path = resolve_policy_path(policy)
+    if path is None:
+        return load_default_policy()
+    return PolicyTable.from_yaml(path).validate()
+
+
 def policy_summary(policy: PolicyTable | None = None) -> dict[str, Any]:
-    """Summarize a policy as version + ordered candidates per task class."""
+    """Summarize a policy as version + ordered candidates per task class.
+
+    Each candidate is enriched with its catalog ``tier``/``reasoning``/``role``
+    (a vendor-neutral description of what the placeholder represents), and a
+    deduplicated ``catalog`` of the models the policy actually uses is included
+    so consumers can render a legend without re-deriving it.
+    """
 
     policy = policy or load_default_policy()
-    return {
-        "version": policy.version,
-        "classes": {
-            task_class.value: [
-                {
-                    "model": candidate.model,
-                    "rank": rank,
-                    "prior_pass": candidate.prior_pass,
-                    "prior_usd_resolved": candidate.prior_usd_resolved,
-                }
-                for rank, candidate in enumerate(policy.candidates_for(task_class))
-            ]
-            for task_class in TaskClass
-        },
+    classes = {
+        task_class.value: [
+            {
+                "model": candidate.model,
+                "rank": rank,
+                "prior_pass": candidate.prior_pass,
+                "prior_usd_resolved": candidate.prior_usd_resolved,
+                **{k: v for k, v in describe_model(candidate.model).items() if k != "model"},
+            }
+            for rank, candidate in enumerate(policy.candidates_for(task_class))
+        ]
+        for task_class in TaskClass
     }
+    used_models: dict[str, float] = {}
+    for candidates in policy.classes.values():
+        for candidate in candidates:
+            prior = candidate.prior_usd_resolved
+            if candidate.model not in used_models or prior < used_models[candidate.model]:
+                used_models[candidate.model] = prior
+    catalog = [
+        describe_model(model)
+        for model in sorted(used_models, key=lambda m: used_models[m])
+    ]
+    return {"version": policy.version, "classes": classes, "catalog": catalog}
 
 
 def route_payload(
@@ -148,8 +211,9 @@ def _load_context(
     *,
     workload_path: Path | str,
     pricing_path: Path | str,
+    policy_path: Path | str | None = None,
 ) -> tuple[PolicyTable, dict[str, dict[str, Any]], PricingTable]:
-    policy = load_default_policy()
+    policy = load_policy(policy_path)
     workload = load_workload(workload_path)
     pricing = PricingTable.from_yaml(pricing_path)
     return policy, workload, pricing
@@ -175,17 +239,213 @@ def run_replay(
     pricing_path: Path | str,
     signals_path: Path | str | None = None,
     synth: bool = False,
+    policy_path: Path | str | None = None,
+    ledger_path: Path | str | None = None,
 ) -> ReplayReport:
     """Route every task that has signals and return traces plus a summary."""
 
     policy, workload, pricing = _load_context(
-        workload_path=workload_path, pricing_path=pricing_path
+        workload_path=workload_path, pricing_path=pricing_path, policy_path=policy_path
     )
     signals = _signals_for(
         synth=synth, workload=workload, policy=policy, signals_path=signals_path
     )
+    return _replay_report(
+        workload,
+        signals,
+        policy=policy,
+        pricing=pricing,
+        ledger_path=ledger_path,
+        signal_kind="synth" if synth else "fixture",
+    )
+
+
+def run_bundled_replay(
+    *,
+    policy: PolicyTable | None = None,
+    synth: bool = False,
+    root: Path | str | None = None,
+    ledger_path: Path | str | None = None,
+) -> ReplayReport:
+    """Replay the bundled sample workload with an in-memory policy.
+
+    Shares the exact routing/summary path as :func:`run_replay` but sources the
+    workload, signals, and pricing from the checked-in samples so an already
+    loaded policy (e.g. a running service's injected policy) can be reused
+    without touching a policy file again. Offline and deterministic.
+    """
+
+    policy = policy or load_default_policy()
+    paths = resolve_paths(root=root)
+    workload = load_workload(paths["workload"])
+    pricing = PricingTable.from_yaml(paths["pricing"])
+    signals = _signals_for(
+        synth=synth,
+        workload=workload,
+        policy=policy,
+        signals_path=None if synth else paths["signals"],
+    )
+    return _replay_report(
+        workload,
+        signals,
+        policy=policy,
+        pricing=pricing,
+        ledger_path=ledger_path,
+        signal_kind="synth" if synth else "fixture",
+    )
+
+
+def _replay_report(
+    workload: Mapping[str, Mapping[str, Any]],
+    signals: Mapping[str, Any],
+    *,
+    policy: PolicyTable,
+    pricing: PricingTable,
+    ledger_path: Path | str | None = None,
+    signal_kind: str = "fixture",
+) -> ReplayReport:
+    """Route the signalled tasks and attach the naive-vs-routed before/after."""
+
     traces = route_tasks(workload, signals, policy=policy, pricing=pricing)
-    return ReplayReport(traces=traces, summary=summarize_traces(traces))
+    summary = summarize_traces(traces)
+    routed_tasks = {task_id: workload[task_id] for task_id in signals if task_id in workload}
+    baseline = baseline_cost_usd(routed_tasks, policy, pricing)
+    delta = round(baseline - summary["total_cost_usd"], 6)
+    summary["baseline_total_usd"] = baseline
+    summary["delta_usd"] = delta
+    summary["delta_pct"] = (delta / baseline) if baseline else 0.0
+    summary["measured"] = False
+    summary["breakdown"] = aggregate_replay(traces, routed_tasks, policy=policy, pricing=pricing)
+    summary["baseline_arms"] = single_call_baseline_arms(
+        routed_tasks,
+        signals,
+        policy,
+        pricing,
+    )
+    summary["strata"] = stratify_traces(traces)
+    summary["strategies"] = _strategy_comparison(
+        routed_tasks, signals, summary, policy=policy, pricing=pricing
+    )
+    summary["escalated_tasks"] = _count_escalated(traces)
+    spotlight = select_spotlight(traces, pricing, "auto")
+    summary["spotlight"] = spotlight.to_dict() if spotlight else None
+    if ledger_path is not None:
+        summary["ledger"] = _append_ledger(
+            ledger_path=ledger_path,
+            workload=routed_tasks,
+            signals=signals,
+            traces=traces,
+            policy=policy,
+            pricing=pricing,
+            signal_kind=signal_kind,
+        )
+    return ReplayReport(traces=traces, summary=summary)
+
+
+def _strategy_comparison(
+    routed_tasks: Mapping[str, Mapping[str, Any]],
+    signals: Mapping[str, Any],
+    summary: Mapping[str, Any],
+    *,
+    policy: PolicyTable,
+    pricing: PricingTable,
+) -> dict[str, dict[str, float]]:
+    """Cost + coverage for all-mini, all-premium, and the cost-aware mix.
+
+    all-mini/all-premium reuse :func:`single_tier_summary` (same signals, same
+    clean predicate); the mix is the routed result already in ``summary``. This
+    surfaces the trade-off: cheapest-only is cheaper but loses coverage, premium
+    holds coverage but costs the most, and only the mix wins on both.
+    """
+
+    mini = single_tier_summary(routed_tasks, signals, policy, pricing, cheapest=True)
+    premium = single_tier_summary(routed_tasks, signals, policy, pricing, cheapest=False)
+    return {
+        "all_mini": {
+            "total_cost_usd": mini["total_cost_usd"],
+            "coverage": mini["coverage"],
+        },
+        "all_premium": {
+            "total_cost_usd": premium["total_cost_usd"],
+            "coverage": premium["coverage"],
+        },
+        "mix": {
+            "total_cost_usd": summary["total_cost_usd"],
+            "coverage": summary["coverage"],
+        },
+    }
+
+
+def _count_escalated(traces: Sequence[Mapping[str, Any]]) -> int:
+    """Count tasks routed to a tier above the cheapest candidate for their class."""
+
+    escalated = 0
+    for trace in traces:
+        candidates = trace.get("candidates") or []
+        if not candidates:
+            continue
+        cheapest = min(candidates, key=lambda item: item.get("prior_usd_resolved", 0.0))
+        chosen = trace.get("chosen")
+        if chosen and chosen != cheapest.get("model"):
+            escalated += 1
+    return escalated
+
+
+def aggregate_replay(
+    traces: Sequence[Mapping[str, Any]],
+    routed_tasks: Mapping[str, Mapping[str, Any]],
+    *,
+    policy: PolicyTable,
+    pricing: PricingTable,
+) -> dict[str, Any]:
+    """Aggregate routed traces for dashboard-style statistics.
+
+    Returns per-class (routed vs naive-baseline cost + savings), per-chosen-model
+    (task count, routed cost), and per-mode/per-reason tallies. Deterministic and
+    derived only from the given traces/tasks — no re-routing.
+    """
+
+    by_class: dict[str, dict[str, Any]] = {}
+    by_model: dict[str, dict[str, Any]] = {}
+    mode_cost: dict[str, float] = {}
+    reason_counts: dict[str, int] = {}
+    for trace in traces:
+        cls = str(trace.get("class"))
+        model = str(trace.get("chosen"))
+        mode = str(trace.get("mode"))
+        reason = str(trace.get("reason"))
+        cost = float(trace.get("cost_usd") or 0.0)
+        cbucket = by_class.setdefault(
+            cls, {"tasks": 0, "routed_usd": 0.0, "baseline_usd": 0.0}
+        )
+        cbucket["tasks"] += 1
+        cbucket["routed_usd"] = round(cbucket["routed_usd"] + cost, 6)
+        mbucket = by_model.setdefault(model, {"tasks": 0, "routed_usd": 0.0})
+        mbucket["tasks"] += 1
+        mbucket["routed_usd"] = round(mbucket["routed_usd"] + cost, 6)
+        mode_cost[mode] = round(mode_cost.get(mode, 0.0) + cost, 6)
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+
+    for task in routed_tasks.values():
+        cls = classify_task(task)
+        model = baseline_model_for_task(task, policy)
+        cost = pricing.cost_usd(model, task.get("tokens", {})) if pricing else 0.0
+        cbucket = by_class.setdefault(
+            cls, {"tasks": 0, "routed_usd": 0.0, "baseline_usd": 0.0}
+        )
+        cbucket["baseline_usd"] = round(cbucket["baseline_usd"] + (cost or 0.0), 6)
+
+    for cbucket in by_class.values():
+        saved = round(cbucket["baseline_usd"] - cbucket["routed_usd"], 6)
+        cbucket["saved_usd"] = saved
+        cbucket["saved_pct"] = (saved / cbucket["baseline_usd"]) if cbucket["baseline_usd"] else 0.0
+
+    return {
+        "by_class": by_class,
+        "by_model": by_model,
+        "mode_cost_usd": mode_cost,
+        "reason_counts": reason_counts,
+    }
 
 
 def run_route_once(
@@ -195,11 +455,13 @@ def run_route_once(
     pricing_path: Path | str,
     signals_path: Path | str | None = None,
     synth: bool = False,
+    policy_path: Path | str | None = None,
+    ledger_path: Path | str | None = None,
 ) -> dict[str, Any]:
     """Route a single task and return its trace."""
 
     policy, workload, pricing = _load_context(
-        workload_path=workload_path, pricing_path=pricing_path
+        workload_path=workload_path, pricing_path=pricing_path, policy_path=policy_path
     )
     if task_id not in workload:
         raise KeyError(f"unknown task id: {task_id}")
@@ -208,24 +470,27 @@ def run_route_once(
     )
     if task_id not in signals:
         raise KeyError(f"no sample signals for task id: {task_id}")
-    return route_task(workload[task_id], signals[task_id], policy=policy, pricing=pricing)
+    trace = route_task(workload[task_id], signals[task_id], policy=policy, pricing=pricing)
+    if ledger_path is not None:
+        _append_ledger(
+            ledger_path=ledger_path,
+            workload={task_id: workload[task_id]},
+            signals={task_id: signals[task_id]},
+            traces=[trace],
+            policy=policy,
+            pricing=pricing,
+            signal_kind="synth" if synth else "fixture",
+        )
+    return trace
 
 
-def run_evals(
+def _eval_traces(
     *,
-    workload_path: Path | str,
-    pricing_path: Path | str,
-    signals_path: Path | str | None = None,
-    synth: bool = False,
+    policy: PolicyTable,
+    workload: dict[str, dict[str, Any]],
+    pricing: PricingTable,
+    signals: dict[str, Any],
 ) -> dict[str, Any]:
-    """Summarize routed cost/coverage against the always-most-expensive baseline."""
-
-    policy, workload, pricing = _load_context(
-        workload_path=workload_path, pricing_path=pricing_path
-    )
-    signals = _signals_for(
-        synth=synth, workload=workload, policy=policy, signals_path=signals_path
-    )
     selected = {task_id: workload[task_id] for task_id in signals}
     traces = route_tasks(selected, signals, policy=policy, pricing=pricing)
     routed = summarize_traces(traces)
@@ -242,6 +507,134 @@ def run_evals(
         "delta_pct": delta_pct,
         "mode_counts": routed["mode_counts"],
         "reason_counts": routed["reason_counts"],
+        "by_class": summarize_by_class(traces),
+        "baseline_arms": single_call_baseline_arms(selected, signals, policy, pricing),
+        "strata": stratify_traces(traces),
+    }
+
+
+def _append_ledger(
+    *,
+    ledger_path: Path | str,
+    workload: Mapping[str, Mapping[str, Any]],
+    signals: Mapping[str, Any],
+    traces: Sequence[Mapping[str, Any]],
+    policy: PolicyTable,
+    pricing: PricingTable,
+    signal_kind: str,
+) -> dict[str, Any]:
+    """Build, verify, append, then re-verify a batch of ledger records."""
+
+    records = []
+    for trace in traces:
+        task_id = str(trace.get("task_id"))
+        if task_id not in workload or task_id not in signals:
+            raise ValueError(f"cannot record ledger entry for unknown task {task_id!r}")
+        records.append(
+            build_ledger_record(
+                task=workload[task_id],
+                signals_by_model=signals[task_id],
+                trace=trace,
+                policy=policy,
+                pricing=pricing,
+                signal_kind=signal_kind,
+            )
+        )
+    batch_report = verify_records(records)
+    if not batch_report.ok:
+        raise ValueError("ledger batch failed deterministic replay before append")
+    store = JsonlLedger(ledger_path)
+    appended = store.append_many(records, validator=require_valid_records)
+    full_report = verify_ledger(ledger_path)
+    if not full_report.ok:
+        raise ValueError("ledger failed deterministic replay after append")
+    return {
+        "path": str(Path(ledger_path)),
+        "appended": len(appended),
+        **full_report.to_dict(),
+    }
+
+
+def run_evals(
+    *,
+    workload_path: Path | str,
+    pricing_path: Path | str,
+    signals_path: Path | str | None = None,
+    synth: bool = False,
+    policy_path: Path | str | None = None,
+) -> dict[str, Any]:
+    """Summarize routed cost/coverage against the always-most-expensive baseline."""
+
+    policy, workload, pricing = _load_context(
+        workload_path=workload_path, pricing_path=pricing_path, policy_path=policy_path
+    )
+    signals = _signals_for(
+        synth=synth, workload=workload, policy=policy, signals_path=signals_path
+    )
+    return _eval_traces(policy=policy, workload=workload, pricing=pricing, signals=signals)
+
+
+def summarize_by_class(traces: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Group traces by task class with count/accepted/cost per class."""
+
+    out: dict[str, dict[str, Any]] = {}
+    for trace in traces:
+        cls = str(trace.get("class"))
+        bucket = out.setdefault(cls, {"tasks": 0, "accepted": 0, "cost_usd": 0.0})
+        bucket["tasks"] += 1
+        bucket["accepted"] += 1 if _trace_accepted(trace) else 0
+        bucket["cost_usd"] = round(bucket["cost_usd"] + _cost(trace), 6)
+    return out
+
+
+def _trace_accepted(trace: dict[str, Any]) -> bool:
+    chosen = trace.get("chosen")
+    for attempt in trace.get("attempts", []):
+        if attempt.get("model") == chosen:
+            return bool(attempt.get("accepted"))
+    return False
+
+
+def regression_report(
+    *,
+    workload_path: Path | str,
+    pricing_path: Path | str,
+    candidate_policy_path: Path | str,
+    base_policy_path: Path | str | None = None,
+    signals_path: Path | str | None = None,
+    synth: bool = False,
+) -> dict[str, Any]:
+    """Compare a candidate policy against a base policy on the same workload.
+
+    Both policies route the identical workload, pricing, and a single shared set
+    of evaluation signals, so the deltas isolate the routing change alone. With
+    ``synth=True`` the shared signals are synthesized once from the *union* of
+    both policies' candidates (base-preferred priors, union fallback forced
+    clean); with ``synth=False`` both policies read the same checked-in fixture.
+    The result is deterministic for a given workload and ``synth``.
+    """
+
+    workload = load_workload(workload_path)
+    pricing = PricingTable.from_yaml(pricing_path)
+    base = load_policy(base_policy_path)
+    candidate = PolicyTable.from_yaml(candidate_policy_path).validate()
+    if synth:
+        signals = synthesize_shared_signals(workload, base, candidate)
+        signal_kind = "shared-synth"
+    else:
+        if signals_path is None:
+            raise ValueError("signals_path is required when synth is False")
+        signals = load_signal_fixture(signals_path)
+        signal_kind = "fixture"
+    base_eval = _eval_traces(policy=base, workload=workload, pricing=pricing, signals=signals)
+    cand_eval = _eval_traces(policy=candidate, workload=workload, pricing=pricing, signals=signals)
+    return {
+        "base": base_eval,
+        "candidate": cand_eval,
+        "cost_delta_usd": round(cand_eval["routed_total_usd"] - base_eval["routed_total_usd"], 6),
+        "coverage_delta": round(cand_eval["coverage"] - base_eval["coverage"], 6),
+        "diff": format_diff(diff_policies(base, candidate)),
+        "evaluation": {"signals": signal_kind, "tasks": len(signals)},
     }
 
 
@@ -266,7 +659,47 @@ def format_replay_text(report: ReplayReport) -> str:
         f"coverage={summary['coverage']:.1%} "
         f"cost=${summary['total_cost_usd']:.6f}"
     )
+    lines.extend(_format_before_after(summary))
+    ledger = summary.get("ledger")
+    if ledger:
+        lines.append("")
+        lines.append(
+            f"ledger  path={ledger['path']} appended={ledger['appended']} "
+            f"matched={ledger['matched']}/{ledger['records']} "
+            f"completeness={ledger['completeness']:.1%} "
+            f"status={'PASS' if ledger['ok'] else 'FAIL'}"
+        )
     return "\n".join(lines)
+
+
+def _format_before_after(summary: Mapping[str, Any]) -> list[str]:
+    """Render the 30-second naive-vs-routed 'aha' block (offline projection).
+
+    Omitted when the summary carries no baseline (e.g. legacy callers), so the
+    per-task + summary output stays intact.
+    """
+
+    if "baseline_total_usd" not in summary:
+        return []
+    baseline = float(summary["baseline_total_usd"])
+    routed = float(summary["total_cost_usd"])
+    delta = float(summary.get("delta_usd", baseline - routed))
+    delta_pct = float(summary.get("delta_pct", 0.0))
+    coverage = float(summary.get("coverage", 0.0))
+    mode_counts = summary.get("mode_counts", {})
+    reason_counts = summary.get("reason_counts", {})
+    single = int(mode_counts.get("ordered", 0))
+    ensemble = int(mode_counts.get("compare", 0))
+    routes = " ".join(f"{reason}={count}" for reason, count in sorted(reason_counts.items()))
+    return [
+        "",
+        "before / after  (offline projection over synthetic data; labels.measured=false)",
+        f"  BEFORE  naive: premium model on every task   ${baseline:.6f}",
+        f"  AFTER   cost-aware routing                   ${routed:.6f}",
+        f"  SAVED   ${delta:.6f}  ({delta_pct:.1%} lower)  at {coverage:.1%} coverage",
+        f"  strategy  single-route={single} ensemble={ensemble}"
+        + (f"  |  {routes}" if routes else ""),
+    ]
 
 
 def format_replay_json(report: ReplayReport) -> str:
@@ -291,6 +724,46 @@ def format_eval_report(report: dict[str, Any]) -> str:
     lines.append("reason_counts:")
     for reason, count in sorted(report["reason_counts"].items()):
         lines.append(f"  {reason}: {count}")
+    by_class = report.get("by_class")
+    if by_class:
+        lines.append("by_class:")
+        for cls, stats in sorted(by_class.items()):
+            lines.append(
+                f"  {cls}: tasks={stats['tasks']} "
+                f"accepted={stats['accepted']} cost=${stats['cost_usd']:.6f}"
+            )
+    baseline_arms = report.get("baseline_arms")
+    if baseline_arms:
+        lines.append("single_call_baseline_arms:")
+        for arm, stats in baseline_arms.items():
+            lines.append(
+                f"  {arm}: coverage={stats['coverage']:.1%} "
+                f"cost=${stats['total_cost_usd']:.6f}"
+            )
+    return "\n".join(lines)
+
+
+def format_regression_report(report: dict[str, Any]) -> str:
+    """Render a base-vs-candidate regression report as a human-readable block."""
+
+    base, cand = report["base"], report["candidate"]
+    evaluation = report.get("evaluation", {})
+    lines = [
+        report["diff"],
+        "",
+        f"evaluation: signals={evaluation.get('signals', '?')} "
+        f"tasks={evaluation.get('tasks', '?')} "
+        "(base and candidate scored on identical shared signals)",
+        "",
+        "regression (candidate vs base):",
+        f"  tasks: {cand['tasks']} (base {base['tasks']})",
+        f"  coverage: {cand['coverage']:.1%} (base {base['coverage']:.1%}, "
+        f"delta {report['coverage_delta']:+.4f})",
+        f"  routed_total_usd: {cand['routed_total_usd']:.6f} "
+        f"(base {base['routed_total_usd']:.6f}, delta {report['cost_delta_usd']:+.6f})",
+        f"  baseline_total_usd: {cand['baseline_total_usd']:.6f}",
+        f"  delta_pct vs baseline: {cand['delta_pct']:.1%} (base {base['delta_pct']:.1%})",
+    ]
     return "\n".join(lines)
 
 

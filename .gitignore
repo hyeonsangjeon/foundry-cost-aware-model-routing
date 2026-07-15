@@ -38,6 +38,14 @@ notes/
 drafts/
 scratch/
 
+# --- Local render/output artifacts (NEVER commit) ---
+# Generated decks, exports, and recordings often carry concept/source references
+# or private framing. Keep them out of the public tree.
+outputs/
+*.pptx
+*.mp4
+*.mov
+
 # Catch future local/private markdown drafts.
 *.internal.md
 *.private.md
@@ -92,3 +100,10 @@ reports/*.local.*
 scripts/.deploy-*
 *.resource-ids.txt
 .deploy-state/
+
+# Generated static Vercel export (build with scripts/build_static_site.py)
+cost-router-dashboard/
+
+# MkDocs docs site build output (github.io) — built by CI, never committed
+/site/
+/_site/

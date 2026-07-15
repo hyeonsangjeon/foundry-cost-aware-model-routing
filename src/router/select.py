@@ -110,6 +110,17 @@ def _is_clean(signals: Mapping[str, Any]) -> bool:
     return bool(checks) and all(checks.values())
 
 
+def is_clean(signals: Mapping[str, Any]) -> bool:
+    """Public alias: True when every boolean check in the signals passes.
+
+    This is the exact acceptance predicate the router uses, exposed so baseline
+    strategies (e.g. all-cheapest / all-premium) can score coverage on the same
+    signals without re-implementing the rule.
+    """
+
+    return _is_clean(signals)
+
+
 def _execution_score(signals: Mapping[str, Any]) -> float:
     checks = _boolean_checks(signals)
     if not checks:

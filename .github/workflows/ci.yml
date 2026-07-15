@@ -59,6 +59,19 @@ jobs:
             echo "cost-router console script not installed"
           fi
 
+      - name: Policy ops smoke
+        run: |
+          if command -v cost-router >/dev/null 2>&1; then
+            cost-router policy --help
+            cost-router policy validate --policy src/policy/seed_policy.yaml
+            cost-router policy validate --policy samples/policy/candidate.example.yaml
+            cost-router policy simulate --policy samples/policy/candidate.example.yaml --synth
+            cost-router policy regression --candidate samples/policy/candidate.example.yaml --synth
+            cost-router replay --policy samples/policy/candidate.example.yaml --synth
+          else
+            echo "cost-router console script not installed"
+          fi
+
       - name: Service smoke (offline endpoints)
         run: |
           python - <<'PY'
