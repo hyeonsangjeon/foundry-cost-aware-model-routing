@@ -1,0 +1,44 @@
+# cost-cut.yaml — a DELIBERATELY NAIVE candidate policy for experiment 03.
+#
+# The tempting "optimization": just delete the expensive fallback models
+# (deep-reasoner, premium-max) so nothing can ever route to them. It looks
+# cheaper on paper — but it silently removes the guaranteed clean fallback,
+# so a third of the workload loses any model that passes its own checks.
+#
+# This file exists to be compared against the bundled seed policy with:
+#   cost-router policy regression --candidate experiments/policies/cost-cut.yaml --synth
+# and to make the coverage cliff visible and reproducible. Do NOT use it as a
+# real routing policy — that is the whole point of the lesson.
+#
+# Same honesty rules as every file here: illustrative placeholder priors,
+# generic stand-in model names, labels.measured = false.
+
+version: 1
+
+classes:
+  # Planning / decomposition — premium fallback deleted.
+  plan:
+    - { model: swift-coder,   prior_pass: 0.55, prior_usd_resolved: 0.40 }
+    - { model: balanced-pro,  prior_pass: 0.72, prior_usd_resolved: 1.10 }
+
+  # Small, deterministic generation — unchanged (no premium fallback anyway).
+  generate:
+    - { model: mini-fast,     prior_pass: 0.74, prior_usd_resolved: 0.12 }
+    - { model: swift-coder,   prior_pass: 0.80, prior_usd_resolved: 0.35 }
+    - { model: balanced-pro,  prior_pass: 0.88, prior_usd_resolved: 1.05 }
+
+  # Test generation — unchanged.
+  test:
+    - { model: mini-fast,     prior_pass: 0.68, prior_usd_resolved: 0.15 }
+    - { model: swift-coder,   prior_pass: 0.79, prior_usd_resolved: 0.38 }
+    - { model: balanced-pro,  prior_pass: 0.86, prior_usd_resolved: 1.00 }
+
+  # Validation / checking — premium fallback deleted.
+  validate:
+    - { model: mini-fast,     prior_pass: 0.71, prior_usd_resolved: 0.14 }
+    - { model: balanced-pro,  prior_pass: 0.85, prior_usd_resolved: 0.95 }
+
+  # Repository patch — both premium fallbacks deleted (the biggest cliff).
+  repo_patch:
+    - { model: swift-coder,   prior_pass: 0.48, prior_usd_resolved: 0.55 }
+    - { model: balanced-pro,  prior_pass: 0.66, prior_usd_resolved: 1.40 }

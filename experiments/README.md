@@ -21,6 +21,21 @@ cost-router experiment run hero --json
 `cost-router hero --serve` runs the experiment and then boots the offline
 dashboard so you can watch the routing decisions live.
 
+## Policy regression (the coverage cliff)
+
+`experiments/policies/` holds candidate policies for **regression experiments**
+— the honest counter-story to the before/after wins. `cost-cut.yaml` naively
+deletes the expensive fallback models to look cheaper; comparing it against the
+seed policy exposes the coverage it silently loses:
+
+```bash
+cost-router policy regression --candidate experiments/policies/cost-cut.yaml --synth
+# coverage: 67.0% (base 100.0%)  → cheaper only because a third of tasks no
+# longer have a model that passes. Cost is comparable only at fixed coverage.
+```
+
+See the lab notebook: **실험 03 · 커버리지 절벽**.
+
 ## Fields
 
 | field | meaning |

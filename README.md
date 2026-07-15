@@ -66,6 +66,13 @@ cost-router experiment run curated   # run one by name
 cost-router experiment run hero --json
 ```
 
+The honest counter-example — deleting the expensive fallback models looks
+cheaper but drops coverage from 100% to 67% (lab notebook: 실험 03 · 커버리지 절벽):
+
+```bash
+cost-router policy regression --candidate experiments/policies/cost-cut.yaml --synth
+```
+
 ### The 30-second before / after
 
 `make replay` (and `cost-router replay`) end with a naive-vs-routed block: the
