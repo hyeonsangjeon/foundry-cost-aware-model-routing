@@ -26,6 +26,12 @@
 `cost`/`balanced`/`quality` arm은 투명한 **자리표시자 baseline**이며, 관리형 라우터의 내부
 구현에 대한 주장이 아닙니다.
 
+!!! tip "비용 × 커버리지 프런티어로 보기"
+    [대시보드](../manual/dashboard.md)는 `all-mini`·`all-premium`·`cost-aware mix` 세
+    전략을 **비용(가로) × 커버리지(세로) 산점도**로 그립니다. 오직 mix만 좌상단 '둘 다 이기는'
+    코너(완전 커버리지 + 낮은 비용)에 위치하는 것을 눈으로 확인할 수 있습니다 —
+    [라이브 데모](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1).
+
 ## 지표
 
 - **coverage** — 수용된(자체 신호가 깨끗한) 태스크 비율.
