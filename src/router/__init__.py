@@ -3,6 +3,9 @@
 from .baseline import (
     baseline_cost_usd,
     baseline_model_for_task,
+    model_router_pick,
+    model_router_summary,
+    score_single_call_arm,
     single_call_baseline_arms,
 )
 from .budget import BudgetDecision, BudgetGate
@@ -13,6 +16,13 @@ from .experiment import (
     list_experiments,
     load_experiment,
     run_experiment,
+)
+from .foundry_router import (
+    FOUNDRY_ROUTER_ENV_VARS,
+    FoundryModelRouter,
+    live_router_summary,
+    load_recorded_choices,
+    summary_from_choices,
 )
 from .metrics import (
     ExperimentMetrics,
@@ -69,7 +79,9 @@ __all__ = [
     "Experiment",
     "ExperimentMetrics",
     "ExperimentResult",
+    "FOUNDRY_ROUTER_ENV_VARS",
     "FoundryMetricsEmitter",
+    "FoundryModelRouter",
     "JsonlMetricsStore",
     "MetricSink",
     "PricingTable",
@@ -83,6 +95,9 @@ __all__ = [
     "__version__",
     "baseline_cost_usd",
     "baseline_model_for_task",
+    "model_router_pick",
+    "model_router_summary",
+    "score_single_call_arm",
     "single_call_baseline_arms",
     "batch_route_payload",
     "build_trace",
@@ -96,9 +111,11 @@ __all__ = [
     "format_replay_json",
     "format_replay_text",
     "list_experiments",
+    "live_router_summary",
     "load_default_pricing",
     "load_experiment",
     "load_policy",
+    "load_recorded_choices",
     "load_signal_fixture",
     "load_workload",
     "ordered_select",
@@ -120,6 +137,7 @@ __all__ = [
     "spotlight_for",
     "summarize_by_class",
     "summarize_traces",
+    "summary_from_choices",
     "stratify_traces",
     "synthesize_shared_signals",
     "synthesize_signals",

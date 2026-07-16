@@ -1,12 +1,58 @@
 # 개발 로그 · 실험일지
 
 !!! abstract "이 문서는 무엇인가"
-    실험(01–05)이 *"무엇을 검증했는가"*를 담는다면, 이 개발 로그는
+    실험(01–07)이 *"무엇을 검증했는가"*를 담는다면, 이 개발 로그는
     *"언제 · 어떤 상황에서 · 무슨 작업을 했는가"*를 시간순으로 남깁니다.
     각 항목은 **상황(왜) · 작업(무엇을) · 검증(효과)** 세 줄로 정리하며,
     수치가 등장하면 저장소 규약대로 항상 `measured = false`입니다.
 
     최신 항목이 맨 위입니다.
+
+---
+
+## 2026-07-16 · 실험 07 「라우팅 레이어」 — 한 번 고르기 vs 관찰하고 올리기
+
+!!! note "한 줄 요약"
+    Azure AI Foundry **Model Router**를 프런티어의 **일급 arm**으로 올렸습니다. Model Router는
+    앙상블이 아니라 프롬프트마다 모델을 **한 번** 고르는 *단일 호출* 라우팅 레이어입니다 —
+    이 저장소의 킬러 히어로 방법론이 최적화하는 바로 그 계층. 합성 100건에서 단일 호출은
+    커버리지 **52%**에 그치고, 관찰-후-에스컬레이션 mix는 비슷한 비용(**$1.59 vs $1.66**)에
+    **100%**를 채웁니다 — 그 이득 **+48%p**를 새 계약 `min_escalation_gain`이 고정합니다.
+    모든 수치는 `measured = false`.
+
+- **상황(왜):** "Foundry Model Router로 앙상블하자"는 요청은 개념 혼동에서 출발했습니다 —
+  Model Router는 앙상블이 아니라 **단일 호출 라우터**입니다. 사용자와 정리한 결론: 이건
+  곁다리가 아니라 이 저장소의 라우팅 레이어(킬러 히어로 방법론)와 **같은 계층**이니
+  프런티어의 일급 arm으로 넣는다.
+- **작업(무엇을):**
+    - **arm** `baseline.py`에 `model_router_pick`(난이도 floor 픽 `int(value×N)`) +
+      공유 채점기 `score_single_call_arm` + `model_router_summary`(measured=false,
+      equivalent=illustrative). `pipeline.py` `_strategy_comparison`에 다섯 번째 전략
+      `model_router` 배선.
+    - **계약** `experiment.py`에 `expect.min_escalation_gain`(mix 커버리지 − 단일 호출
+      커버리지 하한)과 `_evaluate`의 `escalation_gain` 검사. 실험 자산
+      `experiments/model-router.yaml`(합성 100건, `min_escalation_gain: 0.30`).
+    - **측정 브리지** `foundry_router.py` — 의존성 없는 게이트 어댑터
+      `FoundryModelRouter`(env 게이트, 주입 `client`, 기본 무egress) + `summary_from_choices`
+      /`live_router_summary`/`load_recorded_choices`. 기록 픽스처
+      `samples/responses/model-router-choices.sample.json`.
+    - **웹앱** `dashboard.py` 프런티어에 다섯 번째 점 `model_router`(파란 점) + 라우팅
+      레이어 주석(상대 링크 → 실험 07). 정적 export에도 포함.
+    - 실험노트 [실험 07](07-model-router.md), nav·index·README·experiments·매뉴얼(experiments/
+      dashboard) 교차 링크, CI 계약에 `experiment run model-router` 추가.
+- **검증(효과):** `experiment run model-router` → coverage 100% · saved 25.5% ·
+  **escalation_gain +48%p**(mix 100% − 단일 호출 52%) ≥ 30%. 프런티어 5점 배선 확인
+  (synth: model_router $1.587646/52%, 선택이 5개 모델에 고루 분산). 상한/하한 가드 물림
+  확인(하한 0.60으로 올리면 FAIL). 어댑터 게이트 확인(설정·client 없으면 비활성 →
+  RuntimeError; 기록 픽스처 채점 $0.127136/100%, 라이브 provenance). 새 테스트
+  `test_model_router.py`(18개) + `test_replay`/`test_server` 갱신으로 **pytest 289개 통과** ·
+  ruff clean · mkdocs strict OK. 모든 수치 `measured = false`.
+
+!!! quote "정직한 단서"
+    `model_router` arm은 단일 호출 라우터의 **모양**을 보여주는 프록시일 뿐 Azure의 내부
+    로직이 아닙니다(`equivalent = illustrative`). 실제 라우터의 선택 실력은 **측정된 값**이라
+    게이트 어댑터로 끼워 넣도록 열어 두었고, 라이브 결정을 넣어도 비용·커버리지는 오프라인
+    투영으로 남습니다(`measured = false`) — 오직 모델 **선택**만 라이브입니다.
 
 ---
 

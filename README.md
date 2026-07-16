@@ -41,7 +41,7 @@ cost-router hero --serve   # then open http://127.0.0.1:8000/?run=1 (auto-runs)
 ### The experiment arc — honest by construction
 
 This repo proves where cost-aware routing **wins** and, just as deliberately,
-where it **doesn't**. Five one-command experiments, each a deterministic offline
+where it **doesn't**. Seven one-command experiments, each a deterministic offline
 projection over synthetic data (`labels.measured=false`):
 
 | # | Experiment | Question it answers | Result |
@@ -52,10 +52,12 @@ projection over synthetic data (`labels.measured=false`):
 | 04 | [No free lunch](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/04-no-free-lunch/) | A workload where only the top model passes? | 100% coverage, **0%** saved (the boundary) |
 | 05 | [Ensemble fan-out tax](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% coverage, **−47%** — but fan-out spends **3.74×** the winner (the hidden tax) |
 | 06 | [Adaptive fan-out dial](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/06-fanout-dial/) | Can you keep the savings but drop the tax? | one budget dial: coverage/savings stay flat, tax **3.74× → $0** (the honest fix for exp 05) |
+| 07 | [Routing layer](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/07-model-router/) | What if you pick once, like Azure AI Foundry Model Router? | single-call routing holds **52%** coverage; observe-then-escalate mix reaches **100%** at ~the same cost (gain **+48%p**) |
 
-Experiments 01–02 are the win; 03–06 are the guardrails. Each `expect` contract
+Experiments 01–02 are the win; 03–07 are the guardrails. Each `expect` contract
 fails CI if the projection ever drifts — including a two-sided ceiling that
-rejects **phantom savings**. The full narrative lives in the
+rejects **phantom savings** and an escalation-gain floor that keeps
+observe-then-escalate honest. The full narrative lives in the
 [Korean lab notebook](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/).
 
 ## Usage
@@ -125,6 +127,18 @@ Experiment 06 pins this with a `max_tax_ratio` ceiling (lab notebook: 실험 06 
 
 ```bash
 cost-router experiment run adaptive          # 100% coverage, −47% — fan-out tax dialed to 0.00×
+```
+
+The routing layer — Azure AI Foundry **Model Router** is a *single-call* router
+(it picks one model per prompt, not an ensemble). Experiment 07 adds it as the
+frontier's fifth arm: single-call routing holds only **52%** coverage, while
+observe-then-escalate reaches **100%** at ~the same cost — a **+48%p**
+escalation gain pinned by a `min_escalation_gain` contract. A dependency-free,
+env-gated adapter (`FOUNDRY_*`) lets a live deployment's decisions replace the
+offline proxy (lab notebook: 실험 07 · 라우팅 레이어):
+
+```bash
+cost-router experiment run model-router      # 100% coverage, −25.5% — single-call vs escalate gain +48%p
 ```
 
 ### The 30-second before / after

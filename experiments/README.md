@@ -18,6 +18,7 @@ cost-router experiment run curated
 cost-router experiment run ensemble  # best-of-N fan-out: 100% coverage, -47%, but a 3.74x fan-out tax
 cost-router experiment run adaptive  # the honest fix: same coverage/savings, fan-out tax dialed to 0.00x
 cost-router experiment run limits    # the honest boundary: routing saves ~0% here
+cost-router experiment run model-router  # single-call routing layer: 52% coverage vs mix's 100% (gain +48%p)
 cost-router experiment run hero --json
 ```
 
@@ -103,6 +104,35 @@ cost-router policy regression --candidate experiments/policies/cost-cut.yaml --s
 
 See the lab notebook: **실험 03 · 커버리지 절벽**.
 
+## Routing layer (single-call vs observe-then-escalate)
+
+Azure AI Foundry **Model Router** is a *single-call* routing layer — it picks one
+model per prompt, up front (not an ensemble). `model-router.yaml` adds that shape
+as the frontier's fifth arm and pins the honest gap: committing per prompt with
+no escalation loses coverage that observe-then-escalate keeps.
+
+```bash
+cost-router experiment run model-router
+# coverage 100.0% · saved 25.5% · escalation_gain: mix 100% − single-call 52% = +48%p ≥ 30%
+```
+
+The `model_router` arm is a transparent proxy (`measured=false`,
+`equivalent=illustrative`) for a router's *shape*, not Azure's internal logic. To
+score a **real** deployment's decisions on the same offline frontier, use the
+dependency-free, env-gated adapter `router.foundry_router.FoundryModelRouter`:
+
+```bash
+export AZURE_AI_FOUNDRY_ENDPOINT=...          # or AZURE_OPENAI_ENDPOINT
+export AZURE_AI_FOUNDRY_MODEL_ROUTER=...      # the Model Router deployment name
+export AZURE_AI_FOUNDRY_API_KEY=...           # or AZURE_OPENAI_API_KEY
+```
+
+With no config the adapter is inert and the offline proxy stands in; even with
+live **decisions** the cost/coverage stay offline projections (`measured=false`)
+— only the model *choice* may be live. A recorded snapshot lives at
+`samples/responses/model-router-choices.sample.json`. See the lab notebook:
+**실험 07 · 라우팅 레이어**.
+
 ## Fields
 
 | field | meaning |
@@ -119,6 +149,7 @@ See the lab notebook: **실험 03 · 커버리지 절벽**.
 | `expect.min_delta_pct` | …while cutting at least this share of the naive bill |
 | `expect.max_delta_pct` | optional **upper** bound — savings must not exceed this (guards against phantom savings; see `limits.yaml`) |
 | `expect.max_tax_ratio` | optional **fan-out tax ceiling** — fan-out cost / winner cost must not exceed this (see `adaptive.yaml`) |
+| `expect.min_escalation_gain` | optional **escalation-gain floor** — mix coverage − single-call `model_router` coverage must be ≥ this (see `model-router.yaml`) |
 | `expect.min_tasks` | minimum tasks the run must cover |
 
 > 한국어 매뉴얼과 실험노트는 GitHub Pages 문서 사이트를 참고하세요 (`docs/`).

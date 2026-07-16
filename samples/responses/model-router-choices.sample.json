@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "_note": "Recorded Azure AI Foundry Model Router decisions (ILLUSTRATIVE, offline). A captured task_id -> chosen model snapshot for the bundled curated fixture, standing in for a live single-call router run. Scoring these choices against the offline signals yields 100% coverage at $0.127136 (~2.3x the escalating mix's $0.055) because this recorded run leaned toward strong models. labels.measured = false: only the DECISIONS are a snapshot; the cost/coverage remain offline projections. See docs/lab-notebook/07-model-router.md.",
+  "labels": { "measured": false, "decisions": "recorded" },
+  "choices": {
+    "t-0001": "balanced-pro",
+    "t-0003": "premium-max",
+    "t-0004": "deep-reasoner",
+    "t-0005": "deep-reasoner",
+    "t-0006": "balanced-pro"
+  }
+}

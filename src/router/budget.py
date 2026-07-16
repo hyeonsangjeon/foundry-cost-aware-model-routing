@@ -47,6 +47,17 @@ class BudgetGate:
         )
 
 
+def task_value(task: Mapping[str, Any]) -> float:
+    """Public heuristic task value in ``[0, 1]`` from difficulty/size/class.
+
+    Exposes the same signal :class:`BudgetGate` uses to decide fan-out, so a
+    single-call routing arm can pick a tier by predicted difficulty without
+    re-deriving the heuristic. Deterministic and offline.
+    """
+
+    return _task_value(task)
+
+
 def _task_value(task: Mapping[str, Any]) -> float:
     explicit = task.get("value")
     if isinstance(explicit, int | float):

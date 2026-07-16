@@ -27,6 +27,7 @@ from .baseline import (
     baseline_cost_usd,
     baseline_model_for_task,
     ensemble_all_summary,
+    model_router_summary,
     single_call_baseline_arms,
     single_tier_summary,
 )
@@ -363,17 +364,21 @@ def _strategy_comparison(
     policy: PolicyTable,
     pricing: PricingTable,
 ) -> dict[str, dict[str, float]]:
-    """Cost + coverage for all-mini, all-premium, and the cost-aware mix.
+    """Cost + coverage for all-mini, all-premium, ensemble, model-router, mix.
 
-    all-mini/all-premium reuse :func:`single_tier_summary` (same signals, same
-    clean predicate); the mix is the routed result already in ``summary``. This
-    surfaces the trade-off: cheapest-only is cheaper but loses coverage, premium
-    holds coverage but costs the most, and only the mix wins on both.
+    all-mini/all-premium reuse :func:`single_tier_summary`; ensemble fans out to
+    every model; ``model_router`` is a difficulty-tiered single-call pick (one
+    model per prompt, no escalation — the shape of a managed model router); the
+    mix is the routed result already in ``summary``. Together they surface the
+    trade-off: cheapest-only loses coverage, premium/ensemble hold coverage but
+    cost the most, a single-call router commits up front, and only the
+    observe-then-escalate mix wins on both cost and coverage.
     """
 
     mini = single_tier_summary(routed_tasks, signals, policy, pricing, cheapest=True)
     premium = single_tier_summary(routed_tasks, signals, policy, pricing, cheapest=False)
     ensemble = ensemble_all_summary(routed_tasks, signals, policy, pricing)
+    router = model_router_summary(routed_tasks, signals, policy, pricing)
     return {
         "all_mini": {
             "total_cost_usd": mini["total_cost_usd"],
@@ -386,6 +391,13 @@ def _strategy_comparison(
         "all_ensemble": {
             "total_cost_usd": ensemble["total_cost_usd"],
             "coverage": ensemble["coverage"],
+        },
+        "model_router": {
+            "total_cost_usd": router["total_cost_usd"],
+            "coverage": router["coverage"],
+            "selection": router["selection"],
+            "model_counts": router["model_counts"],
+            "labels": router["labels"],
         },
         "mix": {
             "total_cost_usd": summary["total_cost_usd"],
