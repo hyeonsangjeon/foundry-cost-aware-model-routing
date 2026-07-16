@@ -168,7 +168,7 @@ def test_adapter_is_inert_without_configuration() -> None:
 
 def test_adapter_is_configured_but_unavailable_without_a_client() -> None:
     env = {
-        "AZURE_AI_FOUNDRY_ENDPOINT": "https://example.openai.azure.com",
+        "AZURE_AI_FOUNDRY_ENDPOINT": "https://foundry.example/endpoint",
         "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
     }
     router = FoundryModelRouter.from_env(env=env)
@@ -180,12 +180,12 @@ def test_adapter_from_env_reads_the_documented_variables() -> None:
     assert "AZURE_AI_FOUNDRY_ENDPOINT" in FOUNDRY_ROUTER_ENV_VARS["endpoint"]
     assert "AZURE_AI_FOUNDRY_MODEL_ROUTER" in FOUNDRY_ROUTER_ENV_VARS["deployment"]
     env = {
-        "AZURE_OPENAI_ENDPOINT": "https://fallback.openai.azure.com",
+        "AZURE_OPENAI_ENDPOINT": "https://foundry.example/fallback",
         "AZURE_MODEL_ROUTER_DEPLOYMENT": "router-v1",
-        "AZURE_OPENAI_API_KEY": "secret",
+        "AZURE_OPENAI_API_KEY": "placeholder-not-a-real-key",
     }
     router = FoundryModelRouter.from_env(env=env, client=lambda dep, task: "mini-fast")
-    assert router.endpoint == "https://fallback.openai.azure.com"
+    assert router.endpoint == "https://foundry.example/fallback"
     assert router.deployment == "router-v1"
     assert router.available is True
     assert router.choose({"task_id": "t"}) == "mini-fast"
