@@ -276,6 +276,68 @@ def test_dashboard_shows_cost_coverage_frontier(service: RouterService) -> None:
     assert "both-win zone" in script
 
 
+def test_regression_endpoint_returns_coverage_cliff(service: RouterService) -> None:
+    response = service.dispatch("GET", "/regression")
+    assert response.status == 200
+    payload = response.payload
+    # seed policy keeps full coverage; the naive cost-cut candidate collapses.
+    assert payload["base"]["coverage"] == pytest.approx(1.0)
+    assert payload["base"]["routed_total_usd"] == pytest.approx(1.659167, abs=1e-6)
+    assert payload["candidate"]["coverage"] == pytest.approx(0.67)
+    assert payload["candidate"]["routed_total_usd"] == pytest.approx(0.727969, abs=1e-6)
+    assert payload["coverage_delta"] == pytest.approx(-0.33)
+    assert payload["measured"] is False
+    # it is a GET-only route.
+    assert service.dispatch("POST", "/regression").status == 405
+
+
+def test_dashboard_shows_coverage_cliff_panel(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    # A dedicated policy-A/B panel visualizes the coverage cliff from experiment 03.
+    assert 'id="cliffPanel"' in html
+    assert "Coverage cliff" in html
+    for element_id in ('id="cliffBaseBar"', 'id="cliffCandBar"', 'id="cliffDrop"'):
+        assert element_id in html
+    # rendered from the /regression endpoint and wired into the replay run.
+    assert "renderCliff" in script
+    assert "regression:" in script  # EP fallback map carries the route
+    assert "fetch(EP.regression)" in script
+
+
+def test_render_cliff_sets_bars_and_delta(service: RouterService, tmp_path) -> None:
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available")
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    render = re.search(r"function renderCliff\(r\) \{.*?\n\}", script, re.S)
+    assert render, "renderCliff must be present"
+    program = (
+        "const els = {};\n"
+        "function $(id){ if(!els[id]) els[id]={style:{}}; return els[id]; }\n"
+        "function usd(n){ return '$' + Number(n).toFixed(2); }\n"
+        "function pct(n){ return (n*100).toFixed(1) + '%'; }\n"
+        + render.group(0) + "\n"
+        "renderCliff({base:{coverage:1.0,routed_total_usd:1.659167},"
+        "candidate:{coverage:0.67,routed_total_usd:0.727969},coverage_delta:-0.33});\n"
+        "if (els.cliffBaseBar.style.width !== '100.0%') throw new Error('base bar');\n"
+        "if (els.cliffCandBar.style.width !== '67.0%') throw new Error('cand bar');\n"
+        "if (els.cliffBaseCov.textContent !== '100.0%') throw new Error('base cov');\n"
+        "if (els.cliffCandCov.textContent !== '67.0%') throw new Error('cand cov');\n"
+        "if (els.cliffDrop.textContent.indexOf('33') < 0) throw new Error('drop pts');\n"
+        "if (els.cliffTakeaway.textContent.indexOf('dropped work') < 0)"
+        " throw new Error('takeaway');\n"
+        "if (els.cliffPanel.hidden !== false) throw new Error('panel must reveal');\n"
+        "console.log('ok');\n"
+    )
+    js = tmp_path / "cliff.js"
+    js.write_text(program, encoding="utf-8")
+    proc = subprocess.run([node, str(js)], capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    assert "ok" in proc.stdout
+
+
 def test_dashboard_headline_names_the_mechanism(service: RouterService) -> None:
     html = service.dispatch("GET", "/").payload
     script = re.search(r"<script>(.*)</script>", html, re.S).group(1)

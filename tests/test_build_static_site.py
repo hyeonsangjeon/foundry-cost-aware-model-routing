@@ -41,6 +41,7 @@ def test_export_writes_all_files(site: Path) -> None:
         "policy.json",
         "replay-synth.json",
         "replay-curated.json",
+        "regression.json",
     ):
         assert (site / name).is_file(), f"missing {name}"
 
@@ -54,6 +55,7 @@ def test_injected_endpoints_are_relative(site: Path) -> None:
     assert 'policy: "policy.json"' in html
     assert '"replay-synth.json"' in html
     assert '"replay-curated.json"' in html
+    assert 'regression: "regression.json"' in html
 
     # Absolute injected paths would break project-Pages sub-path hosting.
     for absolute in (
@@ -61,6 +63,7 @@ def test_injected_endpoints_are_relative(site: Path) -> None:
         '"/policy.json"',
         '"/replay-synth.json"',
         '"/replay-curated.json"',
+        '"/regression.json"',
     ):
         assert absolute not in html, f"endpoint must be relative, found {absolute}"
 
@@ -81,3 +84,13 @@ def test_exported_json_is_valid_and_carries_spotlight(site: Path) -> None:
         assert spotlight is not None
         assert spotlight["task_id"]
         assert spotlight["ratio"] > 1.0
+
+
+def test_exported_regression_carries_coverage_cliff(site: Path) -> None:
+    payload = json.loads((site / "regression.json").read_text(encoding="utf-8"))
+    # The seed policy keeps full coverage; the naive cost-cut candidate collapses
+    # to 67% — the honest coverage cliff the dashboard panel visualizes.
+    assert payload["base"]["coverage"] == pytest.approx(1.0)
+    assert payload["candidate"]["coverage"] == pytest.approx(0.67)
+    assert payload["coverage_delta"] == pytest.approx(-0.33)
+    assert payload["measured"] is False

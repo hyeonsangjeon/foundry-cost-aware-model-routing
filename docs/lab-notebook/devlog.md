@@ -10,6 +10,31 @@
 
 ---
 
+## 2026-07-16 · ② 대시보드에 커버리지 절벽(정책 A/B) 패널
+
+!!! note "한 줄 요약"
+    실험 03의 **커버리지 절벽**을 문서 밖 대시보드에서도 바로 보이게 했습니다. 같은 워크로드에
+    시드 정책과 비싼 fallback을 지운 `cost-cut` 후보를 나란히 비교 — 후보는 싸 보이지만
+    커버리지가 **100% → 67%(−33%p)** 로 무너지는 걸 막대·배지로 드러냅니다.
+
+- **상황(왜):** 커버리지 절벽은 실험노트(03)에는 있지만, "30초 안에 차이를 본다"는 히어로
+  대시보드에는 없었습니다. *"싸 보이는 정책이 사실은 일을 버리고 있다"*는 반례를 라이브
+  데모에서도 즉시 보여줘야 정직함 규약이 완성됩니다.
+- **작업(무엇을):**
+    - `src/router/pipeline.py`에 `bundled_coverage_cliff()` — 시드 vs `cost-cut` 정책의
+      결정론 회귀를 대시보드용 콤팩트 페이로드로 묶는 함수를 추가.
+    - `src/router/server.py`에 `GET /regression` 엔드포인트, `src/router/dashboard.py`에
+      `#cliffPanel`(막대 A/B + `−33%p` 배지 + takeaway) + `renderCliff()` + replay와
+      독립적인 비치명적 fetch를 추가. 데이터가 없으면 패널은 조용히 숨습니다.
+    - `scripts/build_static_site.py`가 `regression.json`을 내보내고 상대 엔드포인트로 주입 —
+      Pages 정적 데모에서도 동일하게 렌더링. 대시보드 매뉴얼에 항목·엔드포인트 추가.
+- **검증(효과):** `/regression` 200 (base 100%/$1.66 · candidate 67%/$0.73 · Δ−0.33),
+  node 렌더 프로브로 막대 폭(100.0%/67.0%)·`−33%p`·takeaway("dropped work") 고정,
+  정적 export `regression.json` 회귀 테스트 추가. 완전 오프라인(외부 참조 0) 유지. pytest 212개
+  통과 · ruff clean · mkdocs strict OK. 모든 수치는 `measured = false`.
+
+---
+
 ## 2026-07-16 · 실험 04 「공짜 점심은 없다」 + 양방향 계약
 
 !!! note "한 줄 요약"
