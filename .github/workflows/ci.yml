@@ -80,6 +80,7 @@ jobs:
             cost-router experiment run ensemble
             cost-router experiment run adaptive
             cost-router experiment run limits
+            cost-router experiment run model-router
             cost-router hero
           else
             echo "cost-router console script not installed"

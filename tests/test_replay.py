@@ -82,9 +82,10 @@ def test_three_way_strategy_tradeoff(build) -> None:
     # the premium cost.
     summary = build().summary
     strat = summary["strategies"]
-    assert set(strat) == {"all_mini", "all_premium", "all_ensemble", "mix"}
+    assert set(strat) == {"all_mini", "all_premium", "all_ensemble", "model_router", "mix"}
     mini, prem, mix = strat["all_mini"], strat["all_premium"], strat["mix"]
     ens = strat["all_ensemble"]
+    router = strat["model_router"]
 
     # Cost ordering: cheapest-only < mix < premium-only < ensemble-everything.
     assert mini["total_cost_usd"] < mix["total_cost_usd"] < prem["total_cost_usd"]
@@ -95,6 +96,11 @@ def test_three_way_strategy_tradeoff(build) -> None:
     assert mix["coverage"] == 1.0
     assert ens["coverage"] == 1.0
     assert mini["coverage"] < 1.0
+
+    # The single-call routing layer commits per prompt with no escalation, so it
+    # sits off the both-win corner: below full coverage (illustrative, measured=false).
+    assert router["coverage"] < 1.0
+    assert router["labels"]["measured"] is False
 
     # The single-tier baselines reconcile with the headline totals so the bars
     # animate against the same numbers the KPIs show.

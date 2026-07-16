@@ -15,6 +15,9 @@
   실행이 실패합니다. 일부 실험은 `max_delta_pct` **상한**까지 두어(양방향 계약), 과장된
   **유령 절감**이 새어 나와도 실패합니다 — [실험 04](04-no-free-lunch.md) 참고. 나아가
   `max_tax_ratio`로 **팬아웃 세금 상한**까지 걸 수 있습니다 — [실험 06](06-fanout-dial.md) 참고.
+  또한 `min_escalation_gain`으로 **에스컬레이션 이득 하한**을 두어, 관찰-후-에스컬레이션이
+  단일 호출 라우팅보다 커버리지를 실제로 더 벌고 있는지 지킬 수 있습니다 —
+  [실험 07](07-model-router.md) 참고.
 
 ## 비교 대상(arm) 정의
 
@@ -29,10 +32,11 @@
 구현에 대한 주장이 아닙니다.
 
 !!! tip "비용 × 커버리지 프런티어로 보기"
-    [대시보드](../manual/dashboard.md)는 `all-mini`·`all-premium`·`cost-aware mix`·`all-ensemble`
-    네 전략을 **비용(가로) × 커버리지(세로) 산점도**로 그립니다. 오직 mix만 좌상단 '둘 다 이기는'
-    코너(완전 커버리지 + 낮은 비용)에 위치하고, `all-ensemble`(전부 팬아웃)은 커버리지 100%지만
-    **가장 비싼** 프런티어 밖 코너에 있는 것을 눈으로 확인할 수 있습니다 —
+    [대시보드](../manual/dashboard.md)는 `all-mini`·`all-premium`·`cost-aware mix`·`all-ensemble`·
+    `model_router` 다섯 전략을 **비용(가로) × 커버리지(세로) 산점도**로 그립니다. 오직 mix만
+    좌상단 '둘 다 이기는' 코너(완전 커버리지 + 낮은 비용)에 위치하고, `all-ensemble`(전부 팬아웃)은
+    커버리지 100%지만 **가장 비싼** 프런티어 밖 코너에, `model_router`(단일 호출 라우팅 레이어)는
+    **낮은 커버리지**로 코너 밖 아래에 있는 것을 눈으로 확인할 수 있습니다 —
     [라이브 데모](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1).
 
 ## 지표
@@ -60,3 +64,4 @@ cost-router experiment run hero --json     # 기계가 읽는 전체 요약
 - [실험 04 · 공짜 점심은 없다](04-no-free-lunch.md) — 최상위 모델만 통과하는 워크로드? 절감 0%, 커버리지 100% (라우팅의 한계)
 - [실험 05 · 앙상블 팬아웃 세금](05-ensemble-fanout.md) — 모든 모델을 앙상블로 다 돌리면? 47% 절감이지만 팬아웃은 승자의 3.74배 (숨은 세금 + Foundry 메트릭)
 - [실험 06 · 적응형 팬아웃 다이얼](06-fanout-dial.md) — 그 세금을 줄이려면? 예산 게이트 다이얼 하나로 커버리지·절감은 그대로, 세금만 3.74×→0 (실험 05의 정직한 해법)
+- [실험 07 · 라우팅 레이어](07-model-router.md) — Azure AI Foundry Model Router처럼 **한 번 고르면**? 커버리지 52% (관찰-후-에스컬레이션 mix는 비슷한 비용에 100%, 이득 +48%p)

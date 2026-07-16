@@ -46,18 +46,21 @@ class Expectation:
     min_tasks: int = 1
     max_delta_pct: float | None = None
     max_tax_ratio: float | None = None
+    min_escalation_gain: float | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any] | None) -> Expectation:
         data = data or {}
         raw_max = data.get("max_delta_pct")
         raw_tax = data.get("max_tax_ratio")
+        raw_gain = data.get("min_escalation_gain")
         return cls(
             min_coverage=float(data.get("min_coverage", 0.0)),
             min_delta_pct=float(data.get("min_delta_pct", 0.0)),
             min_tasks=int(data.get("min_tasks", 1)),
             max_delta_pct=None if raw_max is None else float(raw_max),
             max_tax_ratio=None if raw_tax is None else float(raw_tax),
+            min_escalation_gain=None if raw_gain is None else float(raw_gain),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -67,6 +70,7 @@ class Expectation:
             "min_tasks": self.min_tasks,
             "max_delta_pct": self.max_delta_pct,
             "max_tax_ratio": self.max_tax_ratio,
+            "min_escalation_gain": self.min_escalation_gain,
         }
 
 
@@ -382,6 +386,21 @@ def _evaluate(report: ReplayReport, expect: Expectation) -> tuple[Check, ...]:
                 name="fanout_tax_ceiling",
                 ok=tax_ratio <= expect.max_tax_ratio,
                 detail=f"tax {tax_ratio:.2f}x ≤ {expect.max_tax_ratio:.2f}x",
+            )
+        )
+    if expect.min_escalation_gain is not None:
+        strategies = summary.get("strategies") or {}
+        router = strategies.get("model_router") or {}
+        router_coverage = float(router.get("coverage", 0.0))
+        gain = coverage - router_coverage
+        checks.append(
+            Check(
+                name="escalation_gain",
+                ok=gain >= expect.min_escalation_gain,
+                detail=(
+                    f"mix {coverage:.1%} − single-call {router_coverage:.1%} "
+                    f"= +{gain:.1%} ≥ {expect.min_escalation_gain:.1%}"
+                ),
             )
         )
     return tuple(checks)

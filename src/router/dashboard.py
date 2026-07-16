@@ -161,11 +161,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .fconn { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 4 3; }
   .fpt { stroke: #fff; stroke-width: 2; }
   .fpt-mini { fill: var(--amber); } .fpt-prem { fill: var(--red); } .fpt-mix { fill: var(--green); }
-  .fpt-ens { fill: var(--purple); }
+  .fpt-ens { fill: var(--purple); } .fpt-mr { fill: var(--blue); }
   .flbl { font-size: 11px; font-weight: 700; }
   .flbl-mini { fill: var(--amber); } .flbl-prem { fill: var(--red); } .flbl-mix { fill: var(--green); }
-  .flbl-ens { fill: var(--purple); }
+  .flbl-ens { fill: var(--purple); } .flbl-mr { fill: var(--blue); }
   .fsub { fill: var(--muted); font-size: 10px; font-family: var(--mono); }
+  .fnote { margin-top: 10px; font-size: 12px; line-height: 1.55; color: var(--muted); }
+  .fnote b { color: var(--ink); }
+  .fnote-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--blue); margin-right: 5px; vertical-align: middle; }
+  .fnote a { color: var(--blue); font-weight: 700; text-decoration: none; }
+  .fnote a:hover { text-decoration: underline; }
 
   /* ---- Fan-out dial sweep (experiment 05 vs 06) ---- */
   .sweep { margin-top: 6px; }
@@ -419,6 +425,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <div class="frontier">
       <div class="fttl">Cost &times; coverage &mdash; the trade-off frontier</div>
       <div id="frontier"><small style="color:var(--muted)">run a replay&#8230;</small></div>
+      <div class="fnote"><span class="fnote-dot"></span><b>model-router</b> (파란 점) = Azure AI Foundry
+        Model Router 형태의 <b>단일 호출</b> 라우팅 레이어 &mdash; 프롬프트마다 한 모델을 미리 고르고 에스컬레이션이 없어
+        커버리지가 낮습니다. 관찰-후-에스컬레이션하는 <b>cost-aware mix</b>가 비슷한 비용으로 커버리지를 채웁니다.
+        <a href="../lab-notebook/07-model-router/">실험 07 &rarr;</a> <span class="badge measured">measured=false</span></div>
     </div>
     <div class="takeaway" id="takeaway">Run a replay to compare all-mini vs all-premium vs the cost-aware mix &mdash; each single-tier strategy fails on one axis; only the mix keeps full coverage below premium cost.</div>
   </section>
@@ -793,10 +803,11 @@ function renderFrontier(s) {
   const mini = st.all_mini || { total_cost_usd: s.total_cost_usd, coverage: s.coverage };
   const mix = { total_cost_usd: s.total_cost_usd, coverage: s.coverage };
   const ens = st.all_ensemble || null;
+  const mr = st.model_router || null;
   const W = 460, H = 250, L = 44, R = 20, T = 34, B = 40;
   const pw = W - L - R, ph = H - T - B, yb = T + ph, x1 = W - R;
   const costMax = Math.max(prem.total_cost_usd, mix.total_cost_usd, mini.total_cost_usd,
-    ens ? ens.total_cost_usd : 0) || 1;
+    ens ? ens.total_cost_usd : 0, mr ? mr.total_cost_usd : 0) || 1;
   const X = (c) => (L + (c / costMax) * pw);
   const Y = (v) => (T + (1 - Math.max(0, Math.min(1, v))) * ph);
   let g = "";
@@ -826,11 +837,12 @@ function renderFrontier(s) {
       "<text class='fsub' x='" + x + "' y='" + (Number(y) + 12).toFixed(1) + "' text-anchor='" + anchor + "'>" + usd(o.total_cost_usd) + " \\u00b7 " + pct(o.coverage) + "</text>";
   };
   const dots = dot(mini, "mini", 6) + dot(prem, "prem", 6) +
-    (ens ? dot(ens, "ens", 6) : "") + dot(mix, "mix", 8);
+    (ens ? dot(ens, "ens", 6) : "") + (mr ? dot(mr, "mr", 6) : "") + dot(mix, "mix", 8);
   const labels =
     label(mini, "mini", "all-mini", "start", 11, 4) +
     label(prem, "prem", "all-premium", "end", -10, -12) +
     (ens ? label(ens, "ens", "ensemble-all", "end", -10, -12) : "") +
+    (mr ? label(mr, "mr", "model-router", "start", 11, 4) : "") +
     label(mix, "mix", "cost-aware mix", "end", -12, 20);
   host.innerHTML =
     "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='cost versus coverage frontier: only the cost-aware mix reaches full coverage at low cost'>" +

@@ -1,0 +1,41 @@
+# model-router.yaml — the routing layer: single-call vs observe-and-escalate.
+#
+# Azure AI Foundry Model Router is the productized *single-call* routing layer:
+# it picks one model per prompt, up front, with no fan-out and no escalation.
+# This experiment routes the same synthetic workload (100 tasks) with the repo's
+# observe-then-escalate mix and surfaces a `model_router` strategy arm — a
+# transparent difficulty-tiered single pick modeling that single-call shape.
+#
+# The honest finding this contract pins: the escalating mix covers materially
+# MORE than the single-call arm at comparable cost, because it gets to observe
+# each check and only pay more on an observed failure. The single-call router's
+# real pick-skill is proprietary and *measured* — that gap is exactly what the
+# gated live adapter (measured=true) captures. Here everything is offline and
+# deterministic; every number is labels.measured = false.
+
+name: model-router
+title: "라우팅 레이어 — 한 번 고르기 vs 관찰하고 올리기"
+summary: >-
+  Azure AI Foundry Model Router식 '프롬프트당 모델 하나 즉시 선택(단일 콜)'을
+  난이도 기반 원샷 arm으로 투영하고, 이 저장소의 '관찰하고 필요할 때만 올리는'
+  라우팅과 같은 축에서 비교합니다. 원샷은 앞서 커밋해 커버리지를 잃고, 에스컬레이션이
+  같은 비용대에서 그 커버리지를 되찾습니다.
+
+dataset:
+  workload: samples/telemetry/mixed-coding-workload.sample.jsonl
+  signals: null        # null + synth:true → deterministic offline signals
+  synth: true
+
+policy: null           # null → bundled seed policy (src/policy/seed_policy.yaml)
+pricing: null          # null → bundled illustrative pricing (measured=false)
+
+spotlight: auto
+
+# Reproducibility floor (offline projection over synthetic data).
+# min_escalation_gain pins the thesis: mix coverage minus the single-call
+# model_router arm coverage must stay at least this large (actual ~0.48).
+expect:
+  min_coverage: 1.0          # the escalating mix must keep full coverage
+  min_delta_pct: 0.20        # …while cutting at least 20% of the naive bill
+  min_tasks: 100
+  min_escalation_gain: 0.30  # mix must cover ≥30%p more than the single-call arm
