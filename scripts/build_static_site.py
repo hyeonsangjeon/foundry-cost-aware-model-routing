@@ -32,7 +32,8 @@ _ENDPOINT_INJECTION = """<script>
 window.__ENDPOINTS__ = {
   health: "healthz.json",
   policy: "policy.json",
-  replay: function (synth) { return synth ? "replay-synth.json" : "replay-curated.json"; }
+  replay: function (synth) { return synth ? "replay-synth.json" : "replay-curated.json"; },
+  regression: "regression.json"
 };
 </script>
 """
@@ -54,6 +55,7 @@ def build(output_dir: Path) -> None:
         "policy.json": _payload(service, "/policy"),
         "replay-curated.json": _payload(service, "/replay?synth=false"),
         "replay-synth.json": _payload(service, "/replay?synth=true"),
+        "regression.json": _payload(service, "/regression"),
     }
     for name, payload in files.items():
         (output_dir / name).write_text(

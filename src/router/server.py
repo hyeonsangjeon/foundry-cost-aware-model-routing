@@ -38,6 +38,7 @@ from . import __version__
 from .dashboard import DASHBOARD_HTML
 from .pipeline import (
     batch_route_payload,
+    bundled_coverage_cliff,
     load_default_pricing,
     load_policy,
     policy_summary,
@@ -46,7 +47,16 @@ from .pipeline import (
 )
 from .pricing import PricingTable
 
-_KNOWN_ROUTES = {"/", "/dashboard", "/healthz", "/policy", "/replay", "/route", "/batch-route"}
+_KNOWN_ROUTES = {
+    "/",
+    "/dashboard",
+    "/healthz",
+    "/policy",
+    "/replay",
+    "/regression",
+    "/route",
+    "/batch-route",
+}
 _PRICING_OFF = {"none", "off", "disabled", "false"}
 _PRICING_DEFAULT = {"illustrative", "default", "sample", "on", "true"}
 _TRUTHY = {"1", "true", "yes", "on"}
@@ -111,6 +121,9 @@ class RouterService:
         report = run_bundled_replay(policy=self.policy, synth=synth)
         return ServiceResponse(200, {"traces": report.traces, "summary": report.summary})
 
+    def regression(self) -> ServiceResponse:
+        return ServiceResponse(200, bundled_coverage_cliff())
+
     def route(self, body: bytes) -> ServiceResponse:
         parsed = _load_json_object(body)
         if isinstance(parsed, ServiceResponse):
@@ -163,6 +176,8 @@ class RouterService:
             return self.policy_view()
         if method == "GET" and route == "/replay":
             return self.replay(path)
+        if method == "GET" and route == "/regression":
+            return self.regression()
         if method == "POST" and route == "/route":
             return self.route(body)
         if method == "POST" and route == "/batch-route":

@@ -638,6 +638,54 @@ def regression_report(
     }
 
 
+# The bundled candidate policy that naively deletes expensive fallbacks. Compared
+# against the seed policy it exposes the coverage cliff (see lab notebook 03).
+COVERAGE_CLIFF_CANDIDATE = Path("experiments/policies/cost-cut.yaml")
+
+
+def bundled_coverage_cliff(
+    root: Path | str | None = None,
+    *,
+    candidate_policy: Path | str = COVERAGE_CLIFF_CANDIDATE,
+) -> dict[str, Any]:
+    """Compact seed-vs-candidate coverage-cliff view for the dashboard.
+
+    Runs the deterministic policy regression (bundled seed policy vs the naive
+    ``cost-cut`` candidate over shared synthetic signals) and trims it to the few
+    fields the dashboard renders: each arm's coverage and routed cost, plus the
+    coverage/cost deltas. Offline and deterministic; ``measured = false``.
+    """
+
+    base = find_samples_root(root)
+    candidate_path = Path(candidate_policy)
+    if not candidate_path.is_absolute():
+        candidate_path = base / candidate_path
+    report = regression_report(
+        workload_path=base / DEFAULT_WORKLOAD,
+        pricing_path=base / DEFAULT_PRICING,
+        candidate_policy_path=candidate_path,
+        base_policy_path=None,
+        synth=True,
+    )
+    return {
+        "base": {
+            "label": "seed policy",
+            "coverage": report["base"]["coverage"],
+            "routed_total_usd": report["base"]["routed_total_usd"],
+            "tasks": report["base"]["tasks"],
+        },
+        "candidate": {
+            "label": "cost-cut",
+            "coverage": report["candidate"]["coverage"],
+            "routed_total_usd": report["candidate"]["routed_total_usd"],
+            "tasks": report["candidate"]["tasks"],
+        },
+        "coverage_delta": report["coverage_delta"],
+        "cost_delta_usd": report["cost_delta_usd"],
+        "measured": False,
+    }
+
+
 def format_replay_text(report: ReplayReport) -> str:
     """Render a replay report as the human-readable per-task + summary block."""
 

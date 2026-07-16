@@ -165,6 +165,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .flbl-mini { fill: var(--amber); } .flbl-prem { fill: var(--red); } .flbl-mix { fill: var(--green); }
   .fsub { fill: var(--muted); font-size: 10px; font-family: var(--mono); }
 
+  /* ---- Coverage cliff (policy A/B) ---- */
+  .cliff-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 14px; flex-wrap: wrap; }
+  .cliff-drop { font-family: var(--mono); font-weight: 800; font-size: 14px; color: var(--red); border: 1px solid #eccccc; background: rgba(194,59,59,.08); padding: 4px 11px; border-radius: 999px; white-space: nowrap; }
+  .stag.seed { background: rgba(26,127,75,.14); color: var(--green); }
+  .stag.cut  { background: rgba(194,59,59,.12); color: var(--red); }
+  .bar.cut > span { background: var(--red); }
+  .bar.seed > span { background: var(--green); }
+
   /* ---- KPI strip ---- */
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
   .kpi { background: var(--elev); border: 1px solid var(--line); border-radius: 11px; padding: 13px 15px; }
@@ -346,6 +354,36 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <div class="takeaway" id="takeaway">Run a replay to compare all-mini vs all-premium vs the cost-aware mix &mdash; each single-tier strategy fails on one axis; only the mix keeps full coverage below premium cost.</div>
   </section>
 
+  <section class="panel" id="cliffPanel" hidden>
+    <div class="cliff-hd">
+      <div>
+        <h2 class="sec" style="margin:0">Coverage cliff &mdash; deleting the safety net</h2>
+        <p class="sec-sub" style="margin:6px 0 0">A different policy, same workload. Naively deleting the expensive fallback models (<code>deep-reasoner</code>, <code>premium-max</code>) looks cheaper &mdash; but silently drops the tasks only they could pass.</p>
+      </div>
+      <span class="cliff-drop" id="cliffDrop">&mdash;</span>
+    </div>
+    <div class="strats">
+      <div class="strat">
+        <div class="lbl">
+          <span class="name"><span class="stag seed">seed policy</span><span class="desc">keeps the expensive fallback</span></span>
+          <b class="cost" id="cliffBaseCov">&mdash;</b>
+        </div>
+        <div class="bar seed"><span id="cliffBaseBar"></span></div>
+        <div class="covline"><span class="covpill ok" id="cliffBaseCost">routed &mdash;</span><small>full coverage &mdash; the fallback catches the hard tasks</small></div>
+      </div>
+      <div class="strat">
+        <div class="lbl">
+          <span class="name"><span class="stag cut">cost-cut</span><span class="desc">deletes the expensive fallback</span></span>
+          <b class="cost" id="cliffCandCov">&mdash;</b>
+        </div>
+        <div class="bar cut"><span id="cliffCandBar"></span></div>
+        <div class="covline"><span class="covpill warn" id="cliffCandCost">routed &mdash;</span><small>looks cheaper &mdash; but a third of tasks lost a model that passes</small></div>
+      </div>
+    </div>
+    <div class="takeaway" id="cliffTakeaway">Cost-cut's routed bill is lower only because it stopped covering hard tasks &mdash; that is dropped work, not savings. Cost is comparable only at fixed coverage.</div>
+    <p class="caveat">Deterministic policy regression over shared synthetic signals (100 tasks) &mdash; an offline projection, <code>measured = false</code>. See the lab notebook: <a href="../lab-notebook/03-coverage-cliff/">실험 03 &middot; 커버리지 절벽</a>.</p>
+  </section>
+
   <section class="panel">
     <h2 class="sec">At a glance</h2>
     <p class="sec-sub">Headline numbers for this run.</p>
@@ -437,6 +475,7 @@ const EP = (typeof window !== "undefined" && window.__ENDPOINTS__) || {
   health: "/healthz",
   policy: "/policy",
   replay: (synth) => "/replay?synth=" + synth,
+  regression: "/regression",
 };
 // Display rounding (P1): totals at 2 decimals; sub-cent values keep up to 4 so
 // tiny per-task/model costs don't collapse to $0.00. Underlying data is untouched.
@@ -662,6 +701,30 @@ function renderFrontier(s) {
     g + zone + axes + conn + dots + labels + "</svg>";
 }
 
+// Coverage cliff (policy A/B): the bundled seed policy vs the naive cost-cut
+// candidate over shared synthetic signals. Bars show coverage; the cost-cut arm
+// looks cheaper only because it dropped a third of the tasks. Data comes from
+// EP.regression (live /regression, or regression.json in the static export);
+// the panel stays hidden if that endpoint is unavailable.
+function renderCliff(r) {
+  const panel = $("cliffPanel");
+  if (!panel || !r || !r.base || !r.candidate) return;
+  const b = r.base, c = r.candidate;
+  $("cliffBaseCov").textContent = pct(b.coverage);
+  $("cliffBaseBar").style.width = (100 * Math.max(0, Math.min(1, b.coverage))).toFixed(1) + "%";
+  $("cliffBaseCost").textContent = "routed " + usd(b.routed_total_usd);
+  $("cliffCandCov").textContent = pct(c.coverage);
+  $("cliffCandBar").style.width = (100 * Math.max(0, Math.min(1, c.coverage))).toFixed(1) + "%";
+  $("cliffCandCost").textContent = "routed " + usd(c.routed_total_usd);
+  const dropPts = Math.round((b.coverage - c.coverage) * 1000) / 10;
+  $("cliffDrop").textContent = "\\u2212" + dropPts + "%p coverage";
+  $("cliffTakeaway").textContent =
+    "cost-cut's routed bill (" + usd(c.routed_total_usd) + ") is lower than seed (" +
+    usd(b.routed_total_usd) + ") \\u2014 but only because it stopped covering " +
+    dropPts + "%p of tasks. That is dropped work, not savings. Cost is comparable only at fixed coverage.";
+  panel.hidden = false;
+}
+
 let running = false;
 
 function renderSpotlight(sp) {
@@ -701,6 +764,13 @@ async function runReplay() {
     renderStrategies(s);
     renderFrontier(s);
     renderSpotlight(s.spotlight);
+
+    // Coverage cliff (policy A/B) — independent of the replay, so a failure here
+    // must not break the run; the panel simply stays hidden.
+    try {
+      const reg = await (await fetch(EP.regression)).json();
+      renderCliff(reg);
+    } catch (e) { /* regression endpoint unavailable — leave the cliff hidden */ }
 
     // P3: headline names the mechanism, not just the percentage
     const byModel = (s.breakdown && s.breakdown.by_model) || {};
