@@ -10,6 +10,32 @@
 
 ---
 
+## 2026-07-16 · 실험 04 「공짜 점심은 없다」 + 양방향 계약
+
+!!! note "한 줄 요약"
+    라우팅이 이득을 못 주는 **정직한 경계**를 실험으로 추가했습니다. 모든 태스크가 어려워
+    최상위 모델만 통과하는 워크로드에서 라우팅은 **커버리지 100% · 절감 0.0%** — 나이브와
+    비용이 정확히 같습니다. 더불어 `expect`에 `max_delta_pct` **상한**을 추가해, 과장된
+    **유령 절감**이 새어 나오면 CI가 깨지게 만들었습니다.
+
+- **상황(왜):** 실험 01·02는 "라우팅=이득", 03은 "잘못 튜닝하면 커버리지 붕괴"를 보여줬지만,
+  *"올바르게 써도 이득이 0인 경계"*는 비어 있었습니다. "라우팅 켜면 항상 싸지지?"라는 기대의
+  한계를 정직하게 그어야 했습니다.
+- **작업(무엇을):**
+    - `src/router/experiment.py`의 `Expectation`에 `max_delta_pct`(선택적 상한)를 추가 —
+      설정된 실험에만 `savings_ceiling` 체크가 붙는 **양방향 재현성 계약**으로 확장.
+    - hard 태스크 6건에 대해 **최상위 후보만 통과**하는 신호셋
+      (`samples/responses/hard-tasks-signals.sample.json`)과 실험
+      (`experiments/limits.yaml`)을 신설. 계약은 `min_coverage: 1.0` + `max_delta_pct: 0.0`.
+    - `docs/lab-notebook/04-no-free-lunch.md`, nav·index·README·experiments 교차 링크,
+      CI 계약 스텝(`experiment run limits`) 추가.
+- **검증(효과):** `cost-router experiment run limits` → coverage 100% · saved 0.0%
+  (routed $0.236785 = naive $0.236785). 가드 검증: hero(25.5% 절감)에 상한 0.0%를 걸면
+  `savings_ceiling`가 **의도대로 실패**. 결정론 수치를 `tests/test_limits.py`(6개)로 고정.
+  모든 수치는 `measured = false`.
+
+---
+
 ## 2026-07-15 · ③ CI를 Node 24로 (위생 작업)
 
 !!! note "한 줄 요약"

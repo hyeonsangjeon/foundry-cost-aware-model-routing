@@ -15,11 +15,28 @@ are projections over synthetic data, not measured savings.
 cost-router hero                 # the flagship experiment (experiments/hero.yaml)
 cost-router experiment list      # list every experiment
 cost-router experiment run curated
+cost-router experiment run limits    # the honest boundary: routing saves ~0% here
 cost-router experiment run hero --json
 ```
 
 `cost-router hero --serve` runs the experiment and then boots the offline
 dashboard so you can watch the routing decisions live.
+
+## The honest boundary (no free lunch)
+
+`limits.yaml` is the deliberate counter-weight to the hero run: a curated set of
+genuinely hard tasks where **only the most expensive candidate passes** every
+offline check. Routing tries the cheap models, watches them fail, and escalates
+to the top model on every task — so it keeps **full coverage** while saving
+**0%**. Its `expect` block is a *two-sided* contract (`min_coverage: 1.0` **and**
+`max_delta_pct: 0.0`), so CI fails if this workload ever reports phantom savings.
+
+```bash
+cost-router experiment run limits
+# coverage 100.0% · saved 0.0% → routing spends correctly on hard work.
+```
+
+See the lab notebook: **실험 04 · 공짜 점심은 없다**.
 
 ## Policy regression (the coverage cliff)
 
@@ -48,6 +65,7 @@ See the lab notebook: **실험 03 · 커버리지 절벽**.
 | `spotlight` | `auto`, a `task_id`, or `none` — the task to highlight |
 | `expect.min_coverage` | routing must keep at least this coverage |
 | `expect.min_delta_pct` | …while cutting at least this share of the naive bill |
+| `expect.max_delta_pct` | optional **upper** bound — savings must not exceed this (guards against phantom savings; see `limits.yaml`) |
 | `expect.min_tasks` | minimum tasks the run must cover |
 
 > 한국어 매뉴얼과 실험노트는 GitHub Pages 문서 사이트를 참고하세요 (`docs/`).

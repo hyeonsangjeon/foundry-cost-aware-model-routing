@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "_note": "Offline hard-task fixture: for every task only the most expensive candidate passes, so cost-aware routing correctly escalates to it. labels.measured=false.",
+  "tasks": {
+    "t-0007": {
+      "swift-coder": {
+        "applies": true,
+        "compiles": false,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "balanced-pro": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "deep-reasoner": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": true,
+        "lint_pass": true
+      }
+    },
+    "t-0036": {
+      "mini-fast": {
+        "applies": true,
+        "compiles": false,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "swift-coder": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "balanced-pro": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": true,
+        "lint_pass": true
+      }
+    },
+    "t-0032": {
+      "mini-fast": {
+        "applies": true,
+        "compiles": false,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "swift-coder": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "balanced-pro": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": true,
+        "lint_pass": true
+      }
+    },
+    "t-0015": {
+      "mini-fast": {
+        "applies": true,
+        "compiles": false,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "balanced-pro": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "deep-reasoner": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": true,
+        "lint_pass": true
+      }
+    },
+    "t-0024": {
+      "swift-coder": {
+        "applies": true,
+        "compiles": false,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "balanced-pro": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "deep-reasoner": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "premium-max": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": true,
+        "lint_pass": true
+      }
+    },
+    "t-0029": {
+      "swift-coder": {
+        "applies": true,
+        "compiles": false,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "balanced-pro": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "deep-reasoner": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": false,
+        "lint_pass": true
+      },
+      "premium-max": {
+        "applies": true,
+        "compiles": true,
+        "tests_pass": true,
+        "lint_pass": true
+      }
+    }
+  }
+}

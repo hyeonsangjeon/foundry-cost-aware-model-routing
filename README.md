@@ -66,6 +66,15 @@ cost-router experiment run curated   # run one by name
 cost-router experiment run hero --json
 ```
 
+The honest boundary — a workload of genuinely hard tasks where only the top
+model passes, so routing keeps full coverage but saves **0%** (a two-sided
+`expect` contract fails CI if it ever reports phantom savings; lab notebook:
+실험 04 · 공짜 점심은 없다):
+
+```bash
+cost-router experiment run limits    # coverage 100.0% · saved 0.0%
+```
+
 The honest counter-example — deleting the expensive fallback models looks
 cheaper but drops coverage from 100% to 67% (lab notebook: 실험 03 · 커버리지 절벽):
 
