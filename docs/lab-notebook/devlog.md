@@ -10,6 +10,47 @@
 
 ---
 
+## 2026-07-16 · 실험 06 「적응형 팬아웃 다이얼」 — 세금을 끄는 다이얼
+
+!!! note "한 줄 요약"
+    실험 05가 던진 질문("앙상블 팬아웃 세금 3.74×를 어떻게 하냐")에 대한 **정직한 해법**입니다.
+    팬아웃 세금은 고정 비용이 아니라 **다이얼**입니다 — 예산 게이트의 `compare_min_value`
+    임계값을 올리면 팬아웃하는 태스크가 줄고, **커버리지(100%)·절감(47%)은 그대로**인 채
+    세금만 **3.74× → $0.000000**으로 계단처럼 무너집니다. 모든 수치는 `measured = false`.
+
+- **상황(왜):** 실험 05는 "그냥 다 앙상블"의 숨은 세금을 드러냈지만, *"그럼 세금을 어떻게
+  줄이나"* 는 미해결로 남겼습니다. 라우터에는 이미 적응형 팬아웃 로직(`BudgetGate`,
+  가치 임계값)이 있었지만, 실험·계약·웹앱으로 노출되지 않아 이 다이얼이 보이지 않았습니다.
+- **작업(무엇을):**
+    - **재사용 가능한 예산 레버**를 `pipeline.py`에 관통시킴 — `run_replay`/`run_bundled_replay`
+      /`_replay_report`에 `budget_gate` 파라미터 추가, `route_tasks`로 전달.
+    - **실험 스키마 확장** `experiment.py` — `budget:` 블록(`compare_min_value`·
+      `min_compare_candidates`)과 `Experiment.budget_gate()`, 그리고 양방향 계약 상한
+      `expect.max_tax_ratio`(팬아웃 세금 상한, `_evaluate`의 `fanout_tax_ceiling` 검사).
+    - 실험 자산 `experiments/adaptive.yaml`(`compare_min_value: 1.1` → 모든 태스크 가치보다
+      높아 팬아웃 전무, `max_tax_ratio: 0.01`).
+    - **팬아웃 스윕** `bundled_fanout_sweep`(pipeline) + `GET /fanout-sweep`(server) +
+      `fanout-sweep.json` 정적 export(`build_static_site.py`).
+    - **웹앱** `dashboard.py`에 팬아웃 다이얼 패널 신설 — 임계값 스윕 막대(세금)와 평평한
+      두 선(커버리지·절감)을 함께 그려 "세금만 내려가는 계단"을 시각화(`/fanout-sweep`).
+    - 실험노트 [실험 06](06-fanout-dial.md), nav·index·README·experiments·매뉴얼(experiments/
+      dashboard) 교차 링크, CI 계약에 `experiment run adaptive` 추가.
+- **검증(효과):** `experiment run adaptive` → coverage 100% · saved 47.0% · **팬아웃 세금
+  0.00×**(routed $0.132801 유지). 스윕(baseline $0.250728): thr 0.00 → 6개 팬아웃, 세금
+  $0.364011(3.74×) → thr 1.01 → 0개 팬아웃, 세금 **$0.000000**. 커버리지·절감은 전 구간 불변.
+  상한 가드 물림 확인(앙상블에 `max_tax_ratio=0.01` 적용 시 3.74×로 FAIL). 정적 export 2회
+  빌드 diff 동일(결정론). 새 테스트(`test_adaptive.py` 10 + server/build 확장)로 **pytest 270개
+  통과** · ruff clean · mkdocs strict OK. 모든 수치 `measured = false`.
+
+!!! quote "정직한 단서"
+    이 오프라인 투영에서 compare(팬아웃)는 승자를 **바꾸지 않으므로** 순수 세금입니다. 실제
+    시스템에선 best-of-N이 **품질**을 올릴 수 있는데, 이 투영은 그 향상을 모델링하지 않습니다 —
+    그러니 세금을 내기 전에 **향상을 먼저 측정**하세요.
+
+[라이브 데모에서 보기 →](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1)
+
+---
+
 ## 2026-07-16 · 실험 05 「앙상블 팬아웃 세금」 + Foundry 메트릭 공용 모듈 & 웹앱
 
 !!! note "한 줄 요약"

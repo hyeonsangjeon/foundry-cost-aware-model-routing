@@ -22,6 +22,7 @@ from typing import Any
 
 import yaml
 
+from .budget import BudgetGate
 from .pipeline import (
     DEFAULT_PRICING,
     DEFAULT_SIGNALS,
@@ -44,16 +45,19 @@ class Expectation:
     min_delta_pct: float = 0.0
     min_tasks: int = 1
     max_delta_pct: float | None = None
+    max_tax_ratio: float | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any] | None) -> Expectation:
         data = data or {}
         raw_max = data.get("max_delta_pct")
+        raw_tax = data.get("max_tax_ratio")
         return cls(
             min_coverage=float(data.get("min_coverage", 0.0)),
             min_delta_pct=float(data.get("min_delta_pct", 0.0)),
             min_tasks=int(data.get("min_tasks", 1)),
             max_delta_pct=None if raw_max is None else float(raw_max),
+            max_tax_ratio=None if raw_tax is None else float(raw_tax),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -62,6 +66,7 @@ class Expectation:
             "min_delta_pct": self.min_delta_pct,
             "min_tasks": self.min_tasks,
             "max_delta_pct": self.max_delta_pct,
+            "max_tax_ratio": self.max_tax_ratio,
         }
 
 
@@ -79,6 +84,8 @@ class Experiment:
     pricing: str | None
     spotlight: str
     expect: Expectation
+    compare_min_value: float | None = None
+    min_compare_candidates: int | None = None
     source_path: Path | None = None
 
     @classmethod
@@ -97,6 +104,9 @@ class Experiment:
         dataset = data.get("dataset") or {}
         if not isinstance(dataset, Mapping):
             raise ValueError("experiment 'dataset' must be a mapping")
+        budget = data.get("budget") or {}
+        if not isinstance(budget, Mapping):
+            raise ValueError("experiment 'budget' must be a mapping")
         return cls(
             name=resolved_name,
             title=str(data.get("title") or resolved_name),
@@ -108,6 +118,8 @@ class Experiment:
             pricing=_opt_str(data.get("pricing")),
             spotlight=str(data.get("spotlight") or "auto").strip(),
             expect=Expectation.from_dict(data.get("expect")),
+            compare_min_value=_opt_float(budget.get("compare_min_value")),
+            min_compare_candidates=_opt_int(budget.get("min_compare_candidates")),
             source_path=Path(source_path) if source_path is not None else None,
         )
 
@@ -124,9 +136,38 @@ class Experiment:
             "policy": self.policy,
             "pricing": self.pricing,
             "spotlight": self.spotlight,
+            "budget": {
+                "compare_min_value": self.compare_min_value,
+                "min_compare_candidates": self.min_compare_candidates,
+            },
             "expect": self.expect.to_dict(),
         }
 
+    def budget_gate(self) -> BudgetGate | None:
+        """Build the fan-out dial (``BudgetGate``) this experiment overrides, if any.
+
+        ``compare_min_value`` is the value threshold above which the router fans
+        out (compare mode) instead of taking a single ordered route. Raising it
+        makes routing fan out on fewer tasks — shrinking the ensemble tax — so an
+        experiment can dial fan-out anywhere from "everything" to "nothing".
+        Returns ``None`` (the default gate) when neither knob is set.
+        """
+
+        if self.compare_min_value is None and self.min_compare_candidates is None:
+            return None
+        defaults = BudgetGate()
+        return BudgetGate(
+            compare_min_value=(
+                defaults.compare_min_value
+                if self.compare_min_value is None
+                else self.compare_min_value
+            ),
+            min_compare_candidates=(
+                defaults.min_compare_candidates
+                if self.min_compare_candidates is None
+                else self.min_compare_candidates
+            ),
+        )
 
 @dataclass(frozen=True)
 class Check:
@@ -222,6 +263,7 @@ def run_experiment(
         synth=experiment.synth,
         policy_path=policy_path,
         ledger_path=ledger_path,
+        budget_gate=experiment.budget_gate(),
     )
     pricing = PricingTable.from_yaml(pricing_path)
     spotlight = select_spotlight(report.traces, pricing, experiment.spotlight)
@@ -332,6 +374,16 @@ def _evaluate(report: ReplayReport, expect: Expectation) -> tuple[Check, ...]:
                 detail=f"{delta_pct:.1%} ≤ {expect.max_delta_pct:.1%}",
             )
         )
+    if expect.max_tax_ratio is not None:
+        fanout = summary.get("fanout") or {}
+        tax_ratio = float(fanout.get("tax_ratio", 0.0))
+        checks.append(
+            Check(
+                name="fanout_tax_ceiling",
+                ok=tax_ratio <= expect.max_tax_ratio,
+                detail=f"tax {tax_ratio:.2f}x ≤ {expect.max_tax_ratio:.2f}x",
+            )
+        )
     return tuple(checks)
 
 
@@ -357,3 +409,21 @@ def _opt_str(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _opt_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"expected a number, got {value!r}") from exc
+
+
+def _opt_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"expected an integer, got {value!r}") from exc

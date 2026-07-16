@@ -16,6 +16,7 @@ cost-router hero                 # the flagship experiment (experiments/hero.yam
 cost-router experiment list      # list every experiment
 cost-router experiment run curated
 cost-router experiment run ensemble  # best-of-N fan-out: 100% coverage, -47%, but a 3.74x fan-out tax
+cost-router experiment run adaptive  # the honest fix: same coverage/savings, fan-out tax dialed to 0.00x
 cost-router experiment run limits    # the honest boundary: routing saves ~0% here
 cost-router experiment run hero --json
 ```
@@ -61,6 +62,32 @@ renders Azure Monitor / OpenTelemetry records and only forwards through an
 injected sink, so the default path never touches the network. See the lab
 notebook: **실험 05 · 앙상블 팬아웃 세금**.
 
+## Adaptive fan-out dial (the honest fix for the tax)
+
+`adaptive.yaml` answers experiment 05: the ensemble tax is a **dial**, not a
+fixed cost. The budget gate's `compare_min_value` is the knob — raise it and the
+router fans out on fewer tasks. Coverage (100%) and savings (47%) stay flat while
+the tax collapses. `adaptive.yaml` sets it to `1.1` (above every task's value),
+so nothing fans out and the tax is exactly `$0.000000`. Its `expect` block adds a
+`max_tax_ratio` ceiling, so CI fails if fan-out ever creeps back in.
+
+```yaml
+budget:
+  compare_min_value: 1.1      # dial the fan-out threshold above every task value
+  min_compare_candidates: 2
+expect:
+  max_tax_ratio: 0.01         # fan-out cost / winner cost must stay ~0
+```
+
+```bash
+cost-router experiment run adaptive
+# coverage 100.0% · saved 47.0% · fan-out tax 0.00x → same win, no tax.
+```
+
+The dashboard's **fan-out dial** panel sweeps the threshold live (`/fanout-sweep`)
+so you can watch coverage/savings hold flat while the tax steps down to zero. See
+the lab notebook: **실험 06 · 적응형 팬아웃 다이얼**.
+
 ## Policy regression (the coverage cliff)
 
 `experiments/policies/` holds candidate policies for **regression experiments**
@@ -85,10 +112,13 @@ See the lab notebook: **실험 03 · 커버리지 절벽**.
 | `dataset.signals` | offline signals JSON, or `null` to synthesize |
 | `dataset.synth` | `true` → derive signals deterministically |
 | `policy` / `pricing` | policy + pricing YAML (default: bundled) |
+| `budget.compare_min_value` | optional fan-out threshold — compare (fan out) only when task value ≥ this; raise it to shrink the tax (see `adaptive.yaml`) |
+| `budget.min_compare_candidates` | optional minimum candidates required before compare mode |
 | `spotlight` | `auto`, a `task_id`, or `none` — the task to highlight |
 | `expect.min_coverage` | routing must keep at least this coverage |
 | `expect.min_delta_pct` | …while cutting at least this share of the naive bill |
 | `expect.max_delta_pct` | optional **upper** bound — savings must not exceed this (guards against phantom savings; see `limits.yaml`) |
+| `expect.max_tax_ratio` | optional **fan-out tax ceiling** — fan-out cost / winner cost must not exceed this (see `adaptive.yaml`) |
 | `expect.min_tasks` | minimum tasks the run must cover |
 
 > 한국어 매뉴얼과 실험노트는 GitHub Pages 문서 사이트를 참고하세요 (`docs/`).

@@ -42,6 +42,7 @@ def test_export_writes_all_files(site: Path) -> None:
         "replay-synth.json",
         "replay-curated.json",
         "regression.json",
+        "fanout-sweep.json",
         "experiments.json",
         "metrics-history.json",
     ):
@@ -58,6 +59,7 @@ def test_injected_endpoints_are_relative(site: Path) -> None:
     assert '"replay-synth.json"' in html
     assert '"replay-curated.json"' in html
     assert 'regression: "regression.json"' in html
+    assert 'fanoutSweep: "fanout-sweep.json"' in html
     assert 'experiments: "experiments.json"' in html
     assert 'metricsHistory: "metrics-history.json"' in html
 
@@ -68,6 +70,7 @@ def test_injected_endpoints_are_relative(site: Path) -> None:
         '"/replay-synth.json"',
         '"/replay-curated.json"',
         '"/regression.json"',
+        '"/fanout-sweep.json"',
         '"/experiments.json"',
         '"/metrics-history.json"',
     ):
@@ -100,6 +103,18 @@ def test_exported_regression_carries_coverage_cliff(site: Path) -> None:
     assert payload["candidate"]["coverage"] == pytest.approx(0.67)
     assert payload["coverage_delta"] == pytest.approx(-0.33)
     assert payload["measured"] is False
+
+
+def test_exported_fanout_sweep_carries_the_dial(site: Path) -> None:
+    payload = json.loads((site / "fanout-sweep.json").read_text(encoding="utf-8"))
+    # Four notches on the dial; coverage flat, ensemble tax collapsing to zero —
+    # the honest experiment 05-vs-06 story the sweep panel visualizes.
+    assert payload["measured"] is False
+    rows = payload["rows"]
+    assert {row["fanout_tasks"] for row in rows} == {6, 5, 1, 0}
+    assert all(row["coverage"] == pytest.approx(1.0) for row in rows)
+    assert rows[0]["ensemble_tax_usd"] == pytest.approx(0.364011, abs=1e-6)
+    assert rows[-1]["ensemble_tax_usd"] == pytest.approx(0.0)
 
 
 def test_exported_experiments_carry_offline_metrics(site: Path) -> None:

@@ -78,6 +78,7 @@ jobs:
             cost-router experiment list
             cost-router experiment run curated
             cost-router experiment run ensemble
+            cost-router experiment run adaptive
             cost-router experiment run limits
             cost-router hero
           else

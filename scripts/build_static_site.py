@@ -34,6 +34,7 @@ window.__ENDPOINTS__ = {
   policy: "policy.json",
   replay: function (synth) { return synth ? "replay-synth.json" : "replay-curated.json"; },
   regression: "regression.json",
+  fanoutSweep: "fanout-sweep.json",
   experiments: "experiments.json",
   metricsHistory: "metrics-history.json"
 };
@@ -58,6 +59,7 @@ def build(output_dir: Path) -> None:
         "replay-curated.json": _payload(service, "/replay?synth=false"),
         "replay-synth.json": _payload(service, "/replay?synth=true"),
         "regression.json": _payload(service, "/regression"),
+        "fanout-sweep.json": _payload(service, "/fanout-sweep"),
         "experiments.json": _payload(service, "/experiments"),
         "metrics-history.json": _payload(service, "/metrics/history"),
     }

@@ -30,6 +30,7 @@ from .baseline import (
     single_call_baseline_arms,
     single_tier_summary,
 )
+from .budget import BudgetGate
 from .classify import classify_task
 from .ledger import (
     JsonlLedger,
@@ -56,6 +57,8 @@ from .spotlight import select_spotlight
 DEFAULT_WORKLOAD = Path("samples/telemetry/mixed-coding-workload.sample.jsonl")
 DEFAULT_SIGNALS = Path("samples/responses/routing-signals.sample.json")
 DEFAULT_PRICING = Path("samples/pricing/illustrative.yaml")
+ENSEMBLE_SIGNALS = Path("samples/responses/ensemble-fanout-signals.sample.json")
+FANOUT_SWEEP_THRESHOLDS: tuple[float, ...] = (0.0, 0.76, 0.86, 1.01)
 POLICY_ENV_VAR = "COST_ROUTER_POLICY"
 
 
@@ -243,6 +246,7 @@ def run_replay(
     synth: bool = False,
     policy_path: Path | str | None = None,
     ledger_path: Path | str | None = None,
+    budget_gate: BudgetGate | None = None,
 ) -> ReplayReport:
     """Route every task that has signals and return traces plus a summary."""
 
@@ -259,6 +263,7 @@ def run_replay(
         pricing=pricing,
         ledger_path=ledger_path,
         signal_kind="synth" if synth else "fixture",
+        budget_gate=budget_gate,
     )
 
 
@@ -268,6 +273,7 @@ def run_bundled_replay(
     synth: bool = False,
     root: Path | str | None = None,
     ledger_path: Path | str | None = None,
+    budget_gate: BudgetGate | None = None,
 ) -> ReplayReport:
     """Replay the bundled sample workload with an in-memory policy.
 
@@ -294,6 +300,7 @@ def run_bundled_replay(
         pricing=pricing,
         ledger_path=ledger_path,
         signal_kind="synth" if synth else "fixture",
+        budget_gate=budget_gate,
     )
 
 
@@ -305,10 +312,13 @@ def _replay_report(
     pricing: PricingTable,
     ledger_path: Path | str | None = None,
     signal_kind: str = "fixture",
+    budget_gate: BudgetGate | None = None,
 ) -> ReplayReport:
     """Route the signalled tasks and attach the naive-vs-routed before/after."""
 
-    traces = route_tasks(workload, signals, policy=policy, pricing=pricing)
+    traces = route_tasks(
+        workload, signals, policy=policy, pricing=pricing, budget_gate=budget_gate
+    )
     summary = summarize_traces(traces)
     routed_tasks = {task_id: workload[task_id] for task_id in signals if task_id in workload}
     baseline = baseline_cost_usd(routed_tasks, policy, pricing)
@@ -690,6 +700,58 @@ def bundled_coverage_cliff(
         },
         "coverage_delta": report["coverage_delta"],
         "cost_delta_usd": report["cost_delta_usd"],
+        "measured": False,
+    }
+
+
+def bundled_fanout_sweep(
+    root: Path | str | None = None,
+    *,
+    thresholds: Sequence[float] = FANOUT_SWEEP_THRESHOLDS,
+) -> dict[str, Any]:
+    """Sweep the fan-out dial over the bundled ensemble workload for the dashboard.
+
+    Re-runs the ensemble fan-out workload once per ``compare_min_value`` threshold
+    and reports, at each notch, how many tasks fan out (compare) vs route single
+    (ordered), the coverage, the routed (winner) cost, the savings vs the naive
+    premium arm, and the ensemble tax. It exposes the honest shape of experiment
+    05 vs 06: as the dial rises, coverage and savings stay flat while the ensemble
+    tax collapses toward zero. Offline and deterministic; ``measured = false``.
+    """
+
+    base = find_samples_root(root)
+    workload = load_workload(base / DEFAULT_WORKLOAD)
+    pricing = PricingTable.from_yaml(base / DEFAULT_PRICING)
+    policy = load_policy(None)
+    signals = load_signal_fixture(base / ENSEMBLE_SIGNALS)
+    routed_tasks = {tid: workload[tid] for tid in signals if tid in workload}
+    baseline = baseline_cost_usd(routed_tasks, policy, pricing)
+
+    rows: list[dict[str, Any]] = []
+    for threshold in thresholds:
+        gate = BudgetGate(compare_min_value=float(threshold))
+        traces = route_tasks(workload, signals, policy=policy, pricing=pricing, budget_gate=gate)
+        summary = summarize_traces(traces)
+        fanout = fanout_stats(traces)
+        routed = float(summary["total_cost_usd"])
+        delta = round(baseline - routed, 6)
+        rows.append(
+            {
+                "threshold": round(float(threshold), 3),
+                "fanout_tasks": fanout["ensemble_tasks"],
+                "single_tasks": fanout["single_tasks"],
+                "coverage": summary["coverage"],
+                "routed_usd": round(routed, 6),
+                "delta_pct": round((delta / baseline) if baseline else 0.0, 6),
+                "fanout_usd": fanout["fanout_usd"],
+                "ensemble_tax_usd": fanout["ensemble_tax_usd"],
+                "tax_ratio": fanout["tax_ratio"],
+            }
+        )
+    return {
+        "baseline_usd": round(baseline, 6),
+        "tasks": len(routed_tasks),
+        "rows": rows,
         "measured": False,
     }
 
