@@ -18,6 +18,12 @@ from .experiment import (
     load_experiment,
     run_experiment,
 )
+from .metrics import (
+    FoundryMetricsEmitter,
+    JsonlMetricsStore,
+    record_experiment_metrics,
+    utc_now_iso,
+)
 from .pipeline import (
     format_eval_report,
     format_regression_report,
@@ -87,6 +93,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="append the hero run's decisions to an offline JSONL audit ledger",
     )
     hero.add_argument(
+        "--metrics-store",
+        type=Path,
+        default=None,
+        help="record the run's Foundry-shaped metrics to a JSONL history store",
+    )
+    hero.add_argument(
         "--serve",
         action="store_true",
         help="after the run, boot the offline dashboard to watch it live",
@@ -98,6 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     _build_policy_parser(subparsers)
     _build_ledger_parser(subparsers)
     _build_experiment_parser(subparsers)
+    _build_metrics_parser(subparsers)
     return parser
 
 
@@ -163,7 +176,47 @@ def _build_experiment_parser(subparsers: argparse._SubParsersAction) -> None:
         default=None,
         help="append the run's decisions to an offline JSONL audit ledger",
     )
+    run.add_argument(
+        "--metrics-store",
+        type=Path,
+        default=None,
+        help="record the run's Foundry-shaped metrics to a JSONL history store",
+    )
     run.set_defaults(func=_cmd_experiment_run)
+
+
+def _build_metrics_parser(subparsers: argparse._SubParsersAction) -> None:
+    metrics = subparsers.add_parser(
+        "metrics",
+        help="Record, inspect, and Foundry-emit experiment metrics.",
+    )
+    metrics_sub = metrics.add_subparsers(dest="metrics_command")
+
+    history = metrics_sub.add_parser("history", help="Show recorded experiment run history.")
+    history.add_argument("--store", type=Path, required=True, help="metrics JSONL history store")
+    history.add_argument("--experiment", default=None, help="filter to one experiment name")
+    history.add_argument("--limit", type=int, default=None, help="show only the last N runs")
+    history.add_argument("--json", action="store_true", help="print the history as JSON")
+    history.set_defaults(func=_cmd_metrics_history)
+
+    emit = metrics_sub.add_parser(
+        "emit",
+        help="Render an experiment's Azure-Foundry-shaped metric records.",
+    )
+    emit.add_argument("name", help="experiment name (e.g. hero) or path to a YAML file")
+    emit.add_argument(
+        "--connection-string",
+        default=None,
+        help="Azure Foundry / App Insights connection string (marks the emitter configured; "
+        "no egress happens offline)",
+    )
+    emit.add_argument(
+        "--store",
+        type=Path,
+        default=None,
+        help="also record the snapshot to a JSONL history store",
+    )
+    emit.set_defaults(func=_cmd_metrics_emit)
 
 
 def _add_data_args(parser: argparse.ArgumentParser) -> None:
@@ -325,17 +378,27 @@ def _cmd_ledger_replay(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
-def _run_named_experiment(name: str, *, as_json: bool, ledger: Path | None) -> int:
+def _run_named_experiment(
+    name: str,
+    *,
+    as_json: bool,
+    ledger: Path | None,
+    metrics_store: Path | None = None,
+) -> int:
     try:
         experiment = load_experiment(name)
         result = run_experiment(experiment, ledger_path=ledger)
     except (OSError, ValueError, KeyError) as exc:
         print(f"experiment error: {exc}")
         return 1
+    if metrics_store is not None:
+        record_experiment_metrics(result, store=JsonlMetricsStore(metrics_store))
     if as_json:
         print(json.dumps(result.to_dict(), indent=2, sort_keys=True, ensure_ascii=False))
     else:
         print(format_experiment_text(result))
+        if metrics_store is not None:
+            print(f"\nmetrics  recorded to {metrics_store}")
     return 0 if result.ok else 1
 
 
@@ -345,11 +408,66 @@ def _cmd_experiment_list(args: argparse.Namespace) -> int:
 
 
 def _cmd_experiment_run(args: argparse.Namespace) -> int:
-    return _run_named_experiment(args.name, as_json=args.json, ledger=args.ledger)
+    return _run_named_experiment(
+        args.name,
+        as_json=args.json,
+        ledger=args.ledger,
+        metrics_store=args.metrics_store,
+    )
+
+
+def _cmd_metrics_history(args: argparse.Namespace) -> int:
+    store = JsonlMetricsStore(args.store)
+    try:
+        rows = store.history(experiment=args.experiment, limit=args.limit)
+    except (OSError, ValueError) as exc:
+        print(f"metrics error: {exc}")
+        return 1
+    if args.json:
+        print(json.dumps(rows, indent=2, sort_keys=True, ensure_ascii=False))
+        return 0
+    if not rows:
+        print(f"no recorded runs in {args.store}")
+        return 0
+    print(f"metrics history  ({len(rows)} run(s) from {args.store})")
+    for row in rows:
+        stamp = row.get("recorded_at") or "—"
+        print(
+            f"  {stamp}  {row.get('experiment'):<10} "
+            f"cov={float(row.get('coverage', 0.0)):.1%} "
+            f"routed=${float(row.get('routed_usd', 0.0)):.6f} "
+            f"saved={float(row.get('delta_pct', 0.0)):.1%} "
+            f"fanout_tax=${float(row.get('ensemble_tax_usd', 0.0)):.6f} "
+            f"repro={'PASS' if row.get('reproducible') else 'FAIL'}"
+        )
+    return 0
+
+
+def _cmd_metrics_emit(args: argparse.Namespace) -> int:
+    try:
+        experiment = load_experiment(args.name)
+        result = run_experiment(experiment)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"metrics error: {exc}")
+        return 1
+    emitter = FoundryMetricsEmitter(connection_string=args.connection_string)
+    store = JsonlMetricsStore(args.store) if args.store is not None else None
+    metrics = record_experiment_metrics(
+        result, store=store, emitter=emitter, recorded_at=utc_now_iso()
+    )
+    sink = "Azure Foundry (configured)" if emitter.configured else "local capture (offline)"
+    print(f"# {len(emitter.captured)} metric records for {metrics.experiment} → {sink}")
+    print(json.dumps(emitter.captured, indent=2, sort_keys=True, ensure_ascii=False))
+    return 0
 
 
 def _cmd_hero(args: argparse.Namespace) -> int:
-    code = _run_named_experiment("hero", as_json=args.json, ledger=args.ledger)
+    code = _run_named_experiment(
+        "hero",
+        as_json=args.json,
+        ledger=args.ledger,
+        metrics_store=args.metrics_store,
+    )
     if not args.serve:
         if not args.json:
             print("")
@@ -380,6 +498,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "experiment" and not getattr(args, "experiment_command", None):
         print("usage: cost-router experiment [list|run <name>]")
+        return 0
+    if args.command == "metrics" and not getattr(args, "metrics_command", None):
+        print("usage: cost-router metrics [history --store PATH | emit <name>]")
         return 0
     return args.func(args)
 

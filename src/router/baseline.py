@@ -86,6 +86,49 @@ def single_tier_summary(
     }
 
 
+def ensemble_all_summary(
+    workload: Mapping[str, Mapping[str, Any]],
+    signals: Mapping[str, Mapping[str, Mapping[str, Any]]],
+    policy: PolicyTable,
+    pricing: PricingTable,
+) -> dict[str, Any]:
+    """Cost and coverage for the naive "fan out to every model" strategy.
+
+    Runs *all* candidates on *every* task and keeps the best — so it pays the
+    full fan-out bill (the sum of all candidate costs) on each task while
+    covering a task whenever any candidate passes the offline checks. This is the
+    ceiling the cost-aware mix beats: same (or better) coverage as premium-only,
+    but the highest cost of any strategy because it never stops early.
+    Deterministic and offline — it isolates the ensemble fan-out tax.
+    """
+
+    total = 0.0
+    accepted = 0
+    counted = 0
+    for task_id, task in workload.items():
+        task_signals = signals.get(str(task_id))
+        if task_signals is None:
+            continue
+        candidates = policy.candidates_for(classify_task(task))
+        if not candidates:
+            continue
+        counted += 1
+        tokens = task.get("tokens", {})
+        total += sum(pricing.cost_usd(candidate.model, tokens) for candidate in candidates)
+        if any(
+            (row := task_signals.get(candidate.model)) is not None and is_clean(row)
+            for candidate in candidates
+        ):
+            accepted += 1
+    coverage = (accepted / counted) if counted else 0.0
+    return {
+        "total_cost_usd": round(total, 6),
+        "coverage": coverage,
+        "tasks": counted,
+        "accepted": accepted,
+    }
+
+
 def single_call_baseline_arms(
     workload: Mapping[str, Mapping[str, Any]],
     signals: Mapping[str, Mapping[str, Mapping[str, Any]]],

@@ -28,9 +28,10 @@
 구현에 대한 주장이 아닙니다.
 
 !!! tip "비용 × 커버리지 프런티어로 보기"
-    [대시보드](../manual/dashboard.md)는 `all-mini`·`all-premium`·`cost-aware mix` 세
-    전략을 **비용(가로) × 커버리지(세로) 산점도**로 그립니다. 오직 mix만 좌상단 '둘 다 이기는'
-    코너(완전 커버리지 + 낮은 비용)에 위치하는 것을 눈으로 확인할 수 있습니다 —
+    [대시보드](../manual/dashboard.md)는 `all-mini`·`all-premium`·`cost-aware mix`·`all-ensemble`
+    네 전략을 **비용(가로) × 커버리지(세로) 산점도**로 그립니다. 오직 mix만 좌상단 '둘 다 이기는'
+    코너(완전 커버리지 + 낮은 비용)에 위치하고, `all-ensemble`(전부 팬아웃)은 커버리지 100%지만
+    **가장 비싼** 프런티어 밖 코너에 있는 것을 눈으로 확인할 수 있습니다 —
     [라이브 데모](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1).
 
 ## 지표
@@ -56,3 +57,4 @@ cost-router experiment run hero --json     # 기계가 읽는 전체 요약
 - [실험 02 · 큐레이션 샘플](02-curated.md) — 눈으로 따라가는 5개 태스크, 56.7% 절감
 - [실험 03 · 커버리지 절벽](03-coverage-cliff.md) — 비싼 모델을 지우면? 커버리지 100%→67% (정직한 반례)
 - [실험 04 · 공짜 점심은 없다](04-no-free-lunch.md) — 최상위 모델만 통과하는 워크로드? 절감 0%, 커버리지 100% (라우팅의 한계)
+- [실험 05 · 앙상블 팬아웃 세금](05-ensemble-fanout.md) — 모든 모델을 앙상블로 다 돌리면? 47% 절감이지만 팬아웃은 승자의 3.74배 (숨은 세금 + Foundry 메트릭)

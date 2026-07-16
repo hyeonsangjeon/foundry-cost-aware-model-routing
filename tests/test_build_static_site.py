@@ -42,6 +42,8 @@ def test_export_writes_all_files(site: Path) -> None:
         "replay-synth.json",
         "replay-curated.json",
         "regression.json",
+        "experiments.json",
+        "metrics-history.json",
     ):
         assert (site / name).is_file(), f"missing {name}"
 
@@ -56,6 +58,8 @@ def test_injected_endpoints_are_relative(site: Path) -> None:
     assert '"replay-synth.json"' in html
     assert '"replay-curated.json"' in html
     assert 'regression: "regression.json"' in html
+    assert 'experiments: "experiments.json"' in html
+    assert 'metricsHistory: "metrics-history.json"' in html
 
     # Absolute injected paths would break project-Pages sub-path hosting.
     for absolute in (
@@ -64,6 +68,8 @@ def test_injected_endpoints_are_relative(site: Path) -> None:
         '"/replay-synth.json"',
         '"/replay-curated.json"',
         '"/regression.json"',
+        '"/experiments.json"',
+        '"/metrics-history.json"',
     ):
         assert absolute not in html, f"endpoint must be relative, found {absolute}"
 
@@ -94,3 +100,25 @@ def test_exported_regression_carries_coverage_cliff(site: Path) -> None:
     assert payload["candidate"]["coverage"] == pytest.approx(0.67)
     assert payload["coverage_delta"] == pytest.approx(-0.33)
     assert payload["measured"] is False
+
+
+def test_exported_experiments_carry_offline_metrics(site: Path) -> None:
+    payload = json.loads((site / "experiments.json").read_text(encoding="utf-8"))
+    cards = payload["experiments"]
+    names = {card["name"] for card in cards}
+    assert {"hero", "curated", "ensemble", "limits"} <= names
+    ensemble = next(card for card in cards if card["name"] == "ensemble")
+    metrics = ensemble["metrics"]
+    assert metrics["measured"] is False
+    # pure projection: no wall-clock timestamp in the static export.
+    assert metrics["recorded_at"] is None
+    assert metrics["ensemble_tax_usd"] == pytest.approx(0.364011, abs=1e-6)
+
+
+def test_exported_history_is_deterministic(site: Path) -> None:
+    payload = json.loads((site / "metrics-history.json").read_text(encoding="utf-8"))
+    history = payload["history"]
+    assert {row["experiment"] for row in history} >= {"hero", "curated", "ensemble", "limits"}
+    # deterministic seed timestamps keep the Pages demo reproducible.
+    assert all(row["recorded_at"].startswith("2026-01-") for row in history)
+    assert all(row["measured"] is False for row in history)

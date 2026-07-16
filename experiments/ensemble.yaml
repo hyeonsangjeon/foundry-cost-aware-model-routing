@@ -1,0 +1,43 @@
+# ensemble.yaml — the ensemble fan-out lens: quality-by-vote, at a real cost.
+#
+# A curated set of high-value tasks that all route in *compare* (fan-out) mode:
+# the router runs every candidate and keeps the best result. Because several
+# models pass the offline checks on each task, best-of-N settles on the CHEAPEST
+# passing model — the sweet spot — so routing still lands 47% under the naive
+# "premium on every task" arm at full coverage.
+#
+# The honest catch this experiment exists to surface is the **ensemble tax**:
+# fanning out means paying to run the losers too. Here the winners cost
+# ~$0.13 but the fan-out actually spends ~$0.50 (3.7x) to run all 20 candidate
+# calls. A naive "ensemble everything" strategy pays that tax on every task;
+# cost-aware routing only fans out where the task value justifies it (see the
+# `all_ensemble` vs `mix` strategy arms and the `fanout` metrics).
+#
+# Everything is offline and deterministic. Every number is a projection over
+# synthetic data (labels.measured = false), not a measured saving.
+
+name: ensemble
+title: "앙상블 팬아웃 — 최선을 뽑되, 진짜 비용을 치른다"
+summary: >-
+  가치가 높은 태스크를 모든 후보에 팬아웃(compare 모드)해 최선을 뽑습니다.
+  여러 모델이 통과하므로 best-of-N은 가장 싼 통과 모델(스위트 스팟)을 남겨
+  나이브 대비 절감하지만, 팬아웃은 진 모델까지 실행하므로 승자 비용의 3.7배를
+  지불합니다 — 이것이 앙상블 세금입니다. 라우팅은 가치가 높은 곳에서만 팬아웃합니다.
+
+dataset:
+  workload: samples/telemetry/mixed-coding-workload.sample.jsonl
+  signals: samples/responses/ensemble-fanout-signals.sample.json
+  synth: false
+
+policy: null           # null → bundled seed policy (src/policy/seed_policy.yaml)
+pricing: null          # null → bundled illustrative pricing (measured=false)
+
+# Highlight one fan-out task where keeping the cheapest passing model beats the
+# naive premium arm by the widest margin.
+spotlight: auto
+
+# Reproducibility floor (offline projection over synthetic data).
+expect:
+  min_coverage: 1.0    # best-of-N always finds a passing model
+  min_delta_pct: 0.40  # …while landing well under the premium-on-every-task arm
+  min_tasks: 6

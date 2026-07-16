@@ -47,6 +47,7 @@ expect:
 | `spotlight` | `auto`, 특정 `task_id`, 또는 `none` |
 | `expect.min_coverage` | 이 커버리지 이상을 유지해야 함 |
 | `expect.min_delta_pct` | 나이브 청구서를 이 비율 이상 낮춰야 함 |
+| `expect.max_delta_pct` | (선택) **상한** — 절감이 이 비율을 넘으면 안 됨(유령 절감 방지; `limits.yaml` 참고) |
 | `expect.min_tasks` | 최소 이만큼의 태스크를 다뤄야 함 |
 
 경로는 저장소 루트 기준 상대 경로 또는 절대 경로로 씁니다.
@@ -65,6 +66,7 @@ expect:
 
 - `coverage ≥ min_coverage`
 - `delta_pct ≥ min_delta_pct`
+- `delta_pct ≤ max_delta_pct` (설정된 경우에만 — 과장된 유령 절감을 막는 상한)
 - `tasks ≥ min_tasks`
 
 하나라도 실패하면 `cost-router hero`/`experiment run`이 **0이 아닌 코드**로 종료합니다.

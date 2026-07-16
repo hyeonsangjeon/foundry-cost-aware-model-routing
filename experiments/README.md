@@ -15,6 +15,7 @@ are projections over synthetic data, not measured savings.
 cost-router hero                 # the flagship experiment (experiments/hero.yaml)
 cost-router experiment list      # list every experiment
 cost-router experiment run curated
+cost-router experiment run ensemble  # best-of-N fan-out: 100% coverage, -47%, but a 3.74x fan-out tax
 cost-router experiment run limits    # the honest boundary: routing saves ~0% here
 cost-router experiment run hero --json
 ```
@@ -37,6 +38,28 @@ cost-router experiment run limits
 ```
 
 See the lab notebook: **실험 04 · 공짜 점심은 없다**.
+
+## Ensemble fan-out tax (the hidden cost of "just run every model")
+
+`ensemble.yaml` uses a curated set of high-value tasks where the cheap
+candidate fails one check and the mid/top candidates pass fully (a tie broken to
+the cheapest passing model). The budget gate sends these to **compare mode**, so
+routing fans out to *every* candidate but only charges the winner. The common
+metrics module (`src/router/metrics.py`) recovers what that fan-out really cost:
+
+```bash
+cost-router experiment run ensemble
+# coverage 100.0% · saved 47.0% — but the 6 tasks fan out to $0.496812 of models
+# and keep $0.132801 of winners: a $0.364011 (3.74x) ensemble tax.
+cost-router metrics emit ensemble                        # Azure Foundry-shaped metric records
+cost-router experiment run ensemble --metrics-store runs.jsonl  # record to history
+cost-router metrics history --store runs.jsonl           # historical dashboard feed
+```
+
+The metrics are provider-neutral and `measured = false`: `FoundryMetricsEmitter`
+renders Azure Monitor / OpenTelemetry records and only forwards through an
+injected sink, so the default path never touches the network. See the lab
+notebook: **실험 05 · 앙상블 팬아웃 세금**.
 
 ## Policy regression (the coverage cliff)
 

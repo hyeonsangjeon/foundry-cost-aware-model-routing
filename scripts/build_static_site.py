@@ -33,7 +33,9 @@ window.__ENDPOINTS__ = {
   health: "healthz.json",
   policy: "policy.json",
   replay: function (synth) { return synth ? "replay-synth.json" : "replay-curated.json"; },
-  regression: "regression.json"
+  regression: "regression.json",
+  experiments: "experiments.json",
+  metricsHistory: "metrics-history.json"
 };
 </script>
 """
@@ -56,6 +58,8 @@ def build(output_dir: Path) -> None:
         "replay-curated.json": _payload(service, "/replay?synth=false"),
         "replay-synth.json": _payload(service, "/replay?synth=true"),
         "regression.json": _payload(service, "/regression"),
+        "experiments.json": _payload(service, "/experiments"),
+        "metrics-history.json": _payload(service, "/metrics/history"),
     }
     for name, payload in files.items():
         (output_dir / name).write_text(
