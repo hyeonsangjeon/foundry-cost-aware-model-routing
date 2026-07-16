@@ -48,6 +48,7 @@ nav:
       - CLI 레퍼런스: manual/cli.md
       - 실험 설정(YAML): manual/experiments.md
       - 대시보드: manual/dashboard.md
+      - 메트릭 & Foundry: manual/metrics.md
       - 감사 원장: manual/ledger.md
   - 실험노트:
       - 소개와 방법론: lab-notebook/index.md
@@ -55,6 +56,7 @@ nav:
       - "실험 02 · 큐레이션 샘플": lab-notebook/02-curated.md
       - "실험 03 · 커버리지 절벽": lab-notebook/03-coverage-cliff.md
       - "실험 04 · 공짜 점심은 없다": lab-notebook/04-no-free-lunch.md
+      - "실험 05 · 앙상블 팬아웃 세금": lab-notebook/05-ensemble-fanout.md
       - 개발 로그: lab-notebook/devlog.md
   - 정직함 규약: honesty.md
 

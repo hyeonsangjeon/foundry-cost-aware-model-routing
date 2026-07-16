@@ -161,8 +161,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .fconn { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 4 3; }
   .fpt { stroke: #fff; stroke-width: 2; }
   .fpt-mini { fill: var(--amber); } .fpt-prem { fill: var(--red); } .fpt-mix { fill: var(--green); }
+  .fpt-ens { fill: var(--purple); }
   .flbl { font-size: 11px; font-weight: 700; }
   .flbl-mini { fill: var(--amber); } .flbl-prem { fill: var(--red); } .flbl-mix { fill: var(--green); }
+  .flbl-ens { fill: var(--purple); }
   .fsub { fill: var(--muted); font-size: 10px; font-family: var(--mono); }
 
   /* ---- Coverage cliff (policy A/B) ---- */
@@ -261,6 +263,52 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .foot.end { text-align: center; margin-top: 4px; }
   .grid2 { display: grid; grid-template-columns: 1fr; gap: 18px; }
   @media (min-width: 760px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+
+  /* ---- experiments (click for metrics) ---- */
+  .exp-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .exp-detail { border-top: 1px solid var(--line2); padding-top: 14px; }
+  .exp-tab {
+    font-family: var(--mono); font-size: 12.5px; padding: 7px 13px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--elev); color: var(--ink); cursor: pointer;
+    transition: all .12s;
+  }
+  .exp-tab:hover { border-color: var(--brand); color: var(--brand); }
+  .exp-tab.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .exp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .exp-head h3 { margin: 0 0 3px; font-size: 15px; }
+  .exp-kpis {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 14px 0;
+  }
+  @media (min-width: 640px) { .exp-kpis { grid-template-columns: repeat(5, 1fr); } }
+  .exp-kpi {
+    background: var(--elev); border: 1px solid var(--line2); border-radius: 10px; padding: 11px 12px;
+  }
+  .exp-kpi .v { font-family: var(--mono); font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .exp-kpi .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+  .taxbox {
+    background: var(--brand-soft); border: 1px solid #cfe6da; border-radius: 10px;
+    padding: 12px 14px; margin: 4px 0 12px; font-size: 12.5px; color: var(--ink);
+  }
+  .taxbox b { color: var(--brand); font-family: var(--mono); }
+  .exp-checks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chk {
+    font-family: var(--mono); font-size: 11.5px; padding: 4px 9px; border-radius: 7px;
+    border: 1px solid var(--line);
+  }
+  .chk.ok { color: var(--green); border-color: #b7dfc6; background: #eefaf1; }
+  .chk.no { color: var(--red); border-color: #edc4c4; background: #fbeaea; }
+
+  /* ---- historical dashboard ---- */
+  .history-wrap { overflow-x: auto; }
+  table.htable { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.htable th, table.htable td {
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line2); white-space: nowrap;
+  }
+  table.htable th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  table.htable td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  table.htable tr:hover td { background: var(--elev); }
+  .hstate.pass { color: var(--green); font-weight: 600; }
+  .hstate.fail { color: var(--red); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -352,6 +400,44 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <div id="frontier"><small style="color:var(--muted)">run a replay&#8230;</small></div>
     </div>
     <div class="takeaway" id="takeaway">Run a replay to compare all-mini vs all-premium vs the cost-aware mix &mdash; each single-tier strategy fails on one axis; only the mix keeps full coverage below premium cost.</div>
+  </section>
+
+  <section class="panel" id="experimentsPanel">
+    <div class="eyebrow">experiments</div>
+    <h2 class="sec">Experiments &mdash; click for the metrics</h2>
+    <p class="sec-sub">각 실험을 눌러 비용 &middot; 커버리지 &middot; <b>앙상블 팬아웃 세금</b> &middot; 재현성 계약을
+      확인하세요. 수치는 Azure Foundry 형태의 오프라인 메트릭입니다 (labels.measured=false).</p>
+    <div class="exp-tabs" id="expTabs"><small style="color:var(--muted)">loading experiments&#8230;</small></div>
+    <div class="exp-detail" id="expDetail" hidden>
+      <div class="exp-head">
+        <div>
+          <h3 id="expTitle">&mdash;</h3>
+          <p class="sec-sub" id="expSummary" style="margin:0"></p>
+        </div>
+        <span class="badge" id="expRepro">&mdash;</span>
+      </div>
+      <div class="exp-kpis" id="expKpis"></div>
+      <div class="taxbox" id="expFanout"></div>
+      <div class="exp-checks" id="expChecks"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="historyPanel">
+    <div class="eyebrow">historical</div>
+    <h2 class="sec">Historical dashboard</h2>
+    <p class="sec-sub">기록된 실험 실행 이력 (metrics history store). 라이브 서버에서 실험을 실행할 때마다
+      한 줄씩 누적됩니다 &mdash; 정적 데모에서는 실험별 기준 스냅샷을 보여줍니다.</p>
+    <div class="history-wrap">
+      <table class="htable">
+        <thead>
+          <tr>
+            <th>recorded</th><th>experiment</th><th>coverage</th><th>routed</th>
+            <th>saved</th><th>fan-out tax</th><th>ratio</th><th>contract</th>
+          </tr>
+        </thead>
+        <tbody id="histBody"><tr><td colspan="8"><small style="color:var(--muted)">loading history&#8230;</small></td></tr></tbody>
+      </table>
+    </div>
   </section>
 
   <section class="panel" id="cliffPanel" hidden>
@@ -476,6 +562,8 @@ const EP = (typeof window !== "undefined" && window.__ENDPOINTS__) || {
   policy: "/policy",
   replay: (synth) => "/replay?synth=" + synth,
   regression: "/regression",
+  experiments: "/experiments",
+  metricsHistory: "/metrics/history",
 };
 // Display rounding (P1): totals at 2 decimals; sub-cent values keep up to 4 so
 // tiny per-task/model costs don't collapse to $0.00. Underlying data is untouched.
@@ -660,9 +748,11 @@ function renderFrontier(s) {
   const prem = st.all_premium || { total_cost_usd: s.baseline_total_usd, coverage: 1 };
   const mini = st.all_mini || { total_cost_usd: s.total_cost_usd, coverage: s.coverage };
   const mix = { total_cost_usd: s.total_cost_usd, coverage: s.coverage };
+  const ens = st.all_ensemble || null;
   const W = 460, H = 250, L = 44, R = 20, T = 34, B = 40;
   const pw = W - L - R, ph = H - T - B, yb = T + ph, x1 = W - R;
-  const costMax = Math.max(prem.total_cost_usd, mix.total_cost_usd, mini.total_cost_usd) || 1;
+  const costMax = Math.max(prem.total_cost_usd, mix.total_cost_usd, mini.total_cost_usd,
+    ens ? ens.total_cost_usd : 0) || 1;
   const X = (c) => (L + (c / costMax) * pw);
   const Y = (v) => (T + (1 - Math.max(0, Math.min(1, v))) * ph);
   let g = "";
@@ -691,10 +781,12 @@ function renderFrontier(s) {
     return "<text class='flbl flbl-" + cls + "' x='" + x + "' y='" + y + "' text-anchor='" + anchor + "'>" + name + "</text>" +
       "<text class='fsub' x='" + x + "' y='" + (Number(y) + 12).toFixed(1) + "' text-anchor='" + anchor + "'>" + usd(o.total_cost_usd) + " \\u00b7 " + pct(o.coverage) + "</text>";
   };
-  const dots = dot(mini, "mini", 6) + dot(prem, "prem", 6) + dot(mix, "mix", 8);
+  const dots = dot(mini, "mini", 6) + dot(prem, "prem", 6) +
+    (ens ? dot(ens, "ens", 6) : "") + dot(mix, "mix", 8);
   const labels =
     label(mini, "mini", "all-mini", "start", 11, 4) +
     label(prem, "prem", "all-premium", "end", -10, -12) +
+    (ens ? label(ens, "ens", "ensemble-all", "end", -10, -12) : "") +
     label(mix, "mix", "cost-aware mix", "end", -12, 20);
   host.innerHTML =
     "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='cost versus coverage frontier: only the cost-aware mix reaches full coverage at low cost'>" +
@@ -738,6 +830,112 @@ function renderSpotlight(sp) {
   $("spotNaiveModel").textContent = sp.naive_model;
   $("spotNaiveCost").textContent = usdSmart(sp.naive_usd);
   $("spotRatio").textContent = Number(sp.ratio).toFixed(1) + "\\u00d7";
+}
+
+// ---- Experiments (click for metrics) + Historical dashboard ----
+// Both read Foundry-shaped metrics: EP.experiments (live /experiments, or
+// experiments.json in the static export) and EP.metricsHistory (/metrics/history
+// or metrics-history.json). Each panel degrades gracefully if its endpoint is
+// missing so the core replay always works.
+let EXPERIMENTS = [];
+
+function expKpi(value, key) {
+  return "<div class='exp-kpi'><div class='v'>" + value + "</div><div class='k'>" + key + "</div></div>";
+}
+
+function renderExperimentCard(c) {
+  const m = c.metrics || {};
+  $("expTitle").textContent = c.title || c.name;
+  $("expSummary").textContent = c.summary || "";
+  const repro = $("expRepro");
+  repro.textContent = c.reproducible ? "reproducible \\u2713" : "contract FAIL";
+  repro.className = "badge " + (c.reproducible ? "ok" : "measured");
+  $("expKpis").innerHTML =
+    expKpi(pct(m.coverage), "coverage") +
+    expKpi(usdSmart(m.routed_usd), "routed") +
+    expKpi(pct(m.delta_pct), "saved vs naive") +
+    expKpi(m.tasks, "tasks") +
+    expKpi(m.ensemble_tasks + "/" + m.tasks, "fan-out tasks");
+  if (m.ensemble_tasks > 0) {
+    $("expFanout").hidden = false;
+    $("expFanout").innerHTML =
+      "\\uD83D\\uDD00 <b>ensemble fan-out tax</b>: this run fanned out to every candidate on <b>" +
+      m.ensemble_tasks + "</b> task(s), spending <b>" + usdSmart(m.fanout_usd) +
+      "</b> to run all models but keeping only <b>" + usdSmart(m.fanout_usd - m.ensemble_tax_usd) +
+      "</b> worth of winners \\u2014 an extra <b>" + usdSmart(m.ensemble_tax_usd) + "</b> (" +
+      Number(m.tax_ratio).toFixed(1) + "\\u00d7) is the price of running the losers.";
+  } else {
+    $("expFanout").hidden = true;
+  }
+  $("expChecks").innerHTML = (c.checks || [])
+    .map((ch) => "<span class='chk " + (ch.ok ? "ok" : "no") + "'>" +
+      (ch.ok ? "\\u2713" : "\\u2717") + " " + ch.name + ": " + ch.detail + "</span>")
+    .join("");
+  $("expDetail").hidden = false;
+}
+
+function selectExperiment(i) {
+  const c = EXPERIMENTS[i];
+  if (!c) return;
+  const tabs = $("expTabs");
+  [...tabs.children].forEach((b, j) => b.classList.toggle("active", j === i));
+  renderExperimentCard(c);
+}
+
+async function loadExperiments() {
+  const tabs = $("expTabs");
+  if (!tabs) return;
+  let data;
+  try {
+    data = await (await fetch(EP.experiments)).json();
+  } catch (e) {
+    tabs.innerHTML = "<small style='color:var(--muted)'>experiments endpoint unavailable</small>";
+    return;
+  }
+  EXPERIMENTS = data.experiments || [];
+  tabs.innerHTML = "";
+  EXPERIMENTS.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "exp-tab";
+    b.type = "button";
+    b.textContent = c.name;
+    b.addEventListener("click", () => selectExperiment(i));
+    tabs.appendChild(b);
+  });
+  if (EXPERIMENTS.length) selectExperiment(0);
+  else tabs.innerHTML = "<small style='color:var(--muted)'>no experiments found</small>";
+}
+
+async function loadHistory() {
+  const body = $("histBody");
+  if (!body) return;
+  let data;
+  try {
+    data = await (await fetch(EP.metricsHistory)).json();
+  } catch (e) {
+    body.innerHTML = "<tr><td colspan='8'><small style='color:var(--muted)'>history endpoint unavailable</small></td></tr>";
+    return;
+  }
+  const rows = data.history || [];
+  if (!rows.length) {
+    body.innerHTML = "<tr><td colspan='8'><small style='color:var(--muted)'>no recorded runs yet</small></td></tr>";
+    return;
+  }
+  body.innerHTML = "";
+  rows.forEach((r) => {
+    const tr = document.createElement("tr");
+    const ok = r.reproducible;
+    tr.innerHTML =
+      "<td class='num'>" + (r.recorded_at || "\\u2014") + "</td>" +
+      "<td>" + r.experiment + "</td>" +
+      "<td class='num'>" + pct(r.coverage) + "</td>" +
+      "<td class='num'>" + usdSmart(r.routed_usd) + "</td>" +
+      "<td class='num'>" + pct(r.delta_pct) + "</td>" +
+      "<td class='num'>" + usdSmart(r.ensemble_tax_usd) + "</td>" +
+      "<td class='num'>" + Number(r.tax_ratio).toFixed(1) + "\\u00d7</td>" +
+      "<td class='hstate " + (ok ? "pass" : "fail") + "'>" + (ok ? "PASS" : "FAIL") + "</td>";
+    body.appendChild(tr);
+  });
 }
 
 async function runReplay() {
@@ -816,6 +1014,8 @@ async function runReplay() {
 $("run").addEventListener("click", runReplay);
 if (window.innerWidth < 960) { const d = $("policyDetails"); if (d) d.removeAttribute("open"); }
 loadHealth();
+loadExperiments();
+loadHistory();
 loadPolicy().then(() => {
   // Hero mode (cost-router hero --serve) opens the dashboard with ?run=1 so the
   // before/after animates on load — no click needed. Policy must load first so

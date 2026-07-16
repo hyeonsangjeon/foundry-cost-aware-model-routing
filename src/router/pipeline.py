@@ -26,6 +26,7 @@ from policy import (
 from .baseline import (
     baseline_cost_usd,
     baseline_model_for_task,
+    ensemble_all_summary,
     single_call_baseline_arms,
     single_tier_summary,
 )
@@ -37,6 +38,7 @@ from .ledger import (
     verify_ledger,
     verify_records,
 )
+from .metrics import fanout_stats
 from .offline import (
     load_signal_fixture,
     load_workload,
@@ -326,6 +328,7 @@ def _replay_report(
     summary["strategies"] = _strategy_comparison(
         routed_tasks, signals, summary, policy=policy, pricing=pricing
     )
+    summary["fanout"] = fanout_stats(traces)
     summary["escalated_tasks"] = _count_escalated(traces)
     spotlight = select_spotlight(traces, pricing, "auto")
     summary["spotlight"] = spotlight.to_dict() if spotlight else None
@@ -360,6 +363,7 @@ def _strategy_comparison(
 
     mini = single_tier_summary(routed_tasks, signals, policy, pricing, cheapest=True)
     premium = single_tier_summary(routed_tasks, signals, policy, pricing, cheapest=False)
+    ensemble = ensemble_all_summary(routed_tasks, signals, policy, pricing)
     return {
         "all_mini": {
             "total_cost_usd": mini["total_cost_usd"],
@@ -368,6 +372,10 @@ def _strategy_comparison(
         "all_premium": {
             "total_cost_usd": premium["total_cost_usd"],
             "coverage": premium["coverage"],
+        },
+        "all_ensemble": {
+            "total_cost_usd": ensemble["total_cost_usd"],
+            "coverage": ensemble["coverage"],
         },
         "mix": {
             "total_cost_usd": summary["total_cost_usd"],

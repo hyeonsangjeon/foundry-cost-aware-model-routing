@@ -1,12 +1,56 @@
 # 개발 로그 · 실험일지
 
 !!! abstract "이 문서는 무엇인가"
-    실험(01·02·03)이 *"무엇을 검증했는가"*를 담는다면, 이 개발 로그는
+    실험(01–05)이 *"무엇을 검증했는가"*를 담는다면, 이 개발 로그는
     *"언제 · 어떤 상황에서 · 무슨 작업을 했는가"*를 시간순으로 남깁니다.
     각 항목은 **상황(왜) · 작업(무엇을) · 검증(효과)** 세 줄로 정리하며,
     수치가 등장하면 저장소 규약대로 항상 `measured = false`입니다.
 
     최신 항목이 맨 위입니다.
+
+---
+
+## 2026-07-16 · 실험 05 「앙상블 팬아웃 세금」 + Foundry 메트릭 공용 모듈 & 웹앱
+
+!!! note "한 줄 요약"
+    "애저 파운드리 기능으로 앙상블 모델을 다 돌리고, 그 비용을 공통 클래스로 저장·조회하며,
+    웹앱에서 실험을 누르면 통계가 뜨고 히스토리컬 대시보드에도 나오게"라는 요청을 구현했습니다.
+    정직한 축은 **앙상블 팬아웃 세금** — compare 모드는 모든 후보를 돌리지만 승자만 청구하므로,
+    "그냥 다 앙상블"은 같은 커버리지에 훨씬 더 냅니다(합성 히어로에서 all-ensemble $4.23 vs
+    mix $1.66). 모든 수치는 `measured = false`.
+
+- **상황(왜):** 실험 01–04는 단일 라우팅의 이득/경계를 다뤘지만, "여러 모델 앙상블/베스트-오브-N
+  (OpenRouter식)"의 **비용**은 비어 있었습니다. 게다가 실험별 통계를 Azure Foundry 형태로
+  저장·실시간 조회하고 웹앱·히스토리컬 대시보드에서 보고 싶다는 요구가 있었습니다.
+- **작업(무엇을):**
+    - **공용 메트릭 모듈** `src/router/metrics.py` 신설 — `fanout_stats`(팬아웃 세금 회수),
+      `ExperimentMetrics`(정규화 스냅샷 + `to_metric_records()`로 Azure Monitor/OTel 형태),
+      `JsonlMetricsStore`(오프라인 히스토리), `FoundryMetricsEmitter`(연결 문자열 인지 +
+      **주입 sink로만** 전송 → 기본 경로는 무송신), `record_experiment_metrics`.
+    - `src/router/pipeline.py`에 `summary["fanout"]`와 전략 arm `all_ensemble`(전부 팬아웃)을
+      추가, `baseline.py`에 `ensemble_all_summary`.
+    - 실험 자산 `experiments/ensemble.yaml` + `samples/responses/ensemble-fanout-signals.sample.json`
+      (값싼 후보는 검사 1개 실패, 중·상위는 완전 통과 동점 → 승자=가장 싼 통과 모델).
+    - **서버 엔드포인트** `GET /experiments`(카드+메트릭) · `GET /experiment?name=`(실행+히스토리
+      기록) · `GET /metrics/history`(히스토리컬 피드)를 `src/router/server.py`에 추가.
+    - **CLI** `experiment run --metrics-store` · `hero --metrics-store` · 새 `metrics`
+      서브커맨드(`history`·`emit`).
+    - **웹앱** `src/router/dashboard.py`에 Experiments 패널(탭 클릭 → 비용·커버리지·팬아웃
+      세금·계약)과 Historical dashboard 테이블을 추가하고, 프런티어에 4번째 점 `all-ensemble`을
+      추가. `scripts/build_static_site.py`가 `experiments.json`·`metrics-history.json`을 상대
+      엔드포인트로 구워 Pages 정적 데모에도 동일 렌더.
+    - 매뉴얼 [메트릭 & Foundry](../manual/metrics.md) 신설, 실험노트
+      [실험 05](05-ensemble-fanout.md), nav·index·README·experiments 교차 링크, CI 계약에
+      `experiment run ensemble` 추가.
+- **검증(효과):** `experiment run ensemble` → coverage 100% · saved 47.0% (routed $0.132801 vs
+  naive $0.250728), fanout_usd $0.496812 · **ensemble_tax_usd $0.364011 (3.74×)** · 스포트라이트
+  t-0032(5.14×). `/experiments`·`/experiment`·`/metrics/history` 200, 히스토리 시드 4행 +
+  라이브 append 검증. 정적 export 2회 빌드 diff 동일(결정론). node 렌더 프로브로 프런티어 4점 +
+  실험 카드 5 KPI 확인. 새 테스트(`test_metrics.py`·`test_ensemble.py` + server/cli/build
+  확장)로 **pytest 257개 통과** · ruff clean · mkdocs strict OK. 완전 오프라인 유지 — Foundry
+  전송은 주입 sink에서만. 모든 수치 `measured = false`.
+
+[라이브 데모에서 보기 →](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1)
 
 ---
 

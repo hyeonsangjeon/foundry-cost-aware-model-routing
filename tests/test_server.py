@@ -572,3 +572,89 @@ def test_loopback_server_round_trip() -> None:
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=5)
+
+
+# -- experiments & metrics endpoints (web app + historical dashboard) --------
+
+def test_experiments_endpoint_lists_cards_with_metrics(service: RouterService) -> None:
+    payload = service.dispatch("GET", "/experiments").payload
+    cards = payload["experiments"]
+    names = {card["name"] for card in cards}
+    assert {"hero", "curated", "ensemble", "limits"} <= names
+    ensemble = next(card for card in cards if card["name"] == "ensemble")
+    metrics = ensemble["metrics"]
+    assert metrics["ensemble_tax_usd"] == pytest.approx(0.364011, abs=1e-6)
+    assert metrics["tax_ratio"] == pytest.approx(3.741, abs=1e-3)
+    assert metrics["measured"] is False
+    assert metrics["recorded_at"] is None  # pure projection, no clock
+    assert ensemble["reproducible"] is True
+    assert {check["name"] for check in ensemble["checks"]} == {"coverage", "savings", "tasks"}
+    assert "all_ensemble" in ensemble["strategies"] or ensemble["strategies"] == {}
+
+
+def test_experiments_endpoint_is_get_only(service: RouterService) -> None:
+    assert service.dispatch("POST", "/experiments").status == 405
+
+
+def test_experiment_detail_runs_and_records(service: RouterService) -> None:
+    response = service.dispatch("GET", "/experiment?name=ensemble")
+    assert response.status == 200
+    metrics = response.payload["metrics"]
+    assert metrics["experiment"] == "ensemble"
+    assert metrics["recorded_at"] is not None  # live run stamps the clock
+    assert response.payload["result"]["ok"] is True
+
+
+def test_experiment_detail_missing_name_is_400(service: RouterService) -> None:
+    assert service.dispatch("GET", "/experiment").status == 400
+
+
+def test_experiment_detail_unknown_name_is_404(service: RouterService) -> None:
+    assert service.dispatch("GET", "/experiment?name=nope").status == 404
+
+
+def test_metrics_history_seeds_one_row_per_experiment(service: RouterService) -> None:
+    payload = service.dispatch("GET", "/metrics/history").payload
+    history = payload["history"]
+    experiments = {row["experiment"] for row in history}
+    assert {"hero", "curated", "ensemble", "limits"} <= experiments
+    # deterministic seed timestamps so the static export is reproducible.
+    assert all(row["recorded_at"].startswith("2026-01-") for row in history)
+    assert "latest" in payload
+
+
+def test_metrics_history_grows_after_a_live_run(service: RouterService) -> None:
+    before = len(service.dispatch("GET", "/metrics/history").payload["history"])
+    service.dispatch("GET", "/experiment?name=ensemble")
+    after = service.dispatch("GET", "/metrics/history").payload["history"]
+    assert len(after) == before + 1
+    assert after[-1]["experiment"] == "ensemble"
+
+
+def test_metrics_history_filters_by_experiment(service: RouterService) -> None:
+    payload = service.dispatch("GET", "/metrics/history?experiment=hero").payload
+    assert [row["experiment"] for row in payload["history"]] == ["hero"]
+
+
+def test_metrics_store_persists_live_runs(tmp_path) -> None:
+    from router.metrics import JsonlMetricsStore
+
+    store = JsonlMetricsStore(tmp_path / "history.jsonl")
+    service = RouterService(metrics_store=store)
+    service.dispatch("GET", "/experiment?name=curated")
+    assert len(store.history()) == 1
+    assert store.history()[0]["experiment"] == "curated"
+
+
+def test_dashboard_shows_experiments_and_history_panels(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    assert 'id="experimentsPanel"' in html
+    assert 'id="historyPanel"' in html
+    assert 'id="expTabs"' in html
+    assert 'id="histBody"' in html
+    # wired to the metrics endpoints and invoked on load.
+    assert "loadExperiments" in script
+    assert "loadHistory" in script
+    assert "experiments:" in script  # EP fallback map carries the routes
+    assert "metricsHistory:" in script

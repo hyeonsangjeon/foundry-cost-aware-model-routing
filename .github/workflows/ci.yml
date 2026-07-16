@@ -77,6 +77,7 @@ jobs:
           if command -v cost-router >/dev/null 2>&1; then
             cost-router experiment list
             cost-router experiment run curated
+            cost-router experiment run ensemble
             cost-router experiment run limits
             cost-router hero
           else

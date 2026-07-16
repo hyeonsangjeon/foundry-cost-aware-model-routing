@@ -36,6 +36,19 @@ from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
 from .dashboard import DASHBOARD_HTML
+from .experiment import (
+    Experiment,
+    ExperimentResult,
+    list_experiments,
+    load_experiment,
+    run_experiment,
+)
+from .metrics import (
+    ExperimentMetrics,
+    JsonlMetricsStore,
+    extract_experiment_metrics,
+    record_experiment_metrics,
+)
 from .pipeline import (
     batch_route_payload,
     bundled_coverage_cliff,
@@ -56,10 +69,17 @@ _KNOWN_ROUTES = {
     "/regression",
     "/route",
     "/batch-route",
+    "/experiments",
+    "/experiment",
+    "/metrics/history",
 }
 _PRICING_OFF = {"none", "off", "disabled", "false"}
 _PRICING_DEFAULT = {"illustrative", "default", "sample", "on", "true"}
 _TRUTHY = {"1", "true", "yes", "on"}
+# Deterministic baseline timestamps for the seeded metrics history, so the
+# historical dashboard is populated out of the box and the static export is
+# reproducible. Live experiment runs append real-time entries on top.
+_HISTORY_EPOCH = "2026-01-{day:02d}T00:00:00Z"
 
 
 @dataclass(frozen=True)
@@ -87,6 +107,7 @@ class RouterService:
         *,
         policy: Any | None = None,
         pricing: PricingTable | None = None,
+        metrics_store: JsonlMetricsStore | None = None,
     ) -> None:
         self.policy = policy or load_policy()
         if pricing is not None:
@@ -96,6 +117,10 @@ class RouterService:
                 self.pricing = load_default_pricing()
             except FileNotFoundError:
                 self.pricing = None
+        self.metrics_store = metrics_store
+        self._experiment_runs: list[tuple[Experiment, ExperimentResult, ExperimentMetrics]] | None
+        self._experiment_runs = None
+        self._history: list[dict[str, Any]] | None = None
 
     # -- endpoint handlers ------------------------------------------------
 
@@ -123,6 +148,61 @@ class RouterService:
 
     def regression(self) -> ServiceResponse:
         return ServiceResponse(200, bundled_coverage_cliff())
+
+    # -- experiments & metrics -------------------------------------------
+
+    def experiments_view(self) -> ServiceResponse:
+        """List every experiment with its offline metrics for the web app.
+
+        Each card carries the normalized :class:`ExperimentMetrics` (cost,
+        coverage, and the ensemble fan-out tax), the reproducibility checks, and
+        the strategy arms — enough for the dashboard to render per-experiment
+        statistics on click without a second round-trip. Deterministic;
+        ``recorded_at`` is null because this is a pure projection, not a
+        timestamped recording.
+        """
+
+        cards = [
+            self._experiment_card(exp, result, metrics)
+            for exp, result, metrics in self._runs()
+        ]
+        return ServiceResponse(200, {"experiments": cards})
+
+    def experiment_view(self, path: str) -> ServiceResponse:
+        """Run one experiment by name and record it into the metrics history.
+
+        Unlike ``/experiments`` this is the "real-time" action: it stamps the
+        run with the current time, appends it to the in-memory history (and the
+        file-backed store when configured), and returns the full result plus the
+        metrics snapshot. Offline and deterministic apart from the timestamp.
+        """
+
+        name = _query_value(path, "name")
+        if not name:
+            return _error(400, "missing required query parameter 'name'")
+        try:
+            experiment = load_experiment(name)
+        except (OSError, ValueError) as exc:
+            return _error(404, str(exc))
+        result = run_experiment(experiment)
+        metrics = record_experiment_metrics(result, store=self.metrics_store)
+        self._history_rows().append(metrics.to_dict())
+        return ServiceResponse(
+            200,
+            {"result": result.to_dict(), "metrics": metrics.to_dict()},
+        )
+
+    def metrics_history_view(self, path: str) -> ServiceResponse:
+        """Return the recorded experiment runs for the historical dashboard."""
+
+        name = _query_value(path, "experiment")
+        rows = self._history_rows()
+        if name:
+            rows = [row for row in rows if row.get("experiment") == name]
+        latest: dict[str, dict[str, Any]] = {}
+        for row in self._history_rows():
+            latest[str(row.get("experiment"))] = row
+        return ServiceResponse(200, {"history": list(rows), "latest": latest})
 
     def route(self, body: bytes) -> ServiceResponse:
         parsed = _load_json_object(body)
@@ -178,6 +258,12 @@ class RouterService:
             return self.replay(path)
         if method == "GET" and route == "/regression":
             return self.regression()
+        if method == "GET" and route == "/experiments":
+            return self.experiments_view()
+        if method == "GET" and route == "/experiment":
+            return self.experiment_view(path)
+        if method == "GET" and route == "/metrics/history":
+            return self.metrics_history_view(path)
         if method == "POST" and route == "/route":
             return self.route(body)
         if method == "POST" and route == "/batch-route":
@@ -199,6 +285,49 @@ class RouterService:
             return self.pricing
         raise ValueError(f"unknown pricing mode {mode!r}; use 'illustrative' or 'none'")
 
+    def _runs(self) -> list[tuple[Experiment, ExperimentResult, ExperimentMetrics]]:
+        """Run every experiment once and cache the (experiment, result, metrics) triples."""
+
+        if self._experiment_runs is None:
+            runs: list[tuple[Experiment, ExperimentResult, ExperimentMetrics]] = []
+            for experiment in list_experiments():
+                result = run_experiment(experiment)
+                runs.append((experiment, result, extract_experiment_metrics(result)))
+            self._experiment_runs = runs
+        return self._experiment_runs
+
+    def _history_rows(self) -> list[dict[str, Any]]:
+        """Return the metrics history, seeding one deterministic row per experiment."""
+
+        if self._history is None:
+            seeded: list[dict[str, Any]] = []
+            for index, (_exp, result, _metrics) in enumerate(self._runs(), start=1):
+                stamped = extract_experiment_metrics(
+                    result, recorded_at=_HISTORY_EPOCH.format(day=index)
+                )
+                seeded.append(stamped.to_dict())
+            self._history = seeded
+        return self._history
+
+    @staticmethod
+    def _experiment_card(
+        experiment: Experiment,
+        result: ExperimentResult,
+        metrics: ExperimentMetrics,
+    ) -> dict[str, Any]:
+        summary = result.report.summary
+        return {
+            "name": experiment.name,
+            "title": experiment.title,
+            "summary": experiment.summary,
+            "source": "synth" if experiment.synth else "fixture",
+            "reproducible": result.ok,
+            "metrics": metrics.to_dict(),
+            "checks": [check.to_dict() for check in result.checks],
+            "strategies": summary.get("strategies", {}),
+            "spotlight": result.spotlight.to_dict() if result.spotlight else None,
+        }
+
 
 def _error(status: int, message: str) -> ServiceResponse:
     return ServiceResponse(status, {"error": message})
@@ -207,6 +336,11 @@ def _error(status: int, message: str) -> ServiceResponse:
 def _query_flag(path: str, name: str) -> bool:
     values = parse_qs(urlsplit(path).query).get(name, ["false"])
     return str(values[0]).strip().lower() in _TRUTHY
+
+
+def _query_value(path: str, name: str) -> str | None:
+    values = parse_qs(urlsplit(path).query).get(name)
+    return values[0].strip() if values and values[0].strip() else None
 
 
 def _load_json_object(body: bytes) -> dict[str, Any] | ServiceResponse:

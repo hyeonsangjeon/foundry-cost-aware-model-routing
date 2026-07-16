@@ -41,7 +41,7 @@ cost-router hero --serve   # then open http://127.0.0.1:8000/?run=1 (auto-runs)
 ### The experiment arc — honest by construction
 
 This repo proves where cost-aware routing **wins** and, just as deliberately,
-where it **doesn't**. Four one-command experiments, each a deterministic offline
+where it **doesn't**. Five one-command experiments, each a deterministic offline
 projection over synthetic data (`labels.measured=false`):
 
 | # | Experiment | Question it answers | Result |
@@ -50,8 +50,9 @@ projection over synthetic data (`labels.measured=false`):
 | 02 | [Curated](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/02-curated/) | Five tasks you can follow by eye? | 100% coverage, **−56.7%** cost |
 | 03 | [Coverage cliff](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/03-coverage-cliff/) | Delete the expensive fallback to save more? | looks cheaper, but coverage **100% → 67%** (honest failure) |
 | 04 | [No free lunch](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/04-no-free-lunch/) | A workload where only the top model passes? | 100% coverage, **0%** saved (the boundary) |
+| 05 | [Ensemble fan-out tax](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% coverage, **−47%** — but fan-out spends **3.74×** the winner (the hidden tax) |
 
-Experiments 01–02 are the win; 03–04 are the guardrails. Each `expect` contract
+Experiments 01–02 are the win; 03–05 are the guardrails. Each `expect` contract
 fails CI if the projection ever drifts — including a two-sided ceiling that
 rejects **phantom savings**. The full narrative lives in the
 [Korean lab notebook](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/).
@@ -100,6 +101,19 @@ cheaper but drops coverage from 100% to 67% (lab notebook: 실험 03 · 커버�
 
 ```bash
 cost-router policy regression --candidate experiments/policies/cost-cut.yaml --synth
+```
+
+The ensemble fan-out tax — routing fans out to every candidate on high-value
+tasks (compare mode) but only charges the winner. A common Azure-Foundry-shaped
+metrics module (`src/router/metrics.py`) recovers the hidden fan-out cost and
+records it for the web app + historical dashboard (lab notebook: 실험 05 · 앙상블
+팬아웃 세금):
+
+```bash
+cost-router experiment run ensemble          # 100% coverage, −47% — but fan-out is 3.74× the winner
+cost-router metrics emit ensemble            # Azure Monitor / OTel metric records (offline, measured=false)
+cost-router experiment run ensemble --metrics-store runs.jsonl
+cost-router metrics history --store runs.jsonl
 ```
 
 ### The 30-second before / after

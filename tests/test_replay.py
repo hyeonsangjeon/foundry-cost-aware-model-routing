@@ -75,21 +75,25 @@ def test_synth_before_after_matches_known_projection() -> None:
 
 @pytest.mark.parametrize("build", [_curated, _synth])
 def test_three_way_strategy_tradeoff(build) -> None:
-    # The dashboard's core message: neither single-tier strategy wins on both
-    # axes. all-mini is cheapest but drops coverage; all-premium holds coverage
-    # but costs the most; only the cost-aware mix keeps full coverage below the
-    # premium cost.
+    # The dashboard's core message: no single-tier strategy wins on both axes.
+    # all-mini is cheapest but drops coverage; all-premium holds coverage but
+    # costs the most; all-ensemble fans out to every model (most expensive of
+    # all) at full coverage; only the cost-aware mix keeps full coverage below
+    # the premium cost.
     summary = build().summary
     strat = summary["strategies"]
-    assert set(strat) == {"all_mini", "all_premium", "mix"}
+    assert set(strat) == {"all_mini", "all_premium", "all_ensemble", "mix"}
     mini, prem, mix = strat["all_mini"], strat["all_premium"], strat["mix"]
+    ens = strat["all_ensemble"]
 
-    # Cost ordering: cheapest-only < mix < premium-only.
+    # Cost ordering: cheapest-only < mix < premium-only < ensemble-everything.
     assert mini["total_cost_usd"] < mix["total_cost_usd"] < prem["total_cost_usd"]
+    assert prem["total_cost_usd"] <= ens["total_cost_usd"]
 
-    # Coverage: premium and mix hold 100%; cheapest-only visibly drops below.
+    # Coverage: premium, ensemble, and mix hold 100%; cheapest-only drops below.
     assert prem["coverage"] == 1.0
     assert mix["coverage"] == 1.0
+    assert ens["coverage"] == 1.0
     assert mini["coverage"] < 1.0
 
     # The single-tier baselines reconcile with the headline totals so the bars

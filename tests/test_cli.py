@@ -134,3 +134,79 @@ def test_serve_defaults_are_loopback() -> None:
     args = parser.parse_args(["serve"])
     assert args.host == "127.0.0.1"
     assert args.port == 8000
+
+
+# -- metrics store + Foundry emit -------------------------------------------
+
+def test_experiment_run_records_metrics(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    store = tmp_path / "history.jsonl"
+    assert cli.main(["experiment", "run", "ensemble", "--metrics-store", str(store)]) == 0
+    assert "metrics  recorded to" in capsys.readouterr().out
+    assert store.is_file()
+    rows = [json.loads(line) for line in store.read_text().splitlines() if line.strip()]
+    assert rows[0]["experiment"] == "ensemble"
+    assert rows[0]["ensemble_tax_usd"] == pytest.approx(0.364011, abs=1e-6)
+
+
+def test_hero_records_metrics(tmp_path: Path) -> None:
+    store = tmp_path / "history.jsonl"
+    assert cli.main(["hero", "--metrics-store", str(store)]) == 0
+    rows = [json.loads(line) for line in store.read_text().splitlines() if line.strip()]
+    assert rows[0]["experiment"] == "hero"
+
+
+def test_metrics_history_shows_recorded_runs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    store = tmp_path / "history.jsonl"
+    cli.main(["experiment", "run", "curated", "--metrics-store", str(store)])
+    capsys.readouterr()
+    assert cli.main(["metrics", "history", "--store", str(store)]) == 0
+    out = capsys.readouterr().out
+    assert "metrics history  (1 run(s)" in out
+    assert "curated" in out
+    assert "fanout_tax=$" in out
+
+
+def test_metrics_history_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    store = tmp_path / "history.jsonl"
+    cli.main(["experiment", "run", "curated", "--metrics-store", str(store)])
+    capsys.readouterr()
+    assert cli.main(["metrics", "history", "--store", str(store), "--json"]) == 0
+    rows = json.loads(capsys.readouterr().out)
+    assert rows[0]["experiment"] == "curated"
+
+
+def test_metrics_history_empty_store(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    store = tmp_path / "empty.jsonl"
+    assert cli.main(["metrics", "history", "--store", str(store)]) == 0
+    assert "no recorded runs" in capsys.readouterr().out
+
+
+def test_metrics_emit_offline_by_default(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["metrics", "emit", "ensemble"]) == 0
+    out = capsys.readouterr().out
+    assert "local capture (offline)" in out
+    records = json.loads(out[out.index("[") :])
+    names = {record["name"] for record in records}
+    assert "router.ensemble.tax_usd" in names
+
+
+def test_metrics_emit_marks_configured_with_connection_string(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code = cli.main(
+        ["metrics", "emit", "hero", "--connection-string", "InstrumentationKey=abc"]
+    )
+    assert code == 0
+    assert "Azure Foundry (configured)" in capsys.readouterr().out
+
+
+def test_metrics_emit_unknown_experiment_errors(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["metrics", "emit", "nope"]) == 1
+    assert "metrics error" in capsys.readouterr().out
+
+
+def test_bare_metrics_prints_usage(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["metrics"]) == 0
+    assert "usage: cost-router metrics" in capsys.readouterr().out
