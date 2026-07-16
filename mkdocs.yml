@@ -57,6 +57,7 @@ nav:
       - "실험 03 · 커버리지 절벽": lab-notebook/03-coverage-cliff.md
       - "실험 04 · 공짜 점심은 없다": lab-notebook/04-no-free-lunch.md
       - "실험 05 · 앙상블 팬아웃 세금": lab-notebook/05-ensemble-fanout.md
+      - "실험 06 · 적응형 팬아웃 다이얼": lab-notebook/06-fanout-dial.md
       - 개발 로그: lab-notebook/devlog.md
   - 정직함 규약: honesty.md
 

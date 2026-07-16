@@ -1,0 +1,53 @@
+# adaptive.yaml — the fan-out dial: recover the ensemble tax, keep every win.
+#
+# Experiment 05 (ensemble) fans out on *every* high-value task and pays the
+# ensemble tax: ~$0.50 spent to keep ~$0.13 of winners (3.7x). This experiment
+# runs the SAME workload, signals, policy, and pricing — but turns the fan-out
+# dial off by raising the budget gate's `compare_min_value` above every task's
+# value, so the router takes a single ordered route on each task instead of
+# fanning out.
+#
+# The honest result: coverage (100%) and savings (~47% under the naive premium
+# arm) are IDENTICAL to the ensemble run, but the ensemble tax collapses to
+# ~$0.00. On this deterministic offline projection, fan-out finds the same
+# cheapest-passing winner that ordered escalation already reaches — so it is
+# pure tax. The dial lets you recover all of it with zero coverage or savings
+# loss. (See lab-notebook/06 for the full threshold sweep and the honest caveat:
+# best-of-N can lift *quality* in a real system, which this projection does not
+# model — so measure that lift before paying the tax.)
+#
+# Everything is offline and deterministic. Every number is a projection over
+# synthetic data (labels.measured = false), not a measured saving.
+
+name: adaptive
+title: "적응형 팬아웃 다이얼 — 앙상블 세금을 0으로, 절감은 그대로"
+summary: >-
+  실험 05와 같은 워크로드를 그대로 쓰되, 예산 게이트의 compare_min_value를
+  모든 태스크 가치보다 높게 올려 팬아웃을 끕니다. 커버리지 100%와 나이브 대비
+  ~47% 절감은 동일하지만, 앙상블 세금은 ~$0.00으로 무너집니다. 결정론적 오프라인
+  투영에서 팬아웃은 ordered 에스컬레이션이 이미 찾는 가장 싼 통과 모델과 같은
+  승자를 고르므로 순수 세금입니다 — 다이얼로 그 세금을 손실 없이 전부 회수합니다.
+
+dataset:
+  workload: samples/telemetry/mixed-coding-workload.sample.jsonl
+  signals: samples/responses/ensemble-fanout-signals.sample.json
+  synth: false
+
+policy: null           # null → bundled seed policy (src/policy/seed_policy.yaml)
+pricing: null          # null → bundled illustrative pricing (measured=false)
+
+# The fan-out dial. compare_min_value=1.1 sits above every task's value (max is
+# 1.0), so the router never fans out → single ordered route on each task.
+budget:
+  compare_min_value: 1.1
+  min_compare_candidates: 2
+
+# Highlight the same task the ensemble run does; here it routes single-route.
+spotlight: auto
+
+# Reproducibility contract (offline projection over synthetic data).
+expect:
+  min_coverage: 1.0     # single-route escalation still covers every task
+  min_delta_pct: 0.40   # …at the SAME savings as the ensemble run
+  min_tasks: 6
+  max_tax_ratio: 0.01   # …but the fan-out dial is OFF: essentially zero tax

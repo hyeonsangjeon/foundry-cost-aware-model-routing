@@ -33,6 +33,17 @@ expect:
   min_tasks: 100
 ```
 
+!!! tip "팬아웃 다이얼 — `budget:` (선택)"
+    실험은 라우터의 팬아웃 임계값을 조절할 수 있습니다. `compare_min_value`를 올리면
+    가치가 그보다 낮은 태스크는 **단일 경로(ordered)**로 가고, 그만큼 앙상블 세금이
+    줄어듭니다 — [실험 06](../lab-notebook/06-fanout-dial.md)이 이 다이얼을 씁니다.
+
+    ```yaml
+    budget:
+      compare_min_value: 1.1      # 모든 태스크 가치(최대 1.0)보다 높게 → 팬아웃 전무
+      min_compare_candidates: 2   # compare로 가려면 후보가 최소 2개
+    ```
+
 ## 필드 레퍼런스
 
 | 필드 | 의미 |
@@ -44,10 +55,13 @@ expect:
 | `dataset.synth` | `true`면 신호를 결정론적으로 합성 |
 | `policy` | 정책 YAML 경로 (비우면 번들 시드) |
 | `pricing` | 가격표 YAML 경로 (비우면 번들 예시 가격) |
+| `budget.compare_min_value` | (선택) 팬아웃 임계값 — 태스크 가치가 이 값 이상일 때만 compare(팬아웃). 올릴수록 세금 ↓ (`adaptive.yaml` 참고) |
+| `budget.min_compare_candidates` | (선택) compare로 가기 위한 최소 후보 수 |
 | `spotlight` | `auto`, 특정 `task_id`, 또는 `none` |
 | `expect.min_coverage` | 이 커버리지 이상을 유지해야 함 |
 | `expect.min_delta_pct` | 나이브 청구서를 이 비율 이상 낮춰야 함 |
 | `expect.max_delta_pct` | (선택) **상한** — 절감이 이 비율을 넘으면 안 됨(유령 절감 방지; `limits.yaml` 참고) |
+| `expect.max_tax_ratio` | (선택) **팬아웃 세금 상한** — 팬아웃 원가/승자 비율이 이 값을 넘으면 안 됨(`adaptive.yaml` 참고) |
 | `expect.min_tasks` | 최소 이만큼의 태스크를 다뤄야 함 |
 
 경로는 저장소 루트 기준 상대 경로 또는 절대 경로로 씁니다.
@@ -67,6 +81,7 @@ expect:
 - `coverage ≥ min_coverage`
 - `delta_pct ≥ min_delta_pct`
 - `delta_pct ≤ max_delta_pct` (설정된 경우에만 — 과장된 유령 절감을 막는 상한)
+- `tax_ratio ≤ max_tax_ratio` (설정된 경우에만 — 팬아웃 세금 상한)
 - `tasks ≥ min_tasks`
 
 하나라도 실패하면 `cost-router hero`/`experiment run`이 **0이 아닌 코드**로 종료합니다.

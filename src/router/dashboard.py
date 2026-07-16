@@ -167,6 +167,27 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .flbl-ens { fill: var(--purple); }
   .fsub { fill: var(--muted); font-size: 10px; font-family: var(--mono); }
 
+  /* ---- Fan-out dial sweep (experiment 05 vs 06) ---- */
+  .sweep { margin-top: 6px; }
+  .sweep svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .sweep-bar { fill: var(--purple); }
+  .sweep-bar.zero { fill: #cfc6e6; }
+  .sweep-flat { stroke-width: 1.6; stroke-dasharray: 5 3; fill: none; }
+  .sweep-flat.cov { stroke: var(--green); }
+  .sweep-flat.sav { stroke: var(--brand); }
+  .sweep-vlbl { fill: var(--purple); font-size: 10px; font-weight: 700; font-family: var(--mono); }
+  .sweep-xlbl { fill: var(--fg); font-size: 10px; font-weight: 700; }
+  .sweep-xsub { fill: var(--muted); font-size: 9px; font-family: var(--mono); }
+  .sweep-key { display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0 12px; font-size: 12px; color: var(--muted); }
+  .sweep-key b { font-weight: 700; }
+  .sweep-key .k-tax { color: var(--purple); } .sweep-key .k-cov { color: var(--green); } .sweep-key .k-sav { color: var(--brand); }
+  table.sweep-tbl { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12.5px; }
+  table.sweep-tbl th, table.sweep-tbl td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  table.sweep-tbl th { color: var(--muted); font-weight: 600; }
+  table.sweep-tbl td:first-child, table.sweep-tbl th:first-child { text-align: left; }
+  table.sweep-tbl td.tax { color: var(--purple); font-weight: 700; font-family: var(--mono); }
+  table.sweep-tbl tr.off td { background: rgba(26,127,75,.06); }
+
   /* ---- Coverage cliff (policy A/B) ---- */
   .cliff-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 14px; flex-wrap: wrap; }
   .cliff-drop { font-family: var(--mono); font-weight: 800; font-size: 14px; color: var(--red); border: 1px solid #eccccc; background: rgba(194,59,59,.08); padding: 4px 11px; border-radius: 999px; white-space: nowrap; }
@@ -470,6 +491,28 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <p class="caveat">Deterministic policy regression over shared synthetic signals (100 tasks) &mdash; an offline projection, <code>measured = false</code>. See the lab notebook: <a href="../lab-notebook/03-coverage-cliff/">실험 03 &middot; 커버리지 절벽</a>.</p>
   </section>
 
+  <section class="panel" id="sweepPanel" hidden>
+    <div class="cliff-hd">
+      <div>
+        <h2 class="sec" style="margin:0">Fan-out dial &mdash; the ensemble tax is a knob</h2>
+        <p class="sec-sub" style="margin:6px 0 0">Same ensemble workload, one lever: the budget gate's <code>compare_min_value</code>. Raise it and the router fans out on fewer tasks. Coverage and savings stay flat &mdash; only the ensemble tax moves. Experiment 05 (fan out all) vs 06 (fan out none).</p>
+      </div>
+      <span class="cliff-drop" id="sweepDrop" style="color:var(--green);border-color:#cdebd9;background:rgba(26,127,75,.08)">&mdash;</span>
+    </div>
+    <div class="sweep-key">
+      <span class="k-tax"><b>&#9646; ensemble tax</b> (collapses)</span>
+      <span class="k-cov"><b>&ndash;&ndash; coverage</b> (flat)</span>
+      <span class="k-sav"><b>&ndash;&ndash; savings vs naive</b> (flat)</span>
+    </div>
+    <div class="sweep" id="sweepChart"></div>
+    <table class="sweep-tbl">
+      <thead><tr><th>fan-out (compare)</th><th>coverage</th><th>savings</th><th>ensemble tax</th><th>fan-out $</th><th>tax &times;</th></tr></thead>
+      <tbody id="sweepBody"></tbody>
+    </table>
+    <div class="takeaway" id="sweepTakeaway">On this deterministic projection fan-out finds the same cheapest-passing winner ordered escalation already reaches &mdash; so the tax buys nothing here. Dial it to zero and keep every win. (Best-of-N can lift quality in a real system; this projection does not model that, so measure the lift before paying.)</div>
+    <p class="caveat">Offline sweep over the bundled ensemble workload &mdash; <code>measured = false</code>. See the lab notebook: <a href="../lab-notebook/06-fanout-dial/">실험 06 &middot; 적응형 팬아웃 다이얼</a>.</p>
+  </section>
+
   <section class="panel">
     <h2 class="sec">At a glance</h2>
     <p class="sec-sub">Headline numbers for this run.</p>
@@ -562,6 +605,7 @@ const EP = (typeof window !== "undefined" && window.__ENDPOINTS__) || {
   policy: "/policy",
   replay: (synth) => "/replay?synth=" + synth,
   regression: "/regression",
+  fanoutSweep: "/fanout-sweep",
   experiments: "/experiments",
   metricsHistory: "/metrics/history",
 };
@@ -817,6 +861,76 @@ function renderCliff(r) {
   panel.hidden = false;
 }
 
+// Fan-out dial sweep (experiment 05 vs 06): re-runs the ensemble workload across
+// a ladder of budget-gate thresholds. Purple bars = the ensemble tax (collapses
+// as fewer tasks fan out); dashed lines = coverage and savings (both flat). Data
+// comes from EP.fanoutSweep (live /fanout-sweep, or fanout-sweep.json in the
+// static export); the panel stays hidden if that endpoint is unavailable.
+function renderSweep(d) {
+  const panel = $("sweepPanel");
+  if (!panel || !d || !Array.isArray(d.rows) || d.rows.length === 0) return;
+  const rows = d.rows;
+  const host = $("sweepChart");
+  const W = 460, H = 220, L = 44, R = 16, T = 20, B = 46;
+  const pw = W - L - R, ph = H - T - B, yb = T + ph;
+  const taxMax = Math.max.apply(null, rows.map((r) => r.ensemble_tax_usd)) || 1;
+  const n = rows.length, slot = pw / n, bw = Math.min(46, slot * 0.5);
+  const Ytax = (v) => (T + (1 - Math.max(0, v) / taxMax) * ph);
+  const cx = (i) => (L + slot * (i + 0.5));
+  let g = "";
+  [0, 0.5, 1].forEach((f) => {
+    const y = (T + (1 - f) * ph).toFixed(1);
+    g += "<line class='fgrid' x1='" + L + "' y1='" + y + "' x2='" + (W - R) + "' y2='" + y + "'/>";
+    g += "<text class='fax-lbl' x='" + (L - 7) + "' y='" + (Number(y) + 3).toFixed(1) + "' text-anchor='end'>" + usdSmart(taxMax * f) + "</text>";
+  });
+  let bars = "";
+  rows.forEach((r, i) => {
+    const x = (cx(i) - bw / 2).toFixed(1), y = Ytax(r.ensemble_tax_usd).toFixed(1);
+    const h = Math.max(0, yb - Ytax(r.ensemble_tax_usd)).toFixed(1);
+    const zero = r.ensemble_tax_usd <= 0.0001 ? " zero" : "";
+    bars += "<rect class='sweep-bar" + zero + "' x='" + x + "' y='" + y + "' width='" + bw.toFixed(1) + "' height='" + h + "' rx='3'/>";
+    bars += "<text class='sweep-vlbl' x='" + cx(i).toFixed(1) + "' y='" + (Number(y) - 5).toFixed(1) + "' text-anchor='middle'>" + (r.tax_ratio > 0 ? r.tax_ratio.toFixed(2) + "\\u00d7" : "0") + "</text>";
+    bars += "<text class='sweep-xlbl' x='" + cx(i).toFixed(1) + "' y='" + (yb + 16) + "' text-anchor='middle'>" + r.fanout_tasks + "/" + (r.fanout_tasks + r.single_tasks) + " fan out</text>";
+    bars += "<text class='sweep-xsub' x='" + cx(i).toFixed(1) + "' y='" + (yb + 30) + "' text-anchor='middle'>thr " + r.threshold.toFixed(2) + "</text>";
+  });
+  const flat = (val, cls) => {
+    const y = (T + (1 - Math.max(0, Math.min(1, val))) * ph).toFixed(1);
+    return "<line class='sweep-flat " + cls + "' x1='" + L + "' y1='" + y + "' x2='" + (W - R) + "' y2='" + y + "'/>";
+  };
+  const covLine = flat(rows[0].coverage, "cov"), savLine = flat(rows[0].delta_pct, "sav");
+  const axis = "<line class='faxis' x1='" + L + "' y1='" + yb + "' x2='" + (W - R) + "' y2='" + yb + "'/>" +
+    "<line class='faxis' x1='" + L + "' y1='" + T + "' x2='" + L + "' y2='" + yb + "'/>";
+  host.innerHTML =
+    "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='fan-out dial: the ensemble tax collapses to zero while coverage and savings stay flat'>" +
+    g + axis + covLine + savLine + bars + "</svg>";
+
+  const body = $("sweepBody");
+  body.innerHTML = "";
+  rows.forEach((r) => {
+    const off = r.ensemble_tax_usd <= 0.0001;
+    const tr = document.createElement("tr");
+    if (off) tr.className = "off";
+    tr.innerHTML =
+      "<td>" + r.fanout_tasks + " / " + (r.fanout_tasks + r.single_tasks) + "</td>" +
+      "<td>" + pct(r.coverage) + "</td>" +
+      "<td>" + pct(r.delta_pct) + "</td>" +
+      "<td class='tax'>" + usdSmart(r.ensemble_tax_usd) + "</td>" +
+      "<td>" + usdSmart(r.fanout_usd) + "</td>" +
+      "<td>" + (r.tax_ratio > 0 ? r.tax_ratio.toFixed(2) + "\\u00d7" : "\\u2014") + "</td>";
+    body.appendChild(tr);
+  });
+  const top = rows[0], bot = rows[rows.length - 1];
+  $("sweepDrop").textContent = "tax " + usdSmart(top.ensemble_tax_usd) + " \\u2192 " + usdSmart(bot.ensemble_tax_usd);
+  panel.hidden = false;
+}
+
+async function loadSweep() {
+  try {
+    const d = await (await fetch(EP.fanoutSweep)).json();
+    renderSweep(d);
+  } catch (e) { /* fan-out sweep endpoint unavailable — leave the panel hidden */ }
+}
+
 let running = false;
 
 function renderSpotlight(sp) {
@@ -1016,6 +1130,7 @@ if (window.innerWidth < 960) { const d = $("policyDetails"); if (d) d.removeAttr
 loadHealth();
 loadExperiments();
 loadHistory();
+loadSweep();
 loadPolicy().then(() => {
   // Hero mode (cost-router hero --serve) opens the dashboard with ?run=1 so the
   // before/after animates on load — no click needed. Policy must load first so

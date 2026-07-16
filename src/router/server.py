@@ -52,6 +52,7 @@ from .metrics import (
 from .pipeline import (
     batch_route_payload,
     bundled_coverage_cliff,
+    bundled_fanout_sweep,
     load_default_pricing,
     load_policy,
     policy_summary,
@@ -67,6 +68,7 @@ _KNOWN_ROUTES = {
     "/policy",
     "/replay",
     "/regression",
+    "/fanout-sweep",
     "/route",
     "/batch-route",
     "/experiments",
@@ -148,6 +150,9 @@ class RouterService:
 
     def regression(self) -> ServiceResponse:
         return ServiceResponse(200, bundled_coverage_cliff())
+
+    def fanout_sweep(self) -> ServiceResponse:
+        return ServiceResponse(200, bundled_fanout_sweep())
 
     # -- experiments & metrics -------------------------------------------
 
@@ -258,6 +263,8 @@ class RouterService:
             return self.replay(path)
         if method == "GET" and route == "/regression":
             return self.regression()
+        if method == "GET" and route == "/fanout-sweep":
+            return self.fanout_sweep()
         if method == "GET" and route == "/experiments":
             return self.experiments_view()
         if method == "GET" and route == "/experiment":

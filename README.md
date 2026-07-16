@@ -51,8 +51,9 @@ projection over synthetic data (`labels.measured=false`):
 | 03 | [Coverage cliff](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/03-coverage-cliff/) | Delete the expensive fallback to save more? | looks cheaper, but coverage **100% → 67%** (honest failure) |
 | 04 | [No free lunch](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/04-no-free-lunch/) | A workload where only the top model passes? | 100% coverage, **0%** saved (the boundary) |
 | 05 | [Ensemble fan-out tax](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% coverage, **−47%** — but fan-out spends **3.74×** the winner (the hidden tax) |
+| 06 | [Adaptive fan-out dial](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/06-fanout-dial/) | Can you keep the savings but drop the tax? | one budget dial: coverage/savings stay flat, tax **3.74× → $0** (the honest fix for exp 05) |
 
-Experiments 01–02 are the win; 03–05 are the guardrails. Each `expect` contract
+Experiments 01–02 are the win; 03–06 are the guardrails. Each `expect` contract
 fails CI if the projection ever drifts — including a two-sided ceiling that
 rejects **phantom savings**. The full narrative lives in the
 [Korean lab notebook](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/).
@@ -114,6 +115,16 @@ cost-router experiment run ensemble          # 100% coverage, −47% — but fan
 cost-router metrics emit ensemble            # Azure Monitor / OTel metric records (offline, measured=false)
 cost-router experiment run ensemble --metrics-store runs.jsonl
 cost-router metrics history --store runs.jsonl
+```
+
+The adaptive fan-out dial — the honest fix for that tax. The budget gate's
+`compare_min_value` is a dial: raise it and the router fans out on fewer tasks.
+Coverage (100%) and savings (47%) stay flat while the tax collapses **3.74× → $0**.
+Experiment 06 pins this with a `max_tax_ratio` ceiling (lab notebook: 실험 06 ·
+적응형 팬아웃 다이얼):
+
+```bash
+cost-router experiment run adaptive          # 100% coverage, −47% — fan-out tax dialed to 0.00×
 ```
 
 ### The 30-second before / after

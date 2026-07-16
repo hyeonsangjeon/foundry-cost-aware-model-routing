@@ -305,6 +305,38 @@ def test_dashboard_shows_coverage_cliff_panel(service: RouterService) -> None:
     assert "fetch(EP.regression)" in script
 
 
+def test_fanout_sweep_endpoint_dials_the_tax_to_zero(service: RouterService) -> None:
+    response = service.dispatch("GET", "/fanout-sweep")
+    assert response.status == 200
+    payload = response.payload
+    assert payload["measured"] is False
+    assert payload["tasks"] == 6
+    rows = payload["rows"]
+    assert len(rows) == 4
+    # coverage flat, tax collapses to exactly zero as fewer tasks fan out
+    assert {row["fanout_tasks"] for row in rows} == {6, 5, 1, 0}
+    assert all(row["coverage"] == pytest.approx(1.0) for row in rows)
+    assert rows[0]["ensemble_tax_usd"] == pytest.approx(0.364011, abs=1e-6)
+    assert rows[-1]["ensemble_tax_usd"] == pytest.approx(0.0)
+    # it is a GET-only route.
+    assert service.dispatch("POST", "/fanout-sweep").status == 405
+
+
+def test_dashboard_shows_fanout_dial_panel(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    # A dedicated sweep panel visualizes the fan-out dial from experiment 06.
+    assert 'id="sweepPanel"' in html
+    assert "Fan-out dial" in html
+    for element_id in ('id="sweepChart"', 'id="sweepBody"', 'id="sweepDrop"'):
+        assert element_id in html
+    # rendered from the /fanout-sweep endpoint and loaded at init.
+    assert "renderSweep" in script
+    assert "fanoutSweep:" in script  # EP fallback map carries the route
+    assert "fetch(EP.fanoutSweep)" in script
+    assert "loadSweep()" in script
+
+
 def test_render_cliff_sets_bars_and_delta(service: RouterService, tmp_path) -> None:
     node = shutil.which("node")
     if not node:
