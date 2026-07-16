@@ -1,0 +1,41 @@
+# limits.yaml — the honest boundary: "there is no free lunch."
+#
+# A curated workload of genuinely hard tasks where, for every task, only the
+# most expensive candidate passes the offline checks. Cost-aware routing tries
+# the cheap models first, watches them fail, and correctly escalates to the top
+# model on every task. The result: routing == the naive arm, savings ≈ 0%.
+#
+# This is the deliberate counter-weight to the hero run. Routing does not invent
+# savings; when the work truly needs the top model, it spends accordingly — and
+# it still keeps full coverage. The `expect` block is a *two-sided* contract:
+#   - min_coverage 1.0  → routing must keep every task covered, and
+#   - max_delta_pct 0.0 → routing must NOT report any (phantom) savings here.
+# If a future change ever makes this workload look "cheaper", CI fails loudly.
+#
+# Everything is offline and deterministic. Every number is a projection over
+# synthetic data (labels.measured = false), not a measured saving.
+
+name: limits
+title: "공짜 점심은 없다 — 라우팅의 한계"
+summary: >-
+  모든 태스크가 진짜 어려워 가장 비싼 모델만 통과하는 워크로드입니다. 라우팅은
+  싼 모델부터 시도하지만 전부 실패해 최상위 모델로 에스컬레이션하며, 절감은 0%.
+  라우팅은 없는 절감을 지어내지 않고, 어려운 일엔 정직하게 비용을 씁니다.
+
+dataset:
+  workload: samples/telemetry/mixed-coding-workload.sample.jsonl
+  signals: samples/responses/hard-tasks-signals.sample.json
+  synth: false
+
+policy: null           # null → bundled seed policy (src/policy/seed_policy.yaml)
+pricing: null          # null → bundled illustrative pricing (measured=false)
+
+# No cheaper-model win exists to spotlight — every task needs the top model.
+spotlight: none
+
+# Two-sided reproducibility contract (offline projection over synthetic data).
+expect:
+  min_coverage: 1.0    # routing must keep full coverage (by spending, not cutting)
+  min_delta_pct: 0.0   # routing never costs *more* than the naive arm
+  max_delta_pct: 0.0   # …and must not report phantom savings on hard work
+  min_tasks: 6

@@ -43,14 +43,17 @@ class Expectation:
     min_coverage: float = 0.0
     min_delta_pct: float = 0.0
     min_tasks: int = 1
+    max_delta_pct: float | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any] | None) -> Expectation:
         data = data or {}
+        raw_max = data.get("max_delta_pct")
         return cls(
             min_coverage=float(data.get("min_coverage", 0.0)),
             min_delta_pct=float(data.get("min_delta_pct", 0.0)),
             min_tasks=int(data.get("min_tasks", 1)),
+            max_delta_pct=None if raw_max is None else float(raw_max),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -58,6 +61,7 @@ class Expectation:
             "min_coverage": self.min_coverage,
             "min_delta_pct": self.min_delta_pct,
             "min_tasks": self.min_tasks,
+            "max_delta_pct": self.max_delta_pct,
         }
 
 
@@ -303,7 +307,7 @@ def _evaluate(report: ReplayReport, expect: Expectation) -> tuple[Check, ...]:
     coverage = float(summary.get("coverage", 0.0))
     delta_pct = float(summary.get("delta_pct", 0.0))
     tasks = int(summary.get("tasks", 0))
-    return (
+    checks = [
         Check(
             name="coverage",
             ok=coverage >= expect.min_coverage,
@@ -319,7 +323,16 @@ def _evaluate(report: ReplayReport, expect: Expectation) -> tuple[Check, ...]:
             ok=tasks >= expect.min_tasks,
             detail=f"{tasks} ≥ {expect.min_tasks}",
         ),
-    )
+    ]
+    if expect.max_delta_pct is not None:
+        checks.append(
+            Check(
+                name="savings_ceiling",
+                ok=delta_pct <= expect.max_delta_pct,
+                detail=f"{delta_pct:.1%} ≤ {expect.max_delta_pct:.1%}",
+            )
+        )
+    return tuple(checks)
 
 
 def _load_file(path: Path) -> Experiment:
