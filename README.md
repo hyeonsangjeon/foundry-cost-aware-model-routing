@@ -16,6 +16,8 @@ private notes, launch notes, and diagrams stay outside Git.
 
 ▶️ **Live interactive dashboard (no install, auto-plays):**
 <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1>
+— animated before/after, the cost × coverage frontier, and the policy-A/B
+coverage cliff, rendered from the same offline projection.
 
 ## Quickstart (30 seconds)
 
@@ -35,6 +37,24 @@ contracted floor. Add `--serve` to boot the dashboard and watch it live:
 ```bash
 cost-router hero --serve   # then open http://127.0.0.1:8000/?run=1 (auto-runs)
 ```
+
+### The experiment arc — honest by construction
+
+This repo proves where cost-aware routing **wins** and, just as deliberately,
+where it **doesn't**. Four one-command experiments, each a deterministic offline
+projection over synthetic data (`labels.measured=false`):
+
+| # | Experiment | Question it answers | Result |
+| --- | --- | --- | --- |
+| 01 | [Hero](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/01-hero/) | Routing on a realistic 100-task workload? | 100% coverage, **−25.5%** cost |
+| 02 | [Curated](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/02-curated/) | Five tasks you can follow by eye? | 100% coverage, **−56.7%** cost |
+| 03 | [Coverage cliff](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/03-coverage-cliff/) | Delete the expensive fallback to save more? | looks cheaper, but coverage **100% → 67%** (honest failure) |
+| 04 | [No free lunch](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/04-no-free-lunch/) | A workload where only the top model passes? | 100% coverage, **0%** saved (the boundary) |
+
+Experiments 01–02 are the win; 03–04 are the guardrails. Each `expect` contract
+fails CI if the projection ever drifts — including a two-sided ceiling that
+rejects **phantom savings**. The full narrative lives in the
+[Korean lab notebook](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/).
 
 ## Usage
 
