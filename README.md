@@ -57,7 +57,9 @@ projection over synthetic data (`labels.measured=false`):
 Experiments 01–02 are the win; 03–07 are the guardrails. Each `expect` contract
 fails CI if the projection ever drifts — including a two-sided ceiling that
 rejects **phantom savings** and an escalation-gain floor that keeps
-observe-then-escalate honest. The full narrative lives in the
+observe-then-escalate honest. Read all seven as one story in the
+[**story arc**](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc/),
+or dive into the full
 [Korean lab notebook](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/).
 
 ## Usage
