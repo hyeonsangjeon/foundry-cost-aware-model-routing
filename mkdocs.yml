@@ -52,6 +52,7 @@ nav:
       - 감사 원장: manual/ledger.md
   - 실험노트:
       - 소개와 방법론: lab-notebook/index.md
+      - "스토리 아크 · 한눈에 보기": lab-notebook/story-arc.md
       - "실험 01 · 히어로": lab-notebook/01-hero.md
       - "실험 02 · 큐레이션 샘플": lab-notebook/02-curated.md
       - "실험 03 · 커버리지 절벽": lab-notebook/03-coverage-cliff.md
