@@ -37,6 +37,7 @@ from .metrics import (
 from .offline import load_workload
 from .pipeline import (
     _signals_for,
+    bundled_compare,
     format_eval_report,
     format_regression_report,
     format_replay_json,
@@ -123,6 +124,18 @@ def build_parser() -> argparse.ArgumentParser:
     hero.add_argument("--host", default="127.0.0.1", help="dashboard bind host with --serve")
     hero.add_argument("--port", type=int, default=8000, help="dashboard bind port with --serve")
     hero.set_defaults(func=_cmd_hero)
+
+    compare = subparsers.add_parser(
+        "compare",
+        help="One problem, four ways: cost vs latency vs accuracy head-to-head.",
+    )
+    compare.add_argument(
+        "--task",
+        default=None,
+        help="task id to compare (default: the most instructive curated task)",
+    )
+    compare.add_argument("--json", action="store_true", help="print the arena as JSON")
+    compare.set_defaults(func=_cmd_compare)
 
     _build_policy_parser(subparsers)
     _build_ledger_parser(subparsers)
@@ -693,6 +706,71 @@ def _cmd_hero(args: argparse.Namespace) -> int:
         print(f"serving the offline dashboard on {url} (Ctrl-C to stop)", flush=True)
         print("open it to watch the before/after animate automatically", flush=True)
     return server.serve(host=args.host, port=args.port)
+
+
+def _compact_models(approach: dict[str, object]) -> str:
+    models = [str(m) for m in (approach.get("models") or [])]
+    key = approach.get("approach")
+    if key == "router":
+        return " → ".join(models) if models else "—"
+    if key == "ensemble":
+        head = models[0] if models else "?"
+        return f"{len(models)} models ({head} +{len(models) - 1})" if len(models) > 1 else head
+    chosen = approach.get("chosen_model")
+    return str(chosen) if chosen else (models[0] if models else "—")
+
+
+def format_compare_text(payload: dict[str, object]) -> str:
+    """Render one task's head-to-head arena as an aligned CLI table."""
+
+    arenas = payload["arenas"]  # type: ignore[index]
+    task_id = payload["default"]  # type: ignore[index]
+    arena = arenas[task_id]  # type: ignore[index]
+    approaches = arena["approaches"]
+    labels = {a["approach"]: a["label"] for a in approaches}
+
+    lines = [
+        "one problem, four ways   (measured = false)",
+        f"task  {task_id}   class={arena['class']}   difficulty={arena['difficulty']}",
+        "",
+        f"{'approach':<19} {'model(s)':<28} {'cost':>11} {'latency*':>11}  result",
+        f"{'-' * 19} {'-' * 28} {'-' * 11} {'-' * 11}  {'-' * 6}",
+    ]
+    winners = arena["winners"]
+    axes = (("cost", "$"), ("latency", "@"))
+    for a in approaches:
+        marks = "".join(tag for axis, tag in axes if winners.get(axis) == a["approach"])
+        result = "✓ pass" if a["passed"] else "✗ fail"
+        lines.append(
+            f"{a['label']:<19} {_compact_models(a):<28} "
+            f"${a['cost_usd']:>10.6f} {a['latency_ms']:>9.0f}ms  {result} {marks}".rstrip()
+        )
+    acc = winners["accuracy"]
+    acc_label = f"{len(acc)} of {len(approaches)} pass" if acc else "none pass"
+    lines += [
+        "",
+        (
+            f"winners   cost: {labels.get(winners['cost'], winners['cost'])}"
+            f"   latency: {labels.get(winners['latency'], winners['latency'])}"
+            f"   accuracy: {acc_label}"
+        ),
+        "note      latency is an illustrative projection (measured = false), not wall-clock.",
+        "          $ = cheapest   @ = fastest   (accuracy is pass/fail per approach)",
+    ]
+    return "\n".join(lines)
+
+
+def _cmd_compare(args: argparse.Namespace) -> int:
+    payload = bundled_compare(task_id=args.task)
+    if args.task and args.task not in payload["arenas"]:
+        known = ", ".join(payload["arenas"])
+        print(f"unknown task {args.task!r}; available: {known}")
+        return 2
+    if args.json:
+        print(json.dumps(payload["arenas"][payload["default"]], ensure_ascii=False, indent=2))
+        return 0
+    print(format_compare_text(payload))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

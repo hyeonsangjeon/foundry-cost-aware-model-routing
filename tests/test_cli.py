@@ -210,3 +210,36 @@ def test_metrics_emit_unknown_experiment_errors(capsys: pytest.CaptureFixture[st
 def test_bare_metrics_prints_usage(capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["metrics"]) == 0
     assert "usage: cost-router metrics" in capsys.readouterr().out
+
+
+def test_compare_default_prints_four_approaches(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["compare"]) == 0
+    out = capsys.readouterr().out
+    assert "one problem, four ways   (measured = false)" in out
+    assert "task  t-0003" in out
+    for label in ("Cheapest model", "Premium model", "Ensemble (fan-out)", "Cost-aware router"):
+        assert label in out
+    # honest winners line: router wins cost, premium wins latency, and accuracy
+    # is a pass/fail tally (3 of 4 pass) rather than a single crowned winner
+    assert "cost: Cost-aware router" in out
+    assert "latency: Premium model" in out
+    assert "accuracy: 3 of 4 pass" in out
+
+
+def test_compare_task_override(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["compare", "--task", "t-0001"]) == 0
+    assert "task  t-0001" in capsys.readouterr().out
+
+
+def test_compare_json_emits_single_arena(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["compare", "--json", "--task", "t-0003"]) == 0
+    arena = json.loads(capsys.readouterr().out)
+    assert arena["task_id"] == "t-0003"
+    by = {a["approach"]: a for a in arena["approaches"]}
+    assert by["router"]["cost_usd"] == pytest.approx(0.032793, abs=1e-6)
+    assert by["ensemble"]["cost_usd"] == pytest.approx(0.179844, abs=1e-6)
+
+
+def test_compare_unknown_task_reports_error(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["compare", "--task", "t-9999"]) == 2
+    assert "unknown task 't-9999'" in capsys.readouterr().out

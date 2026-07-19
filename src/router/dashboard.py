@@ -116,6 +116,52 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .spot-vs small { font-size: 11px; color: var(--muted); }
   @media (max-width: 640px) { .spot-grid { grid-template-columns: 1fr; } .spot-vs { flex-direction: row; gap: 8px; } }
 
+  /* ---- arena: one problem, four ways (the 5-minute wow) ---- */
+  .arena .arena-meta { font-family: var(--mono); font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+  .arena-tasks { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 16px; }
+  .achip {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+    border: 1px solid var(--line); background: var(--elev); border-radius: 10px;
+    padding: 7px 12px; cursor: pointer; font: inherit; text-align: left; transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  .achip:hover { border-color: var(--brand); }
+  .achip.on { border-color: var(--brand); background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand); }
+  .achip-id { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  .achip-cls { font-size: 11px; color: var(--muted); }
+  .achip-teach { font-size: 10.5px; color: var(--faint); font-style: italic; }
+  .arena-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 860px) { .arena-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .arena-grid { grid-template-columns: 1fr; } }
+  .arena-grid.reveal .acard { animation: acardIn .32s ease both; }
+  .arena-grid.reveal .acard:nth-child(2) { animation-delay: .06s; }
+  .arena-grid.reveal .acard:nth-child(3) { animation-delay: .12s; }
+  .arena-grid.reveal .acard:nth-child(4) { animation-delay: .18s; }
+  @keyframes acardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .acard {
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--elev);
+    display: flex; flex-direction: column; gap: 9px;
+  }
+  .acard.hero { border-color: #b7dfc6; background: #f1faf4; }
+  .acard-hd { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .atag { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .acard.hero .atag { color: var(--brand); }
+  .apass { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); white-space: nowrap; }
+  .apass.ok { color: var(--green); border-color: #b7dfc6; background: #eefaf1; }
+  .apass.no { color: var(--red); border-color: #edc4c4; background: #fbeaea; }
+  .amodel { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--muted); word-break: break-word; min-height: 17px; }
+  .arow { display: flex; align-items: baseline; gap: 6px; padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; }
+  .arow .ak { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; width: 60px; flex: none; }
+  .arow .av { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .arow .av.ok { color: var(--green); } .arow .av.no { color: var(--red); }
+  .arow.win { border-color: #cdebd9; background: rgba(26,127,75,.08); }
+  .wtag { margin-left: auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; color: var(--green); align-self: center; }
+  .adetail { font-size: 11.5px; color: var(--muted); line-height: 1.45; margin-top: 2px; }
+  .arena-verdict {
+    margin-top: 14px; padding: 13px 15px; border-radius: 10px;
+    background: var(--brand-soft); border: 1px solid #cfe6da; font-size: 13px; color: var(--ink); line-height: 1.5;
+  }
+  .arena-verdict b { color: var(--brand); font-family: var(--mono); }
+
   /* ---- strategy comparison ---- */
   .strats { display: flex; flex-direction: column; gap: 14px; }
   .strat {
@@ -393,6 +439,19 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <p class="caveat">One synthetic task, placeholder pricing &mdash; an offline projection, not a measured saving.</p>
   </section>
 
+  <section class="panel arena" id="arenaPanel" hidden>
+    <div class="eyebrow">The 5-minute wow</div>
+    <h2 class="sec">One problem, four ways <span class="arena-meta" id="arenaMeta">&mdash;</span></h2>
+    <p class="sec-sub">Pick a task. The <b>same problem</b> is sent four ways &mdash; the cheapest model, the premium
+      model, an ensemble that fans out to all of them, and the cost-aware router that escalates cheap-first.
+      Watch <b>cost</b>, <b>latency</b>, and <b>accuracy</b> fill in for each.</p>
+    <div class="arena-tasks" id="arenaTasks"></div>
+    <div class="arena-grid" id="arenaGrid"></div>
+    <div class="arena-verdict" id="arenaVerdict">&mdash;</div>
+    <p class="caveat">Cost &amp; accuracy reuse the same offline machinery as every other panel (<code>measured = false</code>).
+      Latency is an <b>illustrative projection</b> from token counts &mdash; not wall-clock; a live run is where real timings come from.</p>
+  </section>
+
   <section class="panel">
     <h2 class="sec">Three strategies, one workload</h2>
     <p class="sec-sub">Each single-tier strategy fails on one axis. Only the cost-aware mix wins on both cost and coverage.</p>
@@ -616,6 +675,7 @@ const EP = (typeof window !== "undefined" && window.__ENDPOINTS__) || {
   replay: (synth) => "/replay?synth=" + synth,
   regression: "/regression",
   fanoutSweep: "/fanout-sweep",
+  compare: "/compare",
   experiments: "/experiments",
   metricsHistory: "/metrics/history",
 };
@@ -958,6 +1018,112 @@ function renderSpotlight(sp) {
   $("spotRatio").textContent = Number(sp.ratio).toFixed(1) + "\\u00d7";
 }
 
+// ---- Arena: one problem, four ways (the 5-minute wow) ----
+// Reads EP.compare (live /compare, or compare.json in the static export): a task
+// menu plus every task's pre-computed head-to-head, so switching problems needs
+// no round-trip. Cost & accuracy come from the same offline machinery as the
+// other panels; latency is an illustrative projection (measured = false).
+let ARENA = null;
+
+function arenaMs(ms) {
+  const n = Number(ms);
+  return n >= 1000 ? (n / 1000).toFixed(1) + " s" : Math.round(n) + " ms";
+}
+
+function arenaModels(a) {
+  const models = (a.models || []).map(String);
+  if (a.approach === "router") return models.length ? models.join(" \\u2192 ") : "\\u2014";
+  if (a.approach === "ensemble") return models.length + " models";
+  return a.chosen_model || models[0] || "\\u2014";
+}
+
+function arenaApproachCard(a, winners) {
+  const passCls = a.passed ? "ok" : "no";
+  const passTxt = a.passed ? "\\u2713 pass" : "\\u2717 fail";
+  const hero = a.approach === "router" ? " hero" : "";
+  const cw = winners.cost === a.approach, lw = winners.latency === a.approach;
+  // Accuracy is binary — every passing approach wins it equally (not just one),
+  // so crowning the router alongside premium/ensemble would misread as "more
+  // correct". The cheapest single simply fails.
+  const aw = a.passed;
+  const row = (cls, key, val, win, tag) =>
+    "<div class='arow" + (win ? " win" : "") + "'><span class='ak'>" + key + "</span>" +
+    "<span class='av" + (cls ? " " + cls : "") + "'>" + val + "</span>" +
+    (win && tag ? "<span class='wtag'>" + tag + "</span>" : "") + "</div>";
+  return "<div class='acard" + hero + "'>" +
+    "<div class='acard-hd'><span class='atag'>" + a.label + "</span>" +
+      "<span class='apass " + passCls + "'>" + passTxt + "</span></div>" +
+    "<div class='amodel' title='" + arenaModels(a) + "'>" + arenaModels(a) + "</div>" +
+    row("", "cost", usdSmart(a.cost_usd), cw, "cheapest") +
+    row("", "latency*", arenaMs(a.latency_ms), lw, "fastest") +
+    row(passCls, "accuracy", passTxt, aw, "") +
+    "<div class='adetail'>" + a.detail + "</div>" +
+  "</div>";
+}
+
+function arenaChips(payload, activeId) {
+  return payload.tasks.map((t) =>
+    "<button class='achip" + (t.task_id === activeId ? " on" : "") + "' data-task='" + t.task_id + "' type='button'>" +
+      "<span class='achip-id'>" + t.task_id + "</span>" +
+      "<span class='achip-cls'>" + t["class"] + " \\u00b7 " + t.difficulty + "</span>" +
+      "<span class='achip-teach'>" + t.teaches + "</span></button>"
+  ).join("");
+}
+
+function arenaVerdict(arena) {
+  const by = {};
+  arena.approaches.forEach((a) => { by[a.approach] = a; });
+  const w = arena.winners, cheapest = by.cheapest, premium = by.premium, router = by.router, ensemble = by.ensemble;
+  if (cheapest && cheapest.passed && w.cost === "cheapest" && w.latency === "cheapest") {
+    return "On this " + arena.difficulty + " task the <b>cheapest</b> model already passes &mdash; the router correctly just picks it, so the premium and ensemble spend buys nothing extra. Routing earns its keep on the hard tasks, not this one.";
+  }
+  if (router && router.passed) {
+    const ratio = premium && premium.cost_usd > 0 ? premium.cost_usd / Math.max(router.cost_usd, 1e-9) : null;
+    let s = "The <b>cost-aware router</b> reaches a passing answer" + (ratio ? " at <b>" + ratio.toFixed(1) + "\\u00d7</b> lower cost than the premium model" : "") + ".";
+    if (ensemble && ensemble.passed && ensemble.cost_usd > router.cost_usd) {
+      s += " The ensemble also passes but pays for every model (<b>" + usdSmart(ensemble.cost_usd) + "</b>) &mdash; the fan-out tax.";
+    }
+    if (w.latency !== "router") {
+      s += " No free lunch: the router is the <b>slowest</b> here because it escalates sequentially &mdash; you trade latency for cost.";
+    }
+    return s;
+  }
+  return "No single-shot approach passes cleanly on this task &mdash; weigh the trade-offs above.";
+}
+
+function renderArena(payload, taskId) {
+  const panel = $("arenaPanel");
+  if (!panel || !payload || !payload.arenas) return;
+  ARENA = payload;
+  const id = taskId && payload.arenas[taskId] ? taskId : payload.default;
+  const arena = payload.arenas[id];
+  if (!arena) return;
+  $("arenaMeta").textContent = id + " \\u00b7 " + arena["class"] + " \\u00b7 " + arena.difficulty;
+  $("arenaTasks").innerHTML = arenaChips(payload, id);
+  const grid = $("arenaGrid");
+  grid.innerHTML = arena.approaches.map((a) => arenaApproachCard(a, arena.winners)).join("");
+  grid.classList.remove("reveal");
+  void grid.offsetWidth;
+  grid.classList.add("reveal");
+  $("arenaVerdict").innerHTML = arenaVerdict(arena);
+  panel.hidden = false;
+}
+
+async function loadArena() {
+  const host = $("arenaTasks");
+  if (host && !host.dataset.wired) {
+    host.dataset.wired = "1";
+    host.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-task]");
+      if (btn && ARENA) renderArena(ARENA, btn.getAttribute("data-task"));
+    });
+  }
+  try {
+    const d = await (await fetch(EP.compare)).json();
+    renderArena(d, d.default);
+  } catch (e) { /* compare endpoint unavailable — leave the panel hidden */ }
+}
+
 // ---- Experiments (click for metrics) + Historical dashboard ----
 // Both read Foundry-shaped metrics: EP.experiments (live /experiments, or
 // experiments.json in the static export) and EP.metricsHistory (/metrics/history
@@ -1140,6 +1306,7 @@ async function runReplay() {
 $("run").addEventListener("click", runReplay);
 if (window.innerWidth < 960) { const d = $("policyDetails"); if (d) d.removeAttribute("open"); }
 loadHealth();
+loadArena();
 loadExperiments();
 loadHistory();
 loadSweep();

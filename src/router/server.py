@@ -51,6 +51,7 @@ from .metrics import (
 )
 from .pipeline import (
     batch_route_payload,
+    bundled_compare,
     bundled_coverage_cliff,
     bundled_fanout_sweep,
     load_default_pricing,
@@ -69,6 +70,7 @@ _KNOWN_ROUTES = {
     "/replay",
     "/regression",
     "/fanout-sweep",
+    "/compare",
     "/route",
     "/batch-route",
     "/experiments",
@@ -153,6 +155,19 @@ class RouterService:
 
     def fanout_sweep(self) -> ServiceResponse:
         return ServiceResponse(200, bundled_fanout_sweep())
+
+    def compare_view(self, path: str) -> ServiceResponse:
+        """Head-to-head "one problem, four ways" payload for the WOW demo.
+
+        Returns the task menu plus every curated task's arena (cheapest /
+        premium / ensemble / cost-aware router with cost, accuracy, and an
+        illustrative latency projection), so the web app can switch problems
+        client-side with no round-trip. Offline and deterministic;
+        ``measured = false``.
+        """
+
+        task = _query_value(path, "task")
+        return ServiceResponse(200, bundled_compare(task_id=task or None))
 
     # -- experiments & metrics -------------------------------------------
 
@@ -265,6 +280,8 @@ class RouterService:
             return self.regression()
         if method == "GET" and route == "/fanout-sweep":
             return self.fanout_sweep()
+        if method == "GET" and route == "/compare":
+            return self.compare_view(path)
         if method == "GET" and route == "/experiments":
             return self.experiments_view()
         if method == "GET" and route == "/experiment":
