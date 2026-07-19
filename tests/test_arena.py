@@ -9,12 +9,23 @@ from __future__ import annotations
 
 import pytest
 
+from router import load_signal_fixture, load_task_prompts, load_workload
 from router.arena import (
     APPROACH_ORDER,
+    bundled_head_to_head,
     head_to_head,
     project_latency_ms,
 )
-from router.pipeline import bundled_compare
+from router.pipeline import (
+    DEFAULT_PRICING,
+    DEFAULT_PROMPTS,
+    DEFAULT_SIGNALS,
+    DEFAULT_WORKLOAD,
+    bundled_compare,
+    find_samples_root,
+    load_policy,
+)
+from router.pricing import PricingTable
 
 
 @pytest.fixture()
@@ -151,3 +162,62 @@ def test_head_to_head_rejects_unknown_task() -> None:
     # A task id absent from the workload raises KeyError before any scoring.
     with pytest.raises(KeyError):
         head_to_head("nope", {}, {"nope": {"m": {}}}, None, None)  # type: ignore[arg-type]
+
+
+# -- readable problem statements (the authored input test data) --------------
+
+
+def _arena_inputs():
+    base = find_samples_root()
+    workload = load_workload(base / DEFAULT_WORKLOAD)
+    signals = load_signal_fixture(base / DEFAULT_SIGNALS)
+    pricing = PricingTable.from_yaml(base / DEFAULT_PRICING)
+    policy = load_policy(None)
+    prompts = load_task_prompts(base / DEFAULT_PROMPTS)
+    return workload, signals, policy, pricing, prompts
+
+
+def test_load_task_prompts_reads_fixture() -> None:
+    prompts = load_task_prompts(find_samples_root() / DEFAULT_PROMPTS)
+    assert set(prompts) == {"t-0001", "t-0003", "t-0004", "t-0005", "t-0006"}
+    t3 = prompts["t-0003"]
+    assert t3["title"] == "Patch parse_duration to accept combined units"
+    assert "parse_duration" in t3["prompt"]
+    assert t3["acceptance"]
+
+
+def test_bundled_compare_carries_readable_problem() -> None:
+    payload = bundled_compare()
+    # every curated arena exposes an authored, self-contained problem statement
+    for tid, arena in payload["arenas"].items():
+        problem = arena["problem"]
+        assert problem is not None, tid
+        assert problem["title"] and problem["prompt"]
+        assert arena["labels"]["problem_basis"] == "authored-synthetic"
+    # the task menu carries the short title for the chips
+    titles = {t["task_id"]: t["title"] for t in payload["tasks"]}
+    assert titles["t-0001"] == "slugify(title)"
+    assert all(titles.values())
+
+
+def test_problem_is_optional_and_does_not_change_numbers() -> None:
+    workload, signals, policy, pricing, prompts = _arena_inputs()
+    without = head_to_head("t-0003", workload, signals, policy, pricing)
+    with_prompt = head_to_head("t-0003", workload, signals, policy, pricing, prompts)
+    # absent prompts => no problem block, present => the authored statement
+    assert without["problem"] is None
+    assert with_prompt["problem"]["title"] == "Patch parse_duration to accept combined units"
+    # the readable prompt is presentation only — classification, candidates and
+    # every cost/latency/pass number are identical with or without it.
+    assert without["class"] == with_prompt["class"] == "repo_patch"
+    assert without["candidates"] == with_prompt["candidates"]
+    assert without["approaches"] == with_prompt["approaches"]
+    assert without["winners"] == with_prompt["winners"]
+
+
+def test_bundled_head_to_head_without_prompts_has_no_problem() -> None:
+    workload, signals, policy, pricing, _ = _arena_inputs()
+    payload = bundled_head_to_head(workload, signals, policy, pricing)
+    for arena in payload["arenas"].values():
+        assert arena["problem"] is None
+    assert all(t["title"] == "" for t in payload["tasks"])

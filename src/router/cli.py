@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import textwrap
 from pathlib import Path
 
 from . import __version__
@@ -732,6 +733,9 @@ def format_compare_text(payload: dict[str, object]) -> str:
     lines = [
         "one problem, four ways   (measured = false)",
         f"task  {task_id}   class={arena['class']}   difficulty={arena['difficulty']}",
+    ]
+    lines += _format_problem_block(arena.get("problem"))
+    lines += [
         "",
         f"{'approach':<19} {'model(s)':<28} {'cost':>11} {'latency*':>11}  result",
         f"{'-' * 19} {'-' * 28} {'-' * 11} {'-' * 11}  {'-' * 6}",
@@ -758,6 +762,26 @@ def format_compare_text(payload: dict[str, object]) -> str:
         "          $ = cheapest   @ = fastest   (accuracy is pass/fail per approach)",
     ]
     return "\n".join(lines)
+
+
+def _format_problem_block(problem: dict[str, object] | None) -> list[str]:
+    """Render the readable problem statement (title + prompt + acceptance)."""
+
+    if not problem:
+        return []
+    title = str(problem.get("title") or "").strip()
+    prompt = str(problem.get("prompt") or "").strip()
+    acceptance = str(problem.get("acceptance") or "").strip()
+    indent = " " * 10
+    out: list[str] = []
+    if title:
+        out.append(f"problem   {title}")
+    for line in textwrap.wrap(prompt, width=72) or []:
+        out.append(indent + line)
+    if acceptance:
+        for i, line in enumerate(textwrap.wrap(acceptance, width=64)):
+            out.append(indent + ("expect: " if i == 0 else "        ") + line)
+    return out
 
 
 def _cmd_compare(args: argparse.Namespace) -> int:

@@ -111,12 +111,15 @@ def head_to_head(
     signals: Mapping[str, Mapping[str, Mapping[str, Any]]],
     policy: PolicyTable,
     pricing: PricingTable,
+    prompts: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Score the four approaches on one task and mark the per-axis winners.
 
     Returns a JSON-ready dict: the task profile, one entry per approach (cost,
     latency, pass), and the winning approach on each of cost / latency /
-    accuracy. Raises :class:`KeyError` / :class:`ValueError` when the task is
+    accuracy. When ``prompts`` carries a readable problem for the task, it is
+    included under ``problem`` (an authored synthetic input, ``measured =
+    false``). Raises :class:`KeyError` / :class:`ValueError` when the task is
     unknown or has no candidates/signals.
     """
 
@@ -144,6 +147,7 @@ def head_to_head(
         "class": classify_task(task).value,
         "difficulty": str(task.get("difficulty") or "unspecified"),
         "tokens": dict(tokens),
+        "problem": _problem(prompts, task_id),
         "candidates": [c.model for c in candidates],
         "approaches": [a.to_dict() for a in approaches],
         "winners": winners,
@@ -152,6 +156,7 @@ def head_to_head(
             "cost_basis": "illustrative-pricing",
             "latency_basis": "illustrative-projection",
             "accuracy_basis": "offline-signal-projection",
+            "problem_basis": "authored-synthetic",
         },
     }
 
@@ -163,6 +168,7 @@ def bundled_head_to_head(
     pricing: PricingTable,
     *,
     task_id: str | None = None,
+    prompts: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build the full compare payload: a task menu plus every task's arena.
 
@@ -170,6 +176,8 @@ def bundled_head_to_head(
     export and the live endpoint are identical and the web app can switch tasks
     with no round-trip. ``default`` is the most instructive task (the biggest
     honest premium→router saving where the cheapest single actually fails).
+    When ``prompts`` is given, each task carries its readable problem and the
+    menu carries a short ``title``.
     """
 
     task_ids = [tid for tid in workload if tid in signals and signals.get(tid)]
@@ -177,15 +185,17 @@ def bundled_head_to_head(
     menu: list[dict[str, Any]] = []
     for tid in task_ids:
         try:
-            arena = head_to_head(tid, workload, signals, policy, pricing)
+            arena = head_to_head(tid, workload, signals, policy, pricing, prompts)
         except (KeyError, ValueError):
             continue
         arenas[tid] = arena
+        problem = arena.get("problem") or {}
         menu.append(
             {
                 "task_id": tid,
                 "class": arena["class"],
                 "difficulty": arena["difficulty"],
+                "title": str(problem.get("title") or ""),
                 "teaches": _teaches(arena),
             }
         )
@@ -366,6 +376,29 @@ def _default_task(arenas: Mapping[str, dict[str, Any]]) -> str:
 def _passed(task_signals: Mapping[str, Mapping[str, Any]], model: str) -> bool:
     row = task_signals.get(model)
     return bool(row is not None and is_clean(row))
+
+
+def _problem(
+    prompts: Mapping[str, Mapping[str, Any]] | None,
+    task_id: str,
+) -> dict[str, str] | None:
+    """Return the readable problem block for a task, or ``None`` when absent.
+
+    The block is an authored synthetic input (``measured = false``) with a short
+    ``title``, the ``prompt`` a user would actually pose, and an ``acceptance``
+    line. It is presentation only — it never influences classification or cost.
+    """
+
+    if not prompts:
+        return None
+    problem = prompts.get(task_id)
+    if not problem:
+        return None
+    return {
+        "title": str(problem.get("title") or ""),
+        "prompt": str(problem.get("prompt") or ""),
+        "acceptance": str(problem.get("acceptance") or ""),
+    }
 
 
 def _teaches(arena: Mapping[str, Any]) -> str:

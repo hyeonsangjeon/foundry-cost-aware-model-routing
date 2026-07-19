@@ -140,6 +140,10 @@ def test_exported_compare_carries_the_arena(site: Path) -> None:
     assert arena["winners"]["cost"] == "router"
     assert arena["winners"]["latency"] == "premium"
     assert set(arena["winners"]["accuracy"]) == {"premium", "ensemble", "router"}
+    # the exported arena also carries the authored, readable problem statement
+    assert arena["problem"]["title"] == "Patch parse_duration to accept combined units"
+    assert arena["labels"]["problem_basis"] == "authored-synthetic"
+    assert {t["task_id"]: t["title"] for t in payload["tasks"]}["t-0001"] == "slugify(title)"
 
 
 def test_exported_experiments_carry_offline_metrics(site: Path) -> None:

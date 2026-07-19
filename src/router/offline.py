@@ -41,6 +41,23 @@ def load_signal_fixture(path: Path | str) -> dict[str, SignalMap]:
     return {str(task_id): signals for task_id, signals in tasks.items()}
 
 
+def load_task_prompts(path: Path | str) -> dict[str, dict[str, Any]]:
+    """Load readable, self-contained problem statements keyed by task id.
+
+    The fixture carries a top-level ``prompts`` mapping of ``task_id -> {title,
+    prompt, acceptance}``. These are authored synthetic inputs (``measured =
+    false``) that give each curated arena task a human-readable problem; they do
+    not affect classification, cost, or the offline signals.
+    """
+
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    prompts = data.get("prompts")
+    if not isinstance(prompts, dict):
+        raise ValueError("prompt fixture must contain a top-level 'prompts' mapping")
+    return {str(task_id): dict(problem) for task_id, problem in prompts.items()}
+
+
 def synthesize_signals(
     workload: Mapping[str, Mapping[str, Any]],
     policy: PolicyTable | None = None,

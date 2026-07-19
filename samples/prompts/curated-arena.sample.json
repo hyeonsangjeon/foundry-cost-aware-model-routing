@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "note": "Readable, self-contained problem statements for the curated head-to-head arena tasks (t-0001, t-0003, t-0004, t-0005, t-0006). These are AUTHORED SYNTHETIC coding problems written to match each task's existing class/difficulty/token profile in mixed-coding-workload.sample.jsonl. They are NOT sourced from any real user or named public benchmark, and the per-model pass/fail signals in routing-signals.sample.json are illustrative projections (measured = false), not graded evaluations of these statements. Getting honest pass/fail on real public problems requires running them through the live measured bridge; see docs/manual/head-to-head.md.",
+  "labels": {
+    "measured": false,
+    "problem_basis": "authored-synthetic"
+  },
+  "prompts": {
+    "t-0001": {
+      "title": "slugify(title)",
+      "prompt": "Implement slugify(title: str) -> str: lowercase the text, strip surrounding whitespace, and collapse every run of non-alphanumeric characters into a single hyphen, leaving no leading or trailing hyphen. Example: \"  Hello,  World! \" -> \"hello-world\".",
+      "acceptance": "Collapses repeated separators, trims edge hyphens, and returns an empty string for all-symbol input."
+    },
+    "t-0003": {
+      "title": "Patch parse_duration to accept combined units",
+      "prompt": "The repo's parse_duration(text: str) -> int helper returns None for combined values like \"1h30m\" or \"2m30s\". Patch it to sum consecutive <number><unit> segments (h/m/s) into total seconds, reject empty or malformed input, and keep the existing single-unit tests green.",
+      "acceptance": "\"1h30m\" -> 5400, \"45s\" -> 45, \"\" and \"10x\" are rejected, and the existing single-unit tests still pass."
+    },
+    "t-0004": {
+      "title": "Plan cursor pagination for GET /orders",
+      "prompt": "Draft a short implementation plan to add cursor-based pagination to the GET /orders endpoint: the request/response shape, what the opaque cursor encodes, the index/query changes, and how paging stays stable under concurrent inserts.",
+      "acceptance": "Names the cursor's fields, the stable ordering key, and the forward/backward paging contract."
+    },
+    "t-0005": {
+      "title": "Review a retry-backoff change",
+      "prompt": "Review a diff that changes an HTTP client's retry loop from a fixed delay to exponential backoff. Decide whether it correctly caps at max_attempts, applies jitter, and stops on non-retryable status codes, and flag anything missing.",
+      "acceptance": "Judges the max-attempts boundary, the jitter, and the retryable/non-retryable split."
+    },
+    "t-0006": {
+      "title": "Unit tests for merge_intervals",
+      "prompt": "Write unit tests for merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]], which merges overlapping and adjacent closed intervals. Cover overlap, adjacency (touching endpoints), a fully contained interval, unsorted input, a single interval, and empty input.",
+      "acceptance": "Includes empty, single, unsorted, adjacency, and nested-containment cases."
+    }
+  }
+}

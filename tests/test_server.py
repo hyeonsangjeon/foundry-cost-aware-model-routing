@@ -349,9 +349,9 @@ def test_compare_endpoint_scores_four_approaches(service: RouterService) -> None
     assert arena["winners"]["cost"] == "router"
     assert arena["winners"]["latency"] == "premium"
     assert set(arena["winners"]["accuracy"]) == {"premium", "ensemble", "router"}
-
-
-def test_compare_endpoint_honours_task_query(service: RouterService) -> None:
+    # each arena carries the authored readable problem (the input test data)
+    assert arena["problem"]["title"] == "Patch parse_duration to accept combined units"
+    assert arena["labels"]["problem_basis"] == "authored-synthetic"
     payload = service.dispatch("GET", "/compare?task=t-0006").payload
     assert payload["default"] == "t-0006"
     # GET-only route
@@ -363,10 +363,16 @@ def test_dashboard_shows_arena_panel(service: RouterService) -> None:
     script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
     assert 'id="arenaPanel"' in html
     assert "One problem, four ways" in html
-    for element_id in ('id="arenaTasks"', 'id="arenaGrid"', 'id="arenaVerdict"'):
+    for element_id in (
+        'id="arenaTasks"',
+        'id="arenaProblem"',
+        'id="arenaGrid"',
+        'id="arenaVerdict"',
+    ):
         assert element_id in html
     # rendered from the /compare endpoint and loaded at init
     assert "renderArena" in script
+    assert "renderArenaProblem" in script  # the readable problem block
     assert "compare:" in script  # EP fallback map carries the route
     assert "fetch(EP.compare)" in script
     assert "loadArena()" in script
