@@ -116,3 +116,8 @@ emitter.emit(extract_experiment_metrics(result))
 ```
 
 sink를 주입하지 않으면 레코드는 `emitter.captured`에만 쌓입니다 — 완전 오프라인·테스트 안전.
+
+!!! tip "여기까지는 `measured = false` — 실측으로 넘어가려면"
+    이 페이지의 메트릭은 전부 합성 데이터에 대한 투영입니다. 실제 Azure Model Router의 토큰
+    usage로 **측정된 지출**(`measured = true`)을 얻으려면
+    [라이브 실측 브릿지](foundry-live.md)를 참고하세요.

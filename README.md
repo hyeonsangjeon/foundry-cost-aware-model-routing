@@ -143,6 +143,22 @@ offline proxy (lab notebook: 실험 07 · 라우팅 레이어):
 cost-router experiment run model-router      # 100% coverage, −25.5% — single-call vs escalate gain +48%p
 ```
 
+The live measured bridge — turning that env-gated adapter into **measured
+spend**. `cost-router foundry live` scores a Model Router run on the endpoint's
+**real token usage** (not synthetic tokens): recorded snapshot `$0.156730 / 100%`
+vs the offline projection `$0.087030 / 60%`. `measured=true` is reserved for a
+genuine live call; without credentials it replays a recorded snapshot so the path
+stays offline/deterministic. Secrets are never printed — `foundry status` masks
+them (manual: 라이브 실측 브릿지):
+
+```bash
+cost-router foundry status                   # redacted config + live-call readiness
+cost-router foundry live                      # recorded snapshot (offline, measured=false)
+cost-router foundry live --store runs.jsonl   # record into the historical dashboard
+cost-router foundry live --live --workload my-prompts.jsonl \
+  --pricing samples/pricing/your-tenant.yaml  # real Azure calls → measured=true
+```
+
 ### The 30-second before / after
 
 `make replay` (and `cost-router replay`) end with a naive-vs-routed block: the

@@ -49,6 +49,7 @@ nav:
       - 실험 설정(YAML): manual/experiments.md
       - 대시보드: manual/dashboard.md
       - 메트릭 & Foundry: manual/metrics.md
+      - 라이브 실측 브릿지: manual/foundry-live.md
       - 감사 원장: manual/ledger.md
   - 실험노트:
       - 소개와 방법론: lab-notebook/index.md

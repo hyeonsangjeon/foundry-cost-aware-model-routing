@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "_note": "Recorded Azure AI Foundry Model Router usage (ILLUSTRATIVE snapshot, offline). Each entry is one task's real-shaped result: the underlying model the router picked plus the token 'usage' it billed (input/cached/output/reasoning). measured_router_summary prices this ACTUAL usage rather than the synthetic task.tokens the offline arms use, so it exercises the measured spend path. labels.provenance = recorded and labels.measured = false: replaying this snapshot is a CAPTURED measurement, not a fresh live call. Only `cost-router foundry live` with credentials yields provenance=live / measured=true. Token counts here are illustrative, not billed against any tenant. See docs/manual/foundry-live.md.",
+  "labels": { "measured": false, "provenance": "recorded" },
+  "outcomes": {
+    "t-0001": { "model": "balanced-pro", "usage": { "input": 1300, "cached": 400, "output": 520, "reasoning": 240 } },
+    "t-0003": { "model": "premium-max", "usage": { "input": 6600, "cached": 3000, "output": 1500, "reasoning": 2400 } },
+    "t-0004": { "model": "deep-reasoner", "usage": { "input": 1500, "cached": 450, "output": 800, "reasoning": 1200 } },
+    "t-0005": { "model": "deep-reasoner", "usage": { "input": 450, "cached": 150, "output": 180, "reasoning": 220 } },
+    "t-0006": { "model": "balanced-pro", "usage": { "input": 2000, "cached": 800, "output": 300, "reasoning": 400 } }
+  }
+}
