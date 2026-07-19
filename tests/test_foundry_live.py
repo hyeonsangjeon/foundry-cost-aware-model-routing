@@ -24,6 +24,7 @@ from router.foundry_live import (
     FoundryConfig,
     RecordedRouterClient,
     RouterOutcome,
+    load_dotenv_file,
     load_recorded_usage,
     measured_router_summary,
 )
@@ -330,3 +331,64 @@ def test_cli_foundry_live_json_reports_provenance(capsys: pytest.CaptureFixture[
     payload = json.loads(capsys.readouterr().out)
     assert payload["labels"]["provenance"] == "recorded"
     assert payload["labels"]["measured"] is False
+
+
+# -- dotenv loading: make the documented `.env` workflow actually work -------
+
+
+def test_load_dotenv_parses_and_respects_precedence(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "# a comment\n"
+        "\n"
+        'export AZURE_AI_FOUNDRY_ENDPOINT="https://demo.example/"\n'
+        "AZURE_AI_FOUNDRY_MODEL_ROUTER=model-router\n"
+        "AZURE_AI_FOUNDRY_API_KEY='quoted-secret'\n"
+        "not a config line\n",
+        encoding="utf-8",
+    )
+    target: dict[str, str] = {"AZURE_AI_FOUNDRY_MODEL_ROUTER": "preset-wins"}
+    applied = load_dotenv_file(env_file, environ=target)
+
+    # comment, blank, and the malformed line are skipped; quotes/export stripped
+    assert applied == ["AZURE_AI_FOUNDRY_ENDPOINT", "AZURE_AI_FOUNDRY_API_KEY"]
+    assert target["AZURE_AI_FOUNDRY_ENDPOINT"] == "https://demo.example/"
+    assert target["AZURE_AI_FOUNDRY_API_KEY"] == "quoted-secret"
+    # override=False: a value already present in the environment is never replaced
+    assert target["AZURE_AI_FOUNDRY_MODEL_ROUTER"] == "preset-wins"
+
+
+def test_load_dotenv_missing_file_is_a_noop(tmp_path: Path) -> None:
+    target: dict[str, str] = {}
+    assert load_dotenv_file(tmp_path / "does-not-exist.env", environ=target) == []
+    assert target == {}
+
+
+def test_cli_foundry_status_loads_env_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Start from a clean slate so only the .env supplies the config.
+    for name in (
+        "AZURE_AI_FOUNDRY_ENDPOINT",
+        "AZURE_OPENAI_ENDPOINT",
+        "AZURE_AI_FOUNDRY_MODEL_ROUTER",
+        "AZURE_MODEL_ROUTER_DEPLOYMENT",
+        "AZURE_AI_FOUNDRY_API_KEY",
+        "AZURE_OPENAI_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "AZURE_AI_FOUNDRY_ENDPOINT=https://loaded.example/\n"
+        "AZURE_AI_FOUNDRY_MODEL_ROUTER=model-router\n"
+        "AZURE_AI_FOUNDRY_API_KEY=fromDotEnvKEY9\n",
+        encoding="utf-8",
+    )
+    rc = cli.main(["foundry", "status", "--json", "--env-file", str(env_file)])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["credentialed"] is True
+    assert payload["endpoint"] == "https://loaded.example"
+    assert payload["dotenv_loaded"] == 3
+    assert "fromDotEnvKEY9" not in json.dumps(payload)
+    assert payload["api_key"] == "set (****KEY9)"

@@ -32,8 +32,19 @@
 | `AZURE_AI_FOUNDRY_CONNECTION_STRING` | 관측성 전송(선택) | `APPLICATIONINSIGHTS_CONNECTION_STRING` |
 | `FOUNDRY_PRICING_PATH` | 여러분 테넌트 요율 YAML(선택) | `COST_ROUTER_PRICING` |
 
-`.env.sample`을 `.env`로 복사해 로컬에서 채우세요(`.env`는 gitignored). 무엇이 배선됐는지는
-**시크릿을 노출하지 않고** 확인할 수 있습니다:
+`.env.sample`을 `.env`로 복사해 로컬에서 채우세요(`.env`는 gitignored). `cost-router foundry
+status`·`live` 명령은 실행 시 **이 `.env`를 자동으로 로드**한 뒤 설정을 읽습니다 — 별도의
+`source`나 `export` 없이 그대로 동작합니다. 규칙은 일부러 보수적입니다:
+
+- `.env`가 **없으면 아무 일도 하지 않습니다**(무해). CI·기본 실행은 `.env`가 없으니 그대로
+  오프라인·결정론입니다.
+- 이미 셸에 **export된 실제 환경 변수가 항상 우선**합니다(`.env`가 덮어쓰지 않음). CI 설정과
+  명시적 export가 조용히 교체되는 일은 없습니다.
+- `KEY=VALUE` 줄만 읽습니다. 빈 줄·`#` 주석·앞의 `export`는 무시하고, 값의 양끝 따옴표는
+  벗깁니다. 셸 확장·명령 실행은 전혀 없습니다(값은 문자 그대로).
+
+다른 파일을 쓰려면 `--env-file <경로>`를 주세요(기본 `.env`). 무엇이 배선됐는지는 **시크릿을
+노출하지 않고** 확인할 수 있습니다:
 
 ```bash
 cost-router foundry status
@@ -48,6 +59,7 @@ Azure AI Foundry — live measured Model Router bridge
   api key           : set (****WXYZ)                            # 마지막 4자만
   connection string : missing
   pricing           : (bundled illustrative — measured=false)
+  .env loaded       : 3 setting(s) from .env                    # 자동 로드된 개수(값은 숨김)
   ready: `cost-router foundry live --live` (needs a workload with prompts).
 ```
 

@@ -25,6 +25,7 @@ from .foundry_live import (
     MeasuringRouterClient,
     RecordedRouterClient,
     RouterOutcome,
+    load_dotenv_file,
     load_recorded_usage,
     measured_router_summary,
 )
@@ -131,6 +132,7 @@ __all__ = [
     "list_experiments",
     "live_router_summary",
     "load_default_pricing",
+    "load_dotenv_file",
     "load_experiment",
     "load_policy",
     "load_recorded_choices",
