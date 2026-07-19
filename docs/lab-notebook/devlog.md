@@ -10,6 +10,35 @@
 
 ---
 
+## 2026-07-21 · 아레나 입력 데이터 — 읽을 수 있는 문제 진술
+
+!!! note "한 줄 요약"
+    아레나가 태스크의 **메타데이터만**(클래스·난이도·토큰) 보여 줘 "그래서 무슨 문제인지"가
+    없었습니다. 큐레이션 5건에 **사람이 읽는 문제 진술**(제목·프롬프트·합격 기준)을 붙여 CLI·
+    웹앱에 띄웠습니다 — 단, **저작한 합성 예시**이지 공개 벤치마크가 아닙니다(`measured = false`).
+
+- **상황(왜):** "이 프로토타입의 사용자 입력 테스트 데이터가 뭐냐"는 질문에서 출발. 아레나는
+  구체적 문제 없이 숫자만 채워, 신규 사용자가 *"각 방법이 **무엇을** 푸는지"* 볼 수 없었습니다.
+- **작업(무엇을):**
+    - `samples/prompts/curated-arena.sample.json` 신설 — 태스크별 `title` · `prompt` ·
+      `acceptance`. `note`/`labels`에 **저작-합성 출처**를 자체 문서화(`problem_basis =
+      authored-synthetic`). `offline.load_task_prompts`로 로드.
+    - `arena.head_to_head`/`bundled_head_to_head`에 `prompts` 옵션 인자 + 페이로드 `problem`
+      키 + 메뉴 `title`. `pipeline.bundled_compare`가 기본 프롬프트를 읽어 스레드.
+    - CLI `compare`가 표 위에 `problem` 블록(제목·줄바꿈 프롬프트·`expect:`)을, 대시보드가
+      **문제 카드**(`renderArenaProblem`, 주입 안전 `textContent`)를 렌더.
+    - **정직성 결정:** HumanEval·MBPP 등 공개 벤치마크를 붙이지 않음 — 합성 pass/fail 신호를
+      실명 벤치마크에 붙이면 실측 평가로 오해되어 정직하지 않기 때문. 진짜 공개 데이터+채점은
+      라이브 실측 브릿지(`measured = true`) 몫.
+- **검증(효과):** `classify_task`가 명시적 `class` 필드를 우선하고 다섯 태스크 모두 이를 가져,
+  **프롬프트는 표시 전용**이며 분류·비용에 무영향 — 고정 수치(t-0003 $0.032793 등)가 **그대로**
+  임을 새 테스트로 확인(arena·CLI·서버·정적 export). 프롬프트를 빼도 아레나가 동작하도록
+  `problem`은 선택적(`None`). `measured = false`.
+    이 입력 데이터의 실험 기록은 [실험 08 · 아레나](08-arena.md)의 "입력 테스트 데이터" 절에
+    정리했습니다.
+
+---
+
 ## 2026-07-20 · 아레나 — "문제 하나, 네 가지 방법" 5분 wow 데모
 
 !!! note "한 줄 요약"

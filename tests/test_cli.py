@@ -231,6 +231,23 @@ def test_compare_task_override(capsys: pytest.CaptureFixture[str]) -> None:
     assert "task  t-0001" in capsys.readouterr().out
 
 
+def test_compare_prints_readable_problem(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["compare", "--task", "t-0003"]) == 0
+    out = capsys.readouterr().out
+    # the authored problem statement is shown above the table so the run is
+    # concrete: a title, the prompt a user would pose, and an acceptance line
+    assert "problem   Patch parse_duration to accept combined units" in out
+    assert "parse_duration" in out
+    assert "expect:" in out
+
+
+def test_compare_json_includes_problem(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["compare", "--json", "--task", "t-0001"]) == 0
+    arena = json.loads(capsys.readouterr().out)
+    assert arena["problem"]["title"] == "slugify(title)"
+    assert arena["labels"]["problem_basis"] == "authored-synthetic"
+
+
 def test_compare_json_emits_single_arena(capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["compare", "--json", "--task", "t-0003"]) == 0
     arena = json.loads(capsys.readouterr().out)

@@ -53,6 +53,7 @@ from .metrics import (
 )
 from .offline import (
     load_signal_fixture,
+    load_task_prompts,
     load_workload,
     route_task,
     route_tasks,
@@ -148,6 +149,7 @@ __all__ = [
     "load_recorded_choices",
     "load_recorded_usage",
     "load_signal_fixture",
+    "load_task_prompts",
     "load_workload",
     "measured_router_summary",
     "ordered_select",

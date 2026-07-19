@@ -44,6 +44,7 @@ from .ledger import (
 from .metrics import fanout_stats
 from .offline import (
     load_signal_fixture,
+    load_task_prompts,
     load_workload,
     route_task,
     route_tasks,
@@ -59,6 +60,7 @@ from .spotlight import select_spotlight
 DEFAULT_WORKLOAD = Path("samples/telemetry/mixed-coding-workload.sample.jsonl")
 DEFAULT_SIGNALS = Path("samples/responses/routing-signals.sample.json")
 DEFAULT_PRICING = Path("samples/pricing/illustrative.yaml")
+DEFAULT_PROMPTS = Path("samples/prompts/curated-arena.sample.json")
 ENSEMBLE_SIGNALS = Path("samples/responses/ensemble-fanout-signals.sample.json")
 FANOUT_SWEEP_THRESHOLDS: tuple[float, ...] = (0.0, 0.76, 0.86, 1.01)
 POLICY_ENV_VAR = "COST_ROUTER_POLICY"
@@ -788,7 +790,11 @@ def bundled_compare(
     pricing = PricingTable.from_yaml(base / DEFAULT_PRICING)
     policy = load_policy(None)
     signals = load_signal_fixture(base / DEFAULT_SIGNALS)
-    return bundled_head_to_head(workload, signals, policy, pricing, task_id=task_id)
+    prompts_path = base / DEFAULT_PROMPTS
+    prompts = load_task_prompts(prompts_path) if prompts_path.is_file() else None
+    return bundled_head_to_head(
+        workload, signals, policy, pricing, task_id=task_id, prompts=prompts
+    )
 
 
 def format_replay_text(report: ReplayReport) -> str:

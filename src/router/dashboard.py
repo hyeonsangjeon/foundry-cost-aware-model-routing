@@ -129,6 +129,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .achip-id { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--ink); }
   .achip-cls { font-size: 11px; color: var(--muted); }
   .achip-teach { font-size: 10.5px; color: var(--faint); font-style: italic; }
+  .arena-problem {
+    margin: 0 0 16px; padding: 12px 15px; border: 1px solid var(--line); border-left: 3px solid var(--brand);
+    border-radius: 10px; background: var(--elev);
+  }
+  .arena-problem .apr-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+  .arena-problem .apr-prompt { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+  .arena-problem .apr-accept { margin-top: 7px; font-size: 11.5px; color: var(--faint); line-height: 1.45; }
+  .arena-problem .apr-accept b { color: var(--muted); font-weight: 700; }
+  .arena-problem .apr-src { margin-top: 7px; font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
   .arena-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
   @media (max-width: 860px) { .arena-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 480px) { .arena-grid { grid-template-columns: 1fr; } }
@@ -446,6 +455,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       model, an ensemble that fans out to all of them, and the cost-aware router that escalates cheap-first.
       Watch <b>cost</b>, <b>latency</b>, and <b>accuracy</b> fill in for each.</p>
     <div class="arena-tasks" id="arenaTasks"></div>
+    <div class="arena-problem" id="arenaProblem" hidden></div>
     <div class="arena-grid" id="arenaGrid"></div>
     <div class="arena-verdict" id="arenaVerdict">&mdash;</div>
     <p class="caveat">Cost &amp; accuracy reuse the same offline machinery as every other panel (<code>measured = false</code>).
@@ -1070,6 +1080,30 @@ function arenaChips(payload, activeId) {
   ).join("");
 }
 
+// The problem statement is authored user text (may contain <, >, quotes), so it
+// is rendered via textContent — never innerHTML — to stay injection-safe.
+function renderArenaProblem(arena) {
+  const box = $("arenaProblem");
+  if (!box) return;
+  const p = arena.problem;
+  box.innerHTML = "";
+  if (!p || (!p.title && !p.prompt)) { box.hidden = true; return; }
+  const el = (cls, text) => { const d = document.createElement("div"); d.className = cls; d.textContent = text; return d; };
+  if (p.title) box.appendChild(el("apr-title", p.title));
+  if (p.prompt) box.appendChild(el("apr-prompt", p.prompt));
+  if (p.acceptance) {
+    const a = document.createElement("div");
+    a.className = "apr-accept";
+    const b = document.createElement("b");
+    b.textContent = "Acceptance: ";
+    a.appendChild(b);
+    a.appendChild(document.createTextNode(p.acceptance));
+    box.appendChild(a);
+  }
+  box.appendChild(el("apr-src", "input: authored synthetic problem \\u00b7 measured = false"));
+  box.hidden = false;
+}
+
 function arenaVerdict(arena) {
   const by = {};
   arena.approaches.forEach((a) => { by[a.approach] = a; });
@@ -1100,6 +1134,7 @@ function renderArena(payload, taskId) {
   if (!arena) return;
   $("arenaMeta").textContent = id + " \\u00b7 " + arena["class"] + " \\u00b7 " + arena.difficulty;
   $("arenaTasks").innerHTML = arenaChips(payload, id);
+  renderArenaProblem(arena);
   const grid = $("arenaGrid");
   grid.innerHTML = arena.approaches.map((a) => arenaApproachCard(a, arena.winners)).join("");
   grid.classList.remove("reveal");
