@@ -43,6 +43,7 @@ def test_export_writes_all_files(site: Path) -> None:
         "replay-curated.json",
         "regression.json",
         "fanout-sweep.json",
+        "compare.json",
         "experiments.json",
         "metrics-history.json",
     ):
@@ -60,6 +61,7 @@ def test_injected_endpoints_are_relative(site: Path) -> None:
     assert '"replay-curated.json"' in html
     assert 'regression: "regression.json"' in html
     assert 'fanoutSweep: "fanout-sweep.json"' in html
+    assert 'compare: "compare.json"' in html
     assert 'experiments: "experiments.json"' in html
     assert 'metricsHistory: "metrics-history.json"' in html
 
@@ -71,6 +73,7 @@ def test_injected_endpoints_are_relative(site: Path) -> None:
         '"/replay-curated.json"',
         '"/regression.json"',
         '"/fanout-sweep.json"',
+        '"/compare.json"',
         '"/experiments.json"',
         '"/metrics-history.json"',
     ):
@@ -115,6 +118,28 @@ def test_exported_fanout_sweep_carries_the_dial(site: Path) -> None:
     assert all(row["coverage"] == pytest.approx(1.0) for row in rows)
     assert rows[0]["ensemble_tax_usd"] == pytest.approx(0.364011, abs=1e-6)
     assert rows[-1]["ensemble_tax_usd"] == pytest.approx(0.0)
+
+
+def test_exported_compare_carries_the_arena(site: Path) -> None:
+    payload = json.loads((site / "compare.json").read_text(encoding="utf-8"))
+    # The head-to-head "one problem, four ways" payload the arena panel renders:
+    # a task menu plus every task's four approaches, default = the instructive one.
+    assert payload["labels"]["measured"] is False
+    assert payload["default"] == "t-0003"
+    arena = payload["arenas"]["t-0003"]
+    by = {a["approach"]: a for a in arena["approaches"]}
+    assert [a["approach"] for a in arena["approaches"]] == [
+        "cheapest",
+        "premium",
+        "ensemble",
+        "router",
+    ]
+    # winner-only router vs sum-of-all ensemble — the honest cost gap on one task
+    assert by["router"]["cost_usd"] == pytest.approx(0.032793, abs=1e-6)
+    assert by["ensemble"]["cost_usd"] == pytest.approx(0.179844, abs=1e-6)
+    assert arena["winners"]["cost"] == "router"
+    assert arena["winners"]["latency"] == "premium"
+    assert set(arena["winners"]["accuracy"]) == {"premium", "ensemble", "router"}
 
 
 def test_exported_experiments_carry_offline_metrics(site: Path) -> None:

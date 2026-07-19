@@ -23,6 +23,7 @@ from policy import (
     load_default_policy,
 )
 
+from .arena import bundled_head_to_head
 from .baseline import (
     baseline_cost_usd,
     baseline_model_for_task,
@@ -766,6 +767,28 @@ def bundled_fanout_sweep(
         "rows": rows,
         "measured": False,
     }
+
+
+def bundled_compare(
+    root: Path | str | None = None,
+    *,
+    task_id: str | None = None,
+) -> dict[str, Any]:
+    """Head-to-head "one problem, four ways" payload for the dashboard.
+
+    Scores the four approaches (cheapest / premium / ensemble / cost-aware
+    router) on each curated task and returns a task menu plus every task's
+    arena, so the web app can switch problems with no round-trip. Cost and
+    accuracy reuse the same offline machinery as the aggregate panels; latency
+    is an illustrative projection. Offline and deterministic; ``measured = false``.
+    """
+
+    base = find_samples_root(root)
+    workload = load_workload(base / DEFAULT_WORKLOAD)
+    pricing = PricingTable.from_yaml(base / DEFAULT_PRICING)
+    policy = load_policy(None)
+    signals = load_signal_fixture(base / DEFAULT_SIGNALS)
+    return bundled_head_to_head(workload, signals, policy, pricing, task_id=task_id)
 
 
 def format_replay_text(report: ReplayReport) -> str:

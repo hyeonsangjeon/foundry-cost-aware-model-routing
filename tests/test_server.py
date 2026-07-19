@@ -322,6 +322,56 @@ def test_fanout_sweep_endpoint_dials_the_tax_to_zero(service: RouterService) -> 
     assert service.dispatch("POST", "/fanout-sweep").status == 405
 
 
+def test_compare_endpoint_scores_four_approaches(service: RouterService) -> None:
+    response = service.dispatch("GET", "/compare")
+    assert response.status == 200
+    payload = response.payload
+    assert payload["labels"]["measured"] is False
+    assert payload["default"] == "t-0003"
+    assert {t["task_id"] for t in payload["tasks"]} == {
+        "t-0001",
+        "t-0003",
+        "t-0004",
+        "t-0005",
+        "t-0006",
+    }
+    arena = payload["arenas"]["t-0003"]
+    by = {a["approach"]: a for a in arena["approaches"]}
+    assert [a["approach"] for a in arena["approaches"]] == [
+        "cheapest",
+        "premium",
+        "ensemble",
+        "router",
+    ]
+    # honesty-critical: router bills the winner only, ensemble bills every model
+    assert by["router"]["cost_usd"] == pytest.approx(0.032793, abs=1e-6)
+    assert by["ensemble"]["cost_usd"] == pytest.approx(0.179844, abs=1e-6)
+    assert arena["winners"]["cost"] == "router"
+    assert arena["winners"]["latency"] == "premium"
+    assert set(arena["winners"]["accuracy"]) == {"premium", "ensemble", "router"}
+
+
+def test_compare_endpoint_honours_task_query(service: RouterService) -> None:
+    payload = service.dispatch("GET", "/compare?task=t-0006").payload
+    assert payload["default"] == "t-0006"
+    # GET-only route
+    assert service.dispatch("POST", "/compare").status == 405
+
+
+def test_dashboard_shows_arena_panel(service: RouterService) -> None:
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    assert 'id="arenaPanel"' in html
+    assert "One problem, four ways" in html
+    for element_id in ('id="arenaTasks"', 'id="arenaGrid"', 'id="arenaVerdict"'):
+        assert element_id in html
+    # rendered from the /compare endpoint and loaded at init
+    assert "renderArena" in script
+    assert "compare:" in script  # EP fallback map carries the route
+    assert "fetch(EP.compare)" in script
+    assert "loadArena()" in script
+
+
 def test_dashboard_shows_fanout_dial_panel(service: RouterService) -> None:
     html = service.dispatch("GET", "/").payload
     script = re.search(r"<script>(.*)</script>", html, re.S).group(1)

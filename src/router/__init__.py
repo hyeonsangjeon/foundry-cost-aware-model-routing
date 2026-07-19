@@ -1,5 +1,11 @@
 """Router package for model-routing experiments."""
 
+from .arena import (
+    ApproachResult,
+    bundled_head_to_head,
+    head_to_head,
+    project_latency_ms,
+)
 from .baseline import (
     baseline_cost_usd,
     baseline_model_for_task,
@@ -85,6 +91,7 @@ from .trace import build_trace
 __version__ = "0.1.0"
 
 __all__ = [
+    "ApproachResult",
     "BudgetDecision",
     "BudgetGate",
     "Classifier",
@@ -114,6 +121,9 @@ __all__ = [
     "__version__",
     "baseline_cost_usd",
     "baseline_model_for_task",
+    "bundled_head_to_head",
+    "head_to_head",
+    "project_latency_ms",
     "model_router_pick",
     "model_router_summary",
     "score_single_call_arm",
