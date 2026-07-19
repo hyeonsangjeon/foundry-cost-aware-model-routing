@@ -10,6 +10,37 @@
 
 ---
 
+## 2026-07-19 · `.env` 자동 로드 — 설정 처리 마무리
+
+!!! note "한 줄 요약"
+    라이브 브릿지의 마지막 빈틈: `.env.sample`과 CLI는 *"`.env`에 채운 뒤 `foundry live`"*
+    라고 안내했지만, 정작 **`.env`를 읽는 코드가 없어** 사용자가 채워도 조용히 오프라인으로
+    떨어졌습니다. 의존성 없는 `.env` 로더를 넣어 `foundry status`·`live`가 실제로 `.env`를
+    로드하게 만들어, 문서가 약속한 워크플로를 진짜로 동작시켰습니다.
+
+- **상황(왜):** `FoundryConfig.from_env()`는 `os.environ`만 직접 읽는데, 저장소 어디에도
+  `.env`를 환경으로 로드하는 코드가 없었습니다(python-dotenv 미사용). 결과적으로 안내대로
+  `.env`를 채워도 `credentialed = no`로 남아 "설정 처리 미비"였습니다. 또 어댑터가 실제로
+  받는 **대체 변수명**(`AZURE_OPENAI_*`, `AZURE_MODEL_ROUTER_DEPLOYMENT`,
+  `APPLICATIONINSIGHTS_CONNECTION_STRING`, `COST_ROUTER_PRICING`)이 `.env.sample`에
+  문서화돼 있지 않았습니다.
+- **작업(무엇을):**
+    - `foundry_live.load_dotenv_file()` 신설 — 표준 라이브러리만 쓰는 보수적 로더:
+      **없으면 무해**, **export된 실제 환경 변수가 우선**(override=False), `KEY=VALUE`만 읽고
+      주석·빈 줄·앞의 `export`·양끝 따옴표 처리, 셸 확장·명령 실행 없음. 설정한 키 이름만
+      반환(값은 절대 로그·출력하지 않음).
+    - CLI `foundry status`·`live`가 실행 초입에 이 로더를 호출(기본 `.env`, `--env-file`로
+      변경 가능). `status`는 로드된 개수만 표시(`.env loaded : N setting(s)`)해 투명하되
+      시크릿은 숨김.
+    - `.env.sample`에 자동 로드·우선순위·대체 변수명 문서화, 매뉴얼 §1 갱신, `export`/`__all__`
+      배선, `test_foundry_live.py`에 로더 파싱·우선순위·없는 파일 무해·CLI `--env-file` 3케이스.
+- **검증(효과):** `foundry status --env-file <tmp>`가 채운 `.env`를 읽어 `credentialed = yes`로
+  바뀌고, 엔드포인트는 호스트만·키는 마지막 4자만 노출(누출 0). override 가드로 CI/명시적
+  export가 항상 우선. 전체 스위트 그린, ruff 클린, 시크릿 스캔·`.env.sample` 게이트 통과.
+  기본 경로는 여전히 무송신·`measured = false`.
+
+---
+
 ## 2026-07-19 · 라이브 Azure 실측 브릿지 + Foundry 설정 처리
 
 !!! note "한 줄 요약"

@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -64,6 +64,56 @@ FOUNDRY_LIVE_ENV_VARS: dict[str, tuple[str, ...]] = {
 
 # Task fields tried, in order, to find the prompt text to send to a live router.
 PROMPT_FIELDS: tuple[str, ...] = ("prompt", "text", "input", "question")
+
+
+def load_dotenv_file(
+    path: Path | str = ".env",
+    *,
+    environ: MutableMapping[str, str] | None = None,
+    override: bool = False,
+) -> list[str]:
+    """Populate ``environ`` from a ``.env`` file; return the names actually set.
+
+    The live bridge and metrics emitter read :data:`os.environ`, and the manual
+    tells users to put their Foundry settings in ``.env`` — this is the small,
+    dependency-free loader that makes that promise real. It is deliberately
+    conservative so the offline/deterministic default is never disturbed:
+
+    * A missing file is a no-op (returns ``[]``); CI and default runs carry no
+      ``.env`` and are unaffected.
+    * With ``override=False`` (the default) an existing, non-empty environment
+      value **wins**, so explicit exports and CI settings are never replaced.
+    * Only ``KEY=VALUE`` lines are honoured. Blank lines, ``#`` comments and a
+      leading ``export`` are ignored; surrounding single/double quotes are
+      stripped. There is no shell expansion and no command execution — values
+      are taken literally.
+
+    Never prints or logs values; secrets live only in ``environ``.
+    """
+
+    target = os.environ if environ is None else environ
+    env_path = Path(path)
+    if not env_path.is_file():
+        return []
+    applied: list[str] = []
+    for raw in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].lstrip()
+        key, sep, value = line.partition("=")
+        key = key.strip()
+        if not sep or not key.isidentifier():
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        if not override and target.get(key):
+            continue
+        target[key] = value
+        applied.append(key)
+    return applied
 
 
 @dataclass(frozen=True)

@@ -23,6 +23,7 @@ from .foundry_live import (
     AzureModelRouterClient,
     FoundryConfig,
     RecordedRouterClient,
+    load_dotenv_file,
     load_recorded_usage,
     measured_router_summary,
 )
@@ -245,6 +246,12 @@ def _build_metrics_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Show the (redacted) Foundry configuration and live-call readiness.",
     )
     fstatus.add_argument("--json", action="store_true", help="print the status as JSON")
+    fstatus.add_argument(
+        "--env-file",
+        type=Path,
+        default=Path(".env"),
+        help="dotenv file to load before reading config (default: .env; missing is fine)",
+    )
     fstatus.set_defaults(func=_cmd_foundry_status)
 
     flive = foundry_sub.add_parser(
@@ -270,6 +277,12 @@ def _build_metrics_parser(subparsers: argparse._SubParsersAction) -> None:
         help="record the measured run to a JSONL metrics history store (shows in the dashboard)",
     )
     flive.add_argument("--json", action="store_true", help="print the summary as JSON")
+    flive.add_argument(
+        "--env-file",
+        type=Path,
+        default=Path(".env"),
+        help="dotenv file to load before reading config (default: .env; missing is fine)",
+    )
     flive.set_defaults(func=_cmd_foundry_live)
 
 
@@ -520,7 +533,9 @@ def _yn(flag: bool) -> str:
 
 
 def _cmd_foundry_status(args: argparse.Namespace) -> int:
+    loaded = load_dotenv_file(args.env_file)
     status = FoundryConfig.from_env().status()
+    status["dotenv_loaded"] = len(loaded)
     if args.json:
         print(json.dumps(status, indent=2, sort_keys=True, ensure_ascii=False))
         return 0
@@ -534,6 +549,7 @@ def _cmd_foundry_status(args: argparse.Namespace) -> int:
     print(f"  api version       : {status['api_version']}")
     print(f"  connection string : {status['connection_string']}")
     print(f"  pricing           : {status['pricing_path']}")
+    print(f"  .env loaded       : {len(loaded)} setting(s) from {args.env_file}")
     if status["missing"]:
         print(f"  missing           : {', '.join(status['missing'])}")
         print("  → set these in .env (see .env.sample), then `cost-router foundry live --live`.")
@@ -598,6 +614,7 @@ def _measured_metrics_record(summary: dict, *, recorded_at: str) -> ExperimentMe
 
 
 def _cmd_foundry_live(args: argparse.Namespace) -> int:
+    load_dotenv_file(args.env_file)
     try:
         workload, signals, policy, pricing = _load_scoring_inputs(args)
     except (OSError, ValueError, KeyError) as exc:
