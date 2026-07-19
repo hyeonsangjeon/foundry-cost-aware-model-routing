@@ -25,6 +25,9 @@ dev = [
     "ruff>=0.6",
     "pytest>=8.0",
 ]
+foundry = [
+    "openai>=1.0",
+]
 
 [project.scripts]
 cost-router = "router.cli:main"

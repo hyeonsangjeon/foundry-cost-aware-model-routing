@@ -109,3 +109,19 @@ cost-router ledger replay --ledger reports/routing.jsonl
 
 저장된 결정을 다시 돌려 정규 최종 페이로드를 바이트 단위로 검증합니다. 자세한 내용은
 [감사 원장](ledger.md)을 참고하세요.
+
+## foundry — 라이브 실측 브릿지 (opt-in)
+
+```bash
+cost-router foundry status              # 배선 상태 확인 (시크릿 마스킹)
+cost-router foundry status --json
+cost-router foundry live                # 녹화 스냅샷 재생 (오프라인, measured=false)
+cost-router foundry live --store runs.jsonl   # 히스토리컬 대시보드로 기록
+cost-router foundry live --live --workload my-prompts.jsonl \
+  --pricing samples/pricing/your-tenant.yaml  # 실제 호출 → measured=true
+```
+
+`status`는 Azure Foundry 환경 변수를 **시크릿 노출 없이** 요약합니다. `live`는 Model Router
+실행을 **실제 토큰 usage**로 스코어링합니다 — `--live` 없이는 녹화된 스냅샷을 재생하므로
+크리덴셜이 없어도 경로를 볼 수 있습니다. 자세한 내용은
+[라이브 실측 브릿지](foundry-live.md)를 참고하세요.

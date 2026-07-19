@@ -10,6 +10,40 @@
 
 ---
 
+## 2026-07-19 · 라이브 Azure 실측 브릿지 + Foundry 설정 처리
+
+!!! note "한 줄 요약"
+    지금까지 전부 `measured = false` 오프라인 투영이었습니다. 정직함 규약이 예약해 둔
+    *"여러분 테넌트의 라이브 eval → `measured = true`"* 행을 **실제로 채우는 코드**를
+    추가했습니다 — 실제 Azure Model Router의 **토큰 usage로 비용을 계산**하고, 라이브
+    호출에만 `measured = true`를 부여하는 격리된 opt-in 브릿지입니다. 기본 경로는 여전히
+    오프라인·결정론이며, 크리덴셜이 없으면 녹화 스냅샷을 재생해 경로를 검증합니다.
+
+- **상황(왜):** 웹앱 비교 데모(실험 클릭→메트릭, 히스토리컬 대시보드)는 완성됐지만, 유일하게
+  남은 "실제 Azure 실측 연결"이 미배선이었습니다. 어댑터(`foundry_router.py`)는 모델 *선택*만
+  교체할 뿐 여전히 `measured = false`였고, 실제 토큰·비용을 읽는 클라이언트도, 설정을 안전하게
+  다루는 표면도 없었습니다.
+- **작업(무엇을):**
+    - `src/router/foundry_live.py` 신설 — `FoundryConfig`(모든 `AZURE_AI_FOUNDRY_*` 변수 수집 +
+      **시크릿 마스킹 `status()`**), `RouterOutcome`(모델+실제 usage), `MeasuringRouterClient`
+      프로토콜, `RecordedRouterClient`(결정론 재생), `AzureModelRouterClient`(SDK 지연 임포트,
+      응답의 `model`·`usage`를 요율 토큰 종류로 매핑), `measured_router_summary`(합성 토큰이
+      아닌 **실제 usage로 비용 계산**; 라이브에만 `measured=true`; grader 있으면
+      `coverage_measured=true`; `model_aliases`로 벤더 이름→요율 키).
+    - `.env.sample`에 실제 Foundry 변수 6종 추가, `pyproject`에 `foundry` 엑스트라(`openai`).
+    - CLI `foundry status`(안전 진단)·`foundry live`(녹화 재생 기본, `--live`로 실제 호출,
+      `--store`로 히스토리컬 대시보드에 기록).
+    - 녹화 usage 픽스처(`model-router-usage.sample.json`) + `test_foundry_live.py`(설정 리댁션·
+      게이팅·실측≠투영·라이브만 measured·grader·alias·Azure 목 클라이언트·CLI 20+ 케이스).
+    - 매뉴얼 [라이브 실측 브릿지](../manual/foundry-live.md) + 정직함 규약/메트릭/CLI 상호 링크.
+- **검증(효과):** 녹화 스냅샷 실측 `$0.156730 / 100%`가 오프라인 투영 `$0.087030 / 60%`과
+  **다름**을 픽스처로 고정 — "실제 usage를 청구한다"는 핵심을 수치로 증명. 라이브 목
+  클라이언트는 `measured=true / provenance=live`, 재생은 `measured=false / provenance=recorded`.
+  시크릿은 `status()`에서 호스트+마지막 4자로만 노출(누출 0). 전체 스위트 그린, ruff 클린,
+  기본 경로 무송신. 모든 번들 수치는 여전히 `measured = false`.
+
+---
+
 ## 2026-07-18 · 스토리 아크 — 7개 실험을 하나의 이야기로
 
 !!! note "한 줄 요약"

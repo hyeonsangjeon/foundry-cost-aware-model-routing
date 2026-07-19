@@ -7,6 +7,7 @@ exact orchestration used by the sample scripts and the eval summary.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -18,13 +19,23 @@ from .experiment import (
     load_experiment,
     run_experiment,
 )
+from .foundry_live import (
+    AzureModelRouterClient,
+    FoundryConfig,
+    RecordedRouterClient,
+    load_recorded_usage,
+    measured_router_summary,
+)
 from .metrics import (
+    ExperimentMetrics,
     FoundryMetricsEmitter,
     JsonlMetricsStore,
     record_experiment_metrics,
     utc_now_iso,
 )
+from .offline import load_workload
 from .pipeline import (
+    _signals_for,
     format_eval_report,
     format_regression_report,
     format_replay_json,
@@ -36,6 +47,11 @@ from .pipeline import (
     run_replay,
     run_route_once,
 )
+from .pricing import PricingTable
+
+# Bundled recorded provider-usage snapshot: replayed offline so `foundry live`
+# demonstrates the measured scoring path with no credentials (measured=false).
+DEFAULT_USAGE_FIXTURE = Path("samples/responses/model-router-usage.sample.json")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -217,6 +233,44 @@ def _build_metrics_parser(subparsers: argparse._SubParsersAction) -> None:
         help="also record the snapshot to a JSONL history store",
     )
     emit.set_defaults(func=_cmd_metrics_emit)
+
+    foundry = subparsers.add_parser(
+        "foundry",
+        help="Live Azure AI Foundry Model Router bridge — measured spend (opt-in).",
+    )
+    foundry_sub = foundry.add_subparsers(dest="foundry_command")
+
+    fstatus = foundry_sub.add_parser(
+        "status",
+        help="Show the (redacted) Foundry configuration and live-call readiness.",
+    )
+    fstatus.add_argument("--json", action="store_true", help="print the status as JSON")
+    fstatus.set_defaults(func=_cmd_foundry_status)
+
+    flive = foundry_sub.add_parser(
+        "live",
+        help="Score a Model Router run on real token usage (recorded fixture unless --live).",
+    )
+    _add_data_args(flive)
+    flive.add_argument(
+        "--recorded",
+        type=Path,
+        default=None,
+        help="recorded provider-usage fixture to replay offline (default: bundled sample)",
+    )
+    flive.add_argument(
+        "--live",
+        action="store_true",
+        help="make real Azure calls (requires credentials AND a workload with prompts)",
+    )
+    flive.add_argument(
+        "--store",
+        type=Path,
+        default=None,
+        help="record the measured run to a JSONL metrics history store (shows in the dashboard)",
+    )
+    flive.add_argument("--json", action="store_true", help="print the summary as JSON")
+    flive.set_defaults(func=_cmd_foundry_live)
 
 
 def _add_data_args(parser: argparse.ArgumentParser) -> None:
@@ -461,6 +515,147 @@ def _cmd_metrics_emit(args: argparse.Namespace) -> int:
     return 0
 
 
+def _yn(flag: bool) -> str:
+    return "yes" if flag else "no"
+
+
+def _cmd_foundry_status(args: argparse.Namespace) -> int:
+    status = FoundryConfig.from_env().status()
+    if args.json:
+        print(json.dumps(status, indent=2, sort_keys=True, ensure_ascii=False))
+        return 0
+    print("Azure AI Foundry — live measured Model Router bridge")
+    print(f"  router configured : {_yn(status['router_configured'])}")
+    print(f"  credentialed      : {_yn(status['credentialed'])}")
+    print(f"  observability     : {_yn(status['observability_configured'])}")
+    print(f"  endpoint          : {status['endpoint'] or '—'}")
+    print(f"  deployment        : {status['deployment'] or '—'}")
+    print(f"  api key           : {status['api_key']}")
+    print(f"  api version       : {status['api_version']}")
+    print(f"  connection string : {status['connection_string']}")
+    print(f"  pricing           : {status['pricing_path']}")
+    if status["missing"]:
+        print(f"  missing           : {', '.join(status['missing'])}")
+        print("  → set these in .env (see .env.sample), then `cost-router foundry live --live`.")
+    else:
+        print("  ready: `cost-router foundry live --live` (needs a workload with prompts).")
+    print("  note: without --live, runs replay a recorded snapshot (measured=false).")
+    return 0
+
+
+def _load_scoring_inputs(args: argparse.Namespace):
+    paths = _paths(args)
+    policy = load_policy(None)
+    workload = load_workload(paths["workload"])
+    pricing = PricingTable.from_yaml(paths["pricing"])
+    signals = _signals_for(
+        synth=args.synth,
+        workload=workload,
+        policy=policy,
+        signals_path=_signals_path(args, paths),
+    )
+    workload = {task_id: workload[task_id] for task_id in signals if task_id in workload}
+    return workload, signals, policy, pricing
+
+
+def _measured_metrics_record(summary: dict, *, recorded_at: str) -> ExperimentMetrics:
+    labels = summary.get("labels", {})
+    routed = float(summary.get("total_cost_usd", 0.0))
+    tasks = int(summary.get("tasks", 0))
+    seed = f"foundry-live|{labels.get('provenance')}|{tasks}|{routed}|{summary.get('coverage')}"
+    run_id = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
+    return ExperimentMetrics(
+        run_id=run_id,
+        experiment="foundry-live",
+        title="Azure Model Router (live measured bridge)",
+        source=str(labels.get("provenance", "recorded")),
+        tasks=tasks,
+        accepted=int(summary.get("accepted", 0)),
+        coverage=float(summary.get("coverage", 0.0)),
+        routed_usd=routed,
+        baseline_usd=routed,
+        delta_usd=0.0,
+        delta_pct=0.0,
+        avg_usd_per_task=float(summary.get("avg_usd_per_task", 0.0)),
+        ensemble_tasks=0,
+        single_tasks=tasks,
+        fanout_candidates=0,
+        fanout_usd=0.0,
+        ensemble_tax_usd=0.0,
+        tax_ratio=0.0,
+        spotlight_task=None,
+        spotlight_ratio=None,
+        reproducible=True,
+        recorded_at=recorded_at,
+        measured=bool(labels.get("measured", False)),
+        dimensions={
+            "selection": str(summary.get("selection", "azure-model-router")),
+            "spend_source": str(labels.get("spend_source", "provider-usage")),
+            "provenance": str(labels.get("provenance", "recorded")),
+            "coverage_measured": str(labels.get("coverage_measured", False)).lower(),
+        },
+    )
+
+
+def _cmd_foundry_live(args: argparse.Namespace) -> int:
+    try:
+        workload, signals, policy, pricing = _load_scoring_inputs(args)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"foundry live: {exc}")
+        return 1
+
+    config = FoundryConfig.from_env()
+    if args.live:
+        if not config.credentialed:
+            print(
+                "foundry live: not credentialed — set AZURE_AI_FOUNDRY_* in .env "
+                "(run `cost-router foundry status`)."
+            )
+            return 1
+        client: object = AzureModelRouterClient(config=config)
+        mode = "LIVE Azure Model Router"
+    else:
+        fixture = args.recorded or DEFAULT_USAGE_FIXTURE
+        try:
+            outcomes = load_recorded_usage(fixture)
+        except (OSError, ValueError) as exc:
+            print(f"foundry live: {exc}")
+            return 1
+        client = RecordedRouterClient(outcomes)
+        workload = {task_id: task for task_id, task in workload.items() if task_id in outcomes}
+        mode = f"recorded snapshot ({fixture})"
+
+    try:
+        summary = measured_router_summary(
+            workload, signals, policy, pricing, client=client  # type: ignore[arg-type]
+        )
+    except (KeyError, ValueError, RuntimeError) as exc:
+        print(f"foundry live: {exc}")
+        return 1
+
+    if args.store is not None:
+        record = _measured_metrics_record(summary, recorded_at=utc_now_iso())
+        JsonlMetricsStore(args.store).record(record)
+
+    if args.json:
+        print(json.dumps(summary, indent=2, sort_keys=True, ensure_ascii=False))
+        return 0
+
+    labels = summary["labels"]
+    print(f"Azure Model Router — measured spend  ({mode})")
+    print(f"  tasks             : {summary['tasks']}")
+    print(f"  routed cost (real): ${summary['total_cost_usd']:.6f}")
+    print(f"  avg $/task        : ${summary['avg_usd_per_task']:.6f}")
+    cov_kind = "measured" if labels["coverage_measured"] else "projected"
+    print(f"  coverage ({cov_kind}): {summary['coverage']:.1%}")
+    print(f"  spend source      : {labels['spend_source']}")
+    print(f"  provenance        : {labels['provenance']}")
+    print(f"  measured          : {_yn(labels['measured'])}")
+    if not labels["measured"]:
+        print("  → this is a replay/projection; run with --live + credentials for measured=true.")
+    return 0
+
+
 def _cmd_hero(args: argparse.Namespace) -> int:
     code = _run_named_experiment(
         "hero",
@@ -501,6 +696,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "metrics" and not getattr(args, "metrics_command", None):
         print("usage: cost-router metrics [history --store PATH | emit <name>]")
+        return 0
+    if args.command == "foundry" and not getattr(args, "foundry_command", None):
+        print("usage: cost-router foundry [status | live [--live] [--store PATH]]")
         return 0
     return args.func(args)
 
