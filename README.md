@@ -41,7 +41,7 @@ cost-router hero --serve   # then open http://127.0.0.1:8000/?run=1 (auto-runs)
 ### The experiment arc — honest by construction
 
 This repo proves where cost-aware routing **wins** and, just as deliberately,
-where it **doesn't**. Seven one-command experiments, each a deterministic offline
+where it **doesn't**. Eight one-command experiments, each a deterministic offline
 projection over synthetic data (`labels.measured=false`):
 
 | # | Experiment | Question it answers | Result |
@@ -53,11 +53,14 @@ projection over synthetic data (`labels.measured=false`):
 | 05 | [Ensemble fan-out tax](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% coverage, **−47%** — but fan-out spends **3.74×** the winner (the hidden tax) |
 | 06 | [Adaptive fan-out dial](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/06-fanout-dial/) | Can you keep the savings but drop the tax? | one budget dial: coverage/savings stay flat, tax **3.74× → $0** (the honest fix for exp 05) |
 | 07 | [Routing layer](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/07-model-router/) | What if you pick once, like Azure AI Foundry Model Router? | single-call routing holds **52%** coverage; observe-then-escalate mix reaches **100%** at ~the same cost (gain **+48%p**) |
+| 08 | [Arena](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/08-arena/) *(per-task lens)* | One problem, four ways — cost · latency · accuracy at a glance? | router is the **cheapest correct** answer but the **slowest** (sequential escalation); latency is a **new illustrative projection** |
 
-Experiments 01–02 are the win; 03–07 are the guardrails. Each `expect` contract
-fails CI if the projection ever drifts — including a two-sided ceiling that
-rejects **phantom savings** and an escalation-gain floor that keeps
-observe-then-escalate honest. Read all seven as one story in the
+Experiments 01–02 are the win; 03–07 are the guardrails; 08 is a per-task **lens**
+(an interactive arena that collapses the frontier to a single task and adds a
+latency axis). Each `expect` contract fails CI if the projection ever drifts —
+including a two-sided ceiling that rejects **phantom savings** and an
+escalation-gain floor that keeps observe-then-escalate honest. Read them as one
+story in the
 [**story arc**](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc/),
 or dive into the full
 [Korean lab notebook](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/).
