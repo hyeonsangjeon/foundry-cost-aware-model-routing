@@ -47,6 +47,7 @@ nav:
       - 핵심 개념: manual/concept.md
       - CLI 레퍼런스: manual/cli.md
       - 실험 설정(YAML): manual/experiments.md
+      - "실험 아틀라스 · Experiment Atlas": manual/experiment-atlas.md
       - 대시보드: manual/dashboard.md
       - "문제 하나, 네 가지 방법": manual/head-to-head.md
       - 메트릭 & Foundry: manual/metrics.md

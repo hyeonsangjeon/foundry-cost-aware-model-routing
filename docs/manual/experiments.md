@@ -8,6 +8,11 @@ before/after를 다시 유도하고, 오프라인 투영이 계약된 하한 아
 
 파일은 `experiments/` 디렉터리에 둡니다.
 
+!!! tip "비주얼로 먼저 보고 싶다면 — Experiment Atlas"
+    각 실험이 **어떤 모델**로 **무엇을**, **어떤 방식**(순차 에스컬레이션 · 팬아웃 · 단일 콜)으로
+    처리하는지 애니메이션 SVG로 한눈에 보려면 **[실험 아틀라스 · Experiment Atlas](experiment-atlas.md)**
+    를 보세요. Azure Model Router 실제 구성(키리스 Entra) 따라하기까지 포함되어 있습니다.
+
 ## 최소 예시
 
 ```yaml title="experiments/hero.yaml"

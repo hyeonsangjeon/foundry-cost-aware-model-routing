@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="288" viewBox="0 0 760 288" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Single-call routing: pick one model per prompt up front by difficulty tier, with no escalation, so coverage drops when the up-front pick is wrong">
+  <rect x="0" y="0" width="760" height="288" fill="#ffffff"/>
+  <text x="24" y="30" font-size="17" font-weight="700" fill="#1f2933">Single-call routing — one model per prompt, chosen up front</text>
+  <text x="24" y="50" font-size="12.5" fill="#52606d">Bucket each prompt by predicted difficulty and commit to <tspan font-weight="700">one</tspan> model — no fan-out, no escalation.</text>
+
+  <defs>
+    <marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#9aa5b1"/></marker>
+  </defs>
+
+  <!-- prompt -->
+  <rect x="24" y="118" width="104" height="58" rx="8" fill="#eef2f7" stroke="#cbd2d9"/>
+  <text x="76" y="143" font-size="12.5" font-weight="700" fill="#1f2933" text-anchor="middle">prompt</text>
+  <text x="76" y="161" font-size="10.5" fill="#7b8794" text-anchor="middle">difficulty?</text>
+  <line x1="132" y1="147" x2="168" y2="147" stroke="#9aa5b1" stroke-width="1.6" marker-end="url(#ar3)"/>
+
+  <!-- router bucket -->
+  <rect x="172" y="112" width="150" height="70" rx="8" fill="#3b7dd8"/>
+  <text x="247" y="140" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle">router</text>
+  <text x="247" y="158" font-size="10.5" fill="#e3ecfa" text-anchor="middle">bucket by difficulty</text>
+  <text x="247" y="172" font-size="10.5" fill="#e3ecfa" text-anchor="middle">→ pick one tier</text>
+  <line x1="322" y1="147" x2="358" y2="147" stroke="#9aa5b1" stroke-width="1.6" marker-end="url(#ar3)"/>
+
+  <!-- three tiers -->
+  <rect x="362" y="70" width="170" height="40" rx="7" fill="#c8922b"/>
+  <text x="374" y="94" font-size="11.5" font-weight="700" fill="#ffffff">easy → mini-fast</text>
+  <rect x="362" y="126" width="170" height="40" rx="7" fill="#3b7dd8"/>
+  <text x="374" y="150" font-size="11.5" font-weight="700" fill="#ffffff">medium → balanced-pro</text>
+  <rect x="362" y="182" width="170" height="40" rx="7" fill="#c0392b"/>
+  <text x="374" y="206" font-size="11.5" font-weight="700" fill="#ffffff">hard → premium-max</text>
+
+  <!-- selector ring stepping among tiers (one pick per prompt) -->
+  <rect x="357" y="65" width="180" height="50" rx="10" fill="none" stroke="#1f2933" stroke-width="3">
+    <animate attributeName="y" dur="6s" repeatCount="indefinite" calcMode="discrete"
+      keyTimes="0;0.2;0.5;0.8;1" values="65;177;121;65;65"/>
+  </rect>
+
+  <!-- no-escalation marker -->
+  <g transform="translate(548,110)">
+    <text x="0" y="0" font-size="11" font-weight="700" fill="#9aa5b1">no escalation</text>
+    <line x1="-2" y1="10" x2="150" y2="10" stroke="#c0392b" stroke-width="2"/>
+    <text x="0" y="28" font-size="10.5" fill="#7b8794">commits before it</text>
+    <text x="0" y="42" font-size="10.5" fill="#7b8794">sees the check</text>
+  </g>
+
+  <!-- honest coverage consequence -->
+  <rect x="24" y="238" width="712" height="38" rx="8" fill="#eef4fb" stroke="#bcd4f0"/>
+  <text x="38" y="256" font-size="11.5" fill="#1c4f8a"><tspan font-weight="700">Honest trade-off:</tspan> a wrong up-front pick can't be corrected, so on the synthetic workload this arm covers <tspan font-weight="700">52%</tspan> — while the observe-then-</text>
+  <text x="38" y="270" font-size="11.5" fill="#1c4f8a">escalate mix reaches <tspan font-weight="700">100%</tspan> at comparable cost. The real Foundry router's pick-skill is proprietary and <tspan font-weight="700">measured</tspan> (experiment 09).</text>
+
+  <text x="736" y="232" font-size="10.5" fill="#9aa5b1" text-anchor="end">used by · model-router</text>
+</svg>

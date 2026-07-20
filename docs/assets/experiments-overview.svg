@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="500" viewBox="0 0 760 500" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Six experiments at a glance: hero and curated use ordered escalation, ensemble uses fan-out, adaptive turns fan-out off, limits shows the honest floor, model-router compares single-call to the escalating mix">
+  <rect x="0" y="0" width="760" height="500" fill="#ffffff"/>
+  <text x="24" y="30" font-size="17" font-weight="700" fill="#1f2933">Six experiments, one router — at a glance</text>
+  <text x="24" y="50" font-size="12.5" fill="#52606d">Same models and pricing everywhere; each experiment flips one dial — the workload, the fan-out gate, or the comparison arm.</text>
+
+  <!-- ===== HERO ===== -->
+  <g>
+    <rect x="24" y="70" width="344" height="128" rx="10" fill="#fafbfc" stroke="#e1e6ec"/>
+    <rect x="24" y="70" width="7" height="128" rx="3.5" fill="#2e8b57"/>
+    <text x="46" y="98" font-size="15" font-weight="700" fill="#2e7d4f">hero</text>
+    <text x="346" y="98" font-size="15" font-weight="700" fill="#1f2933" text-anchor="end">-25.5%</text>
+    <rect x="46" y="110" width="152" height="21" rx="10.5" fill="#e6f4ec"/>
+    <text x="54" y="125" font-size="10.5" font-weight="700" fill="#2e7d4f">ordered escalation</text>
+    <text x="46" y="152" font-size="10.5" fill="#7b8794">workload: 100 synthetic tasks · 100% coverage</text>
+    <text x="46" y="176" font-size="11" fill="#52606d">Same coverage, 25.5% cheaper than premium-on-every-task.</text>
+  </g>
+
+  <!-- ===== CURATED ===== -->
+  <g>
+    <rect x="392" y="70" width="344" height="128" rx="10" fill="#fafbfc" stroke="#e1e6ec"/>
+    <rect x="392" y="70" width="7" height="128" rx="3.5" fill="#c8922b"/>
+    <text x="414" y="98" font-size="15" font-weight="700" fill="#a9741f">curated</text>
+    <text x="714" y="98" font-size="15" font-weight="700" fill="#1f2933" text-anchor="end">-56.7%</text>
+    <rect x="414" y="110" width="152" height="21" rx="10.5" fill="#fbf1dd"/>
+    <text x="422" y="125" font-size="10.5" font-weight="700" fill="#a9741f">ordered escalation</text>
+    <text x="414" y="152" font-size="10.5" fill="#7b8794">workload: 5 hand-signal tasks · 100% coverage</text>
+    <text x="414" y="176" font-size="11" fill="#52606d">Smallest readable demo — follow every decision by eye.</text>
+  </g>
+
+  <!-- ===== ENSEMBLE ===== -->
+  <g>
+    <rect x="24" y="210" width="344" height="128" rx="10" fill="#fafbfc" stroke="#e1e6ec"/>
+    <rect x="24" y="210" width="7" height="128" rx="3.5" fill="#7b52c9"/>
+    <text x="46" y="238" font-size="15" font-weight="700" fill="#6a45b0">ensemble</text>
+    <text x="346" y="238" font-size="15" font-weight="700" fill="#1f2933" text-anchor="end">3.7× tax</text>
+    <rect x="46" y="250" width="128" height="21" rx="10.5" fill="#f0eaf9"/>
+    <text x="54" y="265" font-size="10.5" font-weight="700" fill="#6a45b0">fan-out · compare</text>
+    <text x="46" y="292" font-size="10.5" fill="#7b8794">workload: 6 high-value tasks · -47% vs premium</text>
+    <text x="46" y="316" font-size="11" fill="#52606d">Best-of-N keeps the cheapest passer — but you pay the losers.</text>
+  </g>
+
+  <!-- ===== ADAPTIVE ===== -->
+  <g>
+    <rect x="392" y="210" width="344" height="128" rx="10" fill="#fafbfc" stroke="#e1e6ec"/>
+    <rect x="392" y="210" width="7" height="128" rx="3.5" fill="#2e7d4f"/>
+    <text x="414" y="238" font-size="15" font-weight="700" fill="#2e7d4f">adaptive</text>
+    <text x="714" y="238" font-size="15" font-weight="700" fill="#1f2933" text-anchor="end">tax → 0.00×</text>
+    <rect x="414" y="250" width="132" height="21" rx="10.5" fill="#e6f4ec"/>
+    <text x="422" y="265" font-size="10.5" font-weight="700" fill="#2e7d4f">fan-out dial OFF</text>
+    <text x="414" y="292" font-size="10.5" fill="#7b8794">workload: same 6 tasks · same -47% savings</text>
+    <text x="414" y="316" font-size="11" fill="#52606d">Turn fan-out off → same savings, tax collapses to ~$0.</text>
+  </g>
+
+  <!-- ===== LIMITS ===== -->
+  <g>
+    <rect x="24" y="350" width="344" height="128" rx="10" fill="#fafbfc" stroke="#e1e6ec"/>
+    <rect x="24" y="350" width="7" height="128" rx="3.5" fill="#c0392b"/>
+    <text x="46" y="378" font-size="15" font-weight="700" fill="#b3372a">limits</text>
+    <text x="346" y="378" font-size="15" font-weight="700" fill="#1f2933" text-anchor="end">0.0%</text>
+    <rect x="46" y="390" width="112" height="21" rx="10.5" fill="#fdecea"/>
+    <text x="54" y="405" font-size="10.5" font-weight="700" fill="#b3372a">ordered · hard</text>
+    <text x="46" y="432" font-size="10.5" fill="#7b8794">workload: 6 hard tasks · 100% coverage</text>
+    <text x="46" y="456" font-size="11" fill="#52606d">Only premium passes → routing spends honestly, no phantom cut.</text>
+  </g>
+
+  <!-- ===== MODEL-ROUTER ===== -->
+  <g>
+    <rect x="392" y="350" width="344" height="128" rx="10" fill="#fafbfc" stroke="#e1e6ec"/>
+    <rect x="392" y="350" width="7" height="128" rx="3.5" fill="#3b7dd8"/>
+    <text x="414" y="378" font-size="15" font-weight="700" fill="#2f6bc0">model-router</text>
+    <text x="714" y="378" font-size="15" font-weight="700" fill="#1f2933" text-anchor="end">52% vs 100%</text>
+    <rect x="414" y="390" width="140" height="21" rx="10.5" fill="#e9f1fb"/>
+    <text x="422" y="405" font-size="10.5" font-weight="700" fill="#2f6bc0">single-call vs mix</text>
+    <text x="414" y="432" font-size="10.5" fill="#7b8794">workload: 100 synthetic tasks · +48%p gain</text>
+    <text x="414" y="456" font-size="11" fill="#52606d">Up-front pick loses coverage; escalation reclaims +48%p.</text>
+  </g>
+
+  <text x="24" y="492" font-size="10.5" fill="#9aa5b1">All numbers are offline deterministic projections · labels.measured=false (except the live Foundry bridge, experiment 09).</text>
+</svg>

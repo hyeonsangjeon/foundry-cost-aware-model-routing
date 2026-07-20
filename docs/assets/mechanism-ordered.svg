@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Cost-aware single route: try the cheapest candidate first, escalate only on a failed check, bill only the accepted model">
+  <rect x="0" y="0" width="760" height="300" fill="#ffffff"/>
+  <text x="24" y="30" font-size="17" font-weight="700" fill="#1f2933">Cost-aware single route — observe, then escalate</text>
+  <text x="24" y="50" font-size="12.5" fill="#52606d">Walk candidates cheap → pricey. Accept the <tspan font-weight="700">first clean result</tspan> (applies · compiles · tests · lint). Escalate only on a failed check.</text>
+
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#9aa5b1"/></marker>
+    <g id="xmark"><circle r="11" fill="#fdecea"/><path d="M-4,-4 L4,4 M4,-4 L-4,4" stroke="#c0392b" stroke-width="2.4" stroke-linecap="round"/></g>
+    <g id="okmark"><circle r="11" fill="#e6f4ec"/><path d="M-4.5,0 L-1,3.5 L5,-4" stroke="#2e8b57" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </defs>
+
+  <!-- task -->
+  <rect x="24" y="120" width="118" height="58" rx="8" fill="#eef2f7" stroke="#cbd2d9"/>
+  <text x="83" y="146" font-size="12.5" font-weight="700" fill="#1f2933" text-anchor="middle">task</text>
+  <text x="83" y="164" font-size="10.5" fill="#7b8794" text-anchor="middle">repo_patch</text>
+  <line x1="146" y1="149" x2="182" y2="149" stroke="#9aa5b1" stroke-width="1.6" marker-end="url(#ar)"/>
+
+  <!-- moving highlight (drawn first so it sits behind labels) -->
+  <rect y="112" width="150" height="74" rx="10" fill="none" stroke="#2f7d4f" stroke-width="3">
+    <animate attributeName="x" dur="6s" repeatCount="indefinite" calcMode="spline"
+      keyTimes="0;0.12;0.22;0.34;0.44;0.9;1" values="184;184;354;354;524;524;184"
+      keySplines="0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1"/>
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite"
+      keyTimes="0;0.9;0.95;1" values="1;1;0;1"/>
+  </rect>
+
+  <!-- candidate 1: mini-fast (fails) -->
+  <rect x="188" y="119" width="142" height="60" rx="8" fill="#c8922b"/>
+  <text x="259" y="145" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle">mini-fast</text>
+  <text x="259" y="163" font-size="10.5" fill="#fff4e0" text-anchor="middle">$0.12 · try first</text>
+  <g transform="translate(259,210)"><use href="#xmark"/>
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.14;0.17;0.9;1" values="0;0;1;1;0"/></g>
+  <text x="259" y="238" font-size="10" fill="#c0392b" text-anchor="middle" opacity="0">tests fail → escalate
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.16;0.19;0.9;1" values="0;0;1;1;0"/></text>
+
+  <!-- candidate 2: swift-coder (fails) -->
+  <rect x="358" y="119" width="142" height="60" rx="8" fill="#2e8b57"/>
+  <text x="429" y="145" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle">swift-coder</text>
+  <text x="429" y="163" font-size="10.5" fill="#e6f4ec" text-anchor="middle">$0.55 · escalate</text>
+  <g transform="translate(429,210)"><use href="#xmark"/>
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.34;0.37;0.9;1" values="0;0;1;1;0"/></g>
+  <text x="429" y="238" font-size="10" fill="#c0392b" text-anchor="middle" opacity="0">lint fails → escalate
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.36;0.39;0.9;1" values="0;0;1;1;0"/></text>
+
+  <!-- candidate 3: balanced-pro (passes → accept) -->
+  <rect x="528" y="119" width="142" height="60" rx="8" fill="#3b7dd8"/>
+  <text x="599" y="145" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle">balanced-pro</text>
+  <text x="599" y="163" font-size="10.5" fill="#e3ecfa" text-anchor="middle">$1.40 · accept</text>
+  <g transform="translate(599,210)"><use href="#okmark"/>
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.54;0.57;0.9;1" values="0;0;1;1;0"/></g>
+  <g opacity="0">
+    <rect x="540" y="228" width="118" height="24" rx="12" fill="#e6f4ec" stroke="#2e8b57"/>
+    <text x="599" y="244" font-size="11" font-weight="700" fill="#2e8b57" text-anchor="middle">✓ clean → STOP</text>
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.56;0.59;0.9;1" values="0;0;1;1;0"/>
+  </g>
+
+  <!-- billed callout -->
+  <g opacity="0">
+    <rect x="188" y="264" width="482" height="28" rx="8" fill="#f0f7f2" stroke="#bfe0cd"/>
+    <text x="200" y="283" font-size="11.5" fill="#1f6b42"><tspan font-weight="700">Billed = accepted model only.</tspan> The failed cheap attempts are observed, not charged as winners — this is why routing beats "premium on every task".</text>
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.6;0.63;0.9;1" values="0;0;1;1;0"/>
+  </g>
+
+  <text x="24" y="290" font-size="10.5" fill="#9aa5b1">used by · hero · curated · limits · adaptive</text>
+</svg>

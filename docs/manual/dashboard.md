@@ -48,8 +48,9 @@ cost-router hero --serve
   가져오며 데이터가 없으면 숨겨집니다. [실험 06 · 적응형 팬아웃 다이얼](../lab-notebook/06-fanout-dial.md) 참고.
 - **Experiments(클릭하면 통계)** — 실험 탭을 누르면 그 실험의 비용·커버리지·**앙상블 팬아웃
   세금**·재현성 계약이 즉시 뜹니다. `GET /experiments`(라이브) 또는 `experiments.json`(정적
-  export)에서 Azure Foundry 형태의 오프라인 메트릭을 읽습니다. 자세한 내용은
-  [실험 05 · 앙상블 팬아웃 세금](../lab-notebook/05-ensemble-fanout.md) 참고.
+  export)에서 Azure Foundry 형태의 오프라인 메트릭을 읽습니다. 각 탭이 **어떤 모델로 어떻게**
+  구성되는지 애니메이션 SVG로 보려면 [실험 아틀라스 · Experiment Atlas](experiment-atlas.md),
+  앙상블 세금 해석은 [실험 05 · 앙상블 팬아웃 세금](../lab-notebook/05-ensemble-fanout.md) 참고.
 - **Historical dashboard(히스토리컬)** — 기록된 실험 실행 이력 테이블. 라이브 서버에서 실험을
   실행할 때마다 한 줄씩 누적되고(`GET /metrics/history`), 정적 데모에서는 실험별 결정론 기준
   스냅샷을 보여줍니다.
