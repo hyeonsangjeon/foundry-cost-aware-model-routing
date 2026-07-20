@@ -254,47 +254,55 @@ def draw_curated(d, t, spec):
                    fill=reason_col[reason], anchor="lm")
 
 
-def _fan(d, x_app, x_cmp, y, t, active):
-    ys = [y - 66, y - 33, y, y + 33, y + 66]
-    x_out = x_app + 60
-    x_in = x_cmp - 54
-    x_cand = round(x_out + 0.46 * (x_in - x_out))
+def _fan(d, x_app, x_cmp, y, t, active, spread=66, labels=False, solo=None):
+    ys = [y - spread, y - spread / 2, y, y + spread / 2, y + spread]
+    x_out = x_app + 55
+    x_in = x_cmp - 50
+    x_cand = round(x_out + 0.44 * (x_in - x_out))
+    cw = 128 if labels else 0
     for i in range(5):
-        if not (i < active or i == 2):
+        if abs(i - 2) > (active - 1) / 2:
             continue
-        col = TIERS[i][1]
-        line_col = blend(BG, col, 0.55)
-        d.line([x_out, y, x_cand, ys[i]], fill=line_col, width=2)
-        d.line([x_cand, ys[i], x_in, y], fill=line_col, width=2)
+        name, col = TIERS[i]
+        if solo is not None and active == 1:
+            col = solo
+        line_col = blend(BG, col, 0.5)
+        chip_l, chip_r = x_cand - cw / 2, x_cand + cw / 2
+        d.line([x_out, y, chip_l, ys[i]], fill=line_col, width=2)
+        d.line([chip_r, ys[i], x_in, y], fill=line_col, width=2)
         for k in range(2):
             frac = ((k / 2) + t) % 1.0
-            glow_dot(d, x_out + frac * (x_cand - x_out),
+            glow_dot(d, x_out + frac * (chip_l - x_out),
                      y + frac * (ys[i] - y), 4, col)
-        glow_dot(d, x_cand, ys[i], 5, col)
+        if labels:
+            d.rounded_rectangle([chip_l, ys[i] - 15, chip_r, ys[i] + 15], radius=8,
+                                fill=blend(BG, col, 0.18), outline=col, width=2)
+            d.text((x_cand, ys[i]), name, font=font("mono", 12), fill=INK, anchor="mm")
+        else:
+            glow_dot(d, x_cand, ys[i], 5, col)
     node(d, x_app, y, 108, 48, "workload", BLUE, sub="high-value")
-    d.rounded_rectangle([x_cmp - 54, y - 26, x_cmp + 54, y + 26], radius=10,
+    d.rounded_rectangle([x_cmp - 50, y - 24, x_cmp + 50, y + 24], radius=10,
                         fill=blend(BG, AMBER, 0.14), outline=AMBER, width=2)
-    d.text((x_cmp, y - 6), "compare", font=font("monob", 14), fill=INK, anchor="mm")
-    d.text((x_cmp, y + 11), "keep best", font=font("mono", 11), fill=blend(INK, AMBER, 0.6),
+    d.text((x_cmp, y - 5), "compare", font=font("monob", 13), fill=INK, anchor="mm")
+    d.text((x_cmp, y + 11), "keep best", font=font("mono", 10), fill=blend(INK, AMBER, 0.6),
            anchor="mm")
 
 
 def draw_ensemble(d, t, spec):
-    panel(d, 40, 160, W - 40, 600, GREEN, "ENSEMBLE · run all five, pay for all, keep the best")
-    y = 350
-    _fan(d, 150, 560, y, t, 5)
-    flow(d, 614, 840, y, t, GREEN, n=2)
-    node(d, 928, y, 150, 52, "best-of-N", GREEN, sub="cheapest passing", glow=True)
-    lx = 150
-    d.text((lx, 470), "winners kept:", font=font("mono", 13), fill=MUTED, anchor="lm")
-    x = lx + 130
+    panel(d, 40, 160, W - 40, 600, GREEN, "ENSEMBLE · fan out to all five, keep the best")
+    y = 336
+    _fan(d, 128, 662, y, t, 5, spread=116, labels=True)
+    flow(d, 712, 866, y, t, GREEN, n=2)
+    node(d, 946, y, 150, 52, "best-of-N", GREEN, sub="cheapest passing", glow=True)
+    d.text((150, 498), "winners kept:", font=font("mono", 13), fill=MUTED, anchor="lm")
+    x = 280
     for name, cnt in ENSEMBLE_WINNERS:
-        x = pill(d, x, 458, f"{cnt}x {name}", INK, blend(BG, TIER_COLOR[name], 0.28),
+        x = pill(d, x, 488, f"{cnt}x {name}", INK, blend(BG, TIER_COLOR[name], 0.28),
                  font("monob", 12)) + 10
     tax = ease(min(1.0, t / 0.8)) * 3.74
-    meter(d, 150, 545, 360, tax / 4.0, AMBER, "fan-out tax (all calls / winners)",
+    meter(d, 150, 560, 360, tax / 4.0, AMBER, "fan-out tax (all calls / winners)",
           sub=f"{tax:3.2f}x")
-    d.text((540, 540), "winners $0.133  ·  all calls $0.497", font=font("mono", 12),
+    d.text((540, 555), "winners $0.133  ·  all calls $0.497", font=font("mono", 12),
            fill=MUTED, anchor="lm")
 
 
@@ -309,9 +317,9 @@ def draw_adaptive(d, t, spec):
     d.text((250, 495), "LOW · fan-out ON" if on else "HIGH · fan-out OFF",
            font=font("monob", 14), fill=accent, anchor="mm")
     active = 5 if on else 1
-    _fan(d, 470, 800, 360, t, active)
+    _fan(d, 470, 800, 360, t, active, spread=100, solo=GREEN)
     node(d, 968, 360, 128, 50, "swift-coder", GREEN, sub="same winner", glow=True)
-    flow(d, 854, 904, 360, t, GREEN, n=2)
+    flow(d, 850, 904, 360, t, GREEN, n=2)
     tax = 3.74 * (1 - prog) if not on else 3.74 * (t / 0.5)
     meter(d, 470, 540, 360, tax / 4.0, accent, "fan-out tax", sub=f"{tax:3.2f}x")
     d.text((850, 535), "savings -47% unchanged", font=font("monob", 13), fill=GREEN, anchor="lm")
