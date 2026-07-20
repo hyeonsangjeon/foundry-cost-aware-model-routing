@@ -52,6 +52,7 @@ nav:
       - "문제 하나, 네 가지 방법": manual/head-to-head.md
       - 메트릭 & Foundry: manual/metrics.md
       - 라이브 실측 브릿지: manual/foundry-live.md
+      - "Foundry 실전 구성 · 실험별 세팅": manual/foundry-setup.md
       - 감사 원장: manual/ledger.md
   - 실험노트:
       - 소개와 방법론: lab-notebook/index.md

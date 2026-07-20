@@ -1,0 +1,773 @@
+{
+  "_note": "CAPTURED LIVE measurement (labels.measured = true, provenance = live) from the Azure AI Foundry Model Router. Each arm made real keyless (Microsoft Entra ID) calls; cost is the REAL token usage Azure billed, priced by samples/pricing/foundry-5series.yaml (public list prices; swap in tenant rates for exact spend). Reproduce with: `cost-router foundry arena --live --max-output-tokens 3000`. Cost + latency are measured; per-answer accuracy is ungraded. The Model Router is quality-optimizing (it dispatches to reasoning models), so it is pricier than a single non-reasoning frontier call but cheaper than the fan-out ensemble, and it right-sizes the vendor per prompt (grok vs GPT-5.4).",
+  "captured_at": "2026-07-20T16:33:39+00:00",
+  "resource": {
+    "resource_group": "rg-foundry-router-5series",
+    "account": "aoai-router5-ext-faf57f",
+    "region": "eastus2",
+    "auth": "microsoft-entra-id-keyless",
+    "router_deployment": "model-router",
+    "router_version": "2025-11-18",
+    "direct_deployments": [
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gpt-5.4-nano"
+    ],
+    "max_completion_tokens": 3000
+  },
+  "arm_totals": {
+    "cheapest": {
+      "avg_latency_ms": 9078.7,
+      "total_cost_usd": 0.001191
+    },
+    "ensemble": {
+      "avg_latency_ms": 8325.4,
+      "total_cost_usd": 0.022046
+    },
+    "premium": {
+      "avg_latency_ms": 4112.1,
+      "total_cost_usd": 0.015368
+    },
+    "router": {
+      "avg_latency_ms": 12182.4,
+      "total_cost_usd": 0.020806
+    }
+  },
+  "labels": {
+    "accuracy": "ungraded",
+    "cost_basis": "list-price",
+    "measured": true,
+    "provenance": "live",
+    "spend_source": "provider-usage"
+  },
+  "results": [
+    {
+      "arms": {
+        "cheapest": {
+          "arm": "cheapest",
+          "billing": "single-call",
+          "calls": [
+            {
+              "cost_usd": 3.4e-05,
+              "deployment": "gpt-5.4-nano",
+              "latency_ms": 4472.3,
+              "model": "gpt-5.4-nano",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 62.0,
+                "output": 76.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4-nano",
+          "cost_usd": 3.4e-05,
+          "deployment": "gpt-5.4-nano",
+          "fanout": 1,
+          "latency_ms": 4472.3,
+          "strategy": "Cheapest single model (always the small tier)"
+        },
+        "ensemble": {
+          "arm": "ensemble",
+          "billing": "sum-all-fanout",
+          "calls": [
+            {
+              "cost_usd": 3.4e-05,
+              "deployment": "gpt-5.4-nano",
+              "latency_ms": 1868.8,
+              "model": "gpt-5.4-nano",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 62.0,
+                "output": 77.0,
+                "reasoning": 0.0
+              }
+            },
+            {
+              "cost_usd": 0.000168,
+              "deployment": "gpt-5.4-mini",
+              "latency_ms": 2353.4,
+              "model": "gpt-5.4-mini",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 62.0,
+                "output": 76.0,
+                "reasoning": 0.0
+              }
+            },
+            {
+              "cost_usd": 0.000807,
+              "deployment": "gpt-5.4",
+              "latency_ms": 2304.0,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 62.0,
+                "output": 73.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.001009,
+          "deployment": "gpt-5.4-nano + gpt-5.4-mini + gpt-5.4",
+          "fanout": 3,
+          "latency_ms": 2353.4,
+          "strategy": "Fan-out x3 then keep the best (pay the tax)"
+        },
+        "premium": {
+          "arm": "premium",
+          "billing": "single-call",
+          "calls": [
+            {
+              "cost_usd": 0.000758,
+              "deployment": "gpt-5.4",
+              "latency_ms": 1350.8,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 62.0,
+                "output": 68.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.000758,
+          "deployment": "gpt-5.4",
+          "fanout": 1,
+          "latency_ms": 1350.8,
+          "strategy": "Premium single model (always the frontier tier)"
+        },
+        "router": {
+          "arm": "router",
+          "billing": "winner-only",
+          "calls": [
+            {
+              "cost_usd": 0.000814,
+              "deployment": "model-router",
+              "latency_ms": 13395.0,
+              "model": "grok-4-1-fast-reasoning",
+              "provenance": "live",
+              "usage": {
+                "cached": 54.0,
+                "input": 54.0,
+                "output": 0.0,
+                "reasoning": 1623.0
+              }
+            }
+          ],
+          "chosen_model": "grok-4-1-fast-reasoning",
+          "cost_usd": 0.000814,
+          "deployment": "model-router",
+          "fanout": 1,
+          "latency_ms": 13395.0,
+          "strategy": "Foundry Model Router — one model chosen per prompt"
+        }
+      },
+      "labels": {
+        "accuracy": "ungraded",
+        "cost_basis": "list-price",
+        "measured": true,
+        "provenance": "live",
+        "spend_source": "provider-usage"
+      },
+      "prompt": "Implement slugify(title: str) -> str: lowercase the text, strip surrounding whitespace, and collapse every run of non-alphanumeric characters into a single hyphen, leaving no leading or trailing hyphen. Example: \"  Hello,  World! \" -> \"hello-world\".",
+      "task_id": "t-0001",
+      "title": "slugify(title)",
+      "winners": {
+        "cost": "cheapest",
+        "latency": "premium"
+      }
+    },
+    {
+      "arms": {
+        "cheapest": {
+          "arm": "cheapest",
+          "billing": "single-call",
+          "calls": [
+            {
+              "cost_usd": 0.000287,
+              "deployment": "gpt-5.4-nano",
+              "latency_ms": 11363.3,
+              "model": "gpt-5.4-nano",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 72.0,
+                "output": 709.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4-nano",
+          "cost_usd": 0.000287,
+          "deployment": "gpt-5.4-nano",
+          "fanout": 1,
+          "latency_ms": 11363.3,
+          "strategy": "Cheapest single model (always the small tier)"
+        },
+        "ensemble": {
+          "arm": "ensemble",
+          "billing": "sum-all-fanout",
+          "calls": [
+            {
+              "cost_usd": 0.000314,
+              "deployment": "gpt-5.4-nano",
+              "latency_ms": 11037.6,
+              "model": "gpt-5.4-nano",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 72.0,
+                "output": 777.0,
+                "reasoning": 0.0
+              }
+            },
+            {
+              "cost_usd": 0.000934,
+              "deployment": "gpt-5.4-mini",
+              "latency_ms": 3406.8,
+              "model": "gpt-5.4-mini",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 72.0,
+                "output": 458.0,
+                "reasoning": 0.0
+              }
+            },
+            {
+              "cost_usd": 0.00117,
+              "deployment": "gpt-5.4",
+              "latency_ms": 2740.9,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 72.0,
+                "output": 108.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.002418,
+          "deployment": "gpt-5.4-nano + gpt-5.4-mini + gpt-5.4",
+          "fanout": 3,
+          "latency_ms": 11037.6,
+          "strategy": "Fan-out x3 then keep the best (pay the tax)"
+        },
+        "premium": {
+          "arm": "premium",
+          "billing": "single-call",
+          "calls": [
+            {
+              "cost_usd": 0.00094,
+              "deployment": "gpt-5.4",
+              "latency_ms": 2382.2,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 72.0,
+                "output": 85.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.00094,
+          "deployment": "gpt-5.4",
+          "fanout": 1,
+          "latency_ms": 2382.2,
+          "strategy": "Premium single model (always the frontier tier)"
+        },
+        "router": {
+          "arm": "router",
+          "billing": "winner-only",
+          "calls": [
+            {
+              "cost_usd": 0.00127,
+              "deployment": "model-router",
+              "latency_ms": 2391.8,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 72.0,
+                "output": 109.0,
+                "reasoning": 9.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.00127,
+          "deployment": "model-router",
+          "fanout": 1,
+          "latency_ms": 2391.8,
+          "strategy": "Foundry Model Router — one model chosen per prompt"
+        }
+      },
+      "labels": {
+        "accuracy": "ungraded",
+        "cost_basis": "list-price",
+        "measured": true,
+        "provenance": "live",
+        "spend_source": "provider-usage"
+      },
+      "prompt": "The repo's parse_duration(text: str) -> int helper returns None for combined values like \"1h30m\" or \"2m30s\". Patch it to sum consecutive <number><unit> segments (h/m/s) into total seconds, reject empty or malformed input, and keep the existing single-unit tests green.",
+      "task_id": "t-0003",
+      "title": "Patch parse_duration to accept combined units",
+      "winners": {
+        "cost": "cheapest",
+        "latency": "premium"
+      }
+    },
+    {
+      "arms": {
+        "cheapest": {
+          "arm": "cheapest",
+          "billing": "single-call",
+          "calls": [
+            {
+              "cost_usd": 0.000487,
+              "deployment": "gpt-5.4-nano",
+              "latency_ms": 16459.2,
+              "model": "gpt-5.4-nano",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 50.0,
+                "output": 1210.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4-nano",
+          "cost_usd": 0.000487,
+          "deployment": "gpt-5.4-nano",
+          "fanout": 1,
+          "latency_ms": 16459.2,
+          "strategy": "Cheapest single model (always the small tier)"
+        },
+        "ensemble": {
+          "arm": "ensemble",
+          "billing": "sum-all-fanout",
+          "calls": [
+            {
+              "cost_usd": 0.000543,
+              "deployment": "gpt-5.4-nano",
+              "latency_ms": 17187.1,
+              "model": "gpt-5.4-nano",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 50.0,
+                "output": 1351.0,
+                "reasoning": 0.0
+              }
+            },
+            {
+              "cost_usd": 0.001991,
+              "deployment": "gpt-5.4-mini",
+              "latency_ms": 5123.7,
+              "model": "gpt-5.4-mini",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 50.0,
+                "output": 989.0,
+                "reasoning": 0.0
+              }
+            },
+            {
+              "cost_usd": 0.008573,
+              "deployment": "gpt-5.4",
+              "latency_ms": 10921.8,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 50.0,
+                "output": 851.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.011107,
+          "deployment": "gpt-5.4-nano + gpt-5.4-mini + gpt-5.4",
+          "fanout": 3,
+          "latency_ms": 17187.1,
+          "strategy": "Fan-out x3 then keep the best (pay the tax)"
+        },
+        "premium": {
+          "arm": "premium",
+          "billing": "single-call",
+          "calls": [
+            {
+              "cost_usd": 0.008013,
+              "deployment": "gpt-5.4",
+              "latency_ms": 9509.2,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 50.0,
+                "output": 795.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.008013,
+          "deployment": "gpt-5.4",
+          "fanout": 1,
+          "latency_ms": 9509.2,
+          "strategy": "Premium single model (always the frontier tier)"
+        },
+        "router": {
+          "arm": "router",
+          "billing": "winner-only",
+          "calls": [
+            {
+              "cost_usd": 0.014502,
+              "deployment": "model-router",
+              "latency_ms": 17858.4,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 50.0,
+                "output": 752.0,
+                "reasoning": 692.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.014502,
+          "deployment": "model-router",
+          "fanout": 1,
+          "latency_ms": 17858.4,
+          "strategy": "Foundry Model Router — one model chosen per prompt"
+        }
+      },
+      "labels": {
+        "accuracy": "ungraded",
+        "cost_basis": "list-price",
+        "measured": true,
+        "provenance": "live",
+        "spend_source": "provider-usage"
+      },
+      "prompt": "Draft a short implementation plan to add cursor-based pagination to the GET /orders endpoint: the request/response shape, what the opaque cursor encodes, the index/query changes, and how paging stays stable under concurrent inserts.",
+      "task_id": "t-0004",
+      "title": "Plan cursor pagination for GET /orders",
+      "winners": {
+        "cost": "cheapest",
+        "latency": "premium"
+      }
+    },
+    {
+      "arms": {
+        "cheapest": {
+          "arm": "cheapest",
+          "billing": "single-call",
+          "calls": [
+            {
+              "cost_usd": 0.000153,
+              "deployment": "gpt-5.4-nano",
+              "latency_ms": 5561.5,
+              "model": "gpt-5.4-nano",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 53.0,
+                "output": 376.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4-nano",
+          "cost_usd": 0.000153,
+          "deployment": "gpt-5.4-nano",
+          "fanout": 1,
+          "latency_ms": 5561.5,
+          "strategy": "Cheapest single model (always the small tier)"
+        },
+        "ensemble": {
+          "arm": "ensemble",
+          "billing": "sum-all-fanout",
+          "calls": [
+            {
+              "cost_usd": 8.6e-05,
+              "deployment": "gpt-5.4-nano",
+              "latency_ms": 4561.4,
+              "model": "gpt-5.4-nano",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 53.0,
+                "output": 209.0,
+                "reasoning": 0.0
+              }
+            },
+            {
+              "cost_usd": 0.000387,
+              "deployment": "gpt-5.4-mini",
+              "latency_ms": 1966.0,
+              "model": "gpt-5.4-mini",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 53.0,
+                "output": 187.0,
+                "reasoning": 0.0
+              }
+            },
+            {
+              "cost_usd": 0.003516,
+              "deployment": "gpt-5.4",
+              "latency_ms": 5051.4,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 53.0,
+                "output": 345.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.003989,
+          "deployment": "gpt-5.4-nano + gpt-5.4-mini + gpt-5.4",
+          "fanout": 3,
+          "latency_ms": 5051.4,
+          "strategy": "Fan-out x3 then keep the best (pay the tax)"
+        },
+        "premium": {
+          "arm": "premium",
+          "billing": "single-call",
+          "calls": [
+            {
+              "cost_usd": 0.001896,
+              "deployment": "gpt-5.4",
+              "latency_ms": 3548.5,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 53.0,
+                "output": 183.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.001896,
+          "deployment": "gpt-5.4",
+          "fanout": 1,
+          "latency_ms": 3548.5,
+          "strategy": "Premium single model (always the frontier tier)"
+        },
+        "router": {
+          "arm": "router",
+          "billing": "winner-only",
+          "calls": [
+            {
+              "cost_usd": 0.003696,
+              "deployment": "model-router",
+              "latency_ms": 5525.1,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 53.0,
+                "output": 293.0,
+                "reasoning": 70.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.003696,
+          "deployment": "model-router",
+          "fanout": 1,
+          "latency_ms": 5525.1,
+          "strategy": "Foundry Model Router — one model chosen per prompt"
+        }
+      },
+      "labels": {
+        "accuracy": "ungraded",
+        "cost_basis": "list-price",
+        "measured": true,
+        "provenance": "live",
+        "spend_source": "provider-usage"
+      },
+      "prompt": "Review a diff that changes an HTTP client's retry loop from a fixed delay to exponential backoff. Decide whether it correctly caps at max_attempts, applies jitter, and stops on non-retryable status codes, and flag anything missing.",
+      "task_id": "t-0005",
+      "title": "Review a retry-backoff change",
+      "winners": {
+        "cost": "cheapest",
+        "latency": "premium"
+      }
+    },
+    {
+      "arms": {
+        "cheapest": {
+          "arm": "cheapest",
+          "billing": "single-call",
+          "calls": [
+            {
+              "cost_usd": 0.00023,
+              "deployment": "gpt-5.4-nano",
+              "latency_ms": 7537.3,
+              "model": "gpt-5.4-nano",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 65.0,
+                "output": 567.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4-nano",
+          "cost_usd": 0.00023,
+          "deployment": "gpt-5.4-nano",
+          "fanout": 1,
+          "latency_ms": 7537.3,
+          "strategy": "Cheapest single model (always the small tier)"
+        },
+        "ensemble": {
+          "arm": "ensemble",
+          "billing": "sum-all-fanout",
+          "calls": [
+            {
+              "cost_usd": 0.000176,
+              "deployment": "gpt-5.4-nano",
+              "latency_ms": 5997.7,
+              "model": "gpt-5.4-nano",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 65.0,
+                "output": 431.0,
+                "reasoning": 0.0
+              }
+            },
+            {
+              "cost_usd": 0.000616,
+              "deployment": "gpt-5.4-mini",
+              "latency_ms": 2732.1,
+              "model": "gpt-5.4-mini",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 65.0,
+                "output": 300.0,
+                "reasoning": 0.0
+              }
+            },
+            {
+              "cost_usd": 0.002731,
+              "deployment": "gpt-5.4",
+              "latency_ms": 3644.2,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 65.0,
+                "output": 265.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.003523,
+          "deployment": "gpt-5.4-nano + gpt-5.4-mini + gpt-5.4",
+          "fanout": 3,
+          "latency_ms": 5997.7,
+          "strategy": "Fan-out x3 then keep the best (pay the tax)"
+        },
+        "premium": {
+          "arm": "premium",
+          "billing": "single-call",
+          "calls": [
+            {
+              "cost_usd": 0.003761,
+              "deployment": "gpt-5.4",
+              "latency_ms": 3769.8,
+              "model": "gpt-5.4",
+              "provenance": "live",
+              "usage": {
+                "cached": 0.0,
+                "input": 65.0,
+                "output": 368.0,
+                "reasoning": 0.0
+              }
+            }
+          ],
+          "chosen_model": "gpt-5.4",
+          "cost_usd": 0.003761,
+          "deployment": "gpt-5.4",
+          "fanout": 1,
+          "latency_ms": 3769.8,
+          "strategy": "Premium single model (always the frontier tier)"
+        },
+        "router": {
+          "arm": "router",
+          "billing": "winner-only",
+          "calls": [
+            {
+              "cost_usd": 0.000524,
+              "deployment": "model-router",
+              "latency_ms": 21741.6,
+              "model": "grok-4-1-fast-reasoning",
+              "provenance": "live",
+              "usage": {
+                "cached": 59.0,
+                "input": 59.0,
+                "output": 0.0,
+                "reasoning": 1042.0
+              }
+            }
+          ],
+          "chosen_model": "grok-4-1-fast-reasoning",
+          "cost_usd": 0.000524,
+          "deployment": "model-router",
+          "fanout": 1,
+          "latency_ms": 21741.6,
+          "strategy": "Foundry Model Router — one model chosen per prompt"
+        }
+      },
+      "labels": {
+        "accuracy": "ungraded",
+        "cost_basis": "list-price",
+        "measured": true,
+        "provenance": "live",
+        "spend_source": "provider-usage"
+      },
+      "prompt": "Write unit tests for merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]], which merges overlapping and adjacent closed intervals. Cover overlap, adjacency (touching endpoints), a fully contained interval, unsorted input, a single interval, and empty input.",
+      "task_id": "t-0006",
+      "title": "Unit tests for merge_intervals",
+      "winners": {
+        "cost": "cheapest",
+        "latency": "premium"
+      }
+    }
+  ],
+  "router_model_mix": {
+    "gpt-5.4": 3,
+    "grok-4-1-fast-reasoning": 2
+  },
+  "router_vs_premium_savings_pct": -35.4,
+  "selection": "foundry-live-arena",
+  "tasks": 5,
+  "version": 1
+}

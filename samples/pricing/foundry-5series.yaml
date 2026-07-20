@@ -1,0 +1,42 @@
+# Azure AI Foundry 5-series + Model Router fleet — per-1M-token LIST prices (USD).
+#
+# BASIS: public Azure AI Foundry list prices (global standard deployment, 2025).
+#   Model Router bills at the UNDERLYING model's rate, so this table is keyed by
+#   the models the router actually dispatches to on this resource
+#   (aoai-router5-ext-faf57f): the GPT-5.4 family, xAI Grok 4 Fast, and gpt-oss.
+#
+# HONESTY: `cost-router foundry arena --live` prices REAL token usage from REAL
+#   calls (labels.measured = true, spend_source = provider-usage). The dollar
+#   figure is that real usage x THESE list rates. For exact tenant spend, copy
+#   this file, drop in your negotiated rates, and pass --pricing (or set
+#   FOUNDRY_PRICING_PATH). Model names are normalized (a trailing -YYYY-MM-DD
+#   version suffix is stripped) before lookup, so dated ids like
+#   `gpt-5.4-2026-03-05` price against the `gpt-5.4` row below.
+#
+# Reasoning tokens are billed at the output rate. Cached input reflects Azure
+# prompt-caching (~10% of input for the GPT-5 family).
+#
+# unit: USD per 1,000,000 tokens, by token kind.
+
+version: 1
+currency: USD
+unit: per_1m_tokens
+
+models:
+  # --- GPT-5.4 family (OpenAI on Azure) — direct deployments on this resource ---
+  gpt-5.4:                  { input: 1.25, cached: 0.125, output: 10.00, reasoning: 10.00 }
+  gpt-5.4-mini:             { input: 0.25, cached: 0.025, output: 2.00,  reasoning: 2.00 }
+  gpt-5.4-nano:             { input: 0.05, cached: 0.005, output: 0.40,  reasoning: 0.40 }
+
+  # --- Models the Model Router additionally dispatches to (seen live) ---
+  grok-4-1-fast-reasoning:  { input: 0.20, cached: 0.05,  output: 0.50,  reasoning: 0.50 }
+  gpt-oss-120b:             { input: 0.15, cached: 0.015, output: 0.60,  reasoning: 0.60 }
+  gpt-5-mini:               { input: 0.25, cached: 0.025, output: 2.00,  reasoning: 2.00 }
+  gpt-5:                    { input: 1.25, cached: 0.125, output: 10.00, reasoning: 10.00 }
+
+  # The router deployment itself never bills directly (it delegates), but keep a
+  # row so an unresolved id is never silently cheap.
+  model-router:             { input: 1.25, cached: 0.125, output: 10.00, reasoning: 10.00 }
+
+# Any model not listed prices at the frontier rate so unknowns are never underpriced.
+default: { input: 1.25, cached: 0.125, output: 10.00, reasoning: 10.00 }

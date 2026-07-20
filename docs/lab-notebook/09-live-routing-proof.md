@@ -135,7 +135,33 @@ cost-router foundry live --live \
 `--workload my-prompts.jsonl`. 채점까지 실측하려면 `grader`를 주입하세요
 ([foundry-live 매뉴얼](../manual/foundry-live.md)).
 
+## 실험 08을 실측으로 — 4-way 라이브 아레나
+
+실험 08의 "문제 하나 × 네 방법"을 전부 **실제 Foundry 호출**로 돌리는 명령이 새로
+생겼습니다. `cheapest`·`premium`·`ensemble`·`router` 네 팔을 실제로 호출해 **비용·지연을
+실측**합니다(정확도는 미채점 — 그래더 주입 시 측정 가능).
+
+```bash
+# 4-way 라이브 아레나 — 실비용·실지연, 리포트/원장 저장
+cost-router foundry arena --live \
+  --workload samples/telemetry/curated-arena-live.sample.jsonl \
+  --pricing  samples/pricing/foundry-5series.yaml \
+  --out samples/responses/foundry-arena-measured.json \
+  --ledger runs-arena.jsonl
+```
+
+측정 스냅샷(캡처본):
+[`samples/responses/foundry-arena-measured.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/responses/foundry-arena-measured.json)
+— `router_model_mix = {gpt-5.4: 3, grok-4-1-fast-reasoning: 2}`, `measured = true`.
+
+!!! quote "정직한 관찰 — 라이브 라우터는 품질 최적화형"
+    오프라인 실험 08은 라우터를 '가장 싼 정답'으로 투영했지만, **실측 라우터는 어지간한 코딩
+    문제를 추론 모델로 보내는 품질 최적화형**이라 *추론을 끈* 단일 `gpt-5.4`보다 비쌀 수
+    있습니다. 대신 **팬아웃 앙상블보다 싸고**(1콜/1청구) 프롬프트마다 벤더를 적정 배치합니다.
+    설정·근거는 [Foundry 실전 구성 매뉴얼](../manual/foundry-setup.md)을 보세요.
+
 ---
 
-**관련 문서:** [라이브 실측 브릿지](../manual/foundry-live.md) · [실험 08 · 아레나](08-arena.md)
+**관련 문서:** [Foundry 실전 구성 · 실험별 세팅](../manual/foundry-setup.md) ·
+[라이브 실측 브릿지](../manual/foundry-live.md) · [실험 08 · 아레나](08-arena.md)
 (오프라인 렌즈) · [개발 로그](devlog.md)
