@@ -218,10 +218,6 @@ def draw_hero(d, t, spec):
         d.text((cx, base - h - 16), str(shown), font=font("monob", 20), fill=col, anchor="mm")
         d.text((cx, base + 18), name, font=font("mono", 12), fill=INK, anchor="mm")
     d.line([292, base, 988, base], fill=blend(BG, INK, 0.3), width=2)
-    for k in range(4):
-        frac = ((k / 4) + t) % 1.0
-        col = centers[k % 5]
-        glow_dot(d, col, 250 + frac * 60, 4, TIERS[k % 5][1])
 
 
 def draw_curated(d, t, spec):
@@ -271,7 +267,7 @@ def _fan(d, x_app, x_cmp, y, t, active, spread=66, labels=False, solo=None):
         d.line([x_out, y, chip_l, ys[i]], fill=line_col, width=2)
         d.line([chip_r, ys[i], x_in, y], fill=line_col, width=2)
         for k in range(2):
-            frac = ((k / 2) + t) % 1.0
+            frac = ((k / 2) + t + i * 0.13) % 1.0
             glow_dot(d, x_out + frac * (chip_l - x_out),
                      y + frac * (ys[i] - y), 4, col)
         if labels:
