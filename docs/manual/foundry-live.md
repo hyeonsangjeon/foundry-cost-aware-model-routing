@@ -142,17 +142,25 @@ summary = measured_router_summary(
     grader=my_grader,                     # 선택: 있으면 coverage_measured=true
     model_aliases={"gpt-4o": "balanced-pro"},  # 실제 이름 -> 요율/신호 키
 )
-# summary["labels"] = {measured, spend_source: "provider-usage", provenance, coverage_measured}
+# summary["labels"] = {measured, spend_source: "provider-usage", provenance,
+#                      coverage_measured, coverage_basis}
 ```
 
 - **비용**은 `outcome.usage`를 `pricing`으로 계산 — 실측 지출.
-- **커버리지**는 `grader`가 있으면 측정, 없으면 그 모델의 오프라인 신호 투영(라벨 명시).
+- **커버리지**는 `grader`가 있으면 측정(`coverage_basis = "graded"`), 없으면 그 모델의
+  오프라인 신호 투영(`"offline-projection"`)입니다. 포착된 **실제 모델**은 오프라인 신호에
+  대응 행이 없으므로 커버리지는 정직하게 **미채점**(`coverage = null`,
+  `coverage_basis = "ungraded"`)이 됩니다 — 지출은 측정되지만 정확도는 아닙니다.
 - **`measured`**는 모든 outcome의 provenance가 `live`일 때만 `true`.
 - **`model_aliases`**는 `gpt-4o` 같은 벤더 이름을 요율/신호 키로 매핑합니다.
 
 ## 3. 라이브 실행
 
-크리덴셜 없이도 **녹화된 usage 스냅샷**을 재생해 스코어링 경로를 확인할 수 있습니다(기본):
+크리덴셜 없이도 **녹화된 usage 스냅샷**을 재생해 스코어링 경로를 확인할 수 있습니다(기본).
+이 스냅샷(`samples/responses/model-router-usage.sample.json`)은 **진짜 Azure Model Router
+호출에서 포착한 실제 출력**입니다 — 라우터가 실제로 고른 모델(`gpt-5.4` · `grok-4-1-fast-reasoning`)과
+진짜 청구 토큰이 들어 있습니다. 재생이므로 `provenance = recorded` · `measured = false`로
+정직하게 라벨되고, 실제 모델은 오프라인 신호에 대응 행이 없어 커버리지는 **미채점**입니다:
 
 ```bash
 cost-router foundry live
@@ -160,12 +168,38 @@ cost-router foundry live
 
 ```text
 Azure Model Router — measured spend  (recorded snapshot (…/model-router-usage.sample.json))
-  routed cost (real): $0.156730          # 실제 usage로 계산 (합성 투영 $0.087030과 다름)
-  coverage (projected): 100.0%
+  routed cost (real): $0.020334          # 포착된 실제 usage를 5-시리즈 요율로 계산
+  coverage          : ungraded (ungraded — spend is measured, correctness needs a grader)
   provenance        : recorded
   measured          : no                 # 재생이므로 measured=false
   → this is a replay/projection; run with --live + credentials for measured=true.
 ```
+
+### 녹화 스냅샷을 실제 Azure로 다시 포착 — `--capture`
+
+이 저장소가 싣는 녹화 스냅샷은 손으로 쓴 목업이 아니라 **실제 라우터 출력을 포착**한 것입니다.
+`load_recorded_usage`의 역함수인 `capture_recorded_usage`가 라이브 클라이언트를 프롬프트가 있는
+워크로드에 돌려 진짜 `task_id -> {model, usage}`를 기록합니다. CLI 한 줄로 다시 포착하세요
+(크리덴셜 + `--live` 필요; `--live` 없이는 거부하고 아무것도 쓰지 않습니다):
+
+```bash
+cost-router foundry live --live --capture samples/responses/model-router-usage.sample.json
+```
+
+```text
+foundry live — captured 5 real outcomes → …/model-router-usage.sample.json
+  source     : LIVE Azure Model Router (model-router)
+  captured_at: 2026-…Z
+  models     : gpt-5.4×3, grok-4-1-fast-reasoning×2
+  labels     : measured=false  provenance=recorded  captured_from=live
+  replay     : cost-router foundry live --recorded …/model-router-usage.sample.json
+```
+
+- 각 항목의 모델 이름은 정규화됩니다(`gpt-5.4-2026-03-05` → `gpt-5.4`)라 안정적인 요율 행에
+  매칭됩니다. 각 항목은 `provenance = recorded`로 찍혀(포착물은 *녹화*이므로 재생이 새 측정으로
+  둔갑하지 않음), 파일 최상위 `captured_from = live` 라벨이 "출처는 실제 라이브"임을 남깁니다.
+- 시크릿·엔드포인트 URL은 스냅샷에 절대 저장하지 않습니다 — 비시크릿 provenance(계정명·리소스
+  그룹·리전·API 버전)만 `resource` 블록에 남습니다.
 
 ### 큐레이션 태스크를 실측으로 — 한 명령 (t-0001~t-0006)
 
@@ -221,7 +255,7 @@ dashboard** 패널과 `metrics history`가 그대로 읽습니다:
 ```bash
 cost-router foundry live --store runs.jsonl
 cost-router metrics history --store runs.jsonl
-# 2026-…Z  foundry-live  cov=100.0% routed=$0.156730 …
+# 2026-…Z  foundry-live cov=0.0% routed=$0.020334 …   # cov=0.0% = 미채점(수치 히스토리 기본값), measured=no
 ```
 
 행에는 `measured` 플래그와 `provenance`·`spend_source` 차원이 실려, 라이브 실측 실행과

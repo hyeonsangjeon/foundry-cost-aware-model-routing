@@ -25,6 +25,7 @@ from router.foundry_live import (
     FoundryConfig,
     RecordedRouterClient,
     RouterOutcome,
+    capture_recorded_usage,
     load_dotenv_file,
     load_recorded_usage,
     measured_router_summary,
@@ -37,8 +38,11 @@ ROOT = Path(__file__).resolve().parents[1]
 USAGE_FIXTURE = ROOT / "samples" / "responses" / "model-router-usage.sample.json"
 
 # Numbers pinned from the recorded snapshot vs. the offline difficulty-tiered proxy.
-RECORDED_COST = 0.15673
-RECORDED_COVERAGE = 1.0
+# The recorded snapshot is a genuine live Azure capture (real 5-series names), so it
+# is priced with the real fleet list rates; its chosen models have no offline signal
+# row, so measured coverage is honestly *ungraded* (None) without a grader.
+FLEET_PRICING = ROOT / "samples" / "pricing" / "foundry-5series.yaml"
+RECORDED_COST = 0.020334
 OFFLINE_PROJECTION_COST = 0.08703
 
 
@@ -177,9 +181,9 @@ def test_load_recorded_usage_parses_outcomes() -> None:
     outcomes = load_recorded_usage(USAGE_FIXTURE)
     assert set(outcomes) == {"t-0001", "t-0003", "t-0004", "t-0005", "t-0006"}
     first = outcomes["t-0001"]
-    assert first.model == "balanced-pro"
+    assert first.model == "grok-4-1-fast-reasoning"
     assert first.provenance == "recorded"
-    assert first.usage["input"] == 1300.0
+    assert first.usage["input"] == 54.0
 
 
 def test_load_recorded_usage_accepts_a_bare_mapping(tmp_path: Path) -> None:
@@ -191,6 +195,60 @@ def test_load_recorded_usage_accepts_a_bare_mapping(tmp_path: Path) -> None:
     outcomes = load_recorded_usage(path)
     assert outcomes["t-0001"].model == "mini-fast"
     assert outcomes["t-0001"].provenance == "recorded"
+
+
+# -- capturing a snapshot from a real client (inverse of load) --------------
+
+
+class _StubCaptureClient:
+    """A fake router: echoes a version-suffixed model + real-shaped usage."""
+
+    def complete(self, task):
+        return RouterOutcome(
+            model="gpt-5.4-2026-03-05",
+            usage={"input": 60, "output": 120, "reasoning": 8},
+            provenance="live",
+        )
+
+
+def test_capture_recorded_usage_builds_a_live_snapshot() -> None:
+    # keys deliberately unsorted to prove the capture orders them
+    workload = {
+        "t-0002": {"prompt": "b"},
+        "t-0001": {"prompt": "a"},
+    }
+    snapshot = capture_recorded_usage(
+        workload, _StubCaptureClient(), resource={"account": "aoai-router5-ext"}
+    )
+    assert snapshot["version"] == 1
+    assert snapshot["labels"] == {
+        "measured": False,
+        "provenance": "recorded",
+        "captured_from": "live",
+    }
+    assert snapshot["captured_at"].endswith("+00:00")  # ISO-8601 UTC
+    assert snapshot["resource"] == {"account": "aoai-router5-ext"}
+    assert list(snapshot["outcomes"]) == ["t-0001", "t-0002"]
+    entry = snapshot["outcomes"]["t-0001"]
+    assert entry["model"] == "gpt-5.4"  # date suffix normalized away
+    assert entry["provenance"] == "recorded"  # a recording, not a fresh call
+    assert entry["usage"] == {"input": 60.0, "output": 120.0, "reasoning": 8.0}
+
+
+def test_capture_recorded_usage_can_preserve_raw_model_names() -> None:
+    snapshot = capture_recorded_usage(
+        {"t-0001": {"prompt": "a"}}, _StubCaptureClient(), normalize=False
+    )
+    assert snapshot["outcomes"]["t-0001"]["model"] == "gpt-5.4-2026-03-05"
+
+
+def test_capture_round_trips_through_load_recorded_usage(tmp_path: Path) -> None:
+    snapshot = capture_recorded_usage({"t-0001": {"prompt": "a"}}, _StubCaptureClient())
+    path = tmp_path / "captured.json"
+    path.write_text(json.dumps(snapshot), encoding="utf-8")
+    outcomes = load_recorded_usage(path)
+    assert outcomes["t-0001"].model == "gpt-5.4"
+    assert outcomes["t-0001"].usage["reasoning"] == 8.0
 
 
 def test_router_outcome_prices_real_usage_with_aliases() -> None:
@@ -207,17 +265,22 @@ def test_router_outcome_prices_real_usage_with_aliases() -> None:
 
 
 def test_measured_summary_prices_the_recorded_snapshot(bundled) -> None:
-    wl, signals, policy, pricing = bundled
+    wl, signals, policy, _pricing = bundled
+    pricing = PricingTable.from_yaml(FLEET_PRICING)
     client = RecordedRouterClient(load_recorded_usage(USAGE_FIXTURE))
     result = measured_router_summary(wl, signals, policy, pricing, client=client)
     assert result["total_cost_usd"] == pytest.approx(RECORDED_COST, abs=1e-6)
-    assert result["coverage"] == pytest.approx(RECORDED_COVERAGE)
+    # Real captured models aren't in the offline signal fixture, so quality is
+    # ungraded here — spend is measured, correctness is not projected or graded.
+    assert result["coverage"] is None
+    assert result["coverable"] == 0
     assert result["selection"] == "azure-model-router"
     assert result["labels"] == {
         "measured": False,
         "spend_source": "provider-usage",
         "provenance": "recorded",
         "coverage_measured": False,
+        "coverage_basis": "ungraded",
     }
 
 
@@ -556,6 +619,35 @@ def test_cli_foundry_live_json_reports_provenance(capsys: pytest.CaptureFixture[
     payload = json.loads(capsys.readouterr().out)
     assert payload["labels"]["provenance"] == "recorded"
     assert payload["labels"]["measured"] is False
+
+
+def test_cli_foundry_live_recorded_coverage_is_ungraded(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["foundry", "live", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    # real captured models aren't in the offline signal fixture -> honestly ungraded
+    assert payload["coverage"] is None
+    assert payload["labels"]["coverage_basis"] == "ungraded"
+    assert payload["labels"]["coverage_measured"] is False
+
+
+def test_cli_foundry_live_recorded_prints_ungraded_coverage(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["foundry", "live"]) == 0
+    out = capsys.readouterr().out
+    assert "ungraded" in out
+
+
+def test_cli_foundry_live_capture_requires_live(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    dest = tmp_path / "captured.json"
+    # without --live, capturing real outcomes is refused (exit 2) and writes nothing
+    assert cli.main(["foundry", "live", "--capture", str(dest)]) == 2
+    assert "needs live calls" in capsys.readouterr().out
+    assert not dest.exists()
 
 
 # -- dotenv loading: make the documented `.env` workflow actually work -------

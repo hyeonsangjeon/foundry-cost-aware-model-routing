@@ -31,9 +31,11 @@ from .foundry_live import (
     MeasuringRouterClient,
     RecordedRouterClient,
     RouterOutcome,
+    capture_recorded_usage,
     load_dotenv_file,
     load_recorded_usage,
     measured_router_summary,
+    normalize_model_name,
 )
 from .foundry_router import (
     FOUNDRY_ROUTER_ENV_VARS,
@@ -131,6 +133,7 @@ __all__ = [
     "single_call_baseline_arms",
     "batch_route_payload",
     "build_trace",
+    "capture_recorded_usage",
     "classify_task",
     "compare_select",
     "extract_experiment_metrics",
@@ -152,6 +155,7 @@ __all__ = [
     "load_task_prompts",
     "load_workload",
     "measured_router_summary",
+    "normalize_model_name",
     "ordered_select",
     "policy_summary",
     "profile_task",

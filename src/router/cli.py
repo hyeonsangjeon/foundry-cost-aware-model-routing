@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import textwrap
 from pathlib import Path
 
@@ -32,6 +33,7 @@ from .foundry_live import (
     AzureModelRouterClient,
     FoundryConfig,
     RecordedRouterClient,
+    capture_recorded_usage,
     load_dotenv_file,
     load_recorded_usage,
     measured_router_summary,
@@ -295,6 +297,20 @@ def _build_metrics_parser(subparsers: argparse._SubParsersAction) -> None:
         "--live",
         action="store_true",
         help="make real Azure calls (requires credentials AND a workload with prompts)",
+    )
+    flive.add_argument(
+        "--capture",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="with --live: capture the real router's outcomes to PATH as a recorded "
+        "snapshot (genuine Azure output the RecordedRouterClient can replay offline)",
+    )
+    flive.add_argument(
+        "--max-output-tokens",
+        type=int,
+        default=2048,
+        help="per-call completion budget for live calls (raise for reasoning models)",
     )
     flive.add_argument(
         "--store",
@@ -678,7 +694,7 @@ def _measured_metrics_record(summary: dict, *, recorded_at: str) -> ExperimentMe
         source=str(labels.get("provenance", "recorded")),
         tasks=tasks,
         accepted=int(summary.get("accepted", 0)),
-        coverage=float(summary.get("coverage", 0.0)),
+        coverage=float(summary.get("coverage") or 0.0),
         routed_usd=routed,
         baseline_usd=routed,
         delta_usd=0.0,
@@ -704,13 +720,90 @@ def _measured_metrics_record(summary: dict, *, recorded_at: str) -> ExperimentMe
     )
 
 
+def _capture_resource_meta(config: FoundryConfig) -> dict[str, str]:
+    """Non-secret provenance for a captured snapshot (never the endpoint URL)."""
+
+    host = str(config.endpoint or "").split("://", 1)[-1].split("/", 1)[0]
+    account = host.split(".", 1)[0] if host else os.environ.get("AZURE_AI_SERVICES_ACCOUNT", "")
+    meta = {
+        "account": account,
+        "resource_group": os.environ.get("AZURE_RESOURCE_GROUP", ""),
+        "region": os.environ.get("CLOUD_LOCATION", ""),
+        "auth": "microsoft-entra-id-keyless" if config.auth_method == "entra" else "api-key",
+        "router_deployment": str(config.deployment or ""),
+        "api_version": config.resolved_api_version,
+    }
+    return {key: value for key, value in meta.items() if value}
+
+
+def _capture_recorded_snapshot(args: argparse.Namespace) -> int:
+    if not args.live:
+        print("foundry live --capture: capturing real outcomes needs live calls. Add --live")
+        print("  (and sign in with `az login`); `cost-router foundry status` must show yes.")
+        return 2
+    config = FoundryConfig.from_env()
+    if not config.credentialed:
+        print("foundry live --capture: not credentialed — set AZURE_AI_FOUNDRY_* in .env, "
+              "then `az login`.")
+        return 1
+    workload_path = args.workload or DEFAULT_ARENA_WORKLOAD
+    try:
+        workload = load_workload(workload_path)
+    except (OSError, ValueError) as exc:
+        print(f"foundry live --capture: {exc}")
+        return 1
+    if not workload:
+        print(f"foundry live --capture: no tasks in {workload_path}")
+        return 1
+
+    client = AzureModelRouterClient(config=config, max_output_tokens=args.max_output_tokens)
+    try:
+        snapshot = capture_recorded_usage(
+            workload, client, resource=_capture_resource_meta(config)
+        )
+    except (RuntimeError, ValueError, KeyError) as exc:
+        print(f"foundry live --capture: {exc}")
+        return 1
+
+    args.capture.parent.mkdir(parents=True, exist_ok=True)
+    args.capture.write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    outcomes = snapshot["outcomes"]
+    mix: dict[str, int] = {}
+    for entry in outcomes.values():
+        mix[entry["model"]] = mix.get(entry["model"], 0) + 1
+    mix_str = ", ".join(f"{model}×{count}" for model, count in sorted(mix.items()))
+    print(f"foundry live — captured {len(outcomes)} real outcomes → {args.capture}")
+    print(f"  source     : LIVE Azure Model Router ({config.deployment})")
+    print(f"  captured_at: {snapshot['captured_at']}")
+    print(f"  models     : {mix_str}")
+    print("  labels     : measured=false  provenance=recorded  captured_from=live")
+    print(f"  replay     : cost-router foundry live --recorded {args.capture}")
+    return 0
+
+
 def _cmd_foundry_live(args: argparse.Namespace) -> int:
     load_dotenv_file(args.env_file)
+
+    if args.capture is not None:
+        return _capture_recorded_snapshot(args)
+
     try:
         workload, signals, policy, pricing = _load_scoring_inputs(args)
     except (OSError, ValueError, KeyError) as exc:
         print(f"foundry live: {exc}")
         return 1
+
+    # The shipped recorded snapshot carries real 5-series model names, so price it
+    # with the real fleet list rates unless the caller pinned their own --pricing.
+    if args.pricing is None:
+        try:
+            pricing = PricingTable.from_yaml(DEFAULT_FLEET_PRICING)
+        except (OSError, ValueError) as exc:
+            print(f"foundry live: {exc}")
+            return 1
 
     config = FoundryConfig.from_env()
     if args.live:
@@ -720,7 +813,9 @@ def _cmd_foundry_live(args: argparse.Namespace) -> int:
                 "(run `cost-router foundry status`)."
             )
             return 1
-        client: object = AzureModelRouterClient(config=config)
+        client: object = AzureModelRouterClient(
+            config=config, max_output_tokens=args.max_output_tokens
+        )
         mode = "LIVE Azure Model Router"
     else:
         fixture = args.recorded or DEFAULT_USAGE_FIXTURE
@@ -754,8 +849,13 @@ def _cmd_foundry_live(args: argparse.Namespace) -> int:
     print(f"  tasks             : {summary['tasks']}")
     print(f"  routed cost (real): ${summary['total_cost_usd']:.6f}")
     print(f"  avg $/task        : ${summary['avg_usd_per_task']:.6f}")
-    cov_kind = "measured" if labels["coverage_measured"] else "projected"
-    print(f"  coverage ({cov_kind}): {summary['coverage']:.1%}")
+    coverage = summary["coverage"]
+    if coverage is None:
+        print(f"  coverage          : ungraded ({labels['coverage_basis']} — "
+              "spend is measured, correctness needs a grader)")
+    else:
+        cov_kind = "measured" if labels["coverage_measured"] else "projected"
+        print(f"  coverage ({cov_kind}): {coverage:.1%}")
     print(f"  spend source      : {labels['spend_source']}")
     print(f"  provenance        : {labels['provenance']}")
     print(f"  measured          : {_yn(labels['measured'])}")
