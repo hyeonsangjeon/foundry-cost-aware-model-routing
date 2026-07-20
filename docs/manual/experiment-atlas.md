@@ -101,7 +101,15 @@ Only **layer 3 (SELECT)** changes shape between experiments. There are exactly *
 Every card lists **what it processes**, **which models**, **which mechanism**, the **dial** it turns,
 the **headline** (re-derived live by the command shown), and a link to the full lab-notebook entry.
 
+Each card **opens with a looping animation** that traces its real mechanism — flow dots, the
+escalation ladder, or the fan-out — while the offline (`measured=false`) numbers count up live.
+They are generated deterministically from the numbers above by
+[`scripts/build_experiment_gifs.py`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/scripts/build_experiment_gifs.py)
+(Pillow + ffmpeg).
+
 ### `hero` — same coverage, lower cost
+
+![Animated hero loop: a naive lane sends every task to premium-max ($2.23) while the cost-aware lane tries mini-fast first, escalates once on a failed check, and keeps swift-coder — landing 25.5% cheaper at the same 100% coverage](../assets/gif/hero.gif)
 
 | | |
 | --- | --- |
@@ -122,6 +130,8 @@ escalation keeps that 100% coverage but tries cheap-clean-first, landing 25.5% c
 
 ### `curated` — five tasks you can read
 
+![Animated curated loop: the same escalation ladder over five hand-labelled tasks, cheap-clean-first, landing 56.7% under premium-on-every-task](../assets/gif/curated.gif)
+
 | | |
 | --- | --- |
 | **Processes** | 5 hand-written offline signals (`samples/responses/routing-signals.sample.json`) |
@@ -139,6 +149,8 @@ Tiny enough to follow every routing decision by eye end-to-end.
 → [Lab-notebook 02](../lab-notebook/02-curated.md)
 
 ### `ensemble` — best-of-N, at a real cost
+
+![Animated ensemble loop: the workload fans out to all five candidates in parallel, a compare node keeps the cheapest passing winner (swift-coder), and a meter fills to the ~3.7x fan-out tax paid for the losing calls](../assets/gif/ensemble.gif)
 
 | | |
 | --- | --- |
@@ -158,6 +170,8 @@ model — still 47% under naive — but fanning out means paying for the losing 
 → [Lab-notebook 05](../lab-notebook/05-ensemble-fanout.md)
 
 ### `adaptive` — the fan-out dial, turned off
+
+![Animated adaptive loop: a dial raises compare_min_value above every task value, collapsing the five parallel fan-out lines to one and draining the fan-out tax from 3.7x to 0.00x while the 47% savings stay put](../assets/gif/adaptive.gif)
 
 | | |
 | --- | --- |
@@ -180,6 +194,8 @@ that before paying the tax.)
 
 ### `limits` — there is no free lunch
 
+![Animated limits loop: every cheap tier fails in turn (mini-fast, swift-coder, balanced-pro, deep-reasoner all red) so escalation climbs all the way to premium-max on every task — 0.0% savings, honest spend](../assets/gif/limits.gif)
+
 | | |
 | --- | --- |
 | **Processes** | 6 genuinely hard tasks where **only the priciest candidate passes** (`hard-tasks-signals.sample.json`) |
@@ -200,6 +216,8 @@ on hard work.
 → [Lab-notebook 04](../lab-notebook/04-no-free-lunch.md)
 
 ### `model-router` — one pick vs observe-and-escalate
+
+![Animated model-router loop: a single-call lane picks one tier up front and stalls at 52% coverage, while the escalation lane observes cheap failures and raises only when needed to reach 100% coverage at the same cost band (+48 percentage points)](../assets/gif/model-router.gif)
 
 | | |
 | --- | --- |
