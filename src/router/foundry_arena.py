@@ -35,7 +35,6 @@ Design goals (readable-first):
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -43,20 +42,16 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from .foundry_live import AzureModelRouterClient, FoundryConfig, RouterOutcome
+from .foundry_live import (
+    AzureModelRouterClient,
+    FoundryConfig,
+    RouterOutcome,
+    normalize_model_name,
+)
 from .pricing import PricingTable
 
-# A dated model id like ``gpt-5.4-2026-03-05`` prices/display against its base
-# ``gpt-5.4``; the vendor/tier is preserved, only the version date is stripped.
-_VERSION_SUFFIX = re.compile(r"-\d{4}-\d{2}-\d{2}$")
-
-
-def normalize_model_name(model: str | None) -> str:
-    """Strip a trailing ``-YYYY-MM-DD`` version suffix from a model id."""
-
-    if not model:
-        return ""
-    return _VERSION_SUFFIX.sub("", model.strip())
+# ``normalize_model_name`` (dated id ``gpt-5.4-2026-03-05`` → base ``gpt-5.4``) is
+# defined once in ``foundry_live`` and re-exported here (used below and by callers).
 
 
 @dataclass(frozen=True)

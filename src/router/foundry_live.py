@@ -34,8 +34,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -263,6 +265,20 @@ class FoundryConfig:
         }
 
 
+# A dated model id like ``gpt-5.4-2026-03-05`` normalizes to its base ``gpt-5.4``
+# (vendor/tier kept, only the version date stripped) so it prices and displays
+# against the stable row in a pricing table.
+_VERSION_SUFFIX = re.compile(r"-\d{4}-\d{2}-\d{2}$")
+
+
+def normalize_model_name(model: str | None) -> str:
+    """Strip a trailing ``-YYYY-MM-DD`` version suffix from a model id."""
+
+    if not model:
+        return ""
+    return _VERSION_SUFFIX.sub("", model.strip())
+
+
 @dataclass(frozen=True)
 class RouterOutcome:
     """One task's real router result: the chosen model and the tokens it billed.
@@ -435,8 +451,10 @@ def measured_router_summary(
     For each task the ``client`` returns a :class:`RouterOutcome`; cost is that
     outcome's real usage priced by ``pricing`` (not the synthetic ``task[tokens]``
     the offline arms use). Coverage is measured only when a ``grader`` is
-    supplied; otherwise it is the offline signal projection for the chosen model
-    and ``labels.coverage_measured`` is ``false``.
+    supplied; otherwise it is the offline signal projection for the chosen model,
+    and when the chosen model has no signal row (e.g. a genuinely captured real
+    model), coverage is ``None`` and ``labels.coverage_basis = "ungraded"`` —
+    spend is measured, quality is not.
 
     ``labels.measured`` is ``true`` only when every outcome's provenance is
     ``live`` — a fresh measurement. ``model_aliases`` maps a provider model name
@@ -468,12 +486,24 @@ def measured_router_summary(
                 if is_clean(row):
                     accepted += 1
     coverage_measured = grader is not None
-    denom = counted if coverage_measured else coverable
+    if coverage_measured:
+        coverage_basis = "graded"
+        denom = counted
+    elif coverable > 0:
+        coverage_basis = "offline-projection"
+        denom = coverable
+    else:
+        # A genuinely captured model has no offline signal row to project against,
+        # so quality is honestly *ungraded* here: spend is measured, but whether
+        # each answer was correct needs a grader the caller supplies.
+        coverage_basis = "ungraded"
+        denom = 0
+    coverage = (accepted / denom) if denom else None
     provenance = _combine_provenance(provenances)
     measured = counted > 0 and provenance == "live"
     return {
         "total_cost_usd": round(total, 6),
-        "coverage": (accepted / denom) if denom else 0.0,
+        "coverage": coverage,
         "tasks": counted,
         "accepted": accepted,
         "graded": graded,
@@ -486,6 +516,7 @@ def measured_router_summary(
             "spend_source": "provider-usage",
             "provenance": provenance,
             "coverage_measured": coverage_measured,
+            "coverage_basis": coverage_basis,
         },
     }
 
@@ -522,6 +553,58 @@ def load_recorded_usage(path: Path | str) -> dict[str, RouterOutcome]:
             provenance=str(entry.get("provenance", default_prov)),
         )
     return outcomes
+
+
+_CAPTURE_NOTE = (
+    "CAPTURED LIVE from an Azure AI Foundry Model Router call: each entry is the "
+    "real model the router picked plus the real token 'usage' it billed. Replaying "
+    "this snapshot is honestly labelled provenance=recorded / measured=false — a "
+    "captured measurement, not a fresh one. Re-capture with "
+    "`cost-router foundry live --live --capture <path>`."
+)
+
+
+def capture_recorded_usage(
+    workload: Mapping[str, Mapping[str, Any]],
+    client: MeasuringRouterClient,
+    *,
+    resource: Mapping[str, Any] | None = None,
+    note: str | None = None,
+    normalize: bool = True,
+) -> dict[str, Any]:
+    """Build a recorded snapshot from a **real** router client — the inverse of
+    :func:`load_recorded_usage`.
+
+    Instead of replaying a hand-authored file, this runs a live client (typically
+    :class:`AzureModelRouterClient`) over prompt-bearing tasks and records the
+    genuine ``task_id -> {model, usage}`` result, so the snapshot the repo ships
+    is real Azure output rather than an illustrative mock. Every entry is stamped
+    ``provenance = recorded`` — the artifact is a *recording*, so a later replay of
+    it is honestly not a fresh measurement; the top-level ``captured_from = live``
+    label is what records that its source was a real Azure call. Model ids are
+    normalized (``gpt-5.4-2026-03-05`` → ``gpt-5.4``) so they price against a
+    stable pricing row. The file's top-level ``labels`` stay ``measured = false``
+    for the same reason.
+    """
+
+    outcomes: dict[str, Any] = {}
+    for task_id in sorted(workload):
+        outcome = client.complete(workload[task_id])
+        outcomes[str(task_id)] = {
+            "model": normalize_model_name(outcome.model) if normalize else outcome.model,
+            "usage": {k: float(v) for k, v in outcome.usage.items()},
+            "provenance": "recorded",
+        }
+    snapshot: dict[str, Any] = {
+        "version": 1,
+        "_note": note or _CAPTURE_NOTE,
+        "captured_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "labels": {"measured": False, "provenance": "recorded", "captured_from": "live"},
+    }
+    if resource:
+        snapshot["resource"] = dict(resource)
+    snapshot["outcomes"] = outcomes
+    return snapshot
 
 
 def _messages_for(task: Mapping[str, Any]) -> list[dict[str, str]]:

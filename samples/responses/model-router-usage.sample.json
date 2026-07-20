@@ -1,12 +1,70 @@
 {
-  "version": 1,
-  "_note": "Recorded Azure AI Foundry Model Router usage (ILLUSTRATIVE snapshot, offline). Each entry is one task's real-shaped result: the underlying model the router picked plus the token 'usage' it billed (input/cached/output/reasoning). measured_router_summary prices this ACTUAL usage rather than the synthetic task.tokens the offline arms use, so it exercises the measured spend path. labels.provenance = recorded and labels.measured = false: replaying this snapshot is a CAPTURED measurement, not a fresh live call. Only `cost-router foundry live` with credentials yields provenance=live / measured=true. Token counts here are illustrative, not billed against any tenant. See docs/manual/foundry-live.md.",
-  "labels": { "measured": false, "provenance": "recorded" },
+  "_note": "CAPTURED LIVE from an Azure AI Foundry Model Router call: each entry is the real model the router picked plus the real token 'usage' it billed. Replaying this snapshot is honestly labelled provenance=recorded / measured=false — a captured measurement, not a fresh one. Re-capture with `cost-router foundry live --live --capture <path>`.",
+  "captured_at": "2026-07-20T23:22:20+00:00",
+  "labels": {
+    "captured_from": "live",
+    "measured": false,
+    "provenance": "recorded"
+  },
   "outcomes": {
-    "t-0001": { "model": "balanced-pro", "usage": { "input": 1300, "cached": 400, "output": 520, "reasoning": 240 } },
-    "t-0003": { "model": "premium-max", "usage": { "input": 6600, "cached": 3000, "output": 1500, "reasoning": 2400 } },
-    "t-0004": { "model": "deep-reasoner", "usage": { "input": 1500, "cached": 450, "output": 800, "reasoning": 1200 } },
-    "t-0005": { "model": "deep-reasoner", "usage": { "input": 450, "cached": 150, "output": 180, "reasoning": 220 } },
-    "t-0006": { "model": "balanced-pro", "usage": { "input": 2000, "cached": 800, "output": 300, "reasoning": 400 } }
-  }
+    "t-0001": {
+      "model": "grok-4-1-fast-reasoning",
+      "provenance": "recorded",
+      "usage": {
+        "cached": 54.0,
+        "input": 54.0,
+        "output": 0.0,
+        "reasoning": 2004.0
+      }
+    },
+    "t-0003": {
+      "model": "gpt-5.4",
+      "provenance": "recorded",
+      "usage": {
+        "cached": 0.0,
+        "input": 72.0,
+        "output": 140.0,
+        "reasoning": 8.0
+      }
+    },
+    "t-0004": {
+      "model": "gpt-5.4",
+      "provenance": "recorded",
+      "usage": {
+        "cached": 0.0,
+        "input": 50.0,
+        "output": 886.0,
+        "reasoning": 264.0
+      }
+    },
+    "t-0005": {
+      "model": "gpt-5.4",
+      "provenance": "recorded",
+      "usage": {
+        "cached": 0.0,
+        "input": 53.0,
+        "output": 387.0,
+        "reasoning": 151.0
+      }
+    },
+    "t-0006": {
+      "model": "grok-4-1-fast-reasoning",
+      "provenance": "recorded",
+      "usage": {
+        "cached": 59.0,
+        "input": 59.0,
+        "output": 0.0,
+        "reasoning": 1496.0
+      }
+    }
+  },
+  "resource": {
+    "account": "aoai-router5-ext-faf57f",
+    "api_version": "2024-10-21",
+    "auth": "microsoft-entra-id-keyless",
+    "region": "eastus2",
+    "resource_group": "rg-foundry-router-5series",
+    "router_deployment": "model-router"
+  },
+  "version": 1
 }

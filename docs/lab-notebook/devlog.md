@@ -10,6 +10,39 @@
 
 ---
 
+## 2026-07-23 · 녹화 스냅샷을 실제 Azure 캡처로 교체 (`--capture`)
+
+!!! note "한 줄 요약"
+    기본·CI `foundry live`가 재생하던 녹화 픽스처를 손으로 쓴 목업(`balanced-pro`·`premium-max`
+    같은 가짜 이름)에서 **진짜 Azure Model Router 출력을 포착한 스냅샷**으로 교체했습니다.
+    `load_recorded_usage`의 역함수 `capture_recorded_usage` + `foundry live --capture`를 추가해,
+    녹화 스냅샷의 *출처*가 실제 SDK 클라이언트가 되도록 했습니다. 실제 모델은 오프라인 신호에
+    대응 행이 없으므로 커버리지는 정직하게 **미채점**(`coverage = null`)이 됩니다.
+
+- **상황(왜):** `AzureModelRouterClient`는 이미 실제 SDK 클라이언트였지만, 기본·CI가 타는
+  `foundry live` 경로는 여전히 **손으로 저작한 합성 픽스처**를 재생했습니다 — 가짜 모델 이름과
+  임의 토큰이라, "녹화된 스냅샷"이 실제 Azure 출력이 아니었습니다.
+- **작업(무엇을):**
+    - `capture_recorded_usage(workload, client, …)` 신설 — 라이브 클라이언트를 프롬프트 워크로드에
+      돌려 진짜 `task_id -> {model, usage}`를 기록(모델 이름 정규화, 각 항목 `provenance=recorded`,
+      최상위 `captured_from=live`). `normalize_model_name`을 `foundry_live`의 정본으로 승격
+      (arena가 재-export).
+    - CLI `foundry live --capture <path>`(+`--max-output-tokens`) — `--live`+크리덴셜을 요구하고,
+      비시크릿 provenance(`_capture_resource_meta`: 계정명·RG·리전·API 버전; **엔드포인트 URL·키
+      절대 미저장**)만 남깁니다.
+    - 싣는 픽스처(`model-router-usage.sample.json`)를 **실제 라이브 캡처로 재생성** — `gpt-5.4`(3건)
+      + `grok-4-1-fast-reasoning`(2건), 진짜 청구 토큰.
+    - **커버리지 정직화:** 실제 모델이 오프라인 신호에 없을 때 `measured_router_summary`가
+      `coverage = null` + `labels.coverage_basis = "ungraded"`를 돌려주도록(0.0%가 "0% 통과"로
+      오독되던 문제 제거). CLI·메트릭 기록도 None-안전.
+- **검증(효과):** 녹화 스냅샷 실측 = **`$0.020334`**(5-시리즈 실제 요율), 커버리지 **미채점**
+  (지출은 측정, 정확도는 grader 필요). 각 항목 `provenance = recorded`라 **재생이 절대
+  `measured = true`로 둔갑하지 않고**, `captured_from = live`가 "출처는 실제"임을 남깁니다.
+  캡처 경로 테스트(무네트워크·주입 클라이언트) 추가, 시크릿·엔드포인트 누출 0. 전체 스위트
+  그린, ruff 클린. 기본 경로·CI는 여전히 무송신·결정론.
+
+---
+
 ## 2026-07-22 · 실측 라우팅 — Foundry Model Router가 실제로 고른 모델들 (`measured = true`)
 
 !!! note "한 줄 요약"
