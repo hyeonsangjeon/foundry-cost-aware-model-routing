@@ -202,5 +202,22 @@ note      latency is an illustrative projection (measured = false), not wall-clo
 문제 진술(`problem` 블록)은 **저작한 합성 예시**이며 표시 전용입니다 — 위 수치는 프롬프트가
 없어도 동일합니다.
 
+## 실측으로 전환하기 (`measured = true`)
+
+위 수치는 오프라인 투영입니다. 이제 큐레이션 태스크에 **보낼 수 있는 프롬프트**가 붙었으므로,
+같은 5건을 실제 Azure Model Router로 측정할 수 있습니다 — 크리덴셜을 채운 뒤 한 명령이면
+됩니다:
+
+```bash
+cost-router foundry live --live \
+  --workload samples/telemetry/curated-arena-live.sample.jsonl \
+  --pricing  samples/pricing/your-tenant.yaml --store runs.jsonl
+```
+
+실제 청구 usage로 비용이 계산되어 `measured = true`가 되고, 결과는 히스토리컬 대시보드에
+기록됩니다. **경계:** 프롬프트는 저작-합성이지만 그걸 보내 받은 **usage·비용은 실측**입니다.
+정확도(pass/fail)까지 측정하려면 `grader`를 주입해야 하며, 없으면 커버리지는 오프라인 신호
+투영으로 라벨됩니다. 자세히는 [라이브 실측 브릿지](../manual/foundry-live.md)를 보세요.
+
 자세한 매뉴얼은 [문제 하나, 네 가지 방법](../manual/head-to-head.md)을, 개발 맥락은
 [개발 로그](devlog.md)의 2026-07-20 항목을 참고하세요.

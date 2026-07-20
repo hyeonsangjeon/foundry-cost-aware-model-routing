@@ -114,16 +114,51 @@ Azure Model Router — measured spend  (recorded snapshot (…/model-router-usag
   → this is a replay/projection; run with --live + credentials for measured=true.
 ```
 
-크리덴셜이 있고 워크로드에 **프롬프트가 있으면** 실제 호출로 `measured = true`를 얻습니다:
+### 큐레이션 태스크를 실측으로 — 한 명령 (t-0001~t-0006)
+
+번들 텔레메트리에는 프롬프트가 없어 라이브로 못 보냅니다. 그래서 아레나의 큐레이션 5건을
+**보낼 수 있는 프롬프트와 함께** 담은 워크로드를 준비했습니다:
+`samples/telemetry/curated-arena-live.sample.jsonl`. 크리덴셜을 채운 뒤 이 한 명령이면
+t-0001~t-0006 **전부**가 실제 Model Router 호출로 `measured = true`가 됩니다:
+
+```bash
+cost-router foundry live --live \
+  --workload samples/telemetry/curated-arena-live.sample.jsonl \
+  --pricing  samples/pricing/your-tenant.yaml \
+  --store    runs.jsonl
+```
+
+```text
+Azure Model Router — measured spend  (LIVE Azure Model Router)
+  tasks             : 5
+  routed cost (real): $…                 # 여러분 배포가 실제로 청구한 usage
+  coverage (projected): …                # grader 없으면 오프라인 신호 투영
+  provenance        : live
+  measured          : yes                # 방금 일어난 라이브 호출
+```
+
+크리덴셜이 아직 없으면, **같은 워크로드를 녹화 스냅샷으로** 돌려 경로를 그대로 확인할 수
+있습니다(결정론·무송신, `measured = false`):
+
+```bash
+cost-router foundry live --workload samples/telemetry/curated-arena-live.sample.jsonl
+```
+
+!!! note "왜 이 워크로드만 라이브로 보낼 수 있나"
+    번들 텔레메트리(`mixed-coding-workload…`)는 `task_id`·`tokens`만 있고 **프롬프트 텍스트가
+    없어** 실제 엔드포인트로 보낼 수 없습니다. `curated-arena-live…`는 아레나 5건에 **저작한
+    합성 프롬프트**(표시·전송용, `measured = false`인 입력)를 붙여 라이브 전송이 가능하게 한
+    것입니다. 프롬프트는 저작-합성이지만, 그걸 **실제로 보내 받은 usage·비용은 measured=true**
+    입니다 — 입력의 출처(저작)와 측정의 출처(라이브)는 별개입니다. 정확도(pass/fail)까지
+    측정하려면 `grader`를 주입하세요(없으면 커버리지는 오프라인 신호 투영으로 라벨).
+
+### 임의 워크로드로
+
+여러분의 실제 프롬프트가 있는 워크로드를 직접 줘도 됩니다:
 
 ```bash
 cost-router foundry live --live --workload my-prompts.jsonl --pricing samples/pricing/your-tenant.yaml
 ```
-
-!!! note "번들 워크로드는 라이브로 못 보냅니다"
-    번들 텔레메트리(`samples/telemetry/…`)는 `task_id`·`tokens`만 있고 **프롬프트 텍스트가
-    없어** 실제 엔드포인트로 보낼 수 없습니다. 라이브 실측에는 태스크마다 `prompt`(또는
-    `messages`)가 있는 워크로드가 필요합니다. CI는 그래서 녹화 픽스처로 경로를 검증합니다.
 
 ## 4. 히스토리컬 대시보드로 연결
 
