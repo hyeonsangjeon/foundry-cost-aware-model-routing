@@ -27,10 +27,17 @@
 | --- | --- | --- |
 | `AZURE_AI_FOUNDRY_ENDPOINT` | 리소스 엔드포인트 | `AZURE_OPENAI_ENDPOINT` |
 | `AZURE_AI_FOUNDRY_MODEL_ROUTER` | Model Router 배포 이름 | `AZURE_MODEL_ROUTER_DEPLOYMENT` |
-| `AZURE_AI_FOUNDRY_API_KEY` | API 키 | `AZURE_OPENAI_API_KEY` |
+| `AZURE_AI_FOUNDRY_AUTH` | 인증 방식(선택): `entra` \| `key`, 비우면 자동 | — |
+| `AZURE_AI_FOUNDRY_API_KEY` | API 키 — **Entra ID 사용 시 불필요** | `AZURE_OPENAI_API_KEY` |
+| `AZURE_AI_FOUNDRY_TOKEN_SCOPE` | Entra 토큰 스코프(선택, 기본 Cognitive Services) | — |
 | `AZURE_AI_FOUNDRY_API_VERSION` | 데이터플레인 API 버전(선택) | `AZURE_OPENAI_API_VERSION` |
 | `AZURE_AI_FOUNDRY_CONNECTION_STRING` | 관측성 전송(선택) | `APPLICATIONINSIGHTS_CONNECTION_STRING` |
 | `FOUNDRY_PRICING_PATH` | 여러분 테넌트 요율 YAML(선택) | `COST_ROUTER_PRICING` |
+
+인증은 두 가지입니다. **API 키**가 있으면 키 인증, 없으면 **Microsoft Entra ID(Azure AD)**
+토큰 인증으로 자동 전환됩니다. 키 인증이 비활성화된 리소스(`disableLocalAuth=true`,
+엔터프라이즈 테넌트에서 흔함)에서는 후자가 유일한 경로입니다 — 자세한 절차는
+[1-bis. Microsoft Entra ID(키리스) 인증](#1-bis-microsoft-entra-idkeyless)을 보세요.
 
 `.env.sample`을 `.env`로 복사해 로컬에서 채우세요(`.env`는 gitignored). `cost-router foundry
 status`·`live` 명령은 실행 시 **이 `.env`를 자동으로 로드**한 뒤 설정을 읽습니다 — 별도의
@@ -54,6 +61,7 @@ cost-router foundry status
 Azure AI Foundry — live measured Model Router bridge
   router configured : yes
   credentialed      : yes
+  auth method       : API key                          # 또는 Microsoft Entra ID (keyless)
   endpoint          : https://your-resource.example   # 호스트만 (경로·쿼리 제거)
   deployment        : model-router
   api key           : set (****WXYZ)                            # 마지막 4자만
@@ -67,6 +75,45 @@ Azure AI Foundry — live measured Model Router bridge
     `status()`는 엔드포인트를 **스킴+호스트**로 줄이고, API 키와 연결 문자열을 **마지막 4자**로
     마스킹합니다. 배포 이름·API 버전(시크릿 아님)만 그대로 보여, 로그·화면에 붙여도
     안전합니다. `--json`으로 기계가 읽을 수도 있습니다.
+
+### 1-bis. Microsoft Entra ID(keyless) 인증 {#1-bis-microsoft-entra-idkeyless}
+
+엔터프라이즈 테넌트는 API 키 인증을 꺼두는 경우가 많습니다(`disableLocalAuth=true`). 이때는
+키 대신 **여러분의 Azure 신원**(`az login`, 매니지드 아이덴티티, 환경 자격증명 등)에서 발급한
+베어러 토큰으로 호출합니다. 브릿지는 **API 키가 없으면 자동으로 Entra ID로 전환**하므로,
+설정은 사실상 "키를 비워 두는 것"이 전부입니다.
+
+```bash
+# 1) 라이브 extra 설치 (openai + azure-identity)
+pip install "foundry-cost-router[foundry]"
+
+# 2) 여러분 신원에 데이터플레인 역할 부여 — 리소스에 한 번만
+az role assignment create \
+  --assignee "$(az ad signed-in-user show --query id -o tsv)" \
+  --role "Cognitive Services OpenAI User" \
+  --scope "<리소스 resourceId>"
+
+# 3) 로그인 (샌드박스/헤드리스는 --use-device-code)
+az login --use-device-code
+
+# 4) .env: 키는 비우고 엔드포인트+배포만 (+ 원하면 방식 고정)
+#    AZURE_AI_FOUNDRY_ENDPOINT=https://your-resource.example    # 실제 리소스 호스트
+#    AZURE_AI_FOUNDRY_MODEL_ROUTER=model-router
+#    AZURE_AI_FOUNDRY_AUTH=entra        # 선택 — 비워도 키가 없으면 자동 entra
+cost-router foundry status              # auth method : Microsoft Entra ID (keyless)
+```
+
+- **역할**: 데이터플레인 호출에는 `Cognitive Services OpenAI User`가 필요합니다(관리자
+  역할인 *Contributor*로는 추론 호출이 안 됩니다).
+- **스코프**: 기본 토큰 스코프는 `https://cognitiveservices.azure.com/.default`이며,
+  `AZURE_AI_FOUNDRY_TOKEN_SCOPE`로 재정의할 수 있습니다.
+- **강제**: 키와 Entra가 모두 가능한 환경에서 키리스를 강제하려면 `AZURE_AI_FOUNDRY_AUTH=entra`.
+- **결정론 유지**: `azure-identity`는 라이브 호출 시에만 지연 임포트됩니다 — 기본 오프라인
+  경로·CI는 이 패키지 없이도 그대로 동작합니다.
+
+!!! note "시크릿을 다루지 않습니다"
+    Entra 경로에는 `.env`에 넣을 키 자체가 없습니다. 토큰은 라이브 호출 순간 여러분의
+    신원에서 발급되고 메모리에만 존재하며, 이 저장소는 어떤 자격증명도 저장하지 않습니다.
 
 ## 2. 실측 스코어링 경로
 
@@ -181,7 +228,28 @@ cost-router metrics history --store runs.jsonl
 이 모듈을 임포트해도 SDK가 필요하지 않습니다. 라이브 엑스트라를 설치하려면:
 
 ```bash
-pip install "foundry-cost-router[foundry]"   # openai SDK
+pip install "foundry-cost-router[foundry]"   # openai + azure-identity
+```
+
+인증은 `config.auth_method`를 따릅니다:
+
+- **키 인증** — `AzureOpenAI(api_key=…)`. `AZURE_AI_FOUNDRY_API_KEY`가 있을 때 자동 선택.
+- **Entra ID(키리스)** — 키가 없으면 `azure.identity.DefaultAzureCredential`로
+  `azure_ad_token_provider`를 만들어 `AzureOpenAI(azure_ad_token_provider=…)`로 호출합니다.
+  `azure-identity`는 이 순간에만 지연 임포트됩니다.
+
+```python
+from router.foundry_live import AzureModelRouterClient, FoundryConfig
+
+# 키가 없으면 auth_method == "entra" — az login 신원으로 토큰 발급
+client = AzureModelRouterClient(config=FoundryConfig.from_env())
+
+# 테스트/오프라인: 네트워크·azure-identity 없이 Entra 분기를 검증하려면
+# token_provider(또는 sdk_client / RecordedRouterClient)를 주입합니다.
+client = AzureModelRouterClient(
+    config=FoundryConfig.from_env(),
+    token_provider=lambda: "fake-bearer-token",
+)
 ```
 
 테스트·오프라인에서는 `sdk_client`(또는 `RecordedRouterClient`)를 주입해 네트워크 없이
