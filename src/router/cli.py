@@ -20,6 +20,14 @@ from .experiment import (
     load_experiment,
     run_experiment,
 )
+from .foundry_arena import (
+    FleetSlate,
+    FoundryFleet,
+    MeasuredArenaLedger,
+    arena_report,
+    load_arena_tasks,
+    run_live_arena,
+)
 from .foundry_live import (
     AzureModelRouterClient,
     FoundryConfig,
@@ -55,6 +63,10 @@ from .pricing import PricingTable
 # Bundled recorded provider-usage snapshot: replayed offline so `foundry live`
 # demonstrates the measured scoring path with no credentials (measured=false).
 DEFAULT_USAGE_FIXTURE = Path("samples/responses/model-router-usage.sample.json")
+
+# Live arena defaults: prompt-bearing curated workload + real fleet list prices.
+DEFAULT_ARENA_WORKLOAD = Path("samples/telemetry/curated-arena-live.sample.jsonl")
+DEFAULT_FLEET_PRICING = Path("samples/pricing/foundry-5series.yaml")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -298,6 +310,54 @@ def _build_metrics_parser(subparsers: argparse._SubParsersAction) -> None:
         help="dotenv file to load before reading config (default: .env; missing is fine)",
     )
     flive.set_defaults(func=_cmd_foundry_live)
+
+    farena = foundry_sub.add_parser(
+        "arena",
+        help="One problem, four ways — measured head-to-head on real deployments (--live).",
+    )
+    farena.add_argument(
+        "--workload",
+        type=Path,
+        default=None,
+        help="prompt-bearing JSONL workload (default: curated live arena sample)",
+    )
+    farena.add_argument(
+        "--pricing",
+        type=Path,
+        default=None,
+        help="rate card for pricing real usage (default: bundled 5-series list prices)",
+    )
+    farena.add_argument(
+        "--live",
+        action="store_true",
+        help="make real Azure calls for all four arms (requires credentials)",
+    )
+    farena.add_argument(
+        "--max-output-tokens",
+        type=int,
+        default=2048,
+        help="per-call completion budget (reasoning models need headroom; default 2048)",
+    )
+    farena.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="write the full measured report to this JSON file",
+    )
+    farena.add_argument(
+        "--ledger",
+        type=Path,
+        default=None,
+        help="append one honest measured row per task to this JSONL ledger",
+    )
+    farena.add_argument("--json", action="store_true", help="print the report as JSON")
+    farena.add_argument(
+        "--env-file",
+        type=Path,
+        default=Path(".env"),
+        help="dotenv file to load before reading config (default: .env; missing is fine)",
+    )
+    farena.set_defaults(func=_cmd_foundry_arena)
 
 
 def _add_data_args(parser: argparse.ArgumentParser) -> None:
@@ -702,6 +762,89 @@ def _cmd_foundry_live(args: argparse.Namespace) -> int:
     if not labels["measured"]:
         print("  → this is a replay/projection; run with --live + credentials for measured=true.")
     return 0
+
+
+def _cmd_foundry_arena(args: argparse.Namespace) -> int:
+    load_dotenv_file(args.env_file)
+    workload = args.workload or DEFAULT_ARENA_WORKLOAD
+    pricing_path = args.pricing or DEFAULT_FLEET_PRICING
+    try:
+        tasks = load_arena_tasks(workload)
+        pricing = PricingTable.from_yaml(pricing_path)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"foundry arena: {exc}")
+        return 1
+    if not tasks:
+        print(f"foundry arena: no prompt-bearing tasks in {workload}")
+        return 1
+
+    if not args.live:
+        print("foundry arena: real head-to-head needs live calls. Re-run with --live once")
+        print("  `cost-router foundry status` shows credentialed: yes (az login / Entra ID).")
+        return 2
+
+    config = FoundryConfig.from_env()
+    if not config.credentialed:
+        print("foundry arena: not credentialed — set AZURE_AI_FOUNDRY_* in .env, then `az login`.")
+        return 1
+
+    slate = FleetSlate()
+    fleet = FoundryFleet.from_config(config, max_output_tokens=args.max_output_tokens)
+    try:
+        outcomes = run_live_arena(fleet, tasks, slate, pricing)
+    except (RuntimeError, ValueError, KeyError) as exc:
+        print(f"foundry arena: {exc}")
+        return 1
+
+    report = arena_report(outcomes, pricing)
+    if args.ledger is not None:
+        ledger = MeasuredArenaLedger(path=args.ledger, pricing=pricing)
+        for outcome in outcomes:
+            ledger.record(outcome)
+        ledger.flush()
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(
+            json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False), encoding="utf-8"
+        )
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False))
+        return 0
+
+    _print_arena_report(report, slate)
+    return 0
+
+
+def _print_arena_report(report: dict, slate: FleetSlate) -> None:
+    labels = report["labels"]
+    print("Azure AI Foundry — live arena (one problem, four ways)")
+    print(f"  tasks     : {report['tasks']}   measured: {_yn(labels['measured'])}   "
+          f"cost basis: {labels['cost_basis']}   accuracy: {labels['accuracy']}")
+    print(f"  fleet     : cheapest={slate.cheapest}  premium={slate.premium}  "
+          f"router={slate.router}")
+    print(f"  ensemble  : {' + '.join(slate.ensemble)}")
+    print("")
+    header = f"  {'arm':9s} {'cost (real $)':>14s} {'avg latency':>12s}  billing"
+    print(header)
+    print(f"  {'-' * 9} {'-' * 14:>14s} {'-' * 11:>12s}  {'-' * 16}")
+    billing = {
+        "cheapest": "single-call",
+        "premium": "single-call",
+        "ensemble": "sum-all-fanout",
+        "router": "winner-only",
+    }
+    for arm in ("cheapest", "premium", "ensemble", "router"):
+        totals = report["arm_totals"][arm]
+        print(f"  {arm:9s} {totals['total_cost_usd']:>14.6f} "
+              f"{totals['avg_latency_ms']:>10.0f}ms  {billing[arm]}")
+    print("")
+    mix = ", ".join(f"{m}×{n}" for m, n in report["router_model_mix"].items())
+    print(f"  router picked      : {mix}")
+    print(f"  router vs premium  : {report['router_vs_premium_savings_pct']:.1f}% cheaper "
+          f"(real usage, list-price basis)")
+    print("  note: cost + latency are MEASURED; per-answer accuracy is ungraded "
+          "(plug a grader to score correctness).")
 
 
 def _cmd_hero(args: argparse.Namespace) -> int:

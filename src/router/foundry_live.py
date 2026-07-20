@@ -335,9 +335,19 @@ class AzureModelRouterClient:
     sdk_client: Any = None
     token_provider: Callable[[], str] | None = None
     max_output_tokens: int = 512
-    temperature: float = 0.0
+    temperature: float | None = None
 
-    def complete(self, task: Mapping[str, Any]) -> RouterOutcome:
+    def complete(
+        self, task: Mapping[str, Any], *, deployment: str | None = None
+    ) -> RouterOutcome:
+        """Run one task through a deployment and capture its real usage.
+
+        ``deployment`` overrides the configured Model Router deployment, so the
+        same keyless transport can call a *named* model (e.g. ``gpt-5.4-nano``)
+        for the fan-out/single-model arms of the live arena. When omitted, the
+        configured ``model-router`` deployment picks the model per prompt.
+        """
+
         if not self.config.credentialed:
             raise RuntimeError(
                 "AzureModelRouterClient is not credentialed: set "
@@ -347,16 +357,22 @@ class AzureModelRouterClient:
                 "Microsoft Entra ID (az login / managed identity, "
                 f"{FOUNDRY_LIVE_ENV_VARS['auth_mode'][0]}=entra)."
             )
+        target = deployment or str(self.config.deployment)
         messages = _messages_for(task)
         client = self._sdk_client()
-        response = client.chat.completions.create(
-            model=self.config.deployment,
-            messages=messages,
-            max_tokens=self.max_output_tokens,
-            temperature=self.temperature,
-        )
+        # 5-series/reasoning deployments require `max_completion_tokens` and reject
+        # a custom `temperature`; the Model Router accepts the same shape, so one
+        # uniform call works for every deployment.
+        kwargs: dict[str, Any] = {
+            "model": target,
+            "messages": messages,
+            "max_completion_tokens": self.max_output_tokens,
+        }
+        if self.temperature is not None:
+            kwargs["temperature"] = self.temperature
+        response = client.chat.completions.create(**kwargs)
         return RouterOutcome(
-            model=_response_model(response) or str(self.config.deployment),
+            model=_response_model(response) or target,
             usage=_usage_from_response(response),
             provenance="live",
         )
@@ -518,7 +534,12 @@ def _messages_for(task: Mapping[str, Any]) -> list[dict[str, str]]:
             "task has no prompt to send: add a 'prompt' or 'messages' field. The "
             "bundled synthetic telemetry has none, so it cannot be measured live."
         )
-    return [{"role": "user", "content": prompt}]
+    messages: list[dict[str, str]] = []
+    system = task.get("system")
+    if isinstance(system, str) and system.strip():
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    return messages
 
 
 def _extract_prompt(task: Mapping[str, Any]) -> str | None:
