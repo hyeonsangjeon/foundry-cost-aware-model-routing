@@ -18,6 +18,12 @@
       `AzureModelRouterClient`를 만들 때만 지연 임포트됩니다. 그 외에는 (메트릭 이미터처럼)
       주입식 이음새라 CLI·CI·테스트는 순수 표준 라이브러리·결정론으로 남습니다.
 
+!!! tip "실제로 돌린 실측 결과 — [실험 09](../lab-notebook/09-live-routing-proof.md)"
+    이 브릿지로 진짜 Foundry Model Router에 큐레이션 프롬프트를 보냈더니, 단일 `model-router`
+    배포가 **`gpt-5.4`(3건)와 `grok-4-1-fast-reasoning`(2건)**으로 실제 분기했습니다 —
+    저장소 최초의 `measured = true` 실측 스냅샷(키리스 Entra). 태스크별 증거·정직함 경계는
+    [실험 09 · 실측 라우팅](../lab-notebook/09-live-routing-proof.md)을 보세요.
+
 ## 1. Foundry 설정 처리
 
 라이브 브릿지가 읽는 환경 변수입니다. 각 항목은 Foundry 전용 이름과 일반 Azure OpenAI

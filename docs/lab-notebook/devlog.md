@@ -10,6 +10,34 @@
 
 ---
 
+## 2026-07-22 · 실측 라우팅 — Foundry Model Router가 실제로 고른 모델들 (`measured = true`)
+
+!!! note "한 줄 요약"
+    이 작업 전용으로 **키리스(Entra 전용) Foundry 리소스**를 새로 프로비저닝하고, 실제
+    **`model-router`** 배포 하나 + **GPT‑5.4 계열 후보**를 올린 뒤, 라이브 브릿지로 큐레이션
+    5개 프롬프트를 **실제로 호출**했습니다. 단일 `model-router` 배포가 태스크에 따라 **`gpt-5.4`
+    (3건)와 `grok-4-1-fast-reasoning`(2건)**으로 실제 분기 — 저장소 **최초의 `measured = true`**
+    실측입니다. 자세한 태스크별 증거는 [실험 09](09-live-routing-proof.md).
+
+- **상황(왜):** 실험 01–08은 전부 자리표시자 모델에 대한 오프라인 투영(`measured = false`)이라,
+  *"진짜 Foundry에 물리면 라우터가 실제로 어떤 모델을 고르나?"* 는 미검증으로 남아 있었습니다.
+- **작업(무엇을):**
+    - 새 RG + **키리스 AIServices 계정**(`disableLocalAuth=true`) 프로비저닝, 데이터플레인 역할
+      `Cognitive Services OpenAI User` 부여. 배포 4종: `model-router`(2025-11-18) + `gpt-5.4-nano`
+      · `gpt-5.4-mini` · `gpt-5.4`(GlobalStandard).
+    - `.env`를 새 엔드포인트·`AZURE_AI_FOUNDRY_MODEL_ROUTER=model-router`·`AUTH=entra`로 갱신.
+      `cost-router foundry status` → `credentialed: yes` / `auth: Microsoft Entra ID (keyless)`.
+    - `foundry live --live`로 실제 호출 → 응답의 `model`(라우터가 태운 백엔드)·`usage`(실측 토큰)를
+      태스크별로 캡처. 두 백엔드의 **응답 ID 형식이 다름**(`chatcmpl-…` vs 순수 UUID)으로 실제
+      서로 다른 백엔드임을 교차 확인.
+- **검증(효과):** `measured = true` · `provenance = live` · `selection = azure-model-router`.
+  라우팅 분포는 두 번의 독립 실행에서 동일(태스크→모델 매핑 안정). **정직함 경계:** 지연은
+  여기서 실측 wall-clock이지만, **정확도는 미채점**(`coverage_measured = false`, grader 미주입)
+  이고 **비용 요율은 예시값**(`illustrative.yaml`의 `default`, 실제 청구 아님). 저장소 기본
+  경로·CI는 여전히 자격 증명·네트워크가 없으면 no-op으로 오프라인·결정론.
+
+---
+
 ## 2026-07-22 · 라이브 브릿지 — Microsoft Entra ID(키리스) 인증
 
 !!! note "한 줄 요약"

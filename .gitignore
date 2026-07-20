@@ -69,6 +69,10 @@ local.settings.json
 .env.*
 !.env.sample
 
+# local measured-run metrics store (foundry live --store), never committed
+runs.jsonl
+*.runs.jsonl
+
 # keys / certificates / credentials
 *.key
 *.pem
