@@ -298,6 +298,87 @@ def test_recorded_client_raises_on_unknown_task() -> None:
         client.complete({"task_id": "missing"})
 
 
+# -- curated live workload: the one-command flip to measured -----------------
+
+CURATED_LIVE_WORKLOAD = ROOT / "samples" / "telemetry" / "curated-arena-live.sample.jsonl"
+CURATED_TASK_IDS = {"t-0001", "t-0003", "t-0004", "t-0005", "t-0006"}
+
+
+def test_curated_live_workload_is_sendable() -> None:
+    """Every curated task carries a real prompt, so the live bridge can send it.
+
+    The bundled synthetic telemetry has no prompt text and cannot be measured
+    live; this workload is the ready-made, live-sendable subset for the arena.
+    """
+
+    wl = load_workload(CURATED_LIVE_WORKLOAD)
+    assert set(wl) == CURATED_TASK_IDS
+    for task in wl.values():
+        assert task.get("prompt", "").strip()  # _messages_for would succeed
+
+
+def test_curated_workload_scores_recorded_snapshot_offline() -> None:
+    """Replaying the recorded snapshot over the curated workload stays measured=false."""
+
+    wl = load_workload(CURATED_LIVE_WORKLOAD)
+    policy = load_default_policy()
+    paths = resolve_paths(root=None)
+    pricing = PricingTable.from_yaml(paths["pricing"])
+    signals = _signals_for(synth=False, workload=wl, policy=policy, signals_path=paths["signals"])
+    client = RecordedRouterClient(load_recorded_usage(USAGE_FIXTURE))
+    result = measured_router_summary(wl, signals, policy, pricing, client=client)
+    assert result["tasks"] == len(CURATED_TASK_IDS)
+    assert result["labels"]["measured"] is False
+    assert result["labels"]["provenance"] == "recorded"
+
+
+def test_curated_workload_live_call_sends_prompts_and_measures() -> None:
+    """With credentials (mocked here) the curated workload flips to measured=true.
+
+    Proves the one-command promise: the live client sends each task's real prompt
+    and prices the response's real usage, so the summary is measured = true.
+    """
+
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://x.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_API_KEY": "k",
+        }
+    )
+    sent: list[str] = []
+
+    class _Recording:
+        def create(self, *, model, messages, **_kwargs):
+            sent.append(messages[-1]["content"])
+            return SimpleNamespace(
+                model="gpt-4o-mini",
+                usage=SimpleNamespace(
+                    prompt_tokens=1200,
+                    completion_tokens=400,
+                    prompt_tokens_details=SimpleNamespace(cached_tokens=300),
+                    completion_tokens_details=SimpleNamespace(reasoning_tokens=150),
+                ),
+            )
+
+    sdk = SimpleNamespace(chat=SimpleNamespace(completions=_Recording()))
+    client = AzureModelRouterClient(config=config, sdk_client=sdk)
+
+    wl = load_workload(CURATED_LIVE_WORKLOAD)
+    policy = load_default_policy()
+    paths = resolve_paths(root=None)
+    pricing = PricingTable.from_yaml(paths["pricing"])
+    signals = _signals_for(synth=False, workload=wl, policy=policy, signals_path=paths["signals"])
+    result = measured_router_summary(
+        wl, signals, policy, pricing, client=client, model_aliases={"gpt-4o-mini": "mini-fast"}
+    )
+    assert len(sent) == len(CURATED_TASK_IDS)
+    assert any("slugify" in prompt for prompt in sent)  # real prompt text was sent
+    assert result["labels"]["measured"] is True
+    assert result["labels"]["provenance"] == "live"
+    assert result["labels"]["spend_source"] == "provider-usage"
+
+
 # -- CLI ---------------------------------------------------------------------
 
 

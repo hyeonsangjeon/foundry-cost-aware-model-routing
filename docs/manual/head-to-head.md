@@ -113,6 +113,23 @@ note      latency is an illustrative projection (measured = false), not wall-clo
     비용·정확도는 다른 패널과 **구성상 동일한** 오프라인 기계에서 나오며(`measured = false`),
     지연은 새로 도입한 **예시적 투영**입니다. 모델 이름은 일반 자리표시자입니다.
 
+## 실측으로 보기 (`measured = true`)
+
+위 숫자는 전부 오프라인 투영(`measured = false`)입니다. **같은 큐레이션 태스크(t-0001~t-0006)를
+실제 Azure Model Router로 측정**하려면, 프롬프트가 담긴 준비된 워크로드로 라이브 브릿지를
+돌리세요 — 크리덴셜만 채우면 한 명령입니다:
+
+```bash
+cost-router foundry live --live \
+  --workload samples/telemetry/curated-arena-live.sample.jsonl \
+  --pricing  samples/pricing/your-tenant.yaml --store runs.jsonl
+```
+
+실제로 청구된 토큰 usage로 비용이 계산되어 `measured = true`가 되고, `--store`로 히스토리컬
+대시보드에 한 줄로 남습니다. 자세한 설정·정직함 경계는 [라이브 실측 브릿지](foundry-live.md)를
+참고하세요. (정확도까지 측정하려면 `grader` 주입이 필요하며, 없으면 커버리지는 오프라인 신호
+투영으로 라벨됩니다.)
+
 ## 실험 기록
 
 이 프로토타입 실행 기능의 방법·수치·정직 라벨은 [실험 08 · 아레나](../lab-notebook/08-arena.md)에

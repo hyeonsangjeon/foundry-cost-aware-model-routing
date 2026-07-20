@@ -39,6 +39,35 @@
 
 ---
 
+## 2026-07-21 · 큐레이션 태스크 실측 전환 — live-sendable 워크로드
+
+!!! note "한 줄 요약"
+    "t-0001~t-0006을 전부 실측으로 바꾸자"는 요청. 실측 브릿지(`foundry_live`)는 이미 있었지만,
+    번들 텔레메트리에 **프롬프트가 없어** 라이브로 보낼 수 없다는 마지막 블로커가 남아 있었습니다.
+    큐레이션 5건에 보낼 수 있는 프롬프트를 담은 워크로드를 만들어, **크리덴셜만 있으면 한 명령**으로
+    전부 `measured = true`가 되게 했습니다.
+
+- **상황(왜):** 아레나·프런티어의 t-0001~t-0006은 전부 오프라인 목업(`measured = false`)입니다.
+    실측 브릿지는 완비돼 있었지만(`measured_router_summary`·`AzureModelRouterClient`·grader·
+    녹화 스냅샷), 라이브 호출에는 **프롬프트가 있는 워크로드**가 필요한데 번들에는 없었습니다.
+- **작업(무엇을):**
+    - `samples/telemetry/curated-arena-live.sample.jsonl` 신설 — 큐레이션 5건에 저작-합성
+      프롬프트(08 아레나 입력 데이터)를 **임베드**한 live-sendable 워크로드. 메타데이터·토큰은
+      기존 워크로드와 동일.
+    - 이 워크로드로 실측 경로를 검증: 녹화 스냅샷 재생 → `measured = false`(결정론·무송신),
+      주입한 mock SDK로 라이브 경로 → **5건 프롬프트 실제 전송 + `measured = true`**.
+    - 문서: `foundry-live.md`의 "번들은 못 보냄" 노트를 **준비된 큐레이션 워크로드 + 한 명령**으로
+      교체. `head-to-head.md`·`08-arena.md`에 "실측으로 보기/전환" 절 추가.
+- **검증(효과):** `cost-router foundry live --workload curated-arena-live…`가 5건을 measured
+    스코어링(녹화 → measured=false)으로 통과. mock SDK 라이브 경로는 프롬프트 5건 전송 후
+    `provenance = live · measured = true · spend_source = provider-usage`. 새 테스트 3건으로
+    (워크로드가 sendable · 녹화 offline · 라이브 measured) 고정. **경계:** 프롬프트는 저작-합성
+    이지만 보내 받은 usage·비용은 실측이며, 정확도까지 측정하려면 grader 주입 필요.
+    실측 실행은 사용자의 Azure 크리덴셜·네트워크·실제 비용이 있어야 하므로, 저장소는 경로를
+    결정론적으로 검증하고 한 명령을 제공합니다.
+
+---
+
 ## 2026-07-20 · 아레나 — "문제 하나, 네 가지 방법" 5분 wow 데모
 
 !!! note "한 줄 요약"
