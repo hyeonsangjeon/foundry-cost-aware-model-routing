@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Cost versus coverage scatter of five strategies: all-mini cheap but low coverage, model-router mid cost 52 percent, cost-aware mix full coverage at low cost, all-premium full coverage higher cost, ensemble-all full coverage highest cost">
+  <rect x="0" y="0" width="760" height="420" fill="#ffffff"/>
+  <text x="24" y="30" font-size="16" font-weight="700" fill="#1f2933">Cost × coverage — the trade-off frontier</text>
+
+  <!-- axes -->
+  <line x1="90" y1="96" x2="90" y2="360" stroke="#9aa5b1" stroke-width="1.4"/>
+  <line x1="90" y1="360" x2="724" y2="360" stroke="#9aa5b1" stroke-width="1.4"/>
+  <!-- gridlines -->
+  <line x1="90" y1="100" x2="724" y2="100" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="90" y1="230" x2="724" y2="230" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
+  <!-- y ticks -->
+  <text x="80" y="104" font-size="11" fill="#7b8794" text-anchor="end">100%</text>
+  <text x="80" y="234" font-size="11" fill="#7b8794" text-anchor="end">50%</text>
+  <text x="80" y="364" font-size="11" fill="#7b8794" text-anchor="end">0%</text>
+  <text x="34" y="235" font-size="12" fill="#52606d" text-anchor="middle" transform="rotate(-90 34 235)">coverage</text>
+  <!-- x labels -->
+  <text x="90" y="382" font-size="11" fill="#7b8794">$0</text>
+  <text x="724" y="382" font-size="12" fill="#52606d" text-anchor="end">cost → $4.23</text>
+
+  <!-- both-win zone -->
+  <rect x="94" y="95" width="316" height="22" rx="6" fill="#2e8b57" opacity="0.10"/>
+  <text x="252" y="134" font-size="11.5" font-weight="700" fill="#2e7d4f" text-anchor="middle">both-win zone</text>
+
+  <!-- points -->
+  <!-- all-mini $0.19 22% -> x116 y303 -->
+  <circle cx="116" cy="303" r="9" fill="#c8922b"/>
+  <text x="132" y="300" font-size="12.5" font-weight="700" fill="#a9741f">all-mini</text>
+  <text x="132" y="316" font-size="11.5" fill="#7b8794">$0.19 · 22.0%</text>
+
+  <!-- model-router $1.59 52% -> x308 y225 -->
+  <rect x="322" y="209" width="150" height="20" rx="5" fill="#3b7dd8" opacity="0.12"/>
+  <circle cx="308" cy="225" r="9" fill="#3b7dd8"/>
+  <text x="326" y="222" font-size="12.5" font-weight="700" fill="#2f6bc0">model-router</text>
+  <text x="326" y="238" font-size="11.5" fill="#7b8794">$1.59 · 52.0%</text>
+
+  <!-- cost-aware mix $1.66 100% -> x317 y100 -->
+  <circle cx="317" cy="100" r="9" fill="#2e8b57"/>
+  <text x="300" y="70" font-size="12.5" font-weight="700" fill="#2e7d4f" text-anchor="middle">cost-aware mix</text>
+  <text x="300" y="86" font-size="11.5" fill="#7b8794" text-anchor="middle">$1.66 · 100.0%</text>
+
+  <!-- all-premium $2.23 100% -> x395 y100 -->
+  <circle cx="395" cy="100" r="9" fill="#c0392b"/>
+  <text x="470" y="70" font-size="12.5" font-weight="700" fill="#b3372a" text-anchor="middle">all-premium</text>
+  <text x="470" y="86" font-size="11.5" fill="#7b8794" text-anchor="middle">$2.23 · 100.0%</text>
+
+  <!-- ensemble-all $4.23 100% -> x669 y100 -->
+  <circle cx="669" cy="100" r="9" fill="#7b52c9"/>
+  <text x="690" y="70" font-size="12.5" font-weight="700" fill="#6a45b0" text-anchor="end">ensemble-all</text>
+  <text x="690" y="86" font-size="11.5" fill="#7b8794" text-anchor="end">$4.23 · 100.0%</text>
+
+  <!-- caption -->
+  <text x="24" y="406" font-size="11" fill="#52606d"><tspan font-weight="700" fill="#3b7dd8">model-router</tspan> commits up front (52%); the <tspan font-weight="700" fill="#2e7d4f">cost-aware mix</tspan> reclaims 100% at nearly the same cost.</text>
+  <text x="724" y="406" font-size="10.5" fill="#9aa5b1" text-anchor="end">labels.measured=false</text>
+</svg>
