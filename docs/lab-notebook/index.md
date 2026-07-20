@@ -72,3 +72,4 @@ cost-router experiment run hero --json     # 기계가 읽는 전체 요약
 - [실험 06 · 적응형 팬아웃 다이얼](06-fanout-dial.md) — 그 세금을 줄이려면? 예산 게이트 다이얼 하나로 커버리지·절감은 그대로, 세금만 3.74×→0 (실험 05의 정직한 해법)
 - [실험 07 · 라우팅 레이어](07-model-router.md) — Azure AI Foundry Model Router처럼 **한 번 고르면**? 커버리지 52% (관찰-후-에스컬레이션 mix는 비슷한 비용에 100%, 이득 +48%p)
 - [실험 08 · 아레나](08-arena.md) — 문제 **하나**를 네 방법으로 (프로토타입 실행)? 라우터 = 가장 싼 정답이나 순차 에스컬레이션이라 **가장 느림** (비용·정확도는 오프라인 투영, **지연은 새 예시적 투영**)
+- [실험 09 · 실측 라우팅](09-live-routing-proof.md) — 진짜 Foundry에 물리면 라우터가 **실제로** 뭘 고르나? 단일 `model-router` 배포가 **`gpt-5.4`(3건) · `grok-4-1-fast-reasoning`(2건)**으로 실제 분기 (**저장소 최초 `measured = true`**, 키리스 Entra)
