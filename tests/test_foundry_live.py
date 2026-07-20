@@ -10,6 +10,7 @@ is priced from *real* usage rather than the synthetic task tokens.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -77,6 +78,40 @@ def _mock_sdk(
     )
     completions = SimpleNamespace(create=lambda **_kwargs: response)
     return SimpleNamespace(chat=SimpleNamespace(completions=completions))
+
+
+def _canned_response(model: str):
+    """A minimal chat-completion response with usage the pricer can read."""
+
+    return SimpleNamespace(
+        model=model,
+        usage=SimpleNamespace(
+            prompt_tokens=200,
+            completion_tokens=80,
+            prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+            completion_tokens_details=SimpleNamespace(reasoning_tokens=0),
+        ),
+    )
+
+
+def _install_fake_openai(monkeypatch: pytest.MonkeyPatch, response) -> dict:
+    """Install a fake ``openai`` module so ``_sdk_client`` builds without network.
+
+    Returns a dict capturing the ``AzureOpenAI(...)`` constructor kwargs, so a
+    test can assert whether key auth or an Entra token provider was wired.
+    """
+
+    captured: dict = {}
+
+    class FakeAzureOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+            self.chat = SimpleNamespace(
+                completions=SimpleNamespace(create=lambda **_k: response)
+            )
+
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(AzureOpenAI=FakeAzureOpenAI))
+    return captured
 
 
 # -- config: never leak secrets, report readiness ---------------------------
@@ -379,6 +414,115 @@ def test_curated_workload_live_call_sends_prompts_and_measures() -> None:
     assert result["labels"]["spend_source"] == "provider-usage"
 
 
+# -- Microsoft Entra ID (Azure AD) keyless auth -----------------------------
+
+
+def test_config_entra_autodetected_without_api_key() -> None:
+    # Resource with local/key auth disabled: only endpoint + deployment set.
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://r.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+        }
+    )
+    assert config.auth_method == "entra"
+    assert config.credentialed is True
+    # The API key is not a gap under Entra ID auth.
+    assert "AZURE_AI_FOUNDRY_API_KEY" not in config.missing()
+    status = config.status()
+    assert status["auth_method"] == "entra"
+    assert status["token_scope"] == "https://cognitiveservices.azure.com/.default"
+    assert status["api_key"] == "missing"
+    assert status["measured"] is False
+
+
+def test_config_explicit_entra_prefers_token_over_present_key() -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://r.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_API_KEY": "keyABCDWXYZ",
+            "AZURE_AI_FOUNDRY_AUTH": "entra",
+        }
+    )
+    assert config.auth_method == "entra"
+    assert config.credentialed is True
+
+
+def test_config_explicit_key_without_key_is_not_credentialed() -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://r.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_AUTH": "key",
+        }
+    )
+    assert config.auth_method == "none"
+    assert config.credentialed is False
+    assert "AZURE_AI_FOUNDRY_API_KEY" in config.missing()
+
+
+def test_config_custom_token_scope_is_respected() -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://r.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_TOKEN_SCOPE": "api://custom-scope/.default",
+        }
+    )
+    assert config.resolved_token_scope == "api://custom-scope/.default"
+    assert config.status()["token_scope"] == "api://custom-scope/.default"
+
+
+def test_entra_client_builds_sdk_with_token_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://r.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+        }
+    )
+    captured = _install_fake_openai(monkeypatch, _canned_response("gpt-4o-mini"))
+    client = AzureModelRouterClient(config=config, token_provider=lambda: "tok-abc")
+    client._sdk_client()
+    assert "azure_ad_token_provider" in captured
+    assert "api_key" not in captured
+    assert captured["azure_ad_token_provider"]() == "tok-abc"
+    assert captured["azure_endpoint"] == "https://r.example/"
+
+
+def test_key_client_builds_sdk_with_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://r.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_API_KEY": "keyABCDWXYZ",
+        }
+    )
+    captured = _install_fake_openai(monkeypatch, _canned_response("gpt-4o"))
+    client = AzureModelRouterClient(config=config)
+    client._sdk_client()
+    assert captured["api_key"] == "keyABCDWXYZ"
+    assert "azure_ad_token_provider" not in captured
+
+
+def test_entra_live_call_sends_prompt_and_measures(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://r.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_AUTH": "entra",
+        }
+    )
+    captured = _install_fake_openai(monkeypatch, _canned_response("gpt-4o-mini"))
+    client = AzureModelRouterClient(config=config, token_provider=lambda: "tok-xyz")
+    outcome = client.complete({"task_id": "t-0001", "prompt": "Write a slugify() helper."})
+    assert outcome.provenance == "live"
+    assert outcome.model == "gpt-4o-mini"
+    # Keyless: token provider was wired, no api_key ever passed to the SDK.
+    assert "azure_ad_token_provider" in captured
+    assert "api_key" not in captured
+
+
 # -- CLI ---------------------------------------------------------------------
 
 
@@ -473,3 +617,36 @@ def test_cli_foundry_status_loads_env_file(
     assert payload["dotenv_loaded"] == 3
     assert "fromDotEnvKEY9" not in json.dumps(payload)
     assert payload["api_key"] == "set (****KEY9)"
+
+
+def test_cli_foundry_status_keyless_reports_entra(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Keyless tenant: only endpoint + deployment, no API key anywhere.
+    for name in (
+        "AZURE_AI_FOUNDRY_ENDPOINT",
+        "AZURE_OPENAI_ENDPOINT",
+        "AZURE_AI_FOUNDRY_MODEL_ROUTER",
+        "AZURE_MODEL_ROUTER_DEPLOYMENT",
+        "AZURE_AI_FOUNDRY_API_KEY",
+        "AZURE_OPENAI_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "AZURE_AI_FOUNDRY_ENDPOINT=https://keyless.example/\n"
+        "AZURE_AI_FOUNDRY_MODEL_ROUTER=model-router\n",
+        encoding="utf-8",
+    )
+    # JSON: credentialed via Entra, no API key required.
+    assert cli.main(["foundry", "status", "--json", "--env-file", str(env_file)]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["credentialed"] is True
+    assert payload["auth_method"] == "entra"
+    assert payload["api_key"] == "missing"
+    assert "AZURE_AI_FOUNDRY_API_KEY" not in payload["missing"]
+    # Human-readable: names the Entra path.
+    assert cli.main(["foundry", "status", "--env-file", str(env_file)]) == 0
+    text = capsys.readouterr().out
+    assert "Entra ID" in text
+    assert "token scope" in text

@@ -10,6 +10,34 @@
 
 ---
 
+## 2026-07-22 · 라이브 브릿지 — Microsoft Entra ID(키리스) 인증
+
+!!! note "한 줄 요약"
+    라이브 Model Router 브릿지가 **API 키만** 지원해, 키 인증이 꺼진(`disableLocalAuth`)
+    엔터프라이즈 테넌트에서는 실측이 불가능했습니다. **키가 없으면 자동으로 Microsoft Entra
+    ID(Azure AD) 토큰 인증**으로 전환되도록 `FoundryConfig`·`AzureModelRouterClient`를
+    확장했습니다 — 저장소의 오프라인·결정론 규약(`measured = false`)은 그대로입니다.
+
+- **상황(왜):** 사용자 테넌트가 "Azure OpenAI 키 말고 인트라(Entra ID) 방식만" 허용. 기존
+  브릿지는 `credentialed = router_configured and api_key`라 키가 없으면 절대 실측을 못 했습니다.
+- **작업(무엇을):**
+    - `FoundryConfig`에 `auth_mode`·`token_scope` 필드와 `auth_method`(`key`/`entra`/`none`)
+      속성 추가. **키가 있으면 키, 없으면 Entra**로 자동 판정하며 `AZURE_AI_FOUNDRY_AUTH=entra`로
+      강제할 수 있음. `credentialed`·`missing()`·`status()`가 Entra를 인식(키리스일 때 API 키를
+      더는 필수로 요구하지 않음).
+    - `AzureModelRouterClient._sdk_client()`가 인증 방식으로 분기 — 키면 `AzureOpenAI(api_key=…)`,
+      Entra면 `azure-identity`의 `DefaultAzureCredential` + `get_bearer_token_provider`로
+      `azure_ad_token_provider`를 지연 임포트해 구성. 테스트용 `token_provider` 주입 지점 추가.
+    - CLI `foundry status`가 **인증 방식**(Entra ID vs 키)과 토큰 스코프를 출력. `.env.sample`·
+      `foundry-live.md`에 키리스 절차(역할 `Cognitive Services OpenAI User`, `az login`,
+      `--disable-local-auth`) 문서화. `pyproject`의 `[foundry]` extra에 `azure-identity` 추가.
+- **검증(효과):** Entra 자동 판정·키리스 `credentialed`·`missing()`·주입 토큰 프로바이더로
+  네트워크 없이 SDK 구성/실측 경로를 검증하는 테스트 7개 추가. `azure-identity`는 라이브 호출
+  때만 임포트되어 기본 오프라인 경로는 여전히 순수 stdlib·결정론. 전체 게이트(ruff·pytest·
+  mkdocs strict·secret scan) 통과.
+
+---
+
 ## 2026-07-21 · 아레나 입력 데이터 — 읽을 수 있는 문제 진술
 
 !!! note "한 줄 요약"

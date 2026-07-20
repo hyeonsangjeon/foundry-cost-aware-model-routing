@@ -546,6 +546,14 @@ def _yn(flag: bool) -> str:
     return "yes" if flag else "no"
 
 
+def _auth_label(method: str) -> str:
+    return {
+        "entra": "Microsoft Entra ID (Azure AD token, keyless)",
+        "key": "API key",
+        "none": "none (not configured)",
+    }.get(method, method)
+
+
 def _cmd_foundry_status(args: argparse.Namespace) -> int:
     loaded = load_dotenv_file(args.env_file)
     status = FoundryConfig.from_env().status()
@@ -556,6 +564,9 @@ def _cmd_foundry_status(args: argparse.Namespace) -> int:
     print("Azure AI Foundry — live measured Model Router bridge")
     print(f"  router configured : {_yn(status['router_configured'])}")
     print(f"  credentialed      : {_yn(status['credentialed'])}")
+    print(f"  auth method       : {_auth_label(status['auth_method'])}")
+    if status["auth_method"] == "entra":
+        print(f"  token scope       : {status['token_scope']}")
     print(f"  observability     : {_yn(status['observability_configured'])}")
     print(f"  endpoint          : {status['endpoint'] or '—'}")
     print(f"  deployment        : {status['deployment'] or '—'}")
@@ -567,6 +578,12 @@ def _cmd_foundry_status(args: argparse.Namespace) -> int:
     if status["missing"]:
         print(f"  missing           : {', '.join(status['missing'])}")
         print("  → set these in .env (see .env.sample), then `cost-router foundry live --live`.")
+        if status["auth_method"] != "entra":
+            print("  → key auth disabled on your resource? use Microsoft Entra ID: "
+                  "set AZURE_AI_FOUNDRY_AUTH=entra and `az login` (no key needed).")
+    elif status["auth_method"] == "entra":
+        print("  ready (Entra ID): `az login` once, then "
+              "`cost-router foundry live --live` (needs a workload with prompts).")
     else:
         print("  ready: `cost-router foundry live --live` (needs a workload with prompts).")
     print("  note: without --live, runs replay a recorded snapshot (measured=false).")
