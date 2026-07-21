@@ -14,6 +14,7 @@ import textwrap
 from pathlib import Path
 
 from . import __version__
+from .baseline import model_router_summary
 from .experiment import (
     format_experiment_list,
     format_experiment_text,
@@ -37,6 +38,13 @@ from .foundry_live import (
     load_dotenv_file,
     load_recorded_usage,
     measured_router_summary,
+)
+from .foundry_router import (
+    FoundryModelRouter,
+    azure_router_choice_client,
+    capture_recorded_choices,
+    load_recorded_choices,
+    summary_from_choices,
 )
 from .metrics import (
     ExperimentMetrics,
@@ -65,6 +73,10 @@ from .pricing import PricingTable
 # Bundled recorded provider-usage snapshot: replayed offline so `foundry live`
 # demonstrates the measured scoring path with no credentials (measured=false).
 DEFAULT_USAGE_FIXTURE = Path("samples/responses/model-router-usage.sample.json")
+
+# Bundled recorded single-call *choices* snapshot: illustrative task->model picks
+# replayed offline so `foundry router` demos the exp-07 comparison (measured=false).
+DEFAULT_CHOICES_FIXTURE = Path("samples/responses/model-router-choices.sample.json")
 
 # Live arena defaults: prompt-bearing curated workload + real fleet list prices.
 DEFAULT_ARENA_WORKLOAD = Path("samples/telemetry/curated-arena-live.sample.jsonl")
@@ -326,6 +338,44 @@ def _build_metrics_parser(subparsers: argparse._SubParsersAction) -> None:
         help="dotenv file to load before reading config (default: .env; missing is fine)",
     )
     flive.set_defaults(func=_cmd_foundry_live)
+
+    frouter = foundry_sub.add_parser(
+        "router",
+        help="Single-call router choice — exp-07 head-to-head (recorded fixture unless --live).",
+    )
+    _add_data_args(frouter)
+    frouter.add_argument(
+        "--recorded",
+        type=Path,
+        default=None,
+        help="recorded task->model choices fixture to replay offline (default: bundled sample)",
+    )
+    frouter.add_argument(
+        "--live",
+        action="store_true",
+        help="ask a real Model Router deployment for each choice (requires credentials + prompts)",
+    )
+    frouter.add_argument(
+        "--capture",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="with --live: capture the real router's genuine per-task choices to PATH",
+    )
+    frouter.add_argument(
+        "--max-output-tokens",
+        type=int,
+        default=2048,
+        help="per-call completion budget for live calls (raise for reasoning models)",
+    )
+    frouter.add_argument("--json", action="store_true", help="print the summary as JSON")
+    frouter.add_argument(
+        "--env-file",
+        type=Path,
+        default=Path(".env"),
+        help="dotenv file to load before reading config (default: .env; missing is fine)",
+    )
+    frouter.set_defaults(func=_cmd_foundry_router)
 
     farena = foundry_sub.add_parser(
         "arena",
@@ -861,6 +911,136 @@ def _cmd_foundry_live(args: argparse.Namespace) -> int:
     print(f"  measured          : {_yn(labels['measured'])}")
     if not labels["measured"]:
         print("  → this is a replay/projection; run with --live + credentials for measured=true.")
+    return 0
+
+
+def _capture_recorded_choices_snapshot(args: argparse.Namespace) -> int:
+    if not args.live:
+        print("foundry router --capture: capturing real choices needs live calls. Add --live")
+        print("  (and sign in with `az login`); `cost-router foundry status` must show yes.")
+        return 2
+    config = FoundryConfig.from_env()
+    if not config.credentialed:
+        print("foundry router --capture: not credentialed — set AZURE_AI_FOUNDRY_* in .env, "
+              "then `az login`.")
+        return 1
+    workload_path = args.workload or DEFAULT_ARENA_WORKLOAD
+    try:
+        workload = load_workload(workload_path)
+    except (OSError, ValueError) as exc:
+        print(f"foundry router --capture: {exc}")
+        return 1
+    if not workload:
+        print(f"foundry router --capture: no tasks in {workload_path}")
+        return 1
+
+    client = AzureModelRouterClient(config=config, max_output_tokens=args.max_output_tokens)
+    router = FoundryModelRouter(
+        endpoint=config.endpoint,
+        deployment=config.deployment,
+        client=azure_router_choice_client(client),
+    )
+    try:
+        snapshot = capture_recorded_choices(
+            workload, router, resource=_capture_resource_meta(config)
+        )
+    except (RuntimeError, ValueError, KeyError) as exc:
+        print(f"foundry router --capture: {exc}")
+        return 1
+
+    args.capture.parent.mkdir(parents=True, exist_ok=True)
+    args.capture.write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    choices = snapshot["choices"]
+    mix: dict[str, int] = {}
+    for model in choices.values():
+        mix[model] = mix.get(model, 0) + 1
+    mix_str = ", ".join(f"{model}×{count}" for model, count in sorted(mix.items()))
+    print(f"foundry router — captured {len(choices)} real choices → {args.capture}")
+    print(f"  source     : LIVE Azure Model Router ({config.deployment})")
+    print(f"  captured_at: {snapshot['captured_at']}")
+    print(f"  choices    : {mix_str}")
+    print("  labels     : measured=false  decisions=recorded  captured_from=live")
+    print(f"  replay     : cost-router foundry router --recorded {args.capture}")
+    return 0
+
+
+def _cmd_foundry_router(args: argparse.Namespace) -> int:
+    load_dotenv_file(args.env_file)
+
+    if args.capture is not None:
+        return _capture_recorded_choices_snapshot(args)
+
+    try:
+        workload, signals, policy, pricing = _load_scoring_inputs(args)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"foundry router: {exc}")
+        return 1
+
+    proxy = model_router_summary(workload, signals, policy, pricing)
+
+    config = FoundryConfig.from_env()
+    if args.live:
+        if not config.credentialed:
+            print(
+                "foundry router: --live needs credentials (set AZURE_AI_FOUNDRY_* in .env, then "
+                "`az login`) and a prompt-bearing workload (run `cost-router foundry status`)."
+            )
+            return 1
+        client = AzureModelRouterClient(config=config, max_output_tokens=args.max_output_tokens)
+        router = FoundryModelRouter(
+            endpoint=config.endpoint,
+            deployment=config.deployment,
+            client=azure_router_choice_client(client),
+        )
+        try:
+            choices = {tid: router.choose(task) for tid, task in workload.items()}
+        except (RuntimeError, ValueError, KeyError) as exc:
+            print(f"foundry router: {exc}")
+            return 1
+        arm = summary_from_choices(workload, signals, policy, pricing, choices, provenance="live")
+        mode = "LIVE Azure Model Router"
+    else:
+        fixture = args.recorded or DEFAULT_CHOICES_FIXTURE
+        try:
+            choices = load_recorded_choices(fixture)
+        except (OSError, ValueError) as exc:
+            print(f"foundry router: {exc}")
+            return 1
+        arm = summary_from_choices(workload, signals, policy, pricing, choices)
+        mode = f"recorded snapshot ({fixture})"
+
+    if args.json:
+        print(json.dumps(
+            {"proxy": proxy, "router_choices": arm, "choices": choices},
+            indent=2, sort_keys=True, ensure_ascii=False,
+        ))
+        return 0
+
+    labels = arm["labels"]
+    delta = arm["total_cost_usd"] - proxy["total_cost_usd"]
+    print(f"Azure Model Router — single-call choice  ({mode})")
+    print(f"  tasks                 : {arm['tasks']}")
+    print(f"  offline proxy pick    : ${proxy['total_cost_usd']:.6f}   "
+          f"coverage {proxy['coverage']:.1%}  (difficulty-tiered, illustrative)")
+    print(f"  router choices        : ${arm['total_cost_usd']:.6f}   "
+          f"coverage {arm['coverage']:.1%}  (decisions: {labels['decisions']})")
+    print(f"  Δ cost vs proxy       : {'+' if delta >= 0 else '-'}${abs(delta):.6f}")
+    mix = arm["model_counts"]
+    mix_str = ", ".join(f"{model}×{count}" for model, count in sorted(mix.items()))
+    print(f"  chosen models         : {mix_str}")
+    print(f"  labels                : measured={_yn(labels['measured'])}  "
+          f"decisions={labels['decisions']}")
+    if args.live:
+        print("  → the CHOICE is a live decision; cost/coverage stay offline projections "
+              "(measured=false).")
+        print("    real 5-series names fall back to the proxy pick unless your policy/pricing "
+              "use them.")
+    else:
+        print("  → cost/coverage are offline projections (measured=false); only the DECISIONS "
+              "are a snapshot.")
     return 0
 
 

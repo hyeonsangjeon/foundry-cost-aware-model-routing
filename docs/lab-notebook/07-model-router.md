@@ -147,6 +147,47 @@ arm = summary_from_choices(workload, signals, policy, pricing, choices)
 mix가 **2.3배 싸게** 냅니다 — 라이브 결정을 넣어도 단일 호출은 both-win 코너 밖에 앉는다는
 같은 이야기를, 이번엔 **측정된 결정 경로**로 다시 확인합니다.
 
+### 실제 Azure에 물리기 — `azure_router_choice_client` + `foundry router`
+
+주입할 `client` 콜러블의 **실제 구현**은 `azure_router_choice_client`입니다. 이는 item 1이 실은
+키리스 SDK 브릿지(`AzureModelRouterClient`)를 `(deployment, task) -> model` 선택 함수로
+감싸, 배포가 실제로 고른 모델(정규화됨: `gpt-5.4-2026-03-05` → `gpt-5.4`)만 돌려줍니다:
+
+```python
+from router.foundry_live import AzureModelRouterClient, FoundryConfig
+from router.foundry_router import FoundryModelRouter, azure_router_choice_client
+
+client = AzureModelRouterClient(config=FoundryConfig.from_env())
+router = FoundryModelRouter.from_env(client=azure_router_choice_client(client))
+model = router.choose({"task_id": "t-0003", "prompt": "..."})  # 라이브 단일-호출 결정
+```
+
+CLI 한 줄로 exp-07 헤드투헤드(오프라인 프록시 pick vs 라우터의 실제 선택)를 돌릴 수 있습니다.
+기본은 기록 스냅샷을 오프라인 프런티어에서 재생(결정론·무송신)하고, `--live`는 실제 배포에
+물어 **진짜 per-task 선택**을 보여주며, `--capture`는 그 선택을 파일로 남깁니다:
+
+```bash
+cost-router foundry router                        # 오프라인: 프록시 vs 기록된 선택
+cost-router foundry router --live                 # 실제 배포가 고른 모델(측정된 결정)
+cost-router foundry router --live --capture picks.json   # 진짜 선택을 스냅샷으로 포착
+```
+
+```text
+Azure Model Router — single-call choice  (recorded snapshot (…/model-router-choices.sample.json))
+  tasks                 : 5
+  offline proxy pick    : $0.087030   coverage 60.0%  (difficulty-tiered, illustrative)
+  router choices        : $0.127136   coverage 100.0%  (decisions: recorded)
+  Δ cost vs proxy       : +$0.040106
+  chosen models         : balanced-pro×2, deep-reasoner×2, premium-max×1
+  labels                : measured=no  decisions=recorded
+```
+
+`capture_recorded_choices`(=`load_recorded_choices`의 역함수)는 각 항목을 `decisions=recorded` /
+`measured=false`로 정직하게 찍고, 최상위 `captured_from=live`가 "출처는 실제"임을 남깁니다.
+`--live`로 실제 5-시리즈 이름(`gpt-5.4`·`grok-4-1-fast-reasoning`)이 나오면, 오프라인 후보
+사다리(자리표시자 이름)에 대응 행이 없어 채점은 프록시로 **폴백**합니다 — 선택은 라이브지만
+비용·커버리지는 여전히 오프라인 투영입니다(정직 경계 유지).
+
 ## 웹앱에서 보기 — 프런티어의 파란 점
 
 대시보드 **비용 × 커버리지 프런티어**에 다섯 번째 점 `model_router`(파란 점)를 추가했습니다.

@@ -17,15 +17,19 @@ from pathlib import Path
 import pytest
 
 from policy import load_default_policy
+from router import cli
 from router.baseline import (
     model_router_pick,
     model_router_summary,
     score_single_call_arm,
 )
 from router.experiment import _evaluate, list_experiments, load_experiment, run_experiment
+from router.foundry_live import RouterOutcome
 from router.foundry_router import (
     FOUNDRY_ROUTER_ENV_VARS,
     FoundryModelRouter,
+    azure_router_choice_client,
+    capture_recorded_choices,
     live_router_summary,
     load_recorded_choices,
     summary_from_choices,
@@ -231,3 +235,101 @@ def test_live_router_summary_records_live_provenance(bundled) -> None:
     result = live_router_summary(wl, signals, policy, pricing, router)
     assert result["total_cost_usd"] == pytest.approx(0.127136, abs=1e-6)
     assert result["labels"]["decisions"] == "live"
+
+
+# -- the real-Azure choice seam: adapter + capture --------------------------
+
+
+class _StubRouterClient:
+    """A fake AzureModelRouterClient: echoes a version-suffixed name + deployment."""
+
+    def __init__(self) -> None:
+        self.seen: list[str] = []
+
+    def complete(self, task, *, deployment=None):
+        self.seen.append(str(deployment))
+        return RouterOutcome(
+            model="gpt-5.4-2026-03-05",
+            usage={"input": 10, "output": 5},
+            provenance="live",
+        )
+
+
+def test_azure_router_choice_client_bridges_and_normalizes() -> None:
+    client = _StubRouterClient()
+    choose = azure_router_choice_client(client)
+    assert choose("model-router", {"task_id": "t-0003", "prompt": "p"}) == "gpt-5.4"
+    assert client.seen == ["model-router"]  # deployment threaded through
+
+
+def test_azure_router_choice_client_can_preserve_raw_names() -> None:
+    choose = azure_router_choice_client(_StubRouterClient(), normalize=False)
+    assert choose("model-router", {"task_id": "t", "prompt": "p"}) == "gpt-5.4-2026-03-05"
+
+
+def test_capture_recorded_choices_builds_a_live_snapshot() -> None:
+    router = FoundryModelRouter(
+        endpoint="https://x",
+        deployment="model-router",
+        client=azure_router_choice_client(_StubRouterClient()),
+    )
+    # keys deliberately unsorted to prove the capture orders them
+    workload = {"t-0002": {"task_id": "t-0002", "prompt": "b"},
+                "t-0001": {"task_id": "t-0001", "prompt": "a"}}
+    snapshot = capture_recorded_choices(workload, router, resource={"account": "aoai-x"})
+    assert snapshot["version"] == 1
+    assert snapshot["labels"] == {
+        "measured": False,
+        "decisions": "recorded",
+        "captured_from": "live",
+    }
+    assert snapshot["captured_at"].endswith("+00:00")  # ISO-8601 UTC
+    assert snapshot["resource"] == {"account": "aoai-x"}
+    assert list(snapshot["choices"]) == ["t-0001", "t-0002"]
+    assert snapshot["choices"]["t-0001"] == "gpt-5.4"  # date suffix normalized away
+
+
+def test_capture_recorded_choices_round_trips(tmp_path: Path) -> None:
+    router = FoundryModelRouter(
+        endpoint="https://x",
+        deployment="model-router",
+        client=azure_router_choice_client(_StubRouterClient()),
+    )
+    snapshot = capture_recorded_choices({"t-0001": {"task_id": "t-0001", "prompt": "a"}}, router)
+    path = tmp_path / "choices.json"
+    path.write_text(json.dumps(snapshot), encoding="utf-8")
+    assert load_recorded_choices(path) == {"t-0001": "gpt-5.4"}
+
+
+# -- the CLI: `foundry router` single-call head-to-head ---------------------
+
+
+def test_cli_foundry_router_offline_compares_proxy_and_choices(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["foundry", "router"]) == 0
+    out = capsys.readouterr().out
+    assert "offline proxy pick" in out
+    assert "router choices" in out
+    assert "decisions: recorded" in out
+    assert "measured=no" in out
+
+
+def test_cli_foundry_router_json_reports_both_arms(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["foundry", "router", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["proxy"]["selection"] == "difficulty-tiered-single-call"
+    assert payload["router_choices"]["selection"] == "foundry-model-router"
+    assert payload["router_choices"]["labels"]["decisions"] == "recorded"
+    assert payload["router_choices"]["total_cost_usd"] == pytest.approx(0.127136, abs=1e-6)
+
+
+def test_cli_foundry_router_capture_requires_live(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    dest = tmp_path / "choices.json"
+    assert cli.main(["foundry", "router", "--capture", str(dest)]) == 2
+    assert "needs live calls" in capsys.readouterr().out
+    assert not dest.exists()

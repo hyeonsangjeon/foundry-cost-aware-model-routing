@@ -10,6 +10,33 @@
 
 ---
 
+## 2026-07-24 · 단일-호출 라우터 선택 seam을 실제 Azure로 (`foundry router`)
+
+!!! note "한 줄 요약"
+    exp-07의 "단일-호출 라우터 선택" seam(`foundry_router.py`)에 **실제 Azure 클라이언트
+    어댑터**를 물렸습니다. `azure_router_choice_client`가 item 1의 키리스 SDK 브릿지를
+    `(deployment, task) → model` 선택 함수로 감싸, `FoundryModelRouter`/`live_router_summary`가
+    실제 배포에 물릴 수 있습니다. CLI `foundry router`(오프라인 프록시 vs 라우터 선택 헤드투헤드,
+    `--live`, `--capture`)와 `capture_recorded_choices`(진짜 선택 포착)를 추가했습니다.
+
+- **상황(왜):** `FoundryModelRouter.client`는 추상 콜러블이라 실제 구현이 없었습니다 — 실제
+  배포에 물리려면 사용자가 직접 람다를 짜야 했습니다.
+- **작업(무엇을):**
+    - `azure_router_choice_client(client, *, normalize=True) → RouterClient` — `AzureModelRouterClient`을
+      `(deployment, task) → 정규화된 모델명` 선택 함수로 브릿지. `capture_recorded_choices`
+      (=`load_recorded_choices`의 역함수) — 실제 배포의 진짜 per-task 선택을 `decisions=recorded`
+      /`measured=false`/`captured_from=live`로 포착.
+    - CLI `foundry router` — 기본은 기록 선택 스냅샷을 오프라인 프런티어에서 재생(결정론),
+      **오프라인 프록시 pick vs 라우터 선택** 헤드투헤드 출력. `--live`는 실제 배포에 물어 진짜
+      선택·모델 분포를, `--capture`는 그 선택을 파일로. `--live` 없는 `--capture`는 exit 2·미기록.
+- **검증(효과):** 오프라인 헤드투헤드 = 프록시 `$0.087030/60%` vs 기록 선택 `$0.127136/100%`
+  (에스컬레이션 mix의 ~2.3배) — "단일 호출은 both-win 코너 밖"을 다시 확인. 어댑터·캡처
+  테스트(무네트워크·주입 클라이언트)와 CLI 테스트 추가, 시크릿 누출 0. **정직 경계 유지:**
+  실제 5-시리즈 이름은 오프라인 후보 사다리에 없어 채점은 프록시로 폴백 — 선택만 라이브,
+  비용·커버리지는 오프라인 투영(`measured = false`). 전체 스위트 그린, ruff 클린.
+
+---
+
 ## 2026-07-23 · 녹화 스냅샷을 실제 Azure 캡처로 교체 (`--capture`)
 
 !!! note "한 줄 요약"
