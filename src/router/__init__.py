@@ -40,6 +40,8 @@ from .foundry_live import (
 from .foundry_router import (
     FOUNDRY_ROUTER_ENV_VARS,
     FoundryModelRouter,
+    azure_router_choice_client,
+    capture_recorded_choices,
     live_router_summary,
     load_recorded_choices,
     summary_from_choices,
@@ -133,6 +135,8 @@ __all__ = [
     "single_call_baseline_arms",
     "batch_route_payload",
     "build_trace",
+    "azure_router_choice_client",
+    "capture_recorded_choices",
     "capture_recorded_usage",
     "classify_task",
     "compare_select",

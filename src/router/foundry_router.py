@@ -17,7 +17,10 @@ distinction is never lost.
 
 Like :class:`router.metrics.FoundryMetricsEmitter`, the network call is an
 **injected** ``client`` callable: this module never imports an SDK and the
-default path never egresses, so it stays test-safe and fully deterministic.
+default path never egresses, so it stays test-safe and fully deterministic. The
+real-Azure implementation of that callable is :func:`azure_router_choice_client`,
+which adapts the live :class:`router.foundry_live.AzureModelRouterClient` (the
+keyless SDK bridge) into a ``(deployment, task) -> model`` choice function.
 """
 
 from __future__ import annotations
@@ -26,12 +29,14 @@ import json
 import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from policy import Candidate, PolicyTable
 
 from .baseline import model_router_pick, score_single_call_arm
+from .foundry_live import AzureModelRouterClient, normalize_model_name
 from .pricing import PricingTable
 
 # Environment variables that point at an Azure AI Foundry Model Router
@@ -172,6 +177,69 @@ def load_recorded_choices(path: Path | str) -> dict[str, str]:
     if not isinstance(raw, Mapping):
         raise ValueError("recorded choices file must be a mapping or {'choices': {...}}")
     return {str(task_id): str(model) for task_id, model in raw.items()}
+
+
+def azure_router_choice_client(
+    client: AzureModelRouterClient,
+    *,
+    normalize: bool = True,
+) -> RouterClient:
+    """Adapt the live :class:`AzureModelRouterClient` into a choice callable.
+
+    This is the **real-Azure** implementation of the injected :data:`RouterClient`
+    seam: it calls the deployment through the keyless SDK bridge shipped for the
+    measured path (item 1) and returns just the model the router picked — the
+    single-call *decision*. Model ids are normalized to a stable pricing/candidate
+    name by default (``gpt-5.4-2026-03-05`` → ``gpt-5.4``). Inject the result as
+    ``FoundryModelRouter(client=…)`` to run :meth:`FoundryModelRouter.choose` /
+    :func:`live_router_summary` against a live deployment.
+    """
+
+    def choose(deployment: str, task: Mapping[str, Any]) -> str:
+        outcome = client.complete(task, deployment=deployment)
+        return normalize_model_name(outcome.model) if normalize else outcome.model
+
+    return choose
+
+
+_CHOICE_CAPTURE_NOTE = (
+    "CAPTURED LIVE from an Azure AI Foundry Model Router: each entry is the model "
+    "the router actually picked for that prompt (the single-call decision). "
+    "Replaying these choices is honestly labelled decisions=recorded / "
+    "measured=false — only the DECISIONS are a snapshot; scoring them on the "
+    "offline signals stays an offline projection. Re-capture with "
+    "`cost-router foundry router --live --capture <path>`."
+)
+
+
+def capture_recorded_choices(
+    workload: Mapping[str, Mapping[str, Any]],
+    router: FoundryModelRouter,
+    *,
+    resource: Mapping[str, Any] | None = None,
+    note: str | None = None,
+) -> dict[str, Any]:
+    """Capture genuine per-task router choices from a live deployment.
+
+    The inverse of :func:`load_recorded_choices`: runs a real-client ``router``
+    over prompt-bearing tasks and records the genuine ``task_id -> chosen model``.
+    Each snapshot is honestly labelled ``decisions = recorded`` / ``measured =
+    false`` (a replay of choices is not a fresh measurement); the top-level
+    ``captured_from = live`` records that its source was a real Azure call. Cost
+    and coverage remain offline projections when these choices are later scored.
+    """
+
+    choices = {str(task_id): router.choose(workload[task_id]) for task_id in sorted(workload)}
+    snapshot: dict[str, Any] = {
+        "version": 1,
+        "_note": note or _CHOICE_CAPTURE_NOTE,
+        "captured_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "labels": {"measured": False, "decisions": "recorded", "captured_from": "live"},
+    }
+    if resource:
+        snapshot["resource"] = dict(resource)
+    snapshot["choices"] = choices
+    return snapshot
 
 
 def _candidate_by_model(
