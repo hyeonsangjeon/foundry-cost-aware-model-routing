@@ -46,6 +46,39 @@ status: PASS
     **각각 별도로** 회계해야 합니다. 오프라인 투영의 `selected-execution-only`를 라이브 비용으로
     오해하면 안 됩니다. 모든 레코드는 `labels.measured = false`를 유지합니다.
 
+## 신호 출처 seam — 오프라인 원장의 정직 경계
+
+라우터는 태스크별 `모델 → {applies, compiles, tests_pass, lint_pass}` 신호 맵에 대고 결정을
+채점합니다. **그 신호가 어디서 오는지**는 이제 흩어진 `synth` / `signals_path` 불리언이 아니라,
+하나의 주입 가능한 객체 `router.signals.SignalSource`로 표현됩니다:
+
+| 출처 | `kind` | 오프라인 원장 허용? | 결정성 |
+| --- | --- | --- | --- |
+| `synth_signal_source()` | `synth` | ✅ | 워크로드+정책에서 결정론적 파생(무 I/O) |
+| `fixture_signal_source(path)` | `fixture` | ✅ | 체크인된 JSON 스냅샷 재생 |
+| measured / live 제공자 | `measured`·`live` | ❌ | 후보를 실제 실행한 실측(이 저장소 범위 밖) |
+
+`SignalSource`는 단지 `(workload, policy) -> SignalBundle` 콜러블입니다. `SignalBundle`은
+신호와 그 **출처(`kind`)**를 함께 묶어, 원장으로 흐르는 라벨이 신호와 절대 어긋나지 않게 합니다.
+모든 실행 진입점(`run_replay` · `run_bundled_replay` · `run_route_once` · `run_evals`)이
+`signal_source=`를 받아, 흐름 코드를 건드리지 않고 출처를 갈아끼울 수 있습니다.
+
+```python
+from router import run_bundled_replay, synth_signal_source
+
+# 기본(오프라인): synth/fixture 그대로 — 결정론적
+report = run_bundled_replay(synth=True)
+
+# 미래의 실측 제공자를 주입 (kind="measured")
+report = run_bundled_replay(signal_source=my_measured_source)
+```
+
+**정직 경계(핵심):** 엄격한 해시 체인 오프라인 원장은 **오프라인 투영만** 감사합니다.
+`OFFLINE_SIGNAL_KINDS = {synth, fixture}` 밖의 `kind`(measured·live)는 레코드가 만들어지기
+**전에** `assert_offline_ledger_kind`가 막습니다 — 실측 신호를 `--ledger`와 함께 주입하면
+경계 특화 오류가 나고 **아무 것도 기록되지 않습니다**. 실측 지출은 별도의 측정 감사 경로로
+가야 하며, 그래야 오프라인 투영이 오염되지 않습니다.
+
 ## 왜 원장인가
 
 라우팅의 헤드라인 가치는 "가장 싼 청구서"가 아니라 **모든 라우팅 결정에 대한 감사 추적과

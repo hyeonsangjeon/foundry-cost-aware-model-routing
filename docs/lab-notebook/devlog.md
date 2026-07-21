@@ -10,6 +10,32 @@
 
 ---
 
+## 2026-07-25 · 신호 출처를 주입 가능한 seam으로 (`router.signals`)
+
+!!! note "한 줄 요약"
+    라우터가 신호를 어디서 얻는지를 흩어진 `synth`/`signals_path` 불리언에서 **하나의 주입 가능한
+    `SignalSource`**(`router/signals.py`)로 승격했습니다. `SignalBundle`이 신호와 그 출처(`kind`)를
+    함께 묶어 원장까지 흐르고, `assert_offline_ledger_kind`가 measured·live 신호를 엄격한 오프라인
+    원장에서 **막습니다** — 실측이 오프라인 투영으로 조용히 둔갑할 수 없게.
+
+- **상황(왜):** `_signals_for`는 `synth`/`signals_path` 두 불리언을 4개 실행 함수에 반복해서
+  넘기고, 원장 `signal_kind`는 매번 `"synth" if synth else "fixture"`로 손계산했습니다 — 미래의
+  실측 신호를 끼울 자리도, 출처가 원장으로 정직하게 흐르는 경로도 불명확.
+- **작업(무엇을):**
+    - `router/signals.py` — `SignalBundle`(신호+`kind`), `SignalSource` 프로토콜(런타임 체크 가능),
+      offline 빌트인 `synth_signal_source`/`fixture_signal_source`, `resolve_signal_source`(고전
+      스위치→소스), `OFFLINE_SIGNAL_KINDS`, `assert_offline_ledger_kind`(정직 경계 가드).
+    - `_signals_for`는 이제 `SignalBundle`을 돌려주고 `signal_source=`를 선택적으로 받습니다.
+      `run_replay`·`run_bundled_replay`·`run_route_once`·`run_evals` 모두 `signal_source=` 노출,
+      `bundle.kind`를 원장으로 스레딩(손계산 제거).
+    - `_append_ledger`가 기록 전에 `assert_offline_ledger_kind`로 경계를 강제.
+- **검증(효과):** 새 `tests/test_signals.py`(14) — 결정성·프로토콜 준수·가드·주입이 실행을
+  바꾸는지·measured가 `--ledger`에서 막히고 **아무 것도 안 써지는지**. 기본 경로는 완전히
+  불변(synth/fixture 결정론), 전체 스위트 그린, ruff·mkdocs strict 클린. "실험 입력변수 처리의
+  명확함"을 코드 레벨에서 실현 — 출처가 데이터와 한 몸으로 다닙니다.
+
+---
+
 ## 2026-07-24 · 단일-호출 라우터 선택 seam을 실제 Azure로 (`foundry router`)
 
 !!! note "한 줄 요약"

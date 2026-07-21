@@ -50,11 +50,16 @@ from .offline import (
     route_tasks,
     summarize_traces,
     synthesize_shared_signals,
-    synthesize_signals,
     synthesize_task_signals,
 )
 from .pricing import PricingTable
 from .profile import stratify_traces
+from .signals import (
+    SignalBundle,
+    SignalSource,
+    assert_offline_ledger_kind,
+    resolve_signal_source,
+)
 from .spotlight import select_spotlight
 
 DEFAULT_WORKLOAD = Path("samples/telemetry/mixed-coding-workload.sample.jsonl")
@@ -234,12 +239,18 @@ def _signals_for(
     workload: dict[str, dict[str, Any]],
     policy: PolicyTable,
     signals_path: Path | str | None,
-) -> dict[str, Any]:
-    if synth:
-        return synthesize_signals(workload, policy)
-    if signals_path is None:
-        raise ValueError("signals_path is required when synth is False")
-    return load_signal_fixture(signals_path)
+    signal_source: SignalSource | None = None,
+) -> SignalBundle:
+    """Resolve the signals for a run as a provenance-tagged bundle.
+
+    An explicit ``signal_source`` wins; otherwise the classic ``synth`` /
+    ``signals_path`` switch selects a deterministic offline default. The
+    returned :class:`SignalBundle` carries the ``kind`` that later rides to the
+    ledger, so no caller has to re-derive the provenance label.
+    """
+
+    source = signal_source or resolve_signal_source(synth=synth, signals_path=signals_path)
+    return source(workload, policy)
 
 
 def run_replay(
@@ -251,22 +262,32 @@ def run_replay(
     policy_path: Path | str | None = None,
     ledger_path: Path | str | None = None,
     budget_gate: BudgetGate | None = None,
+    signal_source: SignalSource | None = None,
 ) -> ReplayReport:
-    """Route every task that has signals and return traces plus a summary."""
+    """Route every task that has signals and return traces plus a summary.
+
+    ``signal_source`` injects a bespoke provenance (e.g. a future measured
+    provider); when omitted the deterministic ``synth`` / ``signals_path``
+    default is used.
+    """
 
     policy, workload, pricing = _load_context(
         workload_path=workload_path, pricing_path=pricing_path, policy_path=policy_path
     )
-    signals = _signals_for(
-        synth=synth, workload=workload, policy=policy, signals_path=signals_path
+    bundle = _signals_for(
+        synth=synth,
+        workload=workload,
+        policy=policy,
+        signals_path=signals_path,
+        signal_source=signal_source,
     )
     return _replay_report(
         workload,
-        signals,
+        bundle.signals,
         policy=policy,
         pricing=pricing,
         ledger_path=ledger_path,
-        signal_kind="synth" if synth else "fixture",
+        signal_kind=bundle.kind,
         budget_gate=budget_gate,
     )
 
@@ -278,32 +299,35 @@ def run_bundled_replay(
     root: Path | str | None = None,
     ledger_path: Path | str | None = None,
     budget_gate: BudgetGate | None = None,
+    signal_source: SignalSource | None = None,
 ) -> ReplayReport:
     """Replay the bundled sample workload with an in-memory policy.
 
     Shares the exact routing/summary path as :func:`run_replay` but sources the
     workload, signals, and pricing from the checked-in samples so an already
     loaded policy (e.g. a running service's injected policy) can be reused
-    without touching a policy file again. Offline and deterministic.
+    without touching a policy file again. Offline and deterministic unless a
+    non-offline ``signal_source`` is injected.
     """
 
     policy = policy or load_default_policy()
     paths = resolve_paths(root=root)
     workload = load_workload(paths["workload"])
     pricing = PricingTable.from_yaml(paths["pricing"])
-    signals = _signals_for(
+    bundle = _signals_for(
         synth=synth,
         workload=workload,
         policy=policy,
         signals_path=None if synth else paths["signals"],
+        signal_source=signal_source,
     )
     return _replay_report(
         workload,
-        signals,
+        bundle.signals,
         policy=policy,
         pricing=pricing,
         ledger_path=ledger_path,
-        signal_kind="synth" if synth else "fixture",
+        signal_kind=bundle.kind,
         budget_gate=budget_gate,
     )
 
@@ -490,6 +514,7 @@ def run_route_once(
     synth: bool = False,
     policy_path: Path | str | None = None,
     ledger_path: Path | str | None = None,
+    signal_source: SignalSource | None = None,
 ) -> dict[str, Any]:
     """Route a single task and return its trace."""
 
@@ -498,9 +523,14 @@ def run_route_once(
     )
     if task_id not in workload:
         raise KeyError(f"unknown task id: {task_id}")
-    signals = _signals_for(
-        synth=synth, workload=workload, policy=policy, signals_path=signals_path
+    bundle = _signals_for(
+        synth=synth,
+        workload=workload,
+        policy=policy,
+        signals_path=signals_path,
+        signal_source=signal_source,
     )
+    signals = bundle.signals
     if task_id not in signals:
         raise KeyError(f"no sample signals for task id: {task_id}")
     trace = route_task(workload[task_id], signals[task_id], policy=policy, pricing=pricing)
@@ -512,7 +542,7 @@ def run_route_once(
             traces=[trace],
             policy=policy,
             pricing=pricing,
-            signal_kind="synth" if synth else "fixture",
+            signal_kind=bundle.kind,
         )
     return trace
 
@@ -558,6 +588,7 @@ def _append_ledger(
 ) -> dict[str, Any]:
     """Build, verify, append, then re-verify a batch of ledger records."""
 
+    assert_offline_ledger_kind(signal_kind)
     records = []
     for trace in traces:
         task_id = str(trace.get("task_id"))
@@ -595,16 +626,21 @@ def run_evals(
     signals_path: Path | str | None = None,
     synth: bool = False,
     policy_path: Path | str | None = None,
+    signal_source: SignalSource | None = None,
 ) -> dict[str, Any]:
     """Summarize routed cost/coverage against the always-most-expensive baseline."""
 
     policy, workload, pricing = _load_context(
         workload_path=workload_path, pricing_path=pricing_path, policy_path=policy_path
     )
-    signals = _signals_for(
-        synth=synth, workload=workload, policy=policy, signals_path=signals_path
+    bundle = _signals_for(
+        synth=synth,
+        workload=workload,
+        policy=policy,
+        signals_path=signals_path,
+        signal_source=signal_source,
     )
-    return _eval_traces(policy=policy, workload=workload, pricing=pricing, signals=signals)
+    return _eval_traces(policy=policy, workload=workload, pricing=pricing, signals=bundle.signals)
 
 
 def summarize_by_class(traces: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:

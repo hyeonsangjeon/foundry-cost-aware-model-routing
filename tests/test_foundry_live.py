@@ -61,7 +61,7 @@ def bundled():
     pricing = PricingTable.from_yaml(paths["pricing"])
     signals = _signals_for(
         synth=False, workload=workload, policy=policy, signals_path=paths["signals"]
-    )
+    ).signals
     wl = {k: workload[k] for k in signals if k in workload}
     return wl, signals, policy, pricing
 
@@ -422,7 +422,9 @@ def test_curated_workload_scores_recorded_snapshot_offline() -> None:
     policy = load_default_policy()
     paths = resolve_paths(root=None)
     pricing = PricingTable.from_yaml(paths["pricing"])
-    signals = _signals_for(synth=False, workload=wl, policy=policy, signals_path=paths["signals"])
+    signals = _signals_for(
+        synth=False, workload=wl, policy=policy, signals_path=paths["signals"]
+    ).signals
     client = RecordedRouterClient(load_recorded_usage(USAGE_FIXTURE))
     result = measured_router_summary(wl, signals, policy, pricing, client=client)
     assert result["tasks"] == len(CURATED_TASK_IDS)
@@ -466,7 +468,9 @@ def test_curated_workload_live_call_sends_prompts_and_measures() -> None:
     policy = load_default_policy()
     paths = resolve_paths(root=None)
     pricing = PricingTable.from_yaml(paths["pricing"])
-    signals = _signals_for(synth=False, workload=wl, policy=policy, signals_path=paths["signals"])
+    signals = _signals_for(
+        synth=False, workload=wl, policy=policy, signals_path=paths["signals"]
+    ).signals
     result = measured_router_summary(
         wl, signals, policy, pricing, client=client, model_aliases={"gpt-4o-mini": "mini-fast"}
     )
