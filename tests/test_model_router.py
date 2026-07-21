@@ -57,7 +57,7 @@ def bundled():
     pricing = PricingTable.from_yaml(paths["pricing"])
     signals = _signals_for(
         synth=False, workload=workload, policy=policy, signals_path=paths["signals"]
-    )
+    ).signals
     wl = {k: workload[k] for k in signals if k in workload}
     return wl, signals, policy, pricing
 

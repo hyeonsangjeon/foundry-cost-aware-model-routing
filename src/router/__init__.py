@@ -90,6 +90,15 @@ from .pipeline import (
 from .pricing import PricingTable, TokenRates
 from .profile import TaskProfile, profile_task, stratify_traces
 from .select import SelectionAttempt, SelectionResult, compare_select, ordered_select
+from .signals import (
+    OFFLINE_SIGNAL_KINDS,
+    SignalBundle,
+    SignalSource,
+    assert_offline_ledger_kind,
+    fixture_signal_source,
+    resolve_signal_source,
+    synth_signal_source,
+)
 from .spotlight import Spotlight, select_spotlight, spotlight_for
 from .trace import build_trace
 
@@ -113,6 +122,7 @@ __all__ = [
     "JsonlMetricsStore",
     "MeasuringRouterClient",
     "MetricSink",
+    "OFFLINE_SIGNAL_KINDS",
     "PricingTable",
     "ReplayReport",
     "RecordedRouterClient",
@@ -120,10 +130,13 @@ __all__ = [
     "RuleBasedClassifier",
     "SelectionAttempt",
     "SelectionResult",
+    "SignalBundle",
+    "SignalSource",
     "Spotlight",
     "TokenRates",
     "TaskProfile",
     "__version__",
+    "assert_offline_ledger_kind",
     "baseline_cost_usd",
     "baseline_model_for_task",
     "bundled_head_to_head",
@@ -143,6 +156,7 @@ __all__ = [
     "extract_experiment_metrics",
     "fanout_stats",
     "find_samples_root",
+    "fixture_signal_source",
     "format_eval_report",
     "format_regression_report",
     "format_replay_json",
@@ -167,6 +181,7 @@ __all__ = [
     "regression_report",
     "resolve_paths",
     "resolve_policy_path",
+    "resolve_signal_source",
     "route_payload",
     "route_task",
     "route_tasks",
@@ -181,6 +196,7 @@ __all__ = [
     "summarize_traces",
     "summary_from_choices",
     "stratify_traces",
+    "synth_signal_source",
     "synthesize_shared_signals",
     "synthesize_signals",
     "synthesize_task_signals",

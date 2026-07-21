@@ -721,12 +721,13 @@ def _load_scoring_inputs(args: argparse.Namespace):
     policy = load_policy(None)
     workload = load_workload(paths["workload"])
     pricing = PricingTable.from_yaml(paths["pricing"])
-    signals = _signals_for(
+    bundle = _signals_for(
         synth=args.synth,
         workload=workload,
         policy=policy,
         signals_path=_signals_path(args, paths),
     )
+    signals = bundle.signals
     workload = {task_id: workload[task_id] for task_id in signals if task_id in workload}
     return workload, signals, policy, pricing
 
