@@ -212,6 +212,12 @@ def _build_ledger_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     replay.add_argument("--ledger", type=Path, required=True)
     replay.set_defaults(func=_cmd_ledger_replay)
+    measured = ledger_sub.add_parser(
+        "measured-replay",
+        help="Verify a MEASURED ledger's hash chain and replay its recorded costs.",
+    )
+    measured.add_argument("--ledger", type=Path, required=True)
+    measured.set_defaults(func=_cmd_ledger_measured_replay)
 
 
 def _build_experiment_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -579,6 +585,24 @@ def _cmd_ledger_replay(args: argparse.Namespace) -> int:
     print(f"records: {report.records}")
     print(f"matched: {report.matched}")
     print(f"completeness: {report.completeness:.1%}")
+    print(f"status: {'PASS' if report.ok else 'FAIL'}")
+    if report.mismatches:
+        print(json.dumps(list(report.mismatches), indent=2, sort_keys=True))
+    return 0 if report.ok else 1
+
+
+def _cmd_ledger_measured_replay(args: argparse.Namespace) -> int:
+    from .ledger import verify_measured_ledger
+
+    try:
+        report = verify_measured_ledger(args.ledger)
+    except (OSError, ValueError) as exc:
+        print(f"error: {exc}")
+        print("status: FAIL")
+        return 1
+    print(f"records: {report.records}")
+    print(f"replayed: {report.replayed}")
+    print("  → each recorded call cost re-derived from its usage × the pinned rate card")
     print(f"status: {'PASS' if report.ok else 'FAIL'}")
     if report.mismatches:
         print(json.dumps(list(report.mismatches), indent=2, sort_keys=True))
@@ -1082,7 +1106,15 @@ def _cmd_foundry_arena(args: argparse.Namespace) -> int:
         ledger = MeasuredArenaLedger(path=args.ledger, pricing=pricing)
         for outcome in outcomes:
             ledger.record(outcome)
-        ledger.flush()
+        appended = ledger.flush()
+        from .ledger import verify_measured_ledger
+
+        verified = verify_measured_ledger(args.ledger)
+        status = "OK" if verified.ok else "FAIL"
+        print(
+            f"ledger: +{appended} measured row(s) → {args.ledger} "
+            f"(hash-chain + cost-replay: {status})"
+        )
     if args.out is not None:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(

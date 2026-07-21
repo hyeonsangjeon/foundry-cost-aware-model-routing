@@ -362,20 +362,42 @@ class FleetSlate:     # 어떤 배포가 어떤 arm을 받치나
 `--workload`(프롬프트 JSONL)·`--pricing`(요율 YAML)·`--max-output-tokens`(추론 헤드룸)만
 바꾸면 실험 입력이 전부 제어됩니다.
 
-### 7-3. 원장 관리 — 정직한 라벨로 append
+### 7-3. 원장 관리 — 해시 체인 + 비용 재생으로 검증
 
 ```python
 from router.foundry_arena import MeasuredArenaLedger
 ledger = MeasuredArenaLedger(path=Path("runs/arena.jsonl"), pricing=pricing)
 for outcome in outcomes:
-    ledger.record(outcome)       # 태스크 1건 = 원장 1줄
+    ledger.record(outcome)       # 태스크 1건 = 원장 1줄(해시 체인 봉인)
 ledger.flush()                   # append-only JSONL
 ```
 
-- **오프라인 감사 원장**(`src/router/ledger/`, [감사 원장](ledger.md))은 계약상 항상
+- **오프라인 감사 원장**(`src/router/ledger/record.py`, [감사 원장](ledger.md))은 계약상 항상
   `measured = false`입니다.
 - **측정 원장**(`MeasuredArenaLedger`)은 **실 라이브 호출 전용**이라 `measured = true`
   provenance가 사는 유일한 곳입니다. 둘을 분리해 정직함 경계를 코드로 강제합니다.
+- 이제 측정 원장도 오프라인 원장과 **같은 두 가지 무결성 보장**을 가집니다
+  (`src/router/ledger/measured.py`):
+    - **변조 감지** — 각 줄은 정규 페이로드에 대한 `record_hash`로 봉인되고 `previous_hash`로
+      앞줄과 연결됩니다. 한 바이트만 바뀌어도 체인이 깨집니다.
+    - **결정론적 비용 재생** — 각 줄은 채점에 쓴 `pricing_snapshot`(요율표)을 품고 있어,
+      검증이 **기록된 토큰 usage × 그 요율표**로 모든 호출 비용을 다시 계산해 일치를 확인합니다.
+      측정된 usage는 고정된 증거이고, 비용은 그 순수 함수입니다.
+
+```bash
+# 측정 원장 검증: 해시 체인 + 비용 재생
+cost-router ledger measured-replay --ledger runs/arena.jsonl
+```
+
+```text
+records: 5
+replayed: 5
+  → each recorded call cost re-derived from its usage × the pinned rate card
+status: PASS
+```
+
+`foundry arena --ledger`는 flush 직후 이 검증을 자동으로 돌려
+`ledger: +N measured row(s) → … (hash-chain + cost-replay: OK)`를 출력합니다.
 
 ### 7-4. 한 번에 재현
 

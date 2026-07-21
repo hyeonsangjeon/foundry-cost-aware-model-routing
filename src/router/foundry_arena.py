@@ -38,6 +38,7 @@ import json
 from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -48,6 +49,7 @@ from .foundry_live import (
     RouterOutcome,
     normalize_model_name,
 )
+from .ledger import MeasuredJsonlLedger, MeasuredLedgerRecord
 from .pricing import PricingTable
 
 # ``normalize_model_name`` (dated id ``gpt-5.4-2026-03-05`` → base ``gpt-5.4``) is
@@ -432,7 +434,14 @@ def load_arena_tasks(path: Path | str, *, system: str | None = None) -> list[Are
 
 @dataclass
 class MeasuredArenaLedger:
-    """Append-only JSONL ledger of measured arena rows (honest labels).
+    """Append-only, **hash-chained** JSONL ledger of measured arena rows.
+
+    Each row is sealed with a ``record_hash`` over its canonical payload and
+    linked to the prior row through ``previous_hash`` (via
+    :class:`~router.ledger.MeasuredJsonlLedger`), and embeds the priced
+    ``pricing_snapshot`` it was scored against — so
+    :func:`~router.ledger.verify_measured_ledger` can re-derive every call's
+    cost from its recorded token usage and confirm the chain is intact.
 
     Separate from :mod:`router.ledger` (the offline audit trail, which is by
     contract ``measured = false``): this ledger only ever holds rows from real
@@ -441,16 +450,20 @@ class MeasuredArenaLedger:
 
     path: Path
     pricing: PricingTable
-    _entries: list[dict[str, Any]] = field(default_factory=list)
+    _entries: list[MeasuredLedgerRecord] = field(default_factory=list)
 
     def record(self, outcome: ArenaOutcome) -> None:
-        self._entries.append(outcome.to_dict(self.pricing))
+        captured_at = datetime.now(UTC).isoformat()
+        self._entries.append(
+            MeasuredLedgerRecord.build(
+                outcome.to_dict(self.pricing),
+                pricing=self.pricing,
+                captured_at=captured_at,
+            )
+        )
 
     def flush(self) -> int:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as handle:
-            for entry in self._entries:
-                handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
-        written = len(self._entries)
+        appended = MeasuredJsonlLedger(self.path).append_many(self._entries)
+        written = len(appended)
         self._entries.clear()
         return written
