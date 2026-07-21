@@ -25,6 +25,33 @@ completeness: 100.0%
 status: PASS
 ```
 
+## 측정 원장 — 같은 무결성을 실측 실행에도
+
+오프라인 원장은 계약상 `measured = false`입니다. 실제 라이브 호출(4-way 아레나 등)은
+**분리된 측정 원장**(`src/router/ledger/measured.py`, `MeasuredArenaLedger`)에 쌓이며,
+오프라인 원장을 **전혀 건드리지 않고** 같은 두 가지 보장을 받습니다:
+
+- **변조 감지** — 각 줄은 정규 페이로드의 `record_hash`로 봉인되고 `previous_hash`로 앞줄과
+  연결됩니다(오프라인 원장과 동일한 해시 프리미티브 → 바이트 단위로 동일한 해시).
+- **결정론적 비용 재생** — 각 줄은 채점에 쓴 `pricing_snapshot`을 품어, 검증이 **기록된
+  usage × 그 요율표**로 모든 호출 비용을 다시 계산해 일치를 확인합니다. 측정된 usage는 고정
+  증거, 비용은 그 순수 함수 — 오프라인 원장이 "저장된 입력으로 결정을 재생"하는 것과 같은 정신.
+
+```bash
+cost-router ledger measured-replay --ledger runs/arena.jsonl
+```
+
+```text
+records: 5
+replayed: 5
+  → each recorded call cost re-derived from its usage × the pinned rate card
+status: PASS
+```
+
+!!! note "두 원장은 일부러 분리됩니다"
+    오프라인 원장은 오프라인 투영만, 측정 원장은 실측 지출만 담습니다. 공유하는 것은 순수 해시
+    프리미티브뿐이라 어느 쪽도 상대의 엄격함/정직 라벨을 흐리지 않습니다.
+
 ## 원장 레코드에 담기는 것
 
 각 레코드는 하나의 자기완결적·재생 가능한 오프라인 라우팅 결정입니다.

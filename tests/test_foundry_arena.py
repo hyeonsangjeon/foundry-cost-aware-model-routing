@@ -32,6 +32,7 @@ from router.foundry_arena import (
     run_arena_task,
 )
 from router.foundry_live import FoundryConfig
+from router.ledger import verify_measured_ledger
 from router.pricing import PricingTable
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -216,8 +217,49 @@ def test_measured_ledger_appends_one_row_per_task(tmp_path: Path) -> None:
     lines = (tmp_path / "arena.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(lines) == 3
     row = json.loads(lines[0])
-    assert row["labels"]["measured"] is True
-    assert set(row["arms"]) == {"cheapest", "premium", "ensemble", "router"}
+    # the audit envelope wraps the honest arena payload under `outcome`
+    assert row["schema_version"] == 1
+    assert row["previous_hash"] is None  # first row starts the chain
+    assert len(row["record_hash"]) == 64
+    assert row["outcome"]["labels"]["measured"] is True
+    assert set(row["outcome"]["arms"]) == {"cheapest", "premium", "ensemble", "router"}
+    # every row links to the prior one's digest
+    assert json.loads(lines[1])["previous_hash"] == row["record_hash"]
+
+
+def test_measured_ledger_verifies_chain_and_cost_replay(tmp_path: Path) -> None:
+    fleet, _ = _fleet()
+    pricing = _pricing()
+    path = tmp_path / "arena.jsonl"
+    ledger = MeasuredArenaLedger(path=path, pricing=pricing)
+    for i in range(2):
+        ledger.record(run_arena_task(fleet, ArenaTask(f"t-{i}", "do it"), FleetSlate(), pricing))
+    ledger.flush()
+    # separate flushes keep chaining across appends
+    ledger.record(run_arena_task(fleet, ArenaTask("t-2", "do it"), FleetSlate(), pricing))
+    ledger.flush()
+
+    report = verify_measured_ledger(path)
+    assert report.ok
+    assert report.records == 3
+    assert report.replayed == 3
+    assert report.mismatches == ()
+
+
+def test_measured_ledger_detects_tampering(tmp_path: Path) -> None:
+    fleet, _ = _fleet()
+    pricing = _pricing()
+    path = tmp_path / "arena.jsonl"
+    ledger = MeasuredArenaLedger(path=path, pricing=pricing)
+    ledger.record(run_arena_task(fleet, ArenaTask("t-0", "do it"), FleetSlate(), pricing))
+    ledger.flush()
+
+    # flip a recorded cost without re-sealing the hash → verification must fail
+    row = json.loads(path.read_text(encoding="utf-8"))
+    row["outcome"]["arms"]["premium"]["cost_usd"] = 999.0
+    path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="record_hash"):
+        verify_measured_ledger(path)
 
 
 # -- CLI guard ---------------------------------------------------------------

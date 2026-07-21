@@ -10,6 +10,31 @@
 
 ---
 
+## 2026-07-26 · 측정 원장을 canonical 감사 형태로 (해시 체인 + 비용 재생)
+
+!!! note "한 줄 요약"
+    실측 아레나 원장(`MeasuredArenaLedger`)이 오프라인 원장과 **같은 두 무결성 보장**을 갖도록
+    canonical하게 승격했습니다 — 변조 감지(정규 `record_hash` + `previous_hash` 체인)와 결정론적
+    **비용 재생**(기록된 usage × 봉인된 `pricing_snapshot`). 엄격한 오프라인 원장은 **전혀 건드리지
+    않고**, 공유는 순수 해시 프리미티브(`stable_hash`)뿐 — 두 감사가 서로의 정직 라벨을 흐리지 않게.
+
+- **상황(왜):** 측정 원장은 무결성/재생 없는 평면 append-only JSONL이었습니다. 실측 지출이
+  오프라인 투영과 같은 감사 수준(재현·검증)을 받지 못했습니다.
+- **작업(무엇을):**
+    - `router/ledger/measured.py` — `MeasuredLedgerRecord`(해시 체인 봉인, 엄격 validate,
+      `pricing_snapshot` 내장), `MeasuredJsonlLedger`(fcntl 락 append + 체인 검증),
+      `verify_measured_ledger`/`verify_measured_records`(무결성 + 비용 재생), `MeasuredReplayReport`.
+    - `MeasuredArenaLedger`가 이제 이 canonical 저장소에 쓰기 — `record()`가 `captured_at`을 찍어
+      봉인, `flush()`가 체인 연결 append. 여러 flush에 걸쳐 체인 유지.
+    - CLI `ledger measured-replay --ledger …`(오프라인 `ledger replay`와 대칭). `foundry arena
+      --ledger`는 flush 직후 자동 검증 + `+N measured row(s) … (hash-chain + cost-replay: OK)` 출력.
+    - 정직 경계: 오프라인 원장(`record.py`)은 **불변** — measured 행은 여전히 그쪽에 못 들어갑니다.
+- **검증(효과):** 새 `tests/test_measured_ledger.py`(13, CLI 포함) + 아레나 원장 테스트 강화 —
+  체인 연속성, 비용 재생, 변조 감지(비용 위조 → `record_hash` 불일치), 내부 불일치(봉인은
+  유효하나 usage×요율과 안 맞는 비용) 적발. 전체 스위트 그린, ruff·mkdocs strict 클린, 시크릿 0.
+
+---
+
 ## 2026-07-25 · 신호 출처를 주입 가능한 seam으로 (`router.signals`)
 
 !!! note "한 줄 요약"
