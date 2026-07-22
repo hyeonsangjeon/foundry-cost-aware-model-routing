@@ -13,6 +13,10 @@ All notable changes to this project are documented here.
   registry. Bundled samples: `samples/fleet/foundry-5series.fleet.yaml` and a
   single-deployment example. Selections persist to a gitignored
   `.foundry-fleet.local.yaml`.
+- **Onboarding rewrite** (`README.md`): value-forward intro, a prominent
+  **Requirements** block (Python 3.11+), clone/venv/install Quickstart, and a
+  two-track path — *offline preview* (`hero`) vs. *make it real* (register a
+  fleet → `foundry arena --live` → `measured=true`).
 - `cost-router serve` / `hero --serve` now fall back to the next free port when
   the requested one is busy (no more `Address already in use` traceback) and
   print the actual URL.
