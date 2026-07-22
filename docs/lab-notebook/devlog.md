@@ -10,6 +10,27 @@
 
 ---
 
+## 2026-07-27 · 실험 10 — 측정 런을 durable 감사로 봉인·재검증 (엔드투엔드)
+
+!!! note "한 줄 요약"
+    실험 09의 measured 지출을 canonical 해시 체인 원장으로 굳혀, 자격 증명·네트워크 없이도
+    누구나 한 줄로 `PASS`를 재현하게 만들었습니다 — **1바이트만 고쳐도 검증이 깨집니다.**
+
+- **상황(왜):** 실험 09는 저장소 최초 `measured = true`였지만, 측정 지출은 무결성·재생 없는
+  평면 JSONL로만 남아 오프라인 투영이 받는 감사 수준(재현·검증)을 못 받았습니다.
+- **작업(무엇을):**
+    - 커밋된 실측 아레나 캡처(`samples/responses/foundry-arena-measured.json`)를 canonical 측정
+      원장 `samples/ledger/arena-measured.ledger.jsonl`(5행, `record_hash`+`previous_hash` 체인 +
+      `pricing_snapshot` 내장)으로 봉인 — **새 Azure 호출 없이** 실측 usage를 재봉인(비용 0).
+    - 재현 생성기 `scripts/build_measured_ledger_sample.py`(`captured_at` 고정 → 바이트 결정론)와
+      실험 10 랩노트 페이지 작성.
+    - CI 테스트: 커밋된 원장이 `measured-replay` PASS, 생성기가 커밋본을 **바이트 동일**로 재생성.
+- **검증(효과):** `ledger measured-replay` → `records: 5 / replayed: 5 / PASS`. 변조 두 데모 —
+  ① 비용 위조(재봉인 안 함) → `record_hash` 불일치, ② 재봉인한 위조(해시 유효) → 비용 재생이
+  `arms.router.calls[0].cost_usd` 적발 — 모두 FAIL로 잡힘. 엄격한 오프라인 원장은 불변.
+
+---
+
 ## 2026-07-26 · 측정 원장을 canonical 감사 형태로 (해시 체인 + 비용 재생)
 
 !!! note "한 줄 요약"
