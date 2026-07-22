@@ -64,7 +64,7 @@ nav:
       - "실험 04 · 공짜 점심은 없다": lab-notebook/04-no-free-lunch.md
       - "실험 05 · 앙상블 팬아웃 세금": lab-notebook/05-ensemble-fanout.md
       - "실험 06 · 적응형 팬아웃 다이얼": lab-notebook/06-fanout-dial.md
-      - "실험 07 · 라우팅 레이어": lab-notebook/07-model-router.md
+      - "실험 07 · 라우팅 레이어 ⭐": lab-notebook/07-model-router.md
       - "실험 08 · 아레나 (프로토타입 실행)": lab-notebook/08-arena.md
       - "실험 09 · 실측 라우팅 (measured=true)": lab-notebook/09-live-routing-proof.md
       - "실험 10 · 실측 원장 (canonical audit)": lab-notebook/10-measured-ledger.md
