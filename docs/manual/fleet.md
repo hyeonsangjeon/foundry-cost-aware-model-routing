@@ -65,6 +65,13 @@ models:
   `samples/fleet/foundry-ext-full.fleet.yaml`(가격표는 `samples/pricing/foundry-ext-full.yaml`)입니다.
   `cost-router models list`의 **surface** 열에서 각 모델이 어느 표면을 쓰는지 바로 확인할 수 있습니다.
 
+!!! note "`provider` 태그가 의미 있는 곳"
+    Model Router arm은 이 파트너 모델 상당수를 **이미 내부에서 크로스 프로바이더로** 라우팅합니다
+    (별도 배포 불필요 — [실험 07](../lab-notebook/07-model-router.md)). 따라서 이 `provider` 태그는
+    라우터를 거치지 않고 **직접 호출**하는 arm — cheapest·premium·ensemble 팬아웃 — 이 파트너 표면을
+    부를 때 의미가 있습니다. 멀티프로바이더 라우팅 자체는 내장 기능(table-stakes)이고, 이 저장소의
+    가치는 그 위의 검증·앙상블·거버너·감사 축에 있습니다.
+
 ## 2. 터미널에서 선택 (`/model` 피커)
 
 카탈로그를 보고, 각 아암에 어떤 모델을 넣을지 고릅니다. 선택은 gitignore된

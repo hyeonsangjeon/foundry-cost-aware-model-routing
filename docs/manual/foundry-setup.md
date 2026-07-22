@@ -62,9 +62,10 @@ az cognitiveservices account create \
 
 ### 1-1. 배포 만들기 — Model Router + 5시리즈
 
-Model Router는 **단일 배포**지만, 내부적으로 여러 벤더 모델(OpenAI GPT-5 계열, xAI Grok,
-gpt-oss 등)로 프롬프트를 분기합니다. 5시리즈 3종은 아레나의 단일/팬아웃 arm이 **직접**
-호출합니다.
+Model Router는 **배포 하나로 알아서 되는** 선정 레이어입니다 — 그 하나만 배포하면 OpenAI
+GPT-5 계열뿐 아니라 xAI Grok · DeepSeek · Meta Llama · gpt-oss까지 **별도 배포 없이** 프롬프트마다
+분기합니다(Anthropic Claude만 예외적으로 직접 배포 필요). 아래 5시리즈·파트너 배포는 라우터가
+아니라 아레나의 **직접 호출/팬아웃 arm**(cheapest·premium·ensemble)이 쓰는 것입니다.
 
 ```bash
 # 라우터(하나로 다 되는 선정 레이어)
