@@ -1,0 +1,32 @@
+# Fleet — which deployed model plays each arm of the routing head-to-head.
+#
+# This is the "register your models" file. `cost-router foundry arena --live`
+# and the dashboard build their four strategy arms from it:
+#
+#   router (main) : Foundry Model Router — one model chosen per prompt (the hero)
+#   cheapest      : the small-tier floor, always
+#   premium       : the frontier ceiling, always
+#   ensemble      : the fan-out slate (call several, keep the best, pay the tax)
+#
+# Point a run at this file with `--fleet PATH` or `FOUNDRY_FLEET_PATH=...`.
+# Select interactively with `cost-router models select` (writes a gitignored
+# `.foundry-fleet.local.yaml` so your real deployment names never get committed).
+#
+# `name` is the logical/pricing key (matched against your pricing YAML and shown
+# in reports); `deployment` is the Azure AI Foundry deployment name the live
+# client calls. They are usually identical but decoupled on purpose. This sample
+# mirrors the GPT-5.4 family; swap in the deployments YOUR resource actually has.
+
+version: 1
+
+models:
+  - { name: gpt-5.4-nano, deployment: gpt-5.4-nano, tier: small,    label: "GPT-5.4 nano — cheap floor" }
+  - { name: gpt-5.4-mini, deployment: gpt-5.4-mini, tier: mid,      label: "GPT-5.4 mini — mid tier" }
+  - { name: gpt-5.4,      deployment: gpt-5.4,      tier: frontier, label: "GPT-5.4 — frontier ceiling" }
+  - { name: model-router, deployment: model-router, tier: router,   label: "Foundry Model Router — picks one per prompt" }
+
+roles:
+  router: model-router
+  cheapest: gpt-5.4-nano
+  premium: gpt-5.4
+  ensemble: [gpt-5.4-nano, gpt-5.4-mini, gpt-5.4]

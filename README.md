@@ -5,11 +5,17 @@
 [![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Initial Python scaffold for model-routing experiments.
+**Cost-aware model routing over Azure AI Foundry** — send the cheapest model
+that still passes, escalate only when it doesn't, and prove the savings hold at
+full coverage. Ten one-command experiments make the case *and* mark its limits;
+a live bridge routes against your real Foundry deployments and seals the
+measured spend into a tamper-evident ledger.
 
-This repository is intentionally kept small: source code, tests, placeholder
-configuration, and synthetic sample data only. Internal planning material,
-private notes, launch notes, and diagrams stay outside Git.
+Two honesty rules run through everything: offline runs are **projections over
+synthetic data** (`labels.measured=false`), and only a **fresh live call** is
+ever labeled `measured=true`. The repo is intentionally small — source, tests,
+placeholder configuration, and synthetic samples only; private notes and
+diagrams stay outside Git.
 
 📘 **한국어 매뉴얼 · 실험노트 (github.io):**
 <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
@@ -19,30 +25,61 @@ private notes, launch notes, and diagrams stay outside Git.
 — animated before/after, the cost × coverage frontier, and the policy-A/B
 coverage cliff, rendered from the same offline projection.
 
-## Quickstart (30 seconds)
+## Requirements
 
-Everything runs offline against the checked-in synthetic samples — no network,
-no credentials, deterministic results.
+- **Python 3.11+** — the router uses `StrEnum`, so 3.10 fails to import. Check
+  first with `python3 --version`.
+- `git`, plus network access for a one-time install (the only core dependency
+  is `pyyaml`).
 
-```bash
-pip install -e .        # provides the `cost-router` console script
-cost-router hero        # the flagship experiment: before/after in one command
-```
+## Quickstart
 
-`cost-router hero` runs the flagship experiment (`experiments/hero.yaml`) and
-prints a punchy before/after, a spotlight task, and a reproducibility
-self-check — it exits non-zero if the offline projection ever drifts below the
-contracted floor. Add `--serve` to boot the dashboard and watch it live:
+Clone, create a virtualenv, and install the `cost-router` console script:
 
 ```bash
-cost-router hero --serve   # then open http://127.0.0.1:8000/?run=1 (auto-runs)
+git clone https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing.git
+cd foundry-cost-aware-model-routing
+python3 -m venv .venv && source .venv/bin/activate    # recommended
+pip install -e .                                      # core dep: pyyaml
 ```
+
+### 1 · Offline preview (30 seconds, no network or credentials)
+
+`cost-router hero` runs the flagship experiment as a **deterministic offline
+projection over synthetic data** (`labels.measured=false`) — a *preview*, not a
+measurement. It prints a before/after, a spotlight task, and a reproducibility
+self-check (it exits non-zero if the projection ever drifts below the contracted
+floor):
+
+```bash
+cost-router hero
+cost-router hero --serve --port 8000   # dashboard; auto-falls back if the port is busy
+```
+
+### 2 · Make it real — register your fleet, then measure
+
+The preview above is synthetic. To route against **your** deployed Azure AI
+Foundry models, register them in a fleet config, pick which one plays each arm
+(router/cheapest/premium/ensemble), and run the live arena — real calls → real
+token usage → `measured=true`:
+
+```bash
+cost-router models list        # your deployed-model catalog + current slate
+cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
+cost-router foundry arena --fleet .foundry-fleet.local.yaml --live
+```
+
+See [**Fleet — register & select your models**](#fleet--register--select-your-models)
+below for the config format, the terminal `/model` picker, dashboard selection,
+and a single-deployment smoke test. Only a fresh live call is ever labeled
+`measured=true`; everything offline stays an honest projection.
 
 ### The experiment arc — honest by construction
 
 This repo proves where cost-aware routing **wins** and, just as deliberately,
-where it **doesn't**. Eight one-command experiments, each a deterministic offline
-projection over synthetic data (`labels.measured=false`):
+where it **doesn't**. Ten one-command experiments — 01–08 are deterministic
+offline projections over synthetic data (`labels.measured=false`); 09–10 are
+real **measured** runs against a live Foundry Model Router:
 
 | # | Experiment | Question it answers | Result |
 | --- | --- | --- | --- |
@@ -221,6 +258,54 @@ for single-call comparisons: `cost` picks each class's cheapest candidate,
 They are deterministic placeholder baselines, not claims about a managed
 router's internal implementation.
 
+## Fleet — register & select your models
+
+The live head-to-head (`cost-router foundry arena`) and the dashboard build
+their four strategy arms from a **fleet config**: which *deployed* Azure AI
+Foundry model plays each role — the **router (main)**, the **cheapest** floor,
+the **premium** ceiling, and the **ensemble** fan-out. This is the "register
+your models" step, and it lives in a small YAML you own:
+
+```yaml
+# samples/fleet/foundry-5series.fleet.yaml
+models:
+  - { name: gpt-5.4-nano, deployment: gpt-5.4-nano, tier: small }
+  - { name: gpt-5.4,      deployment: gpt-5.4,      tier: frontier }
+  - { name: model-router, deployment: model-router, tier: router }
+roles:
+  router: model-router
+  cheapest: gpt-5.4-nano
+  premium: gpt-5.4
+  ensemble: [gpt-5.4-nano, gpt-5.4-mini, gpt-5.4]
+```
+
+`name` is the logical/pricing key; `deployment` is the Azure deployment name the
+live client calls (decoupled on purpose). Point any run at your file with
+`--fleet PATH` or `FOUNDRY_FLEET_PATH`; with neither, the bundled sample (then a
+safe in-code default) is used.
+
+**Select from the terminal** — inspect the catalog, then pick each arm (an
+interactive `/model` picker, or non-interactive flags). The choice is saved to a
+gitignored `.foundry-fleet.local.yaml`:
+
+```bash
+cost-router models list          # catalog + current slate + live readiness
+cost-router models select        # interactive: enter a number or name per arm
+cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
+cost-router foundry arena --fleet .foundry-fleet.local.yaml --live   # measure YOUR slate
+```
+
+**Select from the dashboard** — the "Fleet & live routing" panel lists the same
+catalog with dropdowns for router/cheapest/premium and ensemble checkboxes.
+"Run selection" replays the committed measured snapshot (honestly relabeled
+`measured = false`, `provenance = recorded` — the web path never makes paid
+calls) and prints the exact terminal command to measure your selection live.
+
+> **Only one deployment?** Copy `samples/fleet/single-deployment.example.yaml`,
+> point every arm at your one model, and you can still prove the whole live path
+> end-to-end (keyless Entra → real call → token usage → priced → hash-chained
+> ledger). Every arm ties — that is the point of a single-deployment smoke.
+
 ## Service
 
 The same routing pipeline is available as a small offline HTTP service built on
@@ -230,12 +315,17 @@ the Python standard library (no web framework, no provider calls):
 cost-router serve --host 127.0.0.1 --port 8000   # or: make serve
 ```
 
+If the port is already in use, the server falls back to the next free port and
+prints the actual URL instead of crashing.
+
 Endpoints (all JSON, all deterministic and network-free):
 
 | Method | Path           | Purpose                                                  |
 | ------ | -------------- | -------------------------------------------------------- |
 | GET    | `/healthz`     | Liveness probe.                                          |
 | GET    | `/policy`      | Policy version and ordered candidates per task class.    |
+| GET    | `/fleet`       | Model catalog, current slate, and live readiness.        |
+| POST   | `/fleet/run`   | Validate a selected slate; replay the recorded arena.    |
 | POST   | `/route`       | Route one task payload, return its routing trace.        |
 | POST   | `/batch-route` | Route many task payloads, return traces plus a summary.  |
 

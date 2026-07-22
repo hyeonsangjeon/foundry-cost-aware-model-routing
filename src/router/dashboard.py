@@ -391,6 +391,27 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   table.htable tr:hover td { background: var(--elev); }
   .hstate.pass { color: var(--green); font-weight: 600; }
   .hstate.fail { color: var(--red); font-weight: 600; }
+
+  /* ---- Fleet & live routing ---- */
+  .fleet-grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  @media (min-width: 820px) { .fleet-grid { grid-template-columns: 1.05fr 1fr; } }
+  .fleet-cat .catrow { padding: 8px 0; }
+  .fleet-roles { display: grid; gap: 12px; }
+  .fleet-role { display: grid; gap: 5px; }
+  .fleet-role > label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+  .fleet-role select { font-family: var(--mono); font-size: 12.5px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); }
+  .fleet-ens { display: flex; flex-wrap: wrap; gap: 7px; }
+  .fleet-ens label { font-family: var(--mono); font-size: 11.5px; padding: 4px 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--elev); cursor: pointer; display: flex; gap: 6px; align-items: center; }
+  .fleet-ens input { accent-color: var(--green); }
+  .fleet-run { margin-top: 14px; font-family: var(--sans); font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 9px; border: 1px solid var(--brand); background: var(--brand); color: #fff; cursor: pointer; }
+  .fleet-run:hover { filter: brightness(1.05); }
+  .fleet-run:disabled { opacity: .6; cursor: default; }
+  .fleet-arms { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px,1fr)); gap: 10px; margin: 14px 0 12px; }
+  .fleet-arm { background: var(--elev); border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; }
+  .fleet-arm .k { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .fleet-arm .v { font-family: var(--mono); font-weight: 700; font-size: 15px; margin: 3px 0; }
+  .fleet-arm.router { border-color: #b7dfc6; background: #eefaf1; }
+  .fleet-cmd { font-family: var(--mono); font-size: 12px; background: #0f1720; color: #d7e2ee; border-radius: 9px; padding: 12px 14px; white-space: pre-wrap; word-break: break-word; line-height: 1.7; margin: 8px 0; }
 </style>
 </head>
 <body>
@@ -460,6 +481,34 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <div class="arena-verdict" id="arenaVerdict">&mdash;</div>
     <p class="caveat">Cost &amp; accuracy reuse the same offline machinery as every other panel (<code>measured = false</code>).
       Latency is an <b>illustrative projection</b> from token counts &mdash; not wall-clock; a live run is where real timings come from.</p>
+  </section>
+
+  <section class="panel" id="fleetPanel" hidden>
+    <div class="eyebrow">Pick your fleet</div>
+    <h2 class="sec">Fleet &amp; live routing <span class="arena-meta" id="fleetMeta">&mdash;</span></h2>
+    <p class="sec-sub">These are the Foundry deployments registered in your fleet file. Choose which model plays each
+      role &mdash; the <b>router (main)</b>, the <b>cheapest</b> floor, the <b>premium</b> ceiling, and the
+      <b>ensemble</b> that fans out. The exact command to run <b>your</b> selection live is generated below.</p>
+    <div class="fleet-grid">
+      <div class="fleet-cat" id="fleetCatalog"><div class="foot">loading fleet&#8230;</div></div>
+      <div>
+        <div class="fleet-roles">
+          <div class="fleet-role"><label for="selRouter">Router (main)</label><select id="selRouter"></select></div>
+          <div class="fleet-role"><label for="selCheapest">Cheapest floor</label><select id="selCheapest"></select></div>
+          <div class="fleet-role"><label for="selPremium">Premium ceiling</label><select id="selPremium"></select></div>
+          <div class="fleet-role"><label>Ensemble / fan-out</label><div class="fleet-ens" id="fleetEnsemble"></div></div>
+        </div>
+        <button class="fleet-run" id="fleetRun">Run selection (recorded)</button>
+      </div>
+    </div>
+    <div id="fleetResult" hidden>
+      <div class="fleet-arms" id="fleetArms"></div>
+      <div class="chips" id="fleetLabels"></div>
+      <p class="foot" id="fleetRouterMix">&mdash;</p>
+      <div class="cls">Run YOUR selection live (measured = true)</div>
+      <div class="fleet-cmd" id="fleetLive">&mdash;</div>
+      <p class="caveat" id="fleetNote">&mdash;</p>
+    </div>
   </section>
 
   <section class="panel">
@@ -688,6 +737,8 @@ const EP = (typeof window !== "undefined" && window.__ENDPOINTS__) || {
   compare: "/compare",
   experiments: "/experiments",
   metricsHistory: "/metrics/history",
+  fleet: "/fleet",
+  fleetRun: "/fleet/run",
 };
 // Display rounding (P1): totals at 2 decimals; sub-cent values keep up to 4 so
 // tiny per-task/model costs don't collapse to $0.00. Underlying data is untouched.
@@ -1338,10 +1389,147 @@ async function runReplay() {
   }
 }
 
+let FLEET = null;
+
+function fleetFill(sel, models, current) {
+  sel.innerHTML = "";
+  for (const m of models) {
+    const o = document.createElement("option");
+    o.value = m.name;
+    o.textContent = m.name + "  (" + m.deployment + ")";
+    if (m.name === current) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+
+async function loadFleet() {
+  let d;
+  try {
+    const r = await fetch(EP.fleet);
+    if (!r.ok) return;
+    d = await r.json();
+  } catch (e) {
+    return;  // no live server (e.g. static export) — leave panel hidden
+  }
+  if (!d || !Array.isArray(d.models) || !d.models.length) return;
+  FLEET = d;
+  $("fleetPanel").hidden = false;
+  const src = String(d.source || "").split("/").slice(-1)[0] || "default";
+  $("fleetMeta").textContent = "\\u2014 " + d.models.length + " deployments \\u00b7 " + src;
+  const cat = $("fleetCatalog");
+  cat.innerHTML = "";
+  for (const m of d.models) {
+    const row = document.createElement("div");
+    row.className = "catrow";
+    row.innerHTML =
+      "<div class='h'><span class='name'>" + m.name + "</span>" +
+      "<span class='tiertag'>" + (m.tier || "") + "</span></div>" +
+      "<div class='role'>" + (m.label || "") + "</div>" +
+      "<div class='rw'>deployment: " + m.deployment + " \\u00b7 roles: " + (m.roles || []).join(", ") + "</div>";
+    cat.appendChild(row);
+  }
+  const slate = d.slate || {};
+  fleetFill($("selRouter"), d.models, slate.router);
+  fleetFill($("selCheapest"), d.models, slate.cheapest);
+  fleetFill($("selPremium"), d.models, slate.premium);
+  const ens = $("fleetEnsemble");
+  ens.innerHTML = "";
+  const chosen = new Set(slate.ensemble || []);
+  for (const m of d.models) {
+    const lab = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = m.name;
+    cb.checked = chosen.has(m.name);
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode(m.name));
+    ens.appendChild(lab);
+  }
+}
+
+function fleetSelectedEnsemble() {
+  return Array.from($("fleetEnsemble").querySelectorAll("input:checked")).map((c) => c.value);
+}
+
+async function runFleet() {
+  const btn = $("fleetRun");
+  btn.disabled = true;
+  btn.textContent = "running\\u2026";
+  try {
+    const roles = {
+      router: $("selRouter").value,
+      cheapest: $("selCheapest").value,
+      premium: $("selPremium").value,
+      ensemble: fleetSelectedEnsemble(),
+    };
+    const resp = await fetch(EP.fleetRun, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ roles }),
+    });
+    const d = await resp.json();
+    if (!resp.ok) {
+      $("fleetResult").hidden = false;
+      $("fleetArms").innerHTML = "";
+      $("fleetLabels").innerHTML = "";
+      $("fleetRouterMix").textContent = "\\u2014";
+      $("fleetLive").textContent = "\\u2014";
+      $("fleetNote").textContent = d.error || "fleet run failed";
+      return;
+    }
+    renderFleetRun(d);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Run selection (recorded)";
+  }
+}
+
+function renderFleetRun(d) {
+  $("fleetResult").hidden = false;
+  const rep = d.report || {};
+  const arms = rep.arm_totals || {};
+  const host = $("fleetArms");
+  host.innerHTML = "";
+  for (const k of ["cheapest", "ensemble", "premium", "router"]) {
+    const a = arms[k];
+    if (!a) continue;
+    const div = document.createElement("div");
+    div.className = "fleet-arm" + (k === "router" ? " router" : "");
+    div.innerHTML =
+      "<div class='k'>" + k + "</div>" +
+      "<div class='v'>" + usdSmart(a.total_cost_usd) + "</div>" +
+      "<div class='k'>" + Math.round(a.avg_latency_ms) + " ms avg</div>";
+    host.appendChild(div);
+  }
+  const lab = rep.labels || {};
+  const savings = rep.router_vs_premium_savings_pct;
+  const lb = $("fleetLabels");
+  lb.innerHTML = "";
+  const badges = [
+    ["measured", String(lab.measured)],
+    ["provenance", lab.provenance || "\\u2014"],
+    ["cost_basis", lab.cost_basis || "\\u2014"],
+    ["router vs premium", (savings != null ? savings + "%" : "\\u2014")],
+  ];
+  for (const [k, v] of badges) {
+    const c = document.createElement("span");
+    c.className = "chip";
+    c.innerHTML = "<small>" + k + "</small> <b>" + v + "</b>";
+    lb.appendChild(c);
+  }
+  const mix = rep.router_model_mix || {};
+  const mixStr = Object.entries(mix).map(([m, n]) => m + "\\u00d7" + n).join(", ");
+  $("fleetRouterMix").textContent = mixStr ? ("router picked: " + mixStr) : "\\u2014";
+  $("fleetLive").textContent = d.live_command || "\\u2014";
+  $("fleetNote").textContent = d.note || "";
+}
+
 $("run").addEventListener("click", runReplay);
+$("fleetRun").addEventListener("click", runFleet);
 if (window.innerWidth < 960) { const d = $("policyDetails"); if (d) d.removeAttribute("open"); }
 loadHealth();
 loadArena();
+loadFleet();
 loadExperiments();
 loadHistory();
 loadSweep();

@@ -31,6 +31,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -43,6 +44,8 @@ from .experiment import (
     load_experiment,
     run_experiment,
 )
+from .fleet import FleetRegistry
+from .foundry_live import FoundryConfig
 from .metrics import (
     ExperimentMetrics,
     JsonlMetricsStore,
@@ -54,6 +57,7 @@ from .pipeline import (
     bundled_compare,
     bundled_coverage_cliff,
     bundled_fanout_sweep,
+    find_samples_root,
     load_default_pricing,
     load_policy,
     policy_summary,
@@ -76,10 +80,14 @@ _KNOWN_ROUTES = {
     "/experiments",
     "/experiment",
     "/metrics/history",
+    "/fleet",
+    "/fleet/run",
 }
 _PRICING_OFF = {"none", "off", "disabled", "false"}
 _PRICING_DEFAULT = {"illustrative", "default", "sample", "on", "true"}
 _TRUTHY = {"1", "true", "yes", "on"}
+# When the requested port is busy, try this many higher ports before giving up.
+_PORT_FALLBACK_TRIES = 10
 # Deterministic baseline timestamps for the seeded metrics history, so the
 # historical dashboard is populated out of the box and the static export is
 # reproducible. Live experiment runs append real-time entries on top.
@@ -125,6 +133,8 @@ class RouterService:
         self._experiment_runs: list[tuple[Experiment, ExperimentResult, ExperimentMetrics]] | None
         self._experiment_runs = None
         self._history: list[dict[str, Any]] | None = None
+        self._samples_root = find_samples_root()
+        self._fleet: FleetRegistry | None = None
 
     # -- endpoint handlers ------------------------------------------------
 
@@ -224,6 +234,83 @@ class RouterService:
             latest[str(row.get("experiment"))] = row
         return ServiceResponse(200, {"history": list(rows), "latest": latest})
 
+    # -- fleet (model registry & selection) -------------------------------
+
+    def fleet_view(self) -> ServiceResponse:
+        """Return the model catalog, current slate, and live-call readiness.
+
+        Drives the dashboard's fleet panel: the operator picks which deployed
+        model plays each arm (router/cheapest/premium/ensemble). Redacted and
+        network-free — ``credentialed`` reflects only whether a live run *could*
+        be made from the terminal; the web path never egresses.
+        """
+
+        registry = self._fleet_registry()
+        payload = {
+            "source": registry.source,
+            "models": registry.catalog_view(),
+            "roles": registry.role_assignments(),
+            "credentialed": FoundryConfig.from_env().credentialed,
+            "recorded_available": self._recorded_arena_path().is_file(),
+        }
+        return ServiceResponse(200, payload)
+
+    def fleet_run(self, body: bytes) -> ServiceResponse:
+        """Validate a selected slate and return the recorded arena reference.
+
+        The offline dashboard never makes paid calls, so this replays the
+        committed *measured* snapshot — honestly relabeled ``provenance =
+        recorded`` / ``measured = false`` (a captured measurement, not a fresh
+        one) — and hands back the selected slate plus the exact terminal command
+        that would MEASURE that slate live. Selecting a different slate does not
+        change the recorded numbers (they are the captured reference fleet);
+        that is called out in ``note`` and ``recorded_fleet``.
+        """
+
+        parsed = _load_json_object(body)
+        if isinstance(parsed, ServiceResponse):
+            return parsed
+        roles = parsed.get("roles") or {}
+        if not isinstance(roles, dict):
+            return _error(400, "'roles' must be an object of role -> model name(s)")
+        registry = self._fleet_registry()
+        ensemble = roles.get("ensemble")
+        try:
+            registry = registry.with_roles(
+                router=roles.get("router"),
+                cheapest=roles.get("cheapest"),
+                premium=roles.get("premium"),
+                ensemble=list(ensemble) if isinstance(ensemble, list) else None,
+            )
+            slate = registry.slate()
+        except (ValueError, KeyError) as exc:
+            return _error(400, str(exc))
+        recorded = self._recorded_arena_report()
+        if recorded is None:
+            return _error(404, "no recorded arena snapshot is bundled to replay")
+        return ServiceResponse(
+            200,
+            {
+                "mode": "recorded",
+                "slate": {
+                    "router": slate.router,
+                    "cheapest": slate.cheapest,
+                    "premium": slate.premium,
+                    "ensemble": list(slate.ensemble),
+                },
+                "roles": registry.role_assignments(),
+                "report": recorded["report"],
+                "recorded_fleet": recorded["fleet"],
+                "live_command": _fleet_live_command(registry),
+                "note": (
+                    "Offline: the arena below is the committed MEASURED snapshot, "
+                    "honestly relabeled recorded (measured=false). It reflects the "
+                    "captured reference fleet, not your selection. Run the command "
+                    "above to measure YOUR selected slate live (measured=true)."
+                ),
+            },
+        )
+
     def route(self, body: bytes) -> ServiceResponse:
         parsed = _load_json_object(body)
         if isinstance(parsed, ServiceResponse):
@@ -288,15 +375,52 @@ class RouterService:
             return self.experiment_view(path)
         if method == "GET" and route == "/metrics/history":
             return self.metrics_history_view(path)
+        if method == "GET" and route == "/fleet":
+            return self.fleet_view()
         if method == "POST" and route == "/route":
             return self.route(body)
         if method == "POST" and route == "/batch-route":
             return self.batch_route(body)
+        if method == "POST" and route == "/fleet/run":
+            return self.fleet_run(body)
         if route in _KNOWN_ROUTES:
             return _error(405, f"method {method} not allowed for {route}")
         return _error(404, f"not found: {route}")
 
     # -- helpers ----------------------------------------------------------
+
+    def _fleet_registry(self) -> FleetRegistry:
+        """Load (and cache) the bundled fleet registry, falling back to the in-code default."""
+
+        if self._fleet is None:
+            fleet_path = self._samples_root / "samples" / "fleet" / "foundry-5series.fleet.yaml"
+            if fleet_path.is_file():
+                self._fleet = FleetRegistry.from_yaml(fleet_path)
+            else:
+                self._fleet = FleetRegistry.default()
+        return self._fleet
+
+    def _recorded_arena_path(self) -> Path:
+        return self._samples_root / "samples" / "responses" / "foundry-arena-measured.json"
+
+    def _recorded_arena_report(self) -> dict[str, Any] | None:
+        """Load the committed measured arena snapshot, relabeled honestly as recorded."""
+
+        path = self._recorded_arena_path()
+        if not path.is_file():
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+        labels = dict(data.get("labels") or {})
+        labels.update({"measured": False, "provenance": "recorded", "captured_from": "live"})
+        report = {
+            "tasks": data.get("tasks"),
+            "arm_totals": data.get("arm_totals"),
+            "router_model_mix": data.get("router_model_mix"),
+            "router_vs_premium_savings_pct": data.get("router_vs_premium_savings_pct"),
+            "labels": labels,
+            "captured_at": data.get("captured_at"),
+        }
+        return {"report": report, "fleet": data.get("resource")}
 
     def _resolve_pricing(self, body: dict[str, Any]) -> PricingTable | None:
         mode = body.get("pricing", "illustrative")
@@ -355,6 +479,21 @@ class RouterService:
 
 def _error(status: int, message: str) -> ServiceResponse:
     return ServiceResponse(status, {"error": message})
+
+
+def _fleet_live_command(registry: FleetRegistry) -> str:
+    """Two lines: persist this selection, then measure it live from the terminal."""
+
+    roles = registry.role_assignments()
+    ensemble = ",".join(roles["ensemble"])
+    select = (
+        "cost-router models select"
+        f" --router {roles['router']}"
+        f" --cheapest {roles['cheapest']}"
+        f" --premium {roles['premium']}"
+        f" --ensemble {ensemble}"
+    )
+    return select + "\ncost-router foundry arena --fleet .foundry-fleet.local.yaml --live"
 
 
 def _query_flag(path: str, name: str) -> bool:
@@ -437,12 +576,32 @@ def serve(
     *,
     service: RouterService | None = None,
     policy_path: str | None = None,
+    open_hint: str | None = None,
 ) -> int:
-    """Run the offline routing service until interrupted."""
+    """Run the offline routing service until interrupted.
 
-    httpd = make_server(host, port, service=service, policy_path=policy_path)
+    If ``port`` is already in use, the next few ports are tried automatically so
+    a stale server never crashes the command with a traceback; the actually
+    bound URL is printed. ``open_hint`` (e.g. ``"/?run=1"``) adds an
+    "open this URL" line for the auto-running dashboard.
+    """
+
+    if service is None:
+        service = RouterService(policy=load_policy(policy_path))
+    httpd = _bind_with_fallback(host, port, service)
+    if httpd is None:
+        print(
+            f"cost-router: port {port} and the next {_PORT_FALLBACK_TRIES} are busy on "
+            f"{host}. Free one, or pass a different port: cost-router serve --port <N>.",
+            flush=True,
+        )
+        return 1
     bound_host, bound_port = httpd.server_address[0], httpd.server_address[1]
-    print(f"cost-router serving on http://{bound_host}:{bound_port} (offline)")
+    if bound_port != port:
+        print(f"cost-router: port {port} was busy — using {bound_port} instead.", flush=True)
+    print(f"cost-router serving on http://{bound_host}:{bound_port} (offline)", flush=True)
+    if open_hint:
+        print(f"open http://{bound_host}:{bound_port}{open_hint}", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -450,3 +609,14 @@ def serve(
     finally:
         httpd.server_close()
     return 0
+
+
+def _bind_with_fallback(host: str, port: int, service: RouterService) -> ThreadingHTTPServer | None:
+    """Bind on ``port`` or the next few ports; return ``None`` if all are busy."""
+
+    for candidate in range(port, port + _PORT_FALLBACK_TRIES + 1):
+        try:
+            return make_server(host, candidate, service=service)
+        except OSError:  # address already in use, etc.
+            continue
+    return None
