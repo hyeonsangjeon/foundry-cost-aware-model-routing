@@ -17,6 +17,17 @@ ever labeled `measured=true`. The repo is intentionally small — source, tests,
 placeholder configuration, and synthetic samples only; private notes and
 diagrams stay outside Git.
 
+> **Complementary to the built-in Model Router, not a replacement.** Azure AI
+> Foundry's **Model Router** already picks a model per prompt — one deployment,
+> cross-provider (OpenAI + Grok + DeepSeek + Llama + gpt-oss with no separate
+> deploy; Claude the sole exception), and it works. *Model selection is solved.*
+> This asset is the **layer on top**: it **verifies** the selected result against
+> execution signals (accept only when clean), **escalates** on failure, **governs**
+> multi-model spend before it happens, and makes every decision **auditable**
+> (hash-chained, cost-replayable ledger). It even folds the built-in router in as
+> a first-class candidate arm — an asset that *leverages* the product rather than
+> competing with it.
+
 📘 **한국어 매뉴얼 · 실험노트 (github.io):**
 <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
 
