@@ -746,3 +746,94 @@ def test_cli_foundry_status_keyless_reports_entra(
     text = capsys.readouterr().out
     assert "Entra ID" in text
     assert "token scope" in text
+
+
+# -- provider=foundry: Model Inference surface -------------------------------
+
+
+def test_inference_endpoint_derived_from_resource_host() -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://myres.cognitiveservices.azure.com/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+        }
+    )
+    assert (
+        config.resolved_inference_endpoint
+        == "https://myres.services.ai.azure.com/models"
+    )
+
+
+def test_inference_endpoint_explicit_override_wins() -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://res.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_INFERENCE_ENDPOINT": "https://custom.example/models/",
+        }
+    )
+    assert config.resolved_inference_endpoint == "https://custom.example/models"
+
+
+def test_inference_endpoint_none_without_endpoint() -> None:
+    config = FoundryConfig.from_env({})
+    assert config.resolved_inference_endpoint is None
+
+
+class _FakeInferenceClient:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def complete(self, *, model, messages, **kwargs):
+        self.calls.append({"model": model, "messages": messages, "kwargs": kwargs})
+        return SimpleNamespace(
+            model=model,
+            usage=SimpleNamespace(
+                prompt_tokens=120,
+                completion_tokens=30,
+                prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+                completion_tokens_details=SimpleNamespace(reasoning_tokens=0),
+            ),
+        )
+
+
+def test_complete_provider_foundry_uses_injected_inference_client() -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://res.cognitiveservices.azure.com/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_AUTH": "entra",
+        }
+    )
+    inference = _FakeInferenceClient()
+    client = AzureModelRouterClient(config=config, inference_client=inference)
+    outcome = client.complete(
+        {"task_id": "t", "prompt": "hi"},
+        deployment="deepseek-v4-pro",
+        provider="foundry",
+    )
+    assert outcome.provenance == "live"
+    assert outcome.model == "deepseek-v4-pro"
+    assert outcome.usage["input"] == 120 and outcome.usage["output"] == 30
+    assert len(inference.calls) == 1
+    assert inference.calls[0]["model"] == "deepseek-v4-pro"
+    assert inference.calls[0]["kwargs"].get("max_tokens")  # inference SDK arg name
+
+
+def test_complete_provider_openai_never_touches_inference_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://res.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_AUTH": "entra",
+        }
+    )
+    _install_fake_openai(monkeypatch, _canned_response("gpt-5.4-nano"))
+    inference = _FakeInferenceClient()
+    client = AzureModelRouterClient(
+        config=config, inference_client=inference, token_provider=lambda: "t"
+    )
+    client.complete({"task_id": "t", "prompt": "hi"}, deployment="gpt-5.4-nano")
+    assert inference.calls == []  # default provider stayed on the OpenAI surface

@@ -40,6 +40,31 @@ roles:
 `deployment`를 여러분 리소스가 실제로 가진 이름으로 바꾸고, `name`을 가격표 YAML의 행과
 맞추면 됩니다.
 
+### 1-1. `provider` — 어느 호출 표면으로 부를지 (멀티프로바이더)
+
+Foundry(`kind=AIServices`) 리소스 **하나**는 Azure OpenAI 모델과 파트너/OSS 모델을 **같은
+엔드포인트**에 함께 호스팅합니다. 다만 실제 호출이 나가는 **와이어 경로(표면)**는 둘로 나뉩니다.
+카탈로그 항목의 `provider` 필드가 이를 고릅니다:
+
+| `provider` | 호출 표면 | 대상 모델 |
+|---|---|---|
+| `openai` (기본) | Azure OpenAI chat-completions (`*.openai.azure.com`) | Model Router, GPT-5.x / GPT-4o 계열 |
+| `foundry` | Azure AI Model Inference (`*.services.ai.azure.com/models`) | DeepSeek·Mistral·xAI·Moonshot·Meta(Llama)·Cohere·MS(Phi) 등 파트너/OSS |
+
+```yaml
+models:
+  - { name: gpt-5.6-sol,      deployment: gpt-5.6-sol,      tier: frontier }              # provider 생략 = openai
+  - { name: deepseek-v4-pro,  deployment: deepseek-v4-pro,  tier: frontier, provider: foundry }
+```
+
+- OpenAI 계열은 `provider`를 **생략**하면 됩니다(기본 `openai`, YAML에도 안 써집니다).
+- 파트너 표면 엔드포인트는 `AZURE_AI_FOUNDRY_ENDPOINT`의 리소스 이름에서 자동 유도됩니다
+  (`https://<리소스>.services.ai.azure.com/models`). 다르면 `AZURE_AI_FOUNDRY_INFERENCE_ENDPOINT`로
+  덮어씁니다. 인증은 OpenAI 표면과 **동일한 Entra ID(키리스)** 자격을 그대로 씁니다.
+- 전체 13배포(OpenAI 5 + 파트너 7 + 임베딩)를 등록한 실제 예시는
+  `samples/fleet/foundry-ext-full.fleet.yaml`(가격표는 `samples/pricing/foundry-ext-full.yaml`)입니다.
+  `cost-router models list`의 **surface** 열에서 각 모델이 어느 표면을 쓰는지 바로 확인할 수 있습니다.
+
 ## 2. 터미널에서 선택 (`/model` 피커)
 
 카탈로그를 보고, 각 아암에 어떤 모델을 넣을지 고릅니다. 선택은 gitignore된

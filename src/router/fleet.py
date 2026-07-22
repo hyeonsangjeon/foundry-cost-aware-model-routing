@@ -47,6 +47,33 @@ ROLE_LABELS: dict[str, str] = {
 # Environment variables that point at a fleet config file (first present wins).
 FLEET_ENV_VARS: tuple[str, ...] = ("FOUNDRY_FLEET_PATH", "COST_ROUTER_FLEET")
 
+# How the live client reaches a model. ``openai`` = the Azure OpenAI
+# chat-completions surface (``*.openai.azure.com`` — OpenAI-format deployments:
+# gpt-5.x, the Model Router). ``foundry`` = the Azure AI Model Inference surface
+# (``*.services.ai.azure.com/models`` — partner/OSS deployments: DeepSeek,
+# Mistral, xAI, Cohere, Llama, Phi, …) on the SAME Foundry resource.
+PROVIDERS: tuple[str, ...] = ("openai", "foundry")
+_PROVIDER_ALIASES: dict[str, str] = {
+    "": "openai",
+    "openai": "openai",
+    "azure": "openai",
+    "aoai": "openai",
+    "azure-openai": "openai",
+    "azureopenai": "openai",
+    "foundry": "foundry",
+    "inference": "foundry",
+    "ai-inference": "foundry",
+    "model-inference": "foundry",
+    "maas": "foundry",
+}
+
+
+def normalize_provider(value: Any) -> str:
+    """Fold a free-form provider label to one of :data:`PROVIDERS` (else as-is)."""
+
+    key = str(value or "").strip().lower()
+    return _PROVIDER_ALIASES.get(key, key)
+
 # Bundled sample fleet, repo-relative (matches DEFAULT_FLEET_PRICING convention).
 BUNDLED_FLEET_PATH = Path("samples/fleet/foundry-5series.fleet.yaml")
 
@@ -64,17 +91,23 @@ class FleetModel:
     name the live client calls (often identical, but decoupled on purpose so one
     logical model can point at a differently-named deployment). ``tier`` is a
     free-form ordering/label hint (``small``/``mid``/``frontier``/``router``).
+    ``provider`` selects the call surface on the resource: ``openai`` (the
+    Azure OpenAI chat-completions route) or ``foundry`` (the Azure AI Model
+    Inference route used by partner/OSS models like DeepSeek or Cohere).
     """
 
     name: str
     deployment: str
     tier: str = ""
     label: str = ""
+    provider: str = "openai"
 
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {"name": self.name, "deployment": self.deployment}
         if self.tier:
             data["tier"] = self.tier
+        if self.provider and self.provider != "openai":
+            data["provider"] = self.provider
         if self.label:
             data["label"] = self.label
         return data
@@ -90,6 +123,7 @@ class FleetModel:
             deployment=deployment,
             tier=str(data.get("tier") or "").strip(),
             label=str(data.get("label") or "").strip(),
+            provider=normalize_provider(data.get("provider")),
         )
 
 
@@ -121,6 +155,9 @@ class FleetRegistry:
 
     def deployment_for(self, name: str) -> str:
         return self.get(name).deployment
+
+    def provider_for(self, name: str) -> str:
+        return self.get(name).provider
 
     def role_assignments(self) -> dict[str, Any]:
         """Role -> assigned model name(s), for display and serialization."""
@@ -154,6 +191,12 @@ class FleetRegistry:
         names = self.model_names()
         if len(set(names)) != len(names):
             errors.append("duplicate model names in the catalog")
+        for model in self.models:
+            if model.provider not in PROVIDERS:
+                errors.append(
+                    f"model {model.name!r} has unknown provider {model.provider!r} "
+                    f"(use one of: {', '.join(PROVIDERS)})"
+                )
         for role in SINGLE_ROLES:
             assigned = getattr(self, role)
             if not assigned:
@@ -181,11 +224,16 @@ class FleetRegistry:
         """Build the deployment-keyed :class:`FleetSlate` the live arena calls."""
 
         self.validate()
+        providers: dict[str, str] = {}
+        for name in (self.router, self.cheapest, self.premium, *self.ensemble):
+            model = self.get(name)
+            providers[model.deployment] = model.provider
         return FleetSlate(
             router=self.deployment_for(self.router),
             cheapest=self.deployment_for(self.cheapest),
             premium=self.deployment_for(self.premium),
             ensemble=tuple(self.deployment_for(name) for name in self.ensemble),
+            providers=providers,
         )
 
     # -- selection --------------------------------------------------------
@@ -225,9 +273,17 @@ class FleetRegistry:
         return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=True)
 
     def catalog_view(self) -> list[dict[str, Any]]:
-        """Catalog rows annotated with the roles each model fills (for UIs)."""
+        """Catalog rows annotated with the roles each model fills (for UIs).
 
-        return [{**m.to_dict(), "roles": self.roles_for(m.name)} for m in self.models]
+        ``provider`` is always present here (unlike :meth:`FleetModel.to_dict`,
+        which omits the default) so dashboards can render the call surface for
+        every row without inferring the default.
+        """
+
+        return [
+            {**m.to_dict(), "provider": m.provider, "roles": self.roles_for(m.name)}
+            for m in self.models
+        ]
 
     # -- construction -----------------------------------------------------
 

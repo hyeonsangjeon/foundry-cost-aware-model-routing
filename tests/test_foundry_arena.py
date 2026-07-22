@@ -272,3 +272,82 @@ def test_cli_foundry_arena_requires_live(capsys: pytest.CaptureFixture[str]) -> 
     out = capsys.readouterr().out
     assert "--live" in out
 
+
+
+# -- provider routing (openai vs foundry inference surface) ------------------
+
+
+class _FakeInference:
+    """Stand-in for azure-ai-inference ChatCompletionsClient.complete()."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def complete(self, *, model, messages, **kwargs):
+        self.calls.append({"model": model, "messages": messages, "kwargs": kwargs})
+        return SimpleNamespace(
+            model=model,
+            usage=SimpleNamespace(
+                prompt_tokens=100,
+                completion_tokens=40,
+                prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+                completion_tokens_details=SimpleNamespace(reasoning_tokens=0),
+            ),
+        )
+
+
+def _partner_fake_completions() -> _FakeCompletions:
+    completions = _FakeCompletions()
+    # Register the partner deployment in the OpenAI fake so a mis-route would
+    # still "work" — the test proves dispatch picks the inference surface anyway.
+    _FAKE.setdefault("deepseek-v4-pro", ("deepseek-v4-pro", 100, 40, 0))
+    return completions
+
+
+def test_provider_foundry_routes_through_inference_surface() -> None:
+    config = FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://res.cognitiveservices.azure.com/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_API_KEY": "k",
+        }
+    )
+    completions = _partner_fake_completions()
+    sdk = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+    inference = _FakeInference()
+    fleet = FoundryFleet.from_config(
+        config, sdk_client=sdk, providers={"deepseek-v4-pro": "foundry"}
+    )
+    fleet.client.inference_client = inference
+
+    call = fleet.call("deepseek-v4-pro", _task())
+
+    # Went through the inference client, NOT the OpenAI chat-completions fake.
+    assert len(inference.calls) == 1
+    assert inference.calls[0]["model"] == "deepseek-v4-pro"
+    assert inference.calls[0]["kwargs"].get("max_tokens")  # inference uses max_tokens
+    assert completions.last_messages is None
+    assert call.model == "deepseek-v4-pro" and call.provenance == "live"
+
+
+def test_provider_openai_default_uses_chat_completions() -> None:
+    fleet, completions = _fleet()  # no providers map -> everything defaults to openai
+    inference = _FakeInference()
+    fleet.client.inference_client = inference
+
+    fleet.call("gpt-5.4-nano", _task())
+
+    assert completions.last_messages is not None  # OpenAI surface used
+    assert inference.calls == []  # inference surface untouched
+
+
+def test_slate_providers_thread_into_fleet_dispatch() -> None:
+    from router.fleet import FleetRegistry
+
+    registry = FleetRegistry.from_yaml(
+        str(ROOT / "samples" / "fleet" / "foundry-ext-full.fleet.yaml")
+    )
+    slate = registry.slate()
+    assert slate.provider_for("deepseek-v4-pro") == "foundry"
+    assert slate.provider_for("gpt-5.4-nano") == "openai"
+    assert slate.provider_for("model-router") == "openai"
