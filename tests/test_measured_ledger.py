@@ -199,3 +199,51 @@ def test_cli_measured_replay_fails_on_tampered_ledger(
     path.write_text(json.dumps(row) + "\n", encoding="utf-8")
     assert cli.main(["ledger", "measured-replay", "--ledger", str(path)]) == 1
     assert "status: FAIL" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------- #
+# The committed experiment-10 sample: a durable, independently-verifiable audit
+# of the measured live-arena run. These guard that the shipped ledger always
+# replays PASS and stays byte-in-sync with its offline generator.
+# --------------------------------------------------------------------------- #
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+COMMITTED_SAMPLE = REPO_ROOT / "samples" / "ledger" / "arena-measured.ledger.jsonl"
+
+
+def _load_sample_generator():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "build_measured_ledger_sample",
+        REPO_ROOT / "scripts" / "build_measured_ledger_sample.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_committed_measured_ledger_sample_replays_pass() -> None:
+    report = verify_measured_ledger(COMMITTED_SAMPLE)
+    assert report.records == 5
+    assert report.replayed == report.records
+    assert report.ok
+    assert not report.mismatches
+
+
+def test_committed_measured_ledger_sample_regenerates_byte_identical(tmp_path: Path) -> None:
+    generator = _load_sample_generator()
+    regenerated = tmp_path / "regenerated.ledger.jsonl"
+    report = generator.build_measured_ledger(out_path=regenerated)
+    assert report.ok
+    assert regenerated.read_bytes() == COMMITTED_SAMPLE.read_bytes()
+
+
+def test_cli_measured_replay_passes_on_committed_sample(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["ledger", "measured-replay", "--ledger", str(COMMITTED_SAMPLE)]) == 0
+    out = capsys.readouterr().out
+    assert "records: 5" in out
+    assert "status: PASS" in out
