@@ -1113,7 +1113,9 @@ def _cmd_foundry_arena(args: argparse.Namespace) -> int:
         print("foundry arena: not credentialed — set AZURE_AI_FOUNDRY_* in .env, then `az login`.")
         return 1
 
-    fleet = FoundryFleet.from_config(config, max_output_tokens=args.max_output_tokens)
+    fleet = FoundryFleet.from_config(
+        config, max_output_tokens=args.max_output_tokens, providers=slate.providers
+    )
     try:
         outcomes = run_live_arena(fleet, tasks, slate, pricing)
     except (RuntimeError, ValueError, KeyError) as exc:
@@ -1261,13 +1263,13 @@ def _print_models_list(registry: FleetRegistry) -> None:
     config = FoundryConfig.from_env()
     print(f"fleet  (source: {registry.source})   credentialed: {_yn(config.credentialed)}")
     print("")
-    print(f"  {'#':>2}  {'name':<16} {'deployment':<18} {'tier':<9} roles")
-    print(f"  {'-' * 2}  {'-' * 16} {'-' * 18} {'-' * 9} {'-' * 22}")
+    print(f"  {'#':>2}  {'name':<16} {'deployment':<18} {'tier':<9} {'surface':<8} roles")
+    print(f"  {'-' * 2}  {'-' * 16} {'-' * 18} {'-' * 9} {'-' * 8} {'-' * 22}")
     for index, model in enumerate(registry.models, start=1):
         roles = ", ".join(registry.roles_for(model.name)) or "-"
         print(
             f"  {index:>2}  {model.name:<16} {model.deployment:<18} "
-            f"{(model.tier or '-'):<9} {roles}"
+            f"{(model.tier or '-'):<9} {model.provider:<8} {roles}"
         )
     print("")
     _print_slate(registry)

@@ -1,0 +1,63 @@
+# Fleet — the FULL multi-provider slate deployed on ONE Azure AI Foundry resource.
+#
+# This is the "register your models" file for a Foundry (kind=AIServices) account
+# that hosts BOTH Azure OpenAI models AND partner/OSS models behind a single
+# endpoint. `cost-router foundry arena --live` and the dashboard build their four
+# strategy arms from it:
+#
+#   router (main) : Foundry Model Router — one model chosen per prompt (the hero)
+#   cheapest      : the small-tier floor, always
+#   premium       : the frontier ceiling, always
+#   ensemble      : the fan-out slate (call several, keep the best, pay the tax)
+#
+# `provider` picks the call surface on the resource:
+#   openai  (default) → Azure OpenAI chat-completions  (*.openai.azure.com)
+#                       — the Model Router + the GPT-5.x / GPT-4o family
+#   foundry           → Azure AI Model Inference        (*.services.ai.azure.com/models)
+#                       — partner/OSS deployments (DeepSeek, Mistral, xAI,
+#                         Moonshot, Meta/Llama, Cohere, Microsoft/Phi)
+# Both surfaces live on the SAME Foundry resource and the SAME Entra identity;
+# only the wire route differs. Omit `provider` for Azure OpenAI models.
+#
+# Point a run at this file with `--fleet PATH` or `FOUNDRY_FLEET_PATH=...`.
+# `name` is the logical/pricing key; `deployment` is the Azure deployment name the
+# live client calls. This sample mirrors the deployments on
+# `aoai-foundry-iq-demo-ext`; swap in whatever YOUR resource actually has.
+
+version: 1
+
+models:
+  # --- Azure OpenAI surface (provider defaults to openai) ---
+  - { name: model-router,           deployment: model-router,           tier: router,   label: "Foundry Model Router — picks one per prompt" }
+  - { name: gpt-5.6-sol,            deployment: gpt-5.6-sol,            tier: frontier, label: "GPT-5.6 Sol — frontier ceiling" }
+  - { name: gpt-4o,                 deployment: gpt-4o,                 tier: frontier, label: "GPT-4o — multimodal frontier" }
+  - { name: gpt-5.4-mini,           deployment: gpt-5.4-mini,           tier: mid,      label: "GPT-5.4 mini — mid tier" }
+  - { name: gpt-5.4-nano,           deployment: gpt-5.4-nano,           tier: small,    label: "GPT-5.4 nano — cheap floor" }
+
+  # --- Azure AI Model Inference surface (partner / OSS) ---
+  - { name: deepseek-v4-pro,        deployment: deepseek-v4-pro,        tier: frontier, provider: foundry, label: "DeepSeek-V4-Pro — reasoning value" }
+  - { name: mistral-large-3,        deployment: mistral-large-3,        tier: frontier, provider: foundry, label: "Mistral-Large-3 — EU frontier" }
+  - { name: grok-4-1-fast-reasoning, deployment: grok-4-1-fast-reasoning, tier: mid,    provider: foundry, label: "Grok 4.1 Fast — fast reasoning" }
+  - { name: kimi-k2-6,              deployment: kimi-k2-6,              tier: frontier, provider: foundry, label: "Kimi-K2.6 — long-context" }
+  - { name: llama-4-maverick,       deployment: llama-4-maverick,       tier: mid,      provider: foundry, label: "Llama-4-Maverick — open weights" }
+  - { name: cohere-command-a-plus,  deployment: cohere-command-a-plus,  tier: frontier, provider: foundry, label: "Cohere Command A+ — enterprise RAG" }
+  - { name: phi-4-reasoning,        deployment: phi-4-reasoning,        tier: small,    provider: foundry, label: "Phi-4-reasoning — small reasoning" }
+
+roles:
+  router: model-router
+  cheapest: gpt-5.4-nano
+  premium: gpt-5.6-sol
+  # Fan out across the whole multi-provider bench (every leaf model; the router
+  # arm is excluded because it delegates rather than answering directly).
+  ensemble:
+    - gpt-5.4-nano
+    - gpt-5.4-mini
+    - gpt-5.6-sol
+    - gpt-4o
+    - deepseek-v4-pro
+    - mistral-large-3
+    - grok-4-1-fast-reasoning
+    - kimi-k2-6
+    - llama-4-maverick
+    - cohere-command-a-plus
+    - phi-4-reasoning

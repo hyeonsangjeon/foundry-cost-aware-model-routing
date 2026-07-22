@@ -71,6 +71,109 @@ def test_deployment_decoupled_from_logical_name() -> None:
     assert reg.slate().router == "prod-gpt54-eastus"
 
 
+def test_provider_defaults_to_openai_and_is_omitted_from_yaml() -> None:
+    m = FleetModel(name="gpt-5.4", deployment="gpt-5.4")
+    assert m.provider == "openai"
+    assert "provider" not in m.to_dict()  # default stays out of serialized YAML
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("foundry", "foundry"),
+        ("inference", "foundry"),
+        ("ai-inference", "foundry"),
+        ("maas", "foundry"),
+        ("openai", "openai"),
+        ("azure", "openai"),
+        ("aoai", "openai"),
+        ("", "openai"),
+        (None, "openai"),
+    ],
+)
+def test_provider_aliases_normalize(raw, expected) -> None:
+    m = FleetModel.from_mapping({"name": "x", "deployment": "x", "provider": raw})
+    assert m.provider == expected
+
+
+def test_non_default_provider_roundtrips_through_yaml() -> None:
+    m = FleetModel.from_mapping(
+        {"name": "deepseek-v4-pro", "deployment": "deepseek-v4-pro", "provider": "foundry"}
+    )
+    assert m.to_dict()["provider"] == "foundry"
+    # a full roundtrip through the registry preserves it
+    reg = FleetRegistry.from_mapping(
+        {
+            "models": [m.to_dict()],
+            "roles": {
+                "router": "deepseek-v4-pro",
+                "cheapest": "deepseek-v4-pro",
+                "premium": "deepseek-v4-pro",
+                "ensemble": ["deepseek-v4-pro"],
+            },
+        }
+    )
+    assert reg.get("deepseek-v4-pro").provider == "foundry"
+    assert reg.provider_for("deepseek-v4-pro") == "foundry"
+
+
+def test_unknown_provider_is_invalid() -> None:
+    bad = FleetRegistry.from_mapping(
+        {
+            "models": [{"name": "x", "deployment": "x", "provider": "bedrock"}],
+            "roles": {
+                "router": "x",
+                "cheapest": "x",
+                "premium": "x",
+                "ensemble": ["x"],
+            },
+        }
+    )
+    assert any("provider" in e and "bedrock" in e for e in bad.validation_errors())
+
+
+def test_slate_carries_provider_map() -> None:
+    reg = FleetRegistry.from_mapping(
+        {
+            "models": [
+                {"name": "router", "deployment": "model-router"},
+                {"name": "nano", "deployment": "nano"},
+                {"name": "ds", "deployment": "ds", "provider": "foundry"},
+            ],
+            "roles": {
+                "router": "router",
+                "cheapest": "nano",
+                "premium": "router",
+                "ensemble": ["nano", "ds"],
+            },
+        }
+    )
+    slate = reg.slate()
+    assert slate.provider_for("ds") == "foundry"
+    assert slate.provider_for("nano") == "openai"
+    assert slate.provider_for("model-router") == "openai"
+
+
+def test_catalog_view_always_includes_provider() -> None:
+    reg = FleetRegistry.from_mapping(
+        {
+            "models": [
+                {"name": "nano", "deployment": "nano"},
+                {"name": "ds", "deployment": "ds", "provider": "foundry"},
+            ],
+            "roles": {
+                "router": "nano",
+                "cheapest": "nano",
+                "premium": "nano",
+                "ensemble": ["nano", "ds"],
+            },
+        }
+    )
+    view = {row["name"]: row for row in reg.catalog_view()}
+    assert view["nano"]["provider"] == "openai"  # present even for the default
+    assert view["ds"]["provider"] == "foundry"
+
+
 def test_from_mapping_accepts_name_to_deployment_map() -> None:
     reg = FleetRegistry.from_mapping(
         {
@@ -316,6 +419,11 @@ def test_dashboard_html_carries_fleet_panel(service: RouterService) -> None:
 @pytest.fixture(autouse=True)
 def _run_from_repo_root(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(ROOT)
+    # These CLI tests target the bundled default fleet, so isolate them from a
+    # developer's local (gitignored) .env that may pin FOUNDRY_FLEET_PATH.
+    monkeypatch.setattr(cli, "load_dotenv_file", lambda *a, **k: [])
+    monkeypatch.delenv("FOUNDRY_FLEET_PATH", raising=False)
+    monkeypatch.delenv("COST_ROUTER_FLEET", raising=False)
 
 
 def test_models_list_text(capsys: pytest.CaptureFixture[str]) -> None:

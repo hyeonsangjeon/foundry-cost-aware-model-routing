@@ -1425,7 +1425,9 @@ async function loadFleet() {
       "<div class='h'><span class='name'>" + m.name + "</span>" +
       "<span class='tiertag'>" + (m.tier || "") + "</span></div>" +
       "<div class='role'>" + (m.label || "") + "</div>" +
-      "<div class='rw'>deployment: " + m.deployment + " \\u00b7 roles: " + (m.roles || []).join(", ") + "</div>";
+      "<div class='rw'>deployment: " + m.deployment +
+      " \\u00b7 surface: " + (m.provider || "openai") +
+      " \\u00b7 roles: " + (m.roles || []).join(", ") + "</div>";
     cat.appendChild(row);
   }
   const slate = d.slate || {};
