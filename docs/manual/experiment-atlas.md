@@ -290,7 +290,9 @@ returns which one in `response.model`.
 ### Follow along — keyless (Microsoft Entra) end to end
 
 Uses **Microsoft Entra ID only** (no API keys are ever created or stored). Replace the `<PLACEHOLDERS>`.
-We used region **`eastus2`** (it carries the full GPT-5 lineup + `model-router`).
+We used region **`eastus2`** (it carries the full GPT-5 lineup + `model-router`) for that experiment-09
+proof. The **go-forward** resource is `aoai-foundry-iq-demo-ext` in **`eastus`** — same keyless method,
+with `gpt-5.6-sol` as the frontier plus a full multi-provider fleet ([manual · Foundry setup](foundry-setup.md)).
 
 ```bash
 # 0) Sign in and pin the subscription (device code for headless/sandbox shells)
