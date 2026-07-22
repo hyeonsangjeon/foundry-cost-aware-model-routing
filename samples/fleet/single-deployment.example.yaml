@@ -1,0 +1,28 @@
+# Single-deployment fleet — run the live arena when you have only ONE model.
+#
+# The head-to-head normally spans several deployments, but you can prove the
+# whole live path end-to-end (keyless Microsoft Entra ID -> real call -> real
+# token usage -> priced -> hash-chained ledger) against a single deployment by
+# pointing every arm at it. Every arm then calls the same model, so the arms
+# tie — that is the point: it is a genuine *measured* smoke test, not a spread.
+#
+# Copy this to a gitignored `*.local.yaml`, set `deployment` to the name YOUR
+# resource actually has, then:
+#
+#   cost-router foundry arena --fleet <this-file> --live --max-output-tokens 512
+#
+# `gpt-4o` below is just a common example deployment name — replace it with
+# yours. Pricing: pass `--pricing samples/pricing/your-tenant.yaml` (or set
+# FOUNDRY_PRICING_PATH) with a row for this model, or the bundled default rate
+# is used and the dollar figure stays illustrative.
+
+version: 1
+
+models:
+  - { name: gpt-4o, deployment: gpt-4o, tier: frontier, label: "your single deployment" }
+
+roles:
+  router: gpt-4o
+  cheapest: gpt-4o
+  premium: gpt-4o
+  ensemble: [gpt-4o]

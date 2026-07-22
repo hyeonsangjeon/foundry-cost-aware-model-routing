@@ -102,7 +102,8 @@ cost-router serve                       # http://127.0.0.1:8000
 cost-router serve --host 0.0.0.0 --port 9000 --policy src/policy/seed_policy.yaml
 ```
 
-표준 라이브러리만으로 동작하는 오프라인 서비스입니다. 자세한 내용은
+표준 라이브러리만으로 동작하는 오프라인 서비스입니다. 요청한 포트가 이미 사용 중이면 다음
+빈 포트로 자동 폴백하고 실제 URL을 출력합니다(트레이스백 없음). 자세한 내용은
 [대시보드](dashboard.md)를 참고하세요.
 
 ## policy — 정책 검사/검증/비교
@@ -141,3 +142,24 @@ cost-router foundry live --live --workload my-prompts.jsonl \
 실행을 **실제 토큰 usage**로 스코어링합니다 — `--live` 없이는 녹화된 스냅샷을 재생하므로
 크리덴셜이 없어도 경로를 볼 수 있습니다. 자세한 내용은
 [라이브 실측 브릿지](foundry-live.md)를 참고하세요.
+
+## models — 플릿 등록 & 아암 선택
+
+```bash
+cost-router models list          # 카탈로그 + 현재 slate + 라이브 준비 상태
+cost-router models show          # 역할 -> 배포 해석 결과 (--json 지원)
+cost-router models select        # 대화형 /model 피커 (번호나 이름 입력)
+cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
+```
+
+어떤 배포 모델이 각 아암(router/cheapest/premium/ensemble)을 맡을지 등록·선택합니다. 선택은
+gitignore된 `.foundry-fleet.local.yaml`에 저장됩니다. 모든 명령은 `--fleet PATH`(또는
+`FOUNDRY_FLEET_PATH`)로 다른 플릿 파일을 읽을 수 있습니다. 그런 다음 실측 아레나를 그 플릿으로
+돌립니다:
+
+```bash
+cost-router foundry arena --fleet .foundry-fleet.local.yaml         # 미리보기 (slate 출력)
+cost-router foundry arena --fleet .foundry-fleet.local.yaml --live  # 실제 호출 → measured=true
+```
+
+자세한 내용은 [플릿 등록 & 모델 선택](fleet.md)을 참고하세요.

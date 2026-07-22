@@ -92,6 +92,11 @@ samples/pricing/your-tenant.local.yaml
 !samples/pricing/your-tenant.example.yaml
 samples/tasks/*.local.json
 
+# local fleet selection (cost-router models select) — carries real deployment
+# names, never committed. Bundled *.fleet.yaml / *.example.yaml stay tracked.
+.foundry-fleet.local.yaml
+*.local.yaml
+
 # raw live responses / measured traces & reports (labels.measured = true)
 **/*.live.json
 **/*.measured.json

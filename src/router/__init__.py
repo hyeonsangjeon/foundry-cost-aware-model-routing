@@ -23,6 +23,11 @@ from .experiment import (
     load_experiment,
     run_experiment,
 )
+from .fleet import (
+    FleetModel,
+    FleetRegistry,
+    save_fleet,
+)
 from .foundry_live import (
     DEFAULT_API_VERSION,
     FOUNDRY_LIVE_ENV_VARS,
@@ -116,6 +121,8 @@ __all__ = [
     "ExperimentResult",
     "FOUNDRY_LIVE_ENV_VARS",
     "FOUNDRY_ROUTER_ENV_VARS",
+    "FleetModel",
+    "FleetRegistry",
     "FoundryConfig",
     "FoundryMetricsEmitter",
     "FoundryModelRouter",
@@ -190,6 +197,7 @@ __all__ = [
     "run_experiment",
     "run_replay",
     "run_route_once",
+    "save_fleet",
     "select_spotlight",
     "spotlight_for",
     "summarize_by_class",

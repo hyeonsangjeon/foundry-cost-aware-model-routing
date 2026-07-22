@@ -221,6 +221,54 @@ for single-call comparisons: `cost` picks each class's cheapest candidate,
 They are deterministic placeholder baselines, not claims about a managed
 router's internal implementation.
 
+## Fleet — register & select your models
+
+The live head-to-head (`cost-router foundry arena`) and the dashboard build
+their four strategy arms from a **fleet config**: which *deployed* Azure AI
+Foundry model plays each role — the **router (main)**, the **cheapest** floor,
+the **premium** ceiling, and the **ensemble** fan-out. This is the "register
+your models" step, and it lives in a small YAML you own:
+
+```yaml
+# samples/fleet/foundry-5series.fleet.yaml
+models:
+  - { name: gpt-5.4-nano, deployment: gpt-5.4-nano, tier: small }
+  - { name: gpt-5.4,      deployment: gpt-5.4,      tier: frontier }
+  - { name: model-router, deployment: model-router, tier: router }
+roles:
+  router: model-router
+  cheapest: gpt-5.4-nano
+  premium: gpt-5.4
+  ensemble: [gpt-5.4-nano, gpt-5.4-mini, gpt-5.4]
+```
+
+`name` is the logical/pricing key; `deployment` is the Azure deployment name the
+live client calls (decoupled on purpose). Point any run at your file with
+`--fleet PATH` or `FOUNDRY_FLEET_PATH`; with neither, the bundled sample (then a
+safe in-code default) is used.
+
+**Select from the terminal** — inspect the catalog, then pick each arm (an
+interactive `/model` picker, or non-interactive flags). The choice is saved to a
+gitignored `.foundry-fleet.local.yaml`:
+
+```bash
+cost-router models list          # catalog + current slate + live readiness
+cost-router models select        # interactive: enter a number or name per arm
+cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
+cost-router foundry arena --fleet .foundry-fleet.local.yaml --live   # measure YOUR slate
+```
+
+**Select from the dashboard** — the "Fleet & live routing" panel lists the same
+catalog with dropdowns for router/cheapest/premium and ensemble checkboxes.
+"Run selection" replays the committed measured snapshot (honestly relabeled
+`measured = false`, `provenance = recorded` — the web path never makes paid
+calls) and prints the exact terminal command to measure your selection live.
+
+> **Only one deployment?** Copy `samples/fleet/single-deployment.example.yaml`,
+> point every arm at your one model, and you can still prove the whole live path
+> end-to-end (keyless Entra → real call → token usage → priced → hash-chained
+> ledger). Every arm ties — that is the point of a single-deployment smoke.
+
 ## Service
 
 The same routing pipeline is available as a small offline HTTP service built on
@@ -230,12 +278,17 @@ the Python standard library (no web framework, no provider calls):
 cost-router serve --host 127.0.0.1 --port 8000   # or: make serve
 ```
 
+If the port is already in use, the server falls back to the next free port and
+prints the actual URL instead of crashing.
+
 Endpoints (all JSON, all deterministic and network-free):
 
 | Method | Path           | Purpose                                                  |
 | ------ | -------------- | -------------------------------------------------------- |
 | GET    | `/healthz`     | Liveness probe.                                          |
 | GET    | `/policy`      | Policy version and ordered candidates per task class.    |
+| GET    | `/fleet`       | Model catalog, current slate, and live readiness.        |
+| POST   | `/fleet/run`   | Validate a selected slate; replay the recorded arena.    |
 | POST   | `/route`       | Route one task payload, return its routing trace.        |
 | POST   | `/batch-route` | Route many task payloads, return traces plus a summary.  |
 

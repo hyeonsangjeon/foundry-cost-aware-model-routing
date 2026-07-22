@@ -22,6 +22,13 @@ from .experiment import (
     load_experiment,
     run_experiment,
 )
+from .fleet import (
+    LOCAL_FLEET_PATH,
+    ROLE_LABELS,
+    SINGLE_ROLES,
+    FleetRegistry,
+    save_fleet,
+)
 from .foundry_arena import (
     FleetSlate,
     FoundryFleet,
@@ -168,6 +175,7 @@ def build_parser() -> argparse.ArgumentParser:
     _build_ledger_parser(subparsers)
     _build_experiment_parser(subparsers)
     _build_metrics_parser(subparsers)
+    _build_models_parser(subparsers)
     return parser
 
 
@@ -398,6 +406,13 @@ def _build_metrics_parser(subparsers: argparse._SubParsersAction) -> None:
         type=Path,
         default=None,
         help="rate card for pricing real usage (default: bundled 5-series list prices)",
+    )
+    farena.add_argument(
+        "--fleet",
+        type=Path,
+        default=None,
+        help="fleet config (which deployment plays each arm); default: FOUNDRY_FLEET_PATH "
+        "or the bundled sample. Build one with `cost-router models select`.",
     )
     farena.add_argument(
         "--live",
@@ -1076,6 +1091,8 @@ def _cmd_foundry_arena(args: argparse.Namespace) -> int:
     try:
         tasks = load_arena_tasks(workload)
         pricing = PricingTable.from_yaml(pricing_path)
+        registry = FleetRegistry.resolve(args.fleet)
+        slate = registry.slate()
     except (OSError, ValueError, KeyError) as exc:
         print(f"foundry arena: {exc}")
         return 1
@@ -1084,6 +1101,9 @@ def _cmd_foundry_arena(args: argparse.Namespace) -> int:
         return 1
 
     if not args.live:
+        print(f"foundry arena: fleet '{registry.source}'")
+        print(f"  router={slate.router}  cheapest={slate.cheapest}  premium={slate.premium}")
+        print(f"  ensemble={' + '.join(slate.ensemble)}")
         print("foundry arena: real head-to-head needs live calls. Re-run with --live once")
         print("  `cost-router foundry status` shows credentialed: yes (az login / Entra ID).")
         return 2
@@ -1093,7 +1113,6 @@ def _cmd_foundry_arena(args: argparse.Namespace) -> int:
         print("foundry arena: not credentialed — set AZURE_AI_FOUNDRY_* in .env, then `az login`.")
         return 1
 
-    slate = FleetSlate()
     fleet = FoundryFleet.from_config(config, max_output_tokens=args.max_output_tokens)
     try:
         outcomes = run_live_arena(fleet, tasks, slate, pricing)
@@ -1160,6 +1179,256 @@ def _print_arena_report(report: dict, slate: FleetSlate) -> None:
           "(plug a grader to score correctness).")
 
 
+def _build_models_parser(subparsers: argparse._SubParsersAction) -> None:
+    models = subparsers.add_parser(
+        "models",
+        help="Register & select the fleet — which deployed model plays each arm.",
+    )
+    models_sub = models.add_subparsers(dest="models_command")
+
+    def _fleet_arg(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--fleet",
+            type=Path,
+            default=None,
+            help="fleet config to load (default: FOUNDRY_FLEET_PATH or the bundled sample)",
+        )
+
+    listing = models_sub.add_parser("list", help="Show the model catalog and current slate.")
+    _fleet_arg(listing)
+    listing.add_argument("--json", action="store_true", help="print the catalog as JSON")
+    listing.set_defaults(func=_cmd_models_list)
+
+    show = models_sub.add_parser("show", help="Show the resolved slate (roles -> deployments).")
+    _fleet_arg(show)
+    show.add_argument("--json", action="store_true", help="print the slate as JSON")
+    show.set_defaults(func=_cmd_models_show)
+
+    select = models_sub.add_parser(
+        "select",
+        help="Pick which model plays each arm (interactive menu or flags); saves a local fleet.",
+    )
+    _fleet_arg(select)
+    select.add_argument("--router", default=None, help="model name for the router (main) arm")
+    select.add_argument("--cheapest", default=None, help="model name for the cheapest arm")
+    select.add_argument("--premium", default=None, help="model name for the premium arm")
+    select.add_argument(
+        "--ensemble", default=None, help="comma-separated model names for the ensemble/fan-out arm"
+    )
+    select.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help=f"where to save the selected fleet (default: {LOCAL_FLEET_PATH})",
+    )
+    select.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="never prompt; apply flags/current values only",
+    )
+    select.add_argument("--json", action="store_true", help="also print the saved fleet as JSON")
+    select.set_defaults(func=_cmd_models_select)
+
+
+def _resolve_fleet_registry(args: argparse.Namespace) -> FleetRegistry | None:
+    """Load the fleet for a `models` command (honouring FOUNDRY_FLEET_PATH via .env)."""
+
+    load_dotenv_file(Path(".env"))
+    try:
+        return FleetRegistry.resolve(args.fleet)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"models: {exc}")
+        return None
+
+
+def _print_slate(registry: FleetRegistry) -> None:
+    names = registry.model_names()
+    print("  current slate")
+    for role in SINGLE_ROLES:
+        assigned = getattr(registry, role)
+        dep = registry.deployment_for(assigned) if assigned in names else "?"
+        print(f"    {ROLE_LABELS[role]:<18}: {assigned or '(unassigned)'}  ->  {dep}")
+    print(f"    {ROLE_LABELS['ensemble']:<18}: {' + '.join(registry.ensemble) or '(empty)'}")
+
+
+def _fleet_source_path(registry: FleetRegistry) -> str:
+    if registry.source and registry.source != "bundled default":
+        return registry.source
+    return "samples/fleet/foundry-5series.fleet.yaml"
+
+
+def _print_models_list(registry: FleetRegistry) -> None:
+    config = FoundryConfig.from_env()
+    print(f"fleet  (source: {registry.source})   credentialed: {_yn(config.credentialed)}")
+    print("")
+    print(f"  {'#':>2}  {'name':<16} {'deployment':<18} {'tier':<9} roles")
+    print(f"  {'-' * 2}  {'-' * 16} {'-' * 18} {'-' * 9} {'-' * 22}")
+    for index, model in enumerate(registry.models, start=1):
+        roles = ", ".join(registry.roles_for(model.name)) or "-"
+        print(
+            f"  {index:>2}  {model.name:<16} {model.deployment:<18} "
+            f"{(model.tier or '-'):<9} {roles}"
+        )
+    print("")
+    _print_slate(registry)
+    print("")
+    print("select:   cost-router models select                       # interactive /model picker")
+    print("          cost-router models select --premium <name> --ensemble a,b,c")
+    print(f"run live: cost-router foundry arena --fleet {_fleet_source_path(registry)} --live")
+
+
+def _cmd_models_list(args: argparse.Namespace) -> int:
+    registry = _resolve_fleet_registry(args)
+    if registry is None:
+        return 1
+    if args.json:
+        payload = {
+            "source": registry.source,
+            "models": registry.catalog_view(),
+            "roles": registry.role_assignments(),
+            "credentialed": FoundryConfig.from_env().credentialed,
+        }
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+    _print_models_list(registry)
+    return 0
+
+
+def _cmd_models_show(args: argparse.Namespace) -> int:
+    registry = _resolve_fleet_registry(args)
+    if registry is None:
+        return 1
+    errors = registry.validation_errors()
+    if args.json:
+        slate = None if errors else registry.slate()
+        payload = {
+            "source": registry.source,
+            "roles": registry.role_assignments(),
+            "slate": None
+            if slate is None
+            else {
+                "router": slate.router,
+                "cheapest": slate.cheapest,
+                "premium": slate.premium,
+                "ensemble": list(slate.ensemble),
+            },
+            "valid": not errors,
+            "errors": errors,
+        }
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0 if not errors else 1
+    if errors:
+        print("models show: invalid fleet:")
+        for error in errors:
+            print(f"  - {error}")
+        return 1
+    _print_slate(registry)
+    return 0
+
+
+def _resolve_model_choice(
+    raw: str, registry: FleetRegistry
+) -> str | None:
+    """Map a picker entry (number, name, or ``/model <x>``) to a catalog name."""
+
+    text = raw.strip()
+    if text.startswith("/model"):
+        text = text[len("/model") :].strip()
+    if not text:
+        return None
+    names = registry.model_names()
+    if text.isdigit():
+        index = int(text)
+        if 1 <= index <= len(registry.models):
+            return registry.models[index - 1].name
+        raise ValueError(f"choice {index} is out of range 1..{len(registry.models)}")
+    if text in names:
+        return text
+    raise ValueError(f"unknown model {text!r}")
+
+
+def _interactive_select(registry: FleetRegistry) -> FleetRegistry | None:
+    import sys
+
+    if not sys.stdin.isatty():
+        print(
+            "models select: no interactive terminal — pass "
+            "--router/--cheapest/--premium/--ensemble or --non-interactive."
+        )
+        return None
+    print("pick a model for each arm — enter a number or name (blank keeps current):")
+    print("")
+    for index, model in enumerate(registry.models, start=1):
+        extra = f" · {model.tier}" if model.tier else ""
+        print(f"  {index}. {model.name}  ->  {model.deployment}{extra}")
+    print("")
+    changes: dict[str, object] = {}
+    for role in SINGLE_ROLES:
+        current = getattr(registry, role)
+        try:
+            raw = input(f"  {ROLE_LABELS[role]} [{current}]: ")
+        except EOFError:
+            return None
+        choice = _resolve_model_choice(raw, registry)
+        changes[role] = choice if choice is not None else current
+    current_ensemble = ", ".join(registry.ensemble)
+    try:
+        raw = input(f"  {ROLE_LABELS['ensemble']} [{current_ensemble}]: ")
+    except EOFError:
+        return None
+    text = raw.strip()
+    if text.startswith("/model"):
+        text = text[len("/model") :].strip()
+    if text:
+        members = [
+            choice
+            for part in text.split(",")
+            if (choice := _resolve_model_choice(part, registry)) is not None
+        ]
+        changes["ensemble"] = members
+    return registry.with_roles(**changes)
+
+
+def _cmd_models_select(args: argparse.Namespace) -> int:
+    registry = _resolve_fleet_registry(args)
+    if registry is None:
+        return 1
+    flags_given = any(
+        value is not None for value in (args.router, args.cheapest, args.premium, args.ensemble)
+    )
+    try:
+        if flags_given or args.non_interactive:
+            ensemble = None
+            if args.ensemble is not None:
+                ensemble = [part.strip() for part in args.ensemble.split(",") if part.strip()]
+            registry = registry.with_roles(
+                router=args.router,
+                cheapest=args.cheapest,
+                premium=args.premium,
+                ensemble=ensemble,
+            )
+        else:
+            picked = _interactive_select(registry)
+            if picked is None:
+                print("models select: aborted — nothing saved.")
+                return 1
+            registry = picked
+    except (ValueError, KeyError) as exc:
+        print(f"models select: {exc}")
+        print(f"  available models: {', '.join(registry.model_names())}")
+        return 1
+    out = args.out or LOCAL_FLEET_PATH
+    saved = save_fleet(registry, out)
+    print(f"saved fleet -> {saved}")
+    print("")
+    _print_slate(registry)
+    print("")
+    print(f"run it live: cost-router foundry arena --fleet {saved} --live")
+    if args.json:
+        print(json.dumps(registry.to_dict(), indent=2, ensure_ascii=False))
+    return 0
+
+
 def _cmd_hero(args: argparse.Namespace) -> int:
     code = _run_named_experiment(
         "hero",
@@ -1175,11 +1444,9 @@ def _cmd_hero(args: argparse.Namespace) -> int:
     from . import server
 
     if not args.json:
-        url = f"http://{args.host}:{args.port}/?run=1"
         print("")
-        print(f"serving the offline dashboard on {url} (Ctrl-C to stop)", flush=True)
-        print("open it to watch the before/after animate automatically", flush=True)
-    return server.serve(host=args.host, port=args.port)
+        print("booting the offline dashboard (Ctrl-C to stop) — auto-runs on open", flush=True)
+    return server.serve(host=args.host, port=args.port, open_hint="/?run=1")
 
 
 def _compact_models(approach: dict[str, object]) -> str:
@@ -1292,6 +1559,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "foundry" and not getattr(args, "foundry_command", None):
         print("usage: cost-router foundry [status | live [--live] [--store PATH]]")
         return 0
+    if args.command == "models" and not getattr(args, "models_command", None):
+        args.fleet = None
+        args.json = False
+        return _cmd_models_list(args)
     return args.func(args)
 
 
