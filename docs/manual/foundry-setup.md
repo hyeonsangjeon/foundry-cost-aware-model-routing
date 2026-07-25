@@ -5,6 +5,17 @@
 KB(그라운딩) 설정, system prompt, 팬아웃·앙상블 메커니즘, 그리고 실험별 세팅을 한 곳에
 모았습니다.
 
+!!! note "먼저 필요한 것 — 선행 조건 3가지"
+    Azure 쪽에서 이 세 가지만 있으면 시작할 수 있습니다:
+
+    1. **Azure AI Foundry 리소스 1개** (Cognitive Services / Azure OpenAI 계정) — 예: `aoai-foundry-iq-demo-ext`.
+    2. **`model-router` 배포 1개** — 이 하나로 크로스 프로바이더 라우팅이 됩니다(하위 OpenAI·xAI·DeepSeek·Meta 모델은 별도 배포 불필요, Anthropic Claude만 예외).
+    3. **`Cognitive Services OpenAI User` 롤** — 호출 주체(사용자/서비스 주체)에 부여하면 키리스 **Entra** 인증으로 호출됩니다. API 키는 쓰지 않습니다.
+
+    이 저장소는 **인프라를 만들지 않습니다** — 이미 배포된 리소스에 붙어 측정합니다. 앙상블 arm에서
+    특정 파트너 모델을 직접 지목하려면 그 배포 이름만 fleet YAML에 추가하면 됩니다(BYO). IaC
+    프로비저닝은 후속 컴패니언 자산입니다. 자세한 절차는 §1.
+
 !!! success "이건 전부 실측입니다 (`measured = true`)"
     아래 숫자는 키리스 **Microsoft Entra ID**로 실제 배포를 호출해 얻은 것입니다. Foundry의
     단일 `model-router` 배포가 하나의 문제집(큐레이션 5건)을 실제로 이렇게 분기했습니다:

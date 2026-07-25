@@ -92,7 +92,7 @@ Only **layer 3 (SELECT)** changes shape between experiments. There are exactly *
 
     ![Single-call routing: pick one model per prompt up front by difficulty tier, with no escalation](../assets/mechanism-single-call.svg)
 
-    *Used by · `model-router`*  ·  code: `model_router_pick()`
+    *Used by · `single-call`*  ·  code: `single_call_pick()`
 
 ---
 
@@ -235,12 +235,12 @@ on hard work.
 | **Processes** | 100 synthetic tasks |
 | **Models** | full ladder per class |
 | **Mechanism** | **Single-call** arm compared against the escalating **mix** |
-| **Dial** | surfaces a `model_router` strategy arm alongside the mix |
+| **Dial** | surfaces a `single_call` strategy arm alongside the mix |
 | **Headline** | single-call **52%** coverage vs mix **100%** — an **escalation gain of +48%p** at comparable cost |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100`, **`min_escalation_gain 0.30`** |
 
 ```bash
-cost-router experiment run model-router
+cost-router experiment run single-call
 ```
 
 A single-call router commits before it sees any check, so a wrong pick can't be corrected and

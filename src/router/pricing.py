@@ -77,3 +77,28 @@ def _number(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def format_usd(value: float) -> str:
+    """Format a USD amount for a human-readable surface (CLI, README, docs).
+
+    Totals show two decimals; sub-cent amounts (``|value| < $0.01``) show four so
+    real per-task/model costs don't collapse to ``$0.00``. This mirrors the
+    dashboard's ``usdSmart`` helper. The underlying data is never rounded here —
+    ledger (JSONL) and ``--json`` output keep full precision for re-verification.
+    """
+
+    amount = _number(value)
+    if amount != 0.0 and abs(amount) < 0.01:
+        return f"${amount:.4f}"
+    return f"${amount:.2f}"
+
+
+def format_usd_avg(value: float) -> str:
+    """Format a per-task/per-unit USD average with four decimals (sub-cent detail).
+
+    Mirrors the dashboard's ``usdAvg`` helper: averages are naturally small, so
+    four decimals keep them meaningful instead of rounding to two.
+    """
+
+    return f"${_number(value):.4f}"

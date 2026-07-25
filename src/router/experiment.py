@@ -31,10 +31,16 @@ from .pipeline import (
     find_samples_root,
     run_replay,
 )
-from .pricing import PricingTable
+from .pricing import PricingTable, format_usd
 from .spotlight import Spotlight, select_spotlight
 
 EXPERIMENTS_DIRNAME = "experiments"
+
+# Backward-compatible experiment name aliases: old name -> canonical stem.
+# ``model-router`` was renamed to ``single-call`` so the single-call routing arm
+# is never read as a claim about Azure AI Foundry's Model Router (see
+# docs/lab-notebook/07-model-router.md); the old name still resolves.
+EXPERIMENT_ALIASES: dict[str, str] = {"model-router": "single-call"}
 
 
 @dataclass(frozen=True)
@@ -232,14 +238,19 @@ def list_experiments(root: Path | str | None = None) -> list[Experiment]:
 
 
 def load_experiment(name_or_path: str | Path, root: Path | str | None = None) -> Experiment:
-    """Load an experiment by bare name (``hero``) or explicit YAML path."""
+    """Load an experiment by bare name (``hero``) or explicit YAML path.
+
+    Bare names resolve through :data:`EXPERIMENT_ALIASES` first, so renamed
+    experiments (``model-router`` → ``single-call``) keep working.
+    """
 
     candidate = Path(name_or_path)
     if candidate.suffix in {".yaml", ".yml"} or candidate.exists():
         return _load_file(candidate)
+    resolved_name = EXPERIMENT_ALIASES.get(str(name_or_path), str(name_or_path))
     directory = experiments_dir(root)
     for suffix in (".yaml", ".yml"):
-        path = directory / f"{name_or_path}{suffix}"
+        path = directory / f"{resolved_name}{suffix}"
         if path.is_file():
             return _load_file(path)
     known = ", ".join(experiment.name for experiment in list_experiments(root)) or "(none)"
@@ -296,9 +307,9 @@ def format_experiment_text(result: ExperimentResult) -> str:
         lines.append(
             f"spotlight  {spotlight.task_id} · {spotlight.task_class} · {spotlight.reason}"
         )
-        lines.append(f"  routed  {spotlight.chosen_model:<14} ${spotlight.routed_usd:.6f}")
+        lines.append(f"  routed  {spotlight.chosen_model:<14} {format_usd(spotlight.routed_usd)}")
         lines.append(
-            f"  naive   {spotlight.naive_model:<14} ${spotlight.naive_usd:.6f}"
+            f"  naive   {spotlight.naive_model:<14} {format_usd(spotlight.naive_usd)}"
             f"   ({spotlight.ratio:.1f}x more)"
         )
 
@@ -342,9 +353,9 @@ def _before_after_lines(summary: Mapping[str, Any]) -> list[str]:
     return [
         "",
         "before / after  (offline projection over synthetic data; labels.measured=false)",
-        f"  BEFORE  naive: premium model on every task   ${baseline:.6f}",
-        f"  AFTER   cost-aware routing                   ${routed:.6f}",
-        f"  SAVED   ${delta:.6f}  ({delta_pct:.1%} lower)  at {coverage:.1%} coverage",
+        f"  BEFORE  naive: premium model on every task   {format_usd(baseline)}",
+        f"  AFTER   cost-aware routing                   {format_usd(routed)}",
+        f"  SAVED   {format_usd(delta)}  ({delta_pct:.1%} lower)  at {coverage:.1%} coverage",
     ]
 
 
@@ -390,15 +401,15 @@ def _evaluate(report: ReplayReport, expect: Expectation) -> tuple[Check, ...]:
         )
     if expect.min_escalation_gain is not None:
         strategies = summary.get("strategies") or {}
-        router = strategies.get("model_router") or {}
-        router_coverage = float(router.get("coverage", 0.0))
-        gain = coverage - router_coverage
+        single = strategies.get("single_call") or strategies.get("model_router") or {}
+        single_coverage = float(single.get("coverage", 0.0))
+        gain = coverage - single_coverage
         checks.append(
             Check(
                 name="escalation_gain",
                 ok=gain >= expect.min_escalation_gain,
                 detail=(
-                    f"mix {coverage:.1%} − single-call {router_coverage:.1%} "
+                    f"mix {coverage:.1%} − single-call {single_coverage:.1%} "
                     f"= +{gain:.1%} ≥ {expect.min_escalation_gain:.1%}"
                 ),
             )

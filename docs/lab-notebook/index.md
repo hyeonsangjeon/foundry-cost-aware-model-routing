@@ -39,9 +39,9 @@
 
 !!! tip "비용 × 커버리지 프런티어로 보기"
     [대시보드](../manual/dashboard.md)는 `all-mini`·`all-premium`·`cost-aware mix`·`all-ensemble`·
-    `model_router` 다섯 전략을 **비용(가로) × 커버리지(세로) 산점도**로 그립니다. 오직 mix만
+    `single_call` 다섯 전략을 **비용(가로) × 커버리지(세로) 산점도**로 그립니다. 오직 mix만
     좌상단 '둘 다 이기는' 코너(완전 커버리지 + 낮은 비용)에 위치하고, `all-ensemble`(전부 팬아웃)은
-    커버리지 100%지만 **가장 비싼** 프런티어 밖 코너에, `model_router`(단일 호출 라우팅 레이어)는
+    커버리지 100%지만 **가장 비싼** 프런티어 밖 코너에, `single_call`(단일 호출 라우팅 레이어)는
     **낮은 커버리지**로 코너 밖 아래에 있는 것을 눈으로 확인할 수 있습니다 —
     [라이브 데모](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1).
 

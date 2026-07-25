@@ -18,7 +18,7 @@ import pytest
 
 from policy import load_default_policy
 from router import cli
-from router.baseline import model_router_summary
+from router.baseline import single_call_summary
 from router.foundry_live import (
     DEFAULT_API_VERSION,
     AzureModelRouterClient,
@@ -288,7 +288,7 @@ def test_measured_spend_differs_from_the_offline_projection(bundled) -> None:
     wl, signals, policy, pricing = bundled
     client = RecordedRouterClient(load_recorded_usage(USAGE_FIXTURE))
     measured = measured_router_summary(wl, signals, policy, pricing, client=client)
-    offline = model_router_summary(wl, signals, policy, pricing)
+    offline = single_call_summary(wl, signals, policy, pricing)
     # the whole point: real usage is priced, not the synthetic task tokens
     assert offline["total_cost_usd"] == pytest.approx(OFFLINE_PROJECTION_COST, abs=1e-6)
     assert measured["total_cost_usd"] != pytest.approx(offline["total_cost_usd"], abs=1e-6)

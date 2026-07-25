@@ -50,7 +50,7 @@ expect:
     ```
 
 !!! tip "측정 브리지 — Azure AI Foundry Model Router (선택)"
-    프런티어의 `model_router` arm은 단일 호출 라우팅 레이어의 **모양**을 보여주는 오프라인
+    프런티어의 `single_call` arm은 단일 호출 라우팅 레이어의 **모양**을 보여주는 오프라인
     프록시입니다. 실제 Foundry Model Router의 **결정**을 끼워 넣으려면, 의존성 없는 게이트
     어댑터 `router.foundry_router.FoundryModelRouter`에 아래 환경 변수와 주입된 `client`
     콜러블을 줍니다(설정이 없으면 어댑터는 비활성, 오프라인 프록시가 대신). 라이브 결정을
@@ -81,7 +81,7 @@ expect:
 | `expect.min_delta_pct` | 나이브 청구서를 이 비율 이상 낮춰야 함 |
 | `expect.max_delta_pct` | (선택) **상한** — 절감이 이 비율을 넘으면 안 됨(유령 절감 방지; `limits.yaml` 참고) |
 | `expect.max_tax_ratio` | (선택) **팬아웃 세금 상한** — 팬아웃 원가/승자 비율이 이 값을 넘으면 안 됨(`adaptive.yaml` 참고) |
-| `expect.min_escalation_gain` | (선택) **에스컬레이션 이득 하한** — mix 커버리지 − 단일 호출 `model_router` 커버리지가 이 값 이상이어야 함(`model-router.yaml` 참고) |
+| `expect.min_escalation_gain` | (선택) **에스컬레이션 이득 하한** — mix 커버리지 − `single_call` arm 커버리지가 이 값 이상이어야 함(`single-call.yaml` 참고) |
 | `expect.min_tasks` | 최소 이만큼의 태스크를 다뤄야 함 |
 
 경로는 저장소 루트 기준 상대 경로 또는 절대 경로로 씁니다.
@@ -102,7 +102,7 @@ expect:
 - `delta_pct ≥ min_delta_pct`
 - `delta_pct ≤ max_delta_pct` (설정된 경우에만 — 과장된 유령 절감을 막는 상한)
 - `tax_ratio ≤ max_tax_ratio` (설정된 경우에만 — 팬아웃 세금 상한)
-- `escalation_gain ≥ min_escalation_gain` (설정된 경우에만 — mix가 단일 호출 `model_router`보다 커버리지를 이만큼 더 벌어야 함)
+- `escalation_gain ≥ min_escalation_gain` (설정된 경우에만 — mix가 단일 호출 `single_call`보다 커버리지를 이만큼 더 벌어야 함)
 - `tasks ≥ min_tasks`
 
 하나라도 실패하면 `cost-router hero`/`experiment run`이 **0이 아닌 코드**로 종료합니다.

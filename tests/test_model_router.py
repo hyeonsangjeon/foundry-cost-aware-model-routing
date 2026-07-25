@@ -1,10 +1,12 @@
-"""Pin experiment 07 (routing layer — Azure AI Foundry Model Router arm): the
-single-call ``model_router`` strategy, the ``min_escalation_gain`` reproducibility
-contract, and the gated, dependency-free live adapter (the measured bridge).
+"""Pin experiment 07 (routing layer — single-call vs observe-and-escalate): the
+single-call ``single_call`` strategy arm (aliased to the legacy ``model_router``
+key), the ``min_escalation_gain`` reproducibility contract, and the gated,
+dependency-free live adapter (the measured bridge).
 
 Every number here is an offline projection (``labels.measured = false``): the arm
-is a transparent difficulty-tiered proxy for a single-call router's *shape*, not a
-copy of Azure's internal logic. The point of the experiment is the honest gap —
+is a transparent difficulty-tiered proxy for a single-call router's *shape* — the
+shape any per-prompt router has, Azure AI Foundry's Model Router included — not a
+copy of its internal logic. The point of the experiment is the honest gap —
 committing to one model per prompt loses coverage that observe-then-escalate keeps.
 """
 
@@ -22,6 +24,8 @@ from router.baseline import (
     model_router_pick,
     model_router_summary,
     score_single_call_arm,
+    single_call_pick,
+    single_call_summary,
 )
 from router.experiment import _evaluate, list_experiments, load_experiment, run_experiment
 from router.foundry_live import RouterOutcome
@@ -65,8 +69,8 @@ def bundled():
 # -- the arm: a deterministic single-call routing layer ---------------------
 
 
-def test_model_router_arm_is_deterministic_on_synth() -> None:
-    st = run_bundled_replay(synth=True).summary["strategies"]["model_router"]
+def test_single_call_arm_is_deterministic_on_synth() -> None:
+    st = run_bundled_replay(synth=True).summary["strategies"]["single_call"]
     # single-call commit: cheaper than premium, but well short of full coverage
     assert st["total_cost_usd"] == pytest.approx(1.587646, abs=1e-6)
     assert st["coverage"] == pytest.approx(0.52)
@@ -74,24 +78,28 @@ def test_model_router_arm_is_deterministic_on_synth() -> None:
     assert st["labels"] == {"measured": False, "equivalent": "illustrative"}
 
 
-def test_model_router_arm_is_deterministic_on_curated() -> None:
-    st = run_bundled_replay(synth=False).summary["strategies"]["model_router"]
+def test_single_call_arm_is_deterministic_on_curated() -> None:
+    st = run_bundled_replay(synth=False).summary["strategies"]["single_call"]
     assert st["total_cost_usd"] == pytest.approx(0.087030, abs=1e-6)
     assert st["coverage"] == pytest.approx(0.6)
 
 
-def test_frontier_has_five_strategy_arms() -> None:
+def test_frontier_has_five_strategy_arms_plus_the_legacy_alias() -> None:
     st = run_bundled_replay(synth=True).summary["strategies"]
-    assert set(st) == {"all_mini", "all_premium", "all_ensemble", "model_router", "mix"}
+    assert set(st) == {
+        "all_mini", "all_premium", "all_ensemble", "single_call", "model_router", "mix"
+    }
+    # ``model_router`` is a backward-compatible alias of the canonical ``single_call``
+    assert st["model_router"] == st["single_call"]
 
 
-def test_model_router_sits_between_mini_and_the_full_coverage_arms() -> None:
+def test_single_call_sits_between_mini_and_the_full_coverage_arms() -> None:
     st = run_bundled_replay(synth=True).summary["strategies"]
-    router = st["model_router"]
+    single = st["single_call"]
     # off the both-win corner: pricier than all-mini, yet below full coverage
-    assert st["all_mini"]["total_cost_usd"] < router["total_cost_usd"]
-    assert router["coverage"] < st["mix"]["coverage"]
-    assert router["coverage"] < 1.0
+    assert st["all_mini"]["total_cost_usd"] < single["total_cost_usd"]
+    assert single["coverage"] < st["mix"]["coverage"]
+    assert single["coverage"] < 1.0
 
 
 def test_pick_is_a_pure_floor_over_the_ladder() -> None:
@@ -100,12 +108,15 @@ def test_pick_is_a_pure_floor_over_the_ladder() -> None:
 
     task = {"task_id": "t", "class": "generate", "difficulty": "hard"}
     candidates = policy.candidates_for(classify_task(task))
-    pick = model_router_pick(task, candidates)
+    pick = single_call_pick(task, candidates)
     # hard task -> top of that class's ladder; deterministic and in-range
     assert pick is candidates[-1]
-    assert model_router_pick({"class": "generate", "difficulty": "easy"}, candidates) is (
+    assert single_call_pick({"class": "generate", "difficulty": "easy"}, candidates) is (
         candidates[0]
     )
+    # the legacy alias resolves to the same callable
+    assert model_router_pick is single_call_pick
+    assert model_router_summary is single_call_summary
 
 
 def test_score_single_call_arm_honours_a_custom_pick(bundled) -> None:
@@ -122,16 +133,20 @@ def test_score_single_call_arm_honours_a_custom_pick(bundled) -> None:
 # -- the contract: min_escalation_gain --------------------------------------
 
 
-def test_model_router_experiment_is_registered_with_the_gain_floor() -> None:
-    assert "model-router" in [experiment.name for experiment in list_experiments()]
-    exp = load_experiment("model-router")
+def test_single_call_experiment_is_registered_with_the_gain_floor() -> None:
+    names = [experiment.name for experiment in list_experiments()]
+    assert "single-call" in names
+    assert "model-router" not in names  # renamed; resolves only via the alias
+    # the legacy name still loads through EXPERIMENT_ALIASES
+    assert load_experiment("model-router").name == "single-call"
+    exp = load_experiment("single-call")
     assert exp.expect.min_escalation_gain == pytest.approx(0.30)
     assert exp.expect.min_coverage == pytest.approx(1.0)
     assert exp.expect.min_tasks == 100
 
 
 def test_min_escalation_gain_round_trips_through_to_dict() -> None:
-    payload = load_experiment("model-router").to_dict()
+    payload = load_experiment("single-call").to_dict()
     assert payload["expect"]["min_escalation_gain"] == pytest.approx(0.30)
 
 
@@ -142,7 +157,7 @@ def test_experiment_without_the_field_omits_the_check() -> None:
 
 
 def test_escalation_gain_contract_is_green() -> None:
-    result = run_experiment(load_experiment("model-router"))
+    result = run_experiment(load_experiment("single-call"))
     assert result.ok is True
     gain = next(c for c in result.checks if c.name == "escalation_gain")
     assert gain.ok is True
@@ -151,7 +166,7 @@ def test_escalation_gain_contract_is_green() -> None:
 
 
 def test_escalation_gain_bites_when_the_floor_is_raised() -> None:
-    exp = load_experiment("model-router")
+    exp = load_experiment("single-call")
     result = run_experiment(exp)
     strict = dataclasses.replace(exp.expect, min_escalation_gain=0.60)
     checks = _evaluate(result.report, strict)
@@ -219,7 +234,7 @@ def test_unknown_choice_falls_back_to_the_offline_pick(bundled) -> None:
     wl, signals, policy, pricing = bundled
     # a model that is not a candidate must not crash — it falls back to the proxy
     result = summary_from_choices(wl, signals, policy, pricing, {"t-0001": "nonexistent"})
-    offline = model_router_summary(wl, signals, policy, pricing)
+    offline = single_call_summary(wl, signals, policy, pricing)
     assert result["total_cost_usd"] == pytest.approx(offline["total_cost_usd"], abs=1e-9)
     assert result["tasks"] == 5
 

@@ -13,6 +13,8 @@ from .baseline import (
     model_router_summary,
     score_single_call_arm,
     single_call_baseline_arms,
+    single_call_pick,
+    single_call_summary,
 )
 from .budget import BudgetDecision, BudgetGate
 from .classify import Classifier, RuleBasedClassifier, classify_task
@@ -153,6 +155,8 @@ __all__ = [
     "model_router_summary",
     "score_single_call_arm",
     "single_call_baseline_arms",
+    "single_call_pick",
+    "single_call_summary",
     "batch_route_payload",
     "build_trace",
     "azure_router_choice_client",
