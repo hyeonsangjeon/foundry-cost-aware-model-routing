@@ -60,8 +60,10 @@ from .measure import (
     MeasureCandidate,
     MeasuredContract,
     RetryPolicy,
+    build_catalog,
     estimate_dry_run,
     evaluate_prereg,
+    format_catalog,
     format_dry_run_table,
     load_prompt_workload,
     make_run_id,
@@ -1313,6 +1315,21 @@ def _build_measure_parser(subparsers: argparse._SubParsersAction) -> None:
     verify.add_argument("--json", action="store_true", help="print the checks as JSON")
     verify.set_defaults(func=_cmd_measure_verify)
 
+    catalog = measure_sub.add_parser(
+        "catalog",
+        help="Pre-flight: show every prompt, validation rule, candidate + cost — NO live calls.",
+    )
+    catalog.add_argument("experiment", nargs="?", default="(preview)", help="experiment id label")
+    catalog.add_argument("--workload", type=Path, default=None, help="prompt-bearing JSONL")
+    catalog.add_argument("--pricing", type=Path, default=None, help="rate card YAML")
+    catalog.add_argument("--fleet", type=Path, default=None, help="fleet config for candidates")
+    catalog.add_argument("--candidates", default=None, help="comma-separated models")
+    catalog.add_argument("--n", type=int, default=DEFAULT_N, help="repeats per cell (for estimate)")
+    catalog.add_argument("--budget-usd", type=float, default=None, help="budget cap to check")
+    catalog.add_argument("--json", action="store_true", help="print the catalog as JSON")
+    catalog.add_argument("--env-file", type=Path, default=Path(".env"), help="dotenv to load first")
+    catalog.set_defaults(func=_cmd_measure_catalog)
+
 
 def _measure_candidates(args: argparse.Namespace) -> tuple[list[MeasureCandidate], str]:
     """Resolve the candidate models to measure (explicit --candidates or fleet slate)."""
@@ -1427,6 +1444,36 @@ def _cmd_measure_run(args: argparse.Namespace) -> int:
         print(json.dumps(result.summary, indent=2, sort_keys=True, ensure_ascii=False))
     else:  # pragma: no cover - live path
         _print_measure_summary(result)
+    return 0
+
+
+def _cmd_measure_catalog(args: argparse.Namespace) -> int:
+    load_dotenv_file(args.env_file)
+    workload_path = args.workload or DEFAULT_ARENA_WORKLOAD
+    pricing_path = _resolve_pricing_path(args.pricing)
+    try:
+        workload = load_prompt_workload(workload_path)
+        pricing = PricingTable.from_yaml(pricing_path)
+        candidates, source = _measure_candidates(args)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"measure catalog: {exc}")
+        return 1
+    if not workload:
+        print(f"measure catalog: no prompt-bearing tasks in {workload_path}")
+        return 1
+    if not candidates:
+        print("measure catalog: no candidates — set --candidates or a fleet with an ensemble.")
+        return 1
+
+    catalog = build_catalog(workload, candidates, n=args.n, pricing=pricing)
+    if args.json:
+        print(json.dumps(catalog, indent=2, sort_keys=True, ensure_ascii=False))
+        return 0
+    print(f"measure catalog: experiment '{args.experiment}'  workload '{workload_path}'  "
+          f"fleet '{source}'")
+    print(format_catalog(catalog, budget_usd=args.budget_usd))
+    print("")
+    print("measure catalog: preview only — no live calls. Run `measure run --live` to spend.")
     return 0
 
 

@@ -53,7 +53,7 @@ from .pricing import PricingTable, format_usd
 MEASURE_RUNNER_VERSION = f"{__version__}+measure1"
 TRACE_SCHEMA_VERSION = 1
 SUMMARY_SCHEMA_VERSION = 1
-MANIFEST_SCHEMA_VERSION = 1
+MANIFEST_SCHEMA_VERSION = 2
 
 DEFAULT_N = 3
 DEFAULT_SNAPSHOT_ROOT = Path("results/measured")
@@ -225,7 +225,17 @@ def load_prompt_workload(path: Path | str) -> dict[str, dict[str, Any]]:
     Only tasks that carry a ``prompt`` (or ``messages``) can be measured live;
     tasks without one are skipped. Each task keeps its optional ``tokens``
     estimate block, which the dry-run cost table uses.
+
+    The canonical BOLT-02 task schema is
+    ``{task_id, class, system_prompt, user_prompt, validation}``; for backward
+    compatibility ``user_prompt`` also reads from ``prompt``/``text``/``input``
+    and ``system_prompt`` from ``system``. Any ``validation`` block is checked
+    with :func:`router.validation.validate_rule` at load time, so a malformed or
+    subjective rule fails loudly *here* — before any (paid) live run — rather
+    than silently passing a measured task.
     """
+
+    from .validation import validate_rule
 
     tasks: dict[str, dict[str, Any]] = {}
     for line in Path(path).read_text(encoding="utf-8").splitlines():
@@ -233,19 +243,27 @@ def load_prompt_workload(path: Path | str) -> dict[str, dict[str, Any]]:
         if not line:
             continue
         row = json.loads(line)
-        prompt = row.get("prompt") or row.get("text") or row.get("input")
+        prompt = row.get("user_prompt") or row.get("prompt") or row.get("text") or row.get("input")
         if not prompt and not row.get("messages"):
             continue
         task_id = str(row.get("task_id") or row.get("id") or f"task-{len(tasks) + 1}")
         task: dict[str, Any] = {"task_id": task_id, "prompt": str(prompt) if prompt else ""}
         if row.get("messages"):
             task["messages"] = row["messages"]
-        if row.get("system"):
-            task["system"] = row["system"]
+        system = row.get("system_prompt") or row.get("system")
+        if system:
+            task["system"] = str(system)
         if isinstance(row.get("tokens"), Mapping):
             task["tokens"] = {k: float(v) for k, v in row["tokens"].items()}
         if row.get("title"):
             task["title"] = str(row["title"])
+        if row.get("class"):
+            task["class"] = str(row["class"])
+        if row.get("acceptance"):
+            task["acceptance"] = str(row["acceptance"])
+        if row.get("validation") is not None:
+            validate_rule(row["validation"])  # raises ValidationSpecError on a bad rule
+            task["validation"] = row["validation"]
         tasks[task_id] = task
     return tasks
 
@@ -325,6 +343,102 @@ def format_dry_run_table(estimate: Mapping[str, Any], *, budget_usd: float | Non
                      f"headroom {format_usd(headroom)})")
     lines.append("")
     lines.append("  basis: list-price × per-task token estimate; real spend depends on live usage.")
+    return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- #
+# Pre-flight prompt catalog (B4/D12) — "here is exactly what will go out"
+# --------------------------------------------------------------------------- #
+
+
+def build_catalog(
+    workload: Mapping[str, Mapping[str, Any]],
+    candidates: Sequence[MeasureCandidate],
+    *,
+    n: int,
+    pricing: PricingTable,
+) -> dict[str, Any]:
+    """Assemble the full pre-run picture *before* any call (D12).
+
+    For every task it surfaces the system/user prompt text in full, the
+    machine-readable validation rule (human-summarised), and the per-task token
+    estimate; alongside the candidate slate and the dry-run cost estimate. The
+    point is that nothing goes out unseen — the operator reads exactly this,
+    then decides whether to spend.
+    """
+
+    from .validation import describe_rule
+
+    tokens_default = dict(DEFAULT_DRY_RUN_TOKENS)
+    tasks: list[dict[str, Any]] = []
+    graded = 0
+    for task in workload.values():
+        rule = task.get("validation")
+        if rule is not None:
+            graded += 1
+        est = task.get("tokens") if isinstance(task.get("tokens"), Mapping) else tokens_default
+        tasks.append(
+            {
+                "task_id": task.get("task_id", ""),
+                "class": task.get("class"),
+                "title": task.get("title"),
+                "system_prompt": task.get("system", ""),
+                "user_prompt": task.get("prompt", ""),
+                "validation": describe_rule(rule) if isinstance(rule, Mapping) else None,
+                "est_tokens": {k: float(v) for k, v in est.items()},
+            }
+        )
+    estimate = estimate_dry_run(workload, candidates, n=n, pricing=pricing)
+    return {
+        "tasks": tasks,
+        "candidates": [
+            {"model": c.model, "deployment": c.deployment, "provider": c.provider}
+            for c in candidates
+        ],
+        "graded_tasks": graded,
+        "ungraded_tasks": len(tasks) - graded,
+        "n": n,
+        "estimate": estimate,
+        "workload_fingerprint": workload_fingerprint(workload),
+        "labels": {"measured": False, "estimate": True},
+    }
+
+
+def format_catalog(catalog: Mapping[str, Any], *, budget_usd: float | None = None) -> str:
+    """Render :func:`build_catalog` as a human pre-flight sheet (no live calls)."""
+
+    tasks = catalog["tasks"]
+    lines = [
+        "prompt catalog — exactly what a live run would send (NO calls made here)",
+        f"  tasks={len(tasks)}  graded={catalog['graded_tasks']}  "
+        f"ungraded={catalog['ungraded_tasks']}  n={catalog['n']}",
+        f"  workload fingerprint: {catalog['workload_fingerprint']}",
+        "",
+        "  candidates:",
+    ]
+    for cand in catalog["candidates"]:
+        prov = f"  [{cand['provider']}]" if cand.get("provider") else ""
+        lines.append(f"    - {cand['model']} (deployment {cand['deployment']}){prov}")
+    lines.append("")
+    for idx, task in enumerate(tasks, start=1):
+        header = f"  [{idx}] {task['task_id']}"
+        if task.get("class"):
+            header += f"  ({task['class']})"
+        if task.get("title"):
+            header += f"  — {task['title']}"
+        lines.append(header)
+        if task.get("system_prompt"):
+            lines.append(f"      system: {task['system_prompt']}")
+        lines.append(f"      user  : {task['user_prompt']}")
+        rule = task.get("validation")
+        lines.append(f"      pass if: {rule}" if rule else "      pass if: (ungraded — no rule)")
+        est = task["est_tokens"]
+        lines.append(
+            "      est tokens: "
+            + ", ".join(f"{k}={int(v)}" for k, v in est.items())
+        )
+        lines.append("")
+    lines.append(format_dry_run_table(catalog["estimate"], budget_usd=budget_usd))
     return "\n".join(lines)
 
 
@@ -747,6 +861,20 @@ def _fingerprints(files: Mapping[str, str]) -> dict[str, str]:
     }
 
 
+def workload_fingerprint(workload: Mapping[str, Mapping[str, Any]]) -> str:
+    """SHA-256 of the measured workload's canonical content (D14).
+
+    Hashes a stable, whitespace-insensitive serialization of the whole task
+    mapping, so any change to the tasks — including their ``system_prompt`` /
+    ``user_prompt`` / ``validation`` fields — yields a different fingerprint.
+    The gap view can then treat two runs with different prompts as different
+    experiments rather than silently comparing unlike workloads.
+    """
+
+    canonical = json.dumps(workload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "sha256:" + stable_hash_bytes(canonical)
+
+
 def stable_hash_bytes(text: str) -> str:
     import hashlib
 
@@ -1011,6 +1139,7 @@ def run_measure(
         "retry": retry.to_dict(),
         "pricing_path": pricing_path,
         "pricing_version": pricing.version,
+        "workload_fingerprint": workload_fingerprint(workload),
         "prereg": {
             "commit_hash": prereg.commit_hash if prereg else None,
             "committed_at": prereg.committed_at if prereg else None,

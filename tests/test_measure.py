@@ -22,16 +22,20 @@ from router.measure import (
     MeasuredContract,
     PreregDecision,
     RetryPolicy,
+    build_catalog,
     compute_summary,
     estimate_dry_run,
     evaluate_prereg,
+    format_catalog,
     format_dry_run_table,
     load_prompt_workload,
     replay_measure,
     run_measure,
     verify_contract,
+    workload_fingerprint,
 )
 from router.pricing import PricingTable
+from router.validation import ValidationSpecError
 
 PRICING = Path("samples/pricing/foundry-5series.yaml")
 WORKLOAD = Path("samples/telemetry/curated-arena-live.sample.jsonl")
@@ -125,6 +129,86 @@ def test_dry_run_estimate_counts_and_budget():
 
 
 # --------------------------------------------------------------------------- #
+# Prompt-bearing schema loading (B2) + pre-flight catalog (B4/D12)
+# --------------------------------------------------------------------------- #
+
+
+def _write_jsonl(tmp_path, rows) -> Path:
+    path = tmp_path / "wl.jsonl"
+    path.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    return path
+
+
+def test_load_prompt_workload_reads_canonical_schema(tmp_path):
+    path = _write_jsonl(
+        tmp_path,
+        [
+            {
+                "task_id": "t1",
+                "class": "generate",
+                "system_prompt": "be terse",
+                "user_prompt": "write solve(n)",
+                "validation": {"type": "regex", "pattern": "def\\s+solve"},
+            },
+            {"id": "t2", "prompt": "legacy field still works", "system": "legacy system"},
+        ],
+    )
+    wl = load_prompt_workload(path)
+    assert wl["t1"]["class"] == "generate"
+    assert wl["t1"]["system"] == "be terse"  # system_prompt aliases to internal `system`
+    assert wl["t1"]["prompt"] == "write solve(n)"  # user_prompt aliases to internal `prompt`
+    assert wl["t1"]["validation"]["type"] == "regex"
+    # back-compat: legacy prompt/system keys still load
+    assert wl["t2"]["prompt"] == "legacy field still works"
+    assert wl["t2"]["system"] == "legacy system"
+
+
+def test_load_prompt_workload_rejects_bad_validation(tmp_path):
+    path = _write_jsonl(
+        tmp_path, [{"task_id": "t1", "user_prompt": "hi", "validation": {"type": "vibes"}}]
+    )
+    with pytest.raises(ValidationSpecError):
+        load_prompt_workload(path)
+
+
+def test_build_catalog_surfaces_prompts_validation_and_estimate(tmp_path):
+    path = _write_jsonl(
+        tmp_path,
+        [
+            {
+                "task_id": "t1",
+                "class": "generate",
+                "system_prompt": "sys",
+                "user_prompt": "do a thing",
+                "validation": {"type": "contains", "value": "def"},
+                "tokens": {"input": 100, "output": 50},
+            },
+            {"task_id": "t2", "user_prompt": "ungraded task"},  # no validation
+        ],
+    )
+    wl = load_prompt_workload(path)
+    catalog = build_catalog(wl, _candidates(), n=2, pricing=_pricing())
+    assert catalog["graded_tasks"] == 1
+    assert catalog["ungraded_tasks"] == 1
+    assert catalog["workload_fingerprint"] == workload_fingerprint(wl)
+    assert catalog["labels"]["measured"] is False
+    t1 = catalog["tasks"][0]
+    assert t1["user_prompt"] == "do a thing"
+    assert t1["system_prompt"] == "sys"
+    assert "contains" in t1["validation"]  # describe_rule summary
+    assert catalog["tasks"][1]["validation"] is None
+    # the dry-run estimate rides along
+    assert catalog["estimate"]["calls"] == 2 * len(_candidates()) * 2
+
+    text = format_catalog(catalog, budget_usd=catalog["estimate"]["est_total_usd"] + 1)
+    assert "do a thing" in text
+    assert "pass if" in text
+    assert "NO calls made here" in text
+    assert "within budget" in text
+    assert "(ungraded — no rule)" in text
+
+
+# --------------------------------------------------------------------------- #
 # Snapshot layout (§3) + honest labels
 # --------------------------------------------------------------------------- #
 
@@ -153,6 +237,28 @@ def test_run_writes_full_snapshot(tmp_path):
     assert manifest["n"] == 2
     assert manifest["prereg"]["commit_hash"] == "abc123"
     assert manifest["labels"]["measured"] is True
+    # D14: the input workload identity is sealed alongside the outputs
+    assert manifest["schema_version"] == 2
+    assert manifest["workload_fingerprint"] == workload_fingerprint(_workload())
+    assert manifest["workload_fingerprint"].startswith("sha256:")
+
+
+def test_workload_fingerprint_tracks_prompt_changes(tmp_path):
+    base = {
+        "t-0001": {"task_id": "t-0001", "class": "generate", "user_prompt": "write a foo"},
+        "t-0002": {"task_id": "t-0002", "class": "validate", "user_prompt": "check the bar"},
+    }
+    same = {  # same content, different insertion order → same fingerprint
+        "t-0002": {"class": "validate", "task_id": "t-0002", "user_prompt": "check the bar"},
+        "t-0001": {"class": "generate", "task_id": "t-0001", "user_prompt": "write a foo"},
+    }
+    changed = json.loads(json.dumps(base))
+    changed["t-0001"]["user_prompt"] = "write a foo differently"
+
+    fp = workload_fingerprint(base)
+    assert fp.startswith("sha256:")
+    assert workload_fingerprint(same) == fp  # order-insensitive, content-identical
+    assert workload_fingerprint(changed) != fp  # a changed prompt → a different experiment
 
 
 def test_measured_label_true_only_for_live_provenance(tmp_path):
@@ -390,6 +496,20 @@ def test_cli_measure_run_dry_run_gate(capsys):
     out = capsys.readouterr().out
     assert "dry-run cost estimate" in out
     assert "no live calls were made" in out
+
+
+def test_cli_measure_catalog_previews_prompts(capsys):
+    code = cli.main([
+        "measure", "catalog", "preview",
+        "--workload", str(WORKLOAD),
+        "--candidates", "gpt-5.4-nano,gpt-5.4",
+        "--pricing", str(PRICING), "--n", "2", "--budget-usd", "5",
+    ])
+    assert code == 0  # preview only, never a live gate
+    out = capsys.readouterr().out
+    assert "prompt catalog" in out
+    assert "workload fingerprint: sha256:" in out
+    assert "no live calls" in out.lower()
 
 
 def test_cli_measure_replay_and_verify(tmp_path, capsys):
