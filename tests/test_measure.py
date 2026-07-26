@@ -30,6 +30,7 @@ from router.measure import (
     replay_measure,
     run_measure,
     verify_contract,
+    workload_fingerprint,
 )
 from router.pricing import PricingTable
 
@@ -153,6 +154,28 @@ def test_run_writes_full_snapshot(tmp_path):
     assert manifest["n"] == 2
     assert manifest["prereg"]["commit_hash"] == "abc123"
     assert manifest["labels"]["measured"] is True
+    # D14: the input workload identity is sealed alongside the outputs
+    assert manifest["schema_version"] == 2
+    assert manifest["workload_fingerprint"] == workload_fingerprint(_workload())
+    assert manifest["workload_fingerprint"].startswith("sha256:")
+
+
+def test_workload_fingerprint_tracks_prompt_changes(tmp_path):
+    base = {
+        "t-0001": {"task_id": "t-0001", "class": "generate", "user_prompt": "write a foo"},
+        "t-0002": {"task_id": "t-0002", "class": "validate", "user_prompt": "check the bar"},
+    }
+    same = {  # same content, different insertion order → same fingerprint
+        "t-0002": {"class": "validate", "task_id": "t-0002", "user_prompt": "check the bar"},
+        "t-0001": {"class": "generate", "task_id": "t-0001", "user_prompt": "write a foo"},
+    }
+    changed = json.loads(json.dumps(base))
+    changed["t-0001"]["user_prompt"] = "write a foo differently"
+
+    fp = workload_fingerprint(base)
+    assert fp.startswith("sha256:")
+    assert workload_fingerprint(same) == fp  # order-insensitive, content-identical
+    assert workload_fingerprint(changed) != fp  # a changed prompt → a different experiment
 
 
 def test_measured_label_true_only_for_live_provenance(tmp_path):

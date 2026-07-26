@@ -53,7 +53,7 @@ from .pricing import PricingTable, format_usd
 MEASURE_RUNNER_VERSION = f"{__version__}+measure1"
 TRACE_SCHEMA_VERSION = 1
 SUMMARY_SCHEMA_VERSION = 1
-MANIFEST_SCHEMA_VERSION = 1
+MANIFEST_SCHEMA_VERSION = 2
 
 DEFAULT_N = 3
 DEFAULT_SNAPSHOT_ROOT = Path("results/measured")
@@ -747,6 +747,20 @@ def _fingerprints(files: Mapping[str, str]) -> dict[str, str]:
     }
 
 
+def workload_fingerprint(workload: Mapping[str, Mapping[str, Any]]) -> str:
+    """SHA-256 of the measured workload's canonical content (D14).
+
+    Hashes a stable, whitespace-insensitive serialization of the whole task
+    mapping, so any change to the tasks — including their ``system_prompt`` /
+    ``user_prompt`` / ``validation`` fields — yields a different fingerprint.
+    The gap view can then treat two runs with different prompts as different
+    experiments rather than silently comparing unlike workloads.
+    """
+
+    canonical = json.dumps(workload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "sha256:" + stable_hash_bytes(canonical)
+
+
 def stable_hash_bytes(text: str) -> str:
     import hashlib
 
@@ -1011,6 +1025,7 @@ def run_measure(
         "retry": retry.to_dict(),
         "pricing_path": pricing_path,
         "pricing_version": pricing.version,
+        "workload_fingerprint": workload_fingerprint(workload),
         "prereg": {
             "commit_hash": prereg.commit_hash if prereg else None,
             "committed_at": prereg.committed_at if prereg else None,
