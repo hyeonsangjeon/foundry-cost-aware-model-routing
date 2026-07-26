@@ -939,7 +939,10 @@ def test_dashboard_live_forces_localhost_and_token_url(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(server, "serve", _fake_serve)
-    args = argparse.Namespace(host="0.0.0.0", port=0, policy=None, live=True)
+    args = argparse.Namespace(
+        host="0.0.0.0", port=0, policy=None, live=True,
+        env_file=Path("/nonexistent-cockpit-test.env"),
+    )
     assert cli._cmd_dashboard(args) == 0
     assert captured["host"] == "127.0.0.1"
     assert "cockpit=1&token=" in captured["open_hint"]

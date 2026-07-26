@@ -180,6 +180,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dashboard.add_argument("--policy", type=Path, default=None, help="policy YAML to serve")
     dashboard.add_argument(
+        "--env-file", type=Path, default=Path(".env"),
+        help="dotenv to load before reading Foundry config (for --live status/run)",
+    )
+    dashboard.add_argument(
         "--live", action="store_true",
         help="enable the localhost-only, session-token-gated live cockpit "
         "(the paid run still needs credentials + the operator's approve button)",
@@ -594,7 +598,10 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
     # Live cockpit (C1): localhost only, random free port, session-token URL. The
     # token gates every /cockpit/* route; without --live the cockpit routes 404
     # and the public build ships no live surface. The paid run still needs Entra
-    # credentials + the operator's "approve & run" click (server-side gates).
+    # credentials + the operator's "approve & run" click (server-side gates). The
+    # .env is loaded first so status/catalog/run read the operator's Foundry
+    # config (endpoint, deployment, fleet, pricing) just like `measure run`.
+    load_dotenv_file(args.env_file)
     host = args.host
     if host not in ("127.0.0.1", "localhost", "::1"):
         print(
