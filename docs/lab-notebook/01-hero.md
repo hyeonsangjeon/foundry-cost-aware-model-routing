@@ -28,18 +28,18 @@ cost-router hero
 
 ```text
 before / after  (offline projection over synthetic data; labels.measured=false)
-  BEFORE  naive: premium model on every task   $2.226910
-  AFTER   cost-aware routing                   $1.659167
-  SAVED   $0.567743  (25.5% lower)  at 100.0% coverage
+  BEFORE  naive: premium model on every task   $2.23
+  AFTER   cost-aware routing                   $1.66
+  SAVED   $0.57  (25.5% lower)  at 100.0% coverage
 ```
 
 | 지표 | 값 |
 | --- | --- |
 | 태스크 수 | 100 |
 | 커버리지 | 100.0% |
-| 나이브 비용 | $2.226910 |
-| 라우팅 비용 | $1.659167 |
-| 절감액 | $0.567743 |
+| 나이브 비용 | $2.23 |
+| 라우팅 비용 | $1.66 |
+| 절감액 | $0.57 |
 | 절감률 | 25.5% |
 
 ## 스포트라이트 — 대표 태스크
@@ -48,8 +48,8 @@ before / after  (offline projection over synthetic data; labels.measured=false)
 
 ```text
 spotlight  t-0078 · validate · clean-first
-  routed  mini-fast      $0.000293
-  naive   deep-reasoner  $0.007059   (24.1x more)
+  routed  mini-fast      $0.0003
+  naive   deep-reasoner  $0.0071   (24.1x more)
 ```
 
 `validate` 태스크는 가장 싼 후보(`mini-fast`)가 첫 시도에 깨끗하게 통과했습니다. 나이브
@@ -59,10 +59,10 @@ spotlight  t-0078 · validate · clean-first
 
 | arm | 커버리지 | 비용 | 메모 |
 | --- | --- | --- | --- |
-| cost | **22%** | $0.187913 | 가장 싸지만 커버리지 붕괴 |
-| balanced | 38% | $1.323157 | 중간 |
-| quality (naive) | 100% | $2.226910 | 커버리지 100%지만 최대 비용 |
-| **비용 인지 라우팅** | **100%** | **$1.659167** | 커버리지 유지 + 절감 |
+| cost | **22%** | $0.19 | 가장 싸지만 커버리지 붕괴 |
+| balanced | 38% | $1.32 | 중간 |
+| quality (naive) | 100% | $2.23 | 커버리지 100%지만 최대 비용 |
+| **비용 인지 라우팅** | **100%** | **$1.66** | 커버리지 유지 + 절감 |
 
 핵심은 커버리지를 지키면서 비용을 낮추는 것입니다. 가장 싼 arm은 값은 싸지만 커버리지가 22%로
 무너집니다.
@@ -83,15 +83,15 @@ strategy  single-route=74 ensemble=26  |  clean-first=19 compared=18 escalated=5
 
 | 위험(risk) | 태스크 | 비용 |
 | --- | --- | --- |
-| high | 32 | $1.228623 |
-| moderate | 42 | $0.367087 |
-| low | 26 | $0.063457 |
+| high | 32 | $1.23 |
+| moderate | 42 | $0.37 |
+| low | 26 | $0.06 |
 
 | 난이도 | 태스크 | 비용 |
 | --- | --- | --- |
-| hard | 22 | $0.630214 |
-| medium | 41 | $0.856523 |
-| easy | 37 | $0.172430 |
+| hard | 22 | $0.63 |
+| medium | 41 | $0.86 |
+| easy | 37 | $0.17 |
 
 비용은 소수의 high-risk 태스크에 집중됩니다. 라우팅이 가치를 내는 지점도 바로 여기입니다.
 

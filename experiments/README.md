@@ -51,8 +51,8 @@ metrics module (`src/router/metrics.py`) recovers what that fan-out really cost:
 
 ```bash
 cost-router experiment run ensemble
-# coverage 100.0% · saved 47.0% — but the 6 tasks fan out to $0.496812 of models
-# and keep $0.132801 of winners: a $0.364011 (3.74x) ensemble tax.
+# coverage 100.0% · saved 47.0% — but the 6 tasks fan out to $0.50 of models
+# and keep $0.13 of winners: a $0.36 (3.74x) ensemble tax.
 cost-router metrics emit ensemble                        # Azure Foundry-shaped metric records
 cost-router experiment run ensemble --metrics-store runs.jsonl  # record to history
 cost-router metrics history --store runs.jsonl           # historical dashboard feed
@@ -69,7 +69,7 @@ notebook: **실험 05 · 앙상블 팬아웃 세금**.
 fixed cost. The budget gate's `compare_min_value` is the knob — raise it and the
 router fans out on fewer tasks. Coverage (100%) and savings (47%) stay flat while
 the tax collapses. `adaptive.yaml` sets it to `1.1` (above every task's value),
-so nothing fans out and the tax is exactly `$0.000000`. Its `expect` block adds a
+so nothing fans out and the tax is exactly `$0.00`. Its `expect` block adds a
 `max_tax_ratio` ceiling, so CI fails if fan-out ever creeps back in.
 
 ```yaml

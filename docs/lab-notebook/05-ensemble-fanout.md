@@ -4,8 +4,8 @@
     비용 인지 라우팅은 **가치 높은 태스크에서만** 모든 후보로 팬아웃(compare 모드)하고,
     이긴 모델만 청구합니다. 하지만 트레이스의 `cost_usd`는 **승자만** 기록하므로, 팬아웃이
     *실제로* 쓴 돈(모든 후보 합)은 숨어 있습니다. 이 실험은 그 숨은 비용을 드러냅니다 —
-    6개 태스크 팬아웃에 **$0.496812**를 쓰고 승자 **$0.132801**만 남깁니다. 나머지
-    **$0.364011 (3.74×)** 이 **앙상블 세금**(진 모델을 돌린 값)입니다. 모든 수치는
+    6개 태스크 팬아웃에 **$0.50**를 쓰고 승자 **$0.13**만 남깁니다. 나머지
+    **$0.36 (3.74×)** 이 **앙상블 세금**(진 모델을 돌린 값)입니다. 모든 수치는
     `measured = false`.
 
 ## 이 실험은 무엇인가
@@ -59,9 +59,9 @@ cost-router metrics emit ensemble              # Azure Foundry 형태의 메트�
 
 ```text
 before / after  (offline projection over synthetic data; labels.measured=false)
-  BEFORE  naive: premium model on every task   $0.250728
-  AFTER   cost-aware routing                   $0.132801
-  SAVED   $0.117927  (47.0% lower)  at 100.0% coverage
+  BEFORE  naive: premium model on every task   $0.25
+  AFTER   cost-aware routing                   $0.13
+  SAVED   $0.12  (47.0% lower)  at 100.0% coverage
 
 reproducibility  PASS
   PASS  coverage: 100.0% ≥ 100.0%
@@ -69,25 +69,25 @@ reproducibility  PASS
   PASS  tasks: 6 ≥ 6
 ```
 
-라우팅 청구서는 **$0.132801**로 정직하게 싸지만, 그 6개 태스크를 compare로 팬아웃하며
-실제로는 **$0.496812**어치 모델을 돌렸습니다. 태스크별로 보면:
+라우팅 청구서는 **$0.13**로 정직하게 싸지만, 그 6개 태스크를 compare로 팬아웃하며
+실제로는 **$0.50**어치 모델을 돌렸습니다. 태스크별로 보면:
 
 | task | class | 팬아웃 후보 | 승자 | 팬아웃 원가 | 승자 비용 | 앙상블 세금 |
 | --- | --- | --- | --- | --- | --- | --- |
-| t-0003 | repo_patch | swift · balanced · deep · premium | **balanced-pro** | $0.179844 | $0.032793 | $0.147051 |
-| t-0007 | plan | swift · balanced · deep | **balanced-pro** | $0.088090 | $0.029368 | $0.058722 |
-| t-0024 | repo_patch | swift · balanced · deep · premium | **deep-reasoner** | $0.185132 | $0.061014 | $0.124118 |
-| t-0036 | generate | mini · swift · balanced | **swift-coder** | $0.016324 | $0.002619 | $0.013705 |
-| t-0015 | validate | mini · balanced · deep | **balanced-pro** | $0.013976 | $0.004946 | $0.009030 |
-| t-0032 | test | mini · swift · balanced | **swift-coder** | $0.013446 | $0.002061 | $0.011385 |
-| **합계** | | | | **$0.496812** | **$0.132801** | **$0.364011** |
+| t-0003 | repo_patch | swift · balanced · deep · premium | **balanced-pro** | $0.18 | $0.03 | $0.15 |
+| t-0007 | plan | swift · balanced · deep | **balanced-pro** | $0.09 | $0.03 | $0.06 |
+| t-0024 | repo_patch | swift · balanced · deep · premium | **deep-reasoner** | $0.19 | $0.06 | $0.12 |
+| t-0036 | generate | mini · swift · balanced | **swift-coder** | $0.02 | $0.0026 | $0.01 |
+| t-0015 | validate | mini · balanced · deep | **balanced-pro** | $0.01 | $0.0049 | $0.0090 |
+| t-0032 | test | mini · swift · balanced | **swift-coder** | $0.01 | $0.0021 | $0.01 |
+| **합계** | | | | **$0.50** | **$0.13** | **$0.36** |
 
-**앙상블 세금 = $0.364011**, 즉 팬아웃 원가가 승자의 **3.74배**입니다.
+**앙상블 세금 = $0.36**, 즉 팬아웃 원가가 승자의 **3.74배**입니다.
 
 !!! example "스포트라이트 — t-0032 (test)"
-    라우팅은 `swift-coder`($0.002061)를 골랐고, 나이브 프리미엄 arm은 `balanced-pro`
-    ($0.010589)를 씁니다 → **5.14× 저렴**. 하지만 이 한 태스크를 팬아웃하는 데는
-    (mini·swift·balanced) **$0.013446**가 들어, 승자의 6.5배입니다. 절감과 팬아웃 세금은
+    라우팅은 `swift-coder`($0.0021)를 골랐고, 나이브 프리미엄 arm은 `balanced-pro`
+    ($0.01)를 씁니다 → **5.14× 저렴**. 하지만 이 한 태스크를 팬아웃하는 데는
+    (mini·swift·balanced) **$0.01**가 들어, 승자의 6.5배입니다. 절감과 팬아웃 세금은
     **동시에** 성립합니다.
 
 ## 전략 프런티어 — "다 돌리기"는 프런티어 밖
@@ -97,10 +97,10 @@ reproducibility  PASS
 
 | 전략 | 비용 | 커버리지 |
 | --- | --- | --- |
-| all-mini (제일 싼 모델만) | $0.187913 | 22% |
-| cost-aware mix (라우팅) | $1.659167 | 100% |
-| all-premium (제일 비싼 모델만) | $2.226910 | 100% |
-| **all-ensemble (전부 팬아웃)** | **$4.225226** | 100% |
+| all-mini (제일 싼 모델만) | $0.19 | 22% |
+| cost-aware mix (라우팅) | $1.66 | 100% |
+| all-premium (제일 비싼 모델만) | $2.23 | 100% |
+| **all-ensemble (전부 팬아웃)** | **$4.23** | 100% |
 
 `all-ensemble`은 커버리지 100%지만 **가장 비쌉니다** — premium보다도 1.9배. "그냥 다
 돌리자"는 커버리지를 사지 못하는(이미 premium이 100%) 순수 낭비임을 프런티어가 시각적으로
@@ -143,7 +143,7 @@ reproducibility  PASS
 앙상블/팬아웃은 **품질을 올릴 수** 있습니다 — 하지만 그건 비용 실험이 아니라 품질 실험의
 주장입니다. 이 저장소는 **오프라인 비용 관점**만 정직하게 다룹니다: *같은 커버리지에서
 팬아웃은 승자만 청구하는 라우팅보다 항상 더 비싸다.* 앙상블을 켤지는, 팬아웃 세금
-($0.364011, 3.74×)이 살 만한 품질 향상을 주는지 **측정된** 데이터로 판단할 문제입니다 —
+($0.36, 3.74×)이 살 만한 품질 향상을 주는지 **측정된** 데이터로 판단할 문제입니다 —
 이 실험은 그 **비용 축**을 정확히 계량해 그 판단의 절반을 제공합니다.
 
 ## 이 실험을 언제 쓰나

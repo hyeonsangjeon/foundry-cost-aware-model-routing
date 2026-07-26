@@ -127,7 +127,7 @@ They are generated deterministically from the numbers above by
 | **Models** | full ladder per class (mini-fast … premium-max) |
 | **Mechanism** | **Ordered escalation** |
 | **Dial** | none — the flagship default |
-| **Headline** | **100% coverage · −25.5%** vs premium-on-every-task ($2.226910 → $1.659167) |
+| **Headline** | **100% coverage · −25.5%** vs premium-on-every-task ($2.23 → $1.66) |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100` |
 
 ```bash
@@ -148,7 +148,7 @@ escalation keeps that 100% coverage but tries cheap-clean-first, landing 25.5% c
 | **Models** | full ladder per class |
 | **Mechanism** | **Ordered escalation** |
 | **Dial** | none — smallest "does it work?" check |
-| **Headline** | **100% coverage · −56.7%** ($0.127136 → $0.055038) |
+| **Headline** | **100% coverage · −56.7%** ($0.13 → $0.06) |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.30`, `min_tasks 3` |
 
 ```bash
@@ -168,7 +168,7 @@ Tiny enough to follow every routing decision by eye end-to-end.
 | **Models** | full ladder per class, **all** run per task |
 | **Mechanism** | **Fan-out (compare)** |
 | **Dial** | fan-out **on** for every task |
-| **Headline** | **−47%** vs naive ($0.250728 → $0.132801) · but a **≈3.7× fan-out tax** (winners ≈ $0.13, all calls ≈ $0.50) |
+| **Headline** | **−47%** vs naive ($0.25 → $0.13) · but a **≈3.7× fan-out tax** (winners ≈ $0.13, all calls ≈ $0.50) |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.40`, `min_tasks 6` |
 
 ```bash

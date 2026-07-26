@@ -40,9 +40,9 @@ cost-router experiment run limits
 
 ```text
 before / after  (offline projection over synthetic data; labels.measured=false)
-  BEFORE  naive: premium model on every task   $0.236785
-  AFTER   cost-aware routing                   $0.236785
-  SAVED   $0.000000  (0.0% lower)  at 100.0% coverage
+  BEFORE  naive: premium model on every task   $0.24
+  AFTER   cost-aware routing                   $0.24
+  SAVED   $0.00  (0.0% lower)  at 100.0% coverage
 
 reproducibility  PASS
   PASS  coverage: 100.0% ≥ 100.0%
@@ -56,14 +56,14 @@ reproducibility  PASS
 
 | task | class | 시도 → 결과 | 선택 | 비용 |
 | --- | --- | --- | --- | --- |
-| t-0007 | plan | swift-coder ✗ · balanced-pro ✗ · **deep-reasoner ✓** | deep-reasoner | $0.052828 |
-| t-0036 | generate | mini-fast ✗ · swift-coder ✗ · **balanced-pro ✓** | balanced-pro | $0.012747 |
-| t-0032 | test | mini-fast ✗ · swift-coder ✗ · **balanced-pro ✓** | balanced-pro | $0.010589 |
-| t-0015 | validate | mini-fast ✗ · balanced-pro ✗ · **deep-reasoner ✓** | deep-reasoner | $0.008658 |
-| t-0024 | repo_patch | swift-coder ✗ · balanced-pro ✗ · deep-reasoner ✗ · **premium-max ✓** | premium-max | $0.083925 |
-| t-0029 | repo_patch | swift-coder ✗ · balanced-pro ✗ · deep-reasoner ✗ · **premium-max ✓** | premium-max | $0.068038 |
+| t-0007 | plan | swift-coder ✗ · balanced-pro ✗ · **deep-reasoner ✓** | deep-reasoner | $0.05 |
+| t-0036 | generate | mini-fast ✗ · swift-coder ✗ · **balanced-pro ✓** | balanced-pro | $0.01 |
+| t-0032 | test | mini-fast ✗ · swift-coder ✗ · **balanced-pro ✓** | balanced-pro | $0.01 |
+| t-0015 | validate | mini-fast ✗ · balanced-pro ✗ · **deep-reasoner ✓** | deep-reasoner | $0.0087 |
+| t-0024 | repo_patch | swift-coder ✗ · balanced-pro ✗ · deep-reasoner ✗ · **premium-max ✓** | premium-max | $0.08 |
+| t-0029 | repo_patch | swift-coder ✗ · balanced-pro ✗ · deep-reasoner ✗ · **premium-max ✓** | premium-max | $0.07 |
 
-합계 라우팅 비용 **$0.236785** = 나이브 비용 **$0.236785** → 절감 **$0.000000 (0.0%)**.
+합계 라우팅 비용 **$0.24** = 나이브 비용 **$0.24** → 절감 **$0.00 (0.0%)**.
 
 ## 이 숫자를 정직하게 읽기
 
