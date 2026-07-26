@@ -2,9 +2,16 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feat/**"]
   pull_request:
-    branches: [main]
+    branches: [main, "feat/**"]
+
+# One in-flight run per ref; newer pushes cancel stale ones. Keying on the PR
+# number (when present) collapses the push+pull_request pair for a branch that
+# has an open PR into a single active run.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
