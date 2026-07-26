@@ -53,6 +53,22 @@ from .foundry_router import (
     load_recorded_choices,
     summary_from_choices,
 )
+from .measure import (
+    DEFAULT_N,
+    DEFAULT_SNAPSHOT_ROOT,
+    AzureMeasureClient,
+    MeasureCandidate,
+    MeasuredContract,
+    RetryPolicy,
+    estimate_dry_run,
+    evaluate_prereg,
+    format_dry_run_table,
+    load_prompt_workload,
+    make_run_id,
+    replay_measure,
+    run_measure,
+    verify_contract,
+)
 from .metrics import (
     ExperimentMetrics,
     FoundryMetricsEmitter,
@@ -88,6 +104,22 @@ DEFAULT_CHOICES_FIXTURE = Path("samples/responses/model-router-choices.sample.js
 # Live arena defaults: prompt-bearing curated workload + real fleet list prices.
 DEFAULT_ARENA_WORKLOAD = Path("samples/telemetry/curated-arena-live.sample.jsonl")
 DEFAULT_FLEET_PRICING = Path("samples/pricing/foundry-5series.yaml")
+
+# Env vars that point at a rate card (kept in sync with foundry_live's resolver),
+# honoured by `measure` so estimates price the same fleet .env selects.
+PRICING_ENV_VARS: tuple[str, ...] = ("FOUNDRY_PRICING_PATH", "COST_ROUTER_PRICING")
+
+
+def _resolve_pricing_path(explicit: Path | None) -> Path:
+    """Rate card: explicit ``--pricing`` > ``FOUNDRY_PRICING_PATH`` > bundled default."""
+
+    if explicit is not None:
+        return explicit
+    for var in PRICING_ENV_VARS:
+        value = os.environ.get(var)
+        if value:
+            return Path(value)
+    return DEFAULT_FLEET_PRICING
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -176,6 +208,7 @@ def build_parser() -> argparse.ArgumentParser:
     _build_experiment_parser(subparsers)
     _build_metrics_parser(subparsers)
     _build_models_parser(subparsers)
+    _build_measure_parser(subparsers)
     return parser
 
 
@@ -1230,6 +1263,259 @@ def _build_models_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     select.add_argument("--json", action="store_true", help="also print the saved fleet as JSON")
     select.set_defaults(func=_cmd_models_select)
+
+
+def _build_measure_parser(subparsers: argparse._SubParsersAction) -> None:
+    measure = subparsers.add_parser(
+        "measure",
+        help="Measured live runs → fingerprinted snapshots + credential-free replay (BOLT).",
+    )
+    measure_sub = measure.add_subparsers(dest="measure_command")
+
+    run = measure_sub.add_parser(
+        "run",
+        help="Dry-run cost table, then (with --live) a measured sweep into a §3 snapshot.",
+    )
+    run.add_argument("experiment", help="experiment id (labels the snapshot)")
+    run.add_argument("--n", type=int, default=DEFAULT_N, help="repeats per cell")
+    run.add_argument("--budget-usd", type=float, default=None, help="hard cost cap; halts")
+    run.add_argument("--workload", type=Path, default=None, help="prompt-bearing JSONL")
+    run.add_argument("--pricing", type=Path, default=None, help="rate card YAML")
+    run.add_argument("--fleet", type=Path, default=None, help="fleet config for candidates")
+    run.add_argument("--candidates", default=None, help="comma-separated models to measure")
+    run.add_argument("--out-root", type=Path, default=DEFAULT_SNAPSHOT_ROOT, help="snapshot root")
+    run.add_argument("--run-id", default=None, help="explicit run id")
+    run.add_argument("--resume", default=None, metavar="RUN_ID", help="resume a run id")
+    run.add_argument("--prereg", type=Path, default=None, help="prereg.md path")
+    run.add_argument("--allow-no-prereg", action="store_true", help="bypass D8 prereg gate")
+    run.add_argument("--region", default=None, help="Azure region label")
+    run.add_argument("--max-output-tokens", type=int, default=2048, help="per-call completion cap")
+    run.add_argument("--live", action="store_true", help="make REAL Azure calls")
+    run.add_argument("--yes", action="store_true", help="skip dry-run confirmation")
+    run.add_argument("--json", action="store_true", help="print summary as JSON")
+    run.add_argument("--env-file", type=Path, default=Path(".env"), help="dotenv to load first")
+    run.set_defaults(func=_cmd_measure_run)
+
+    replay = measure_sub.add_parser(
+        "replay",
+        help="Recompute a snapshot's summary byte-for-byte from its traces (no credentials).",
+    )
+    replay.add_argument("--run", type=Path, required=True, help="snapshot run directory")
+    replay.add_argument("--json", action="store_true", help="print the replay report as JSON")
+    replay.set_defaults(func=_cmd_measure_replay)
+
+    verify = measure_sub.add_parser(
+        "verify",
+        help="Check a measured snapshot against a range/floor contract (deterministic).",
+    )
+    verify.add_argument("--run", type=Path, required=True, help="snapshot run directory")
+    verify.add_argument("--contract", type=Path, default=None, help="contract YAML (floors/bands)")
+    verify.add_argument("--json", action="store_true", help="print the checks as JSON")
+    verify.set_defaults(func=_cmd_measure_verify)
+
+
+def _measure_candidates(args: argparse.Namespace) -> tuple[list[MeasureCandidate], str]:
+    """Resolve the candidate models to measure (explicit --candidates or fleet slate)."""
+
+    if args.candidates:
+        names = [name.strip() for name in str(args.candidates).split(",") if name.strip()]
+        return [MeasureCandidate(model=name, deployment=name) for name in names], "flag"
+    registry = FleetRegistry.resolve(args.fleet)
+    slate = registry.slate()
+    candidates = [
+        MeasureCandidate(model=dep, deployment=dep, provider=slate.provider_for(dep))
+        for dep in slate.ensemble
+    ]
+    return candidates, registry.source
+
+
+def _redact_endpoint_host(endpoint: str | None) -> str | None:
+    if not endpoint:
+        return None
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(endpoint)
+    return f"{parts.scheme}://{parts.netloc}" if parts.netloc else "set"
+
+
+def _git_head() -> str | None:
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=False
+        )
+    except (OSError, ValueError):  # pragma: no cover - git absent
+        return None
+    head = out.stdout.strip()
+    return head or None
+
+
+def _cmd_measure_run(args: argparse.Namespace) -> int:
+    load_dotenv_file(args.env_file)
+    workload_path = args.workload or DEFAULT_ARENA_WORKLOAD
+    pricing_path = _resolve_pricing_path(args.pricing)
+    try:
+        workload = load_prompt_workload(workload_path)
+        pricing = PricingTable.from_yaml(pricing_path)
+        candidates, source = _measure_candidates(args)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"measure run: {exc}")
+        return 1
+    if not workload:
+        print(f"measure run: no prompt-bearing tasks in {workload_path}")
+        return 1
+    if not candidates:
+        print("measure run: no candidates — set --candidates or a fleet with an ensemble slate.")
+        return 1
+
+    estimate = estimate_dry_run(workload, candidates, n=args.n, pricing=pricing)
+    print(f"measure run: experiment '{args.experiment}'  fleet '{source}'")
+    print(format_dry_run_table(estimate, budget_usd=args.budget_usd))
+    print("")
+
+    if not args.live:
+        print("measure run: this printed ESTIMATES only — no live calls were made.")
+        print("  Re-run with --live (and --budget-usd) once an operator approves the spend.")
+        print("  `cost-router foundry status` must show credentialed: yes (az login / Entra ID).")
+        return 2
+
+    # --- live path (operator-gated; never exercised by CI/tests) --------------
+    if args.budget_usd is None:  # pragma: no cover - live guard
+        print("measure run --live: refusing without --budget-usd (set a cap from the estimate).")
+        return 1
+    config = FoundryConfig.from_env()
+    if not config.credentialed:  # pragma: no cover - live guard
+        print(
+            "measure run --live: not credentialed; set AZURE_AI_FOUNDRY_* in .env, then `az login`."
+        )
+        return 1
+
+    out_root = args.out_root
+    run_id = args.resume or args.run_id or make_run_id()
+    run_dir = out_root / args.experiment / run_id
+    prereg_path = args.prereg or (out_root / args.experiment / "prereg.md")
+    started = _utc_now()
+    decision = evaluate_prereg(
+        prereg_path, run_started_at=started, allow_no_prereg=args.allow_no_prereg
+    )
+    if not decision.allowed:  # pragma: no cover - live guard
+        print(f"measure run --live: prereg gate blocked the run — {decision.note}")
+        return 1
+    if not args.yes and not _confirm_live(  # pragma: no cover - interactive
+        estimate, args.budget_usd
+    ):
+        print("measure run --live: cancelled (no --yes confirmation).")
+        return 1
+
+    client = AzureMeasureClient(
+        AzureModelRouterClient(config=config, max_output_tokens=args.max_output_tokens)
+    )
+    try:  # pragma: no cover - live path
+        result = run_measure(
+            workload, candidates, client=client, pricing=pricing,
+            exp_id=args.experiment, run_dir=run_dir, run_id=run_id, n=args.n,
+            budget_usd=args.budget_usd, retry=RetryPolicy(), prereg=decision,
+            git_commit=_git_head(), endpoint=_redact_endpoint_host(config.endpoint),
+            region=args.region, pricing_path=str(pricing_path),
+            resume=bool(args.resume), now=started,
+        )
+    except (RuntimeError, ValueError, KeyError, OSError) as exc:
+        print(f"measure run --live: {exc}")
+        return 1
+    if args.json:  # pragma: no cover - live path
+        print(json.dumps(result.summary, indent=2, sort_keys=True, ensure_ascii=False))
+    else:  # pragma: no cover - live path
+        _print_measure_summary(result)
+    return 0
+
+
+def _cmd_measure_replay(args: argparse.Namespace) -> int:
+    try:
+        report = replay_measure(args.run)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"measure replay: {exc}")
+        print("status: FAIL")
+        return 1
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True, ensure_ascii=False))
+        return 0 if report.ok else 1
+    print(f"measure replay: {args.run}")
+    print(f"  summary byte-identical : {_yn(report.summary_matches)}")
+    print(f"  file fingerprints match: {_yn(report.fingerprints_ok)}")
+    print("  → each recorded call cost re-derived from its usage × the pinned rate card")
+    if report.cost_mismatches:
+        print(f"  cost mismatches        : {len(report.cost_mismatches)}")
+    if report.fingerprint_issues:
+        print(f"  fingerprint issues     : {', '.join(report.fingerprint_issues)}")
+    print(f"status: {'PASS' if report.ok else 'FAIL'}")
+    return 0 if report.ok else 1
+
+
+def _cmd_measure_verify(args: argparse.Namespace) -> int:
+    import yaml
+
+    run_dir = args.run
+    try:
+        summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"measure verify: {exc}")
+        return 1
+    contract_data: dict = {}
+    if args.contract is not None:
+        try:
+            contract_data = yaml.safe_load(args.contract.read_text(encoding="utf-8")) or {}
+        except (OSError, ValueError) as exc:
+            print(f"measure verify: {exc}")
+            return 1
+    contract = MeasuredContract.from_dict(contract_data.get("expect", contract_data))
+    checks = verify_contract(summary, contract, manifest=manifest)
+    if args.json:
+        print(json.dumps([c.to_dict() for c in checks], indent=2, ensure_ascii=False))
+    else:
+        print(f"measure verify: {run_dir}")
+        for check in checks:
+            print(f"  {'PASS' if check.ok else 'WARN/FAIL'}  {check.name}: {check.detail}")
+    # Freshness is advisory (a warning), so it never fails the gate on its own.
+    hard = [c for c in checks if c.name != "freshness"]
+    ok = all(c.ok for c in hard)
+    print(f"status: {'PASS' if ok else 'FAIL'}")
+    return 0 if ok else 1
+
+
+def _print_measure_summary(result) -> None:  # pragma: no cover - live path
+    summary = result.summary
+    labels = summary["labels"]
+    print("cost-router measure — measured snapshot")
+    print(f"  snapshot : {result.run_dir}")
+    print(f"  measured : {_yn(labels['measured'])}   partial: {_yn(labels['partial'])}   "
+          f"accuracy: {labels['accuracy']}")
+    print(f"  calls    : {summary['calls']}/{summary['attempts']} ok   tasks: {summary['tasks']}   "
+          f"n: {summary['n']}")
+    print(f"  cost     : {format_usd(summary['cost']['total_usd'])}  "
+          f"(best {summary['cost']['best_model']} vs naive {summary['cost']['naive_model']}: "
+          f"{summary['cost']['savings_pct']:.1f}% cheaper)")
+    throttle = summary["throttle"]
+    print(f"  throttle : 429×{throttle['http_429']}  retries {throttle['retries']}  "
+          f"exhausted {throttle['throttle_exhausted']}")
+    print("  replay   : cost-router measure replay --run " + str(result.run_dir))
+
+
+def _confirm_live(estimate, budget_usd: float) -> bool:  # pragma: no cover - interactive
+    import sys
+
+    if not sys.stdin.isatty():
+        return False
+    reply = input(f"Proceed with LIVE calls (est {format_usd(estimate['est_total_usd'])}, "
+                  f"cap {format_usd(budget_usd)})? [y/N] ").strip().lower()
+    return reply in {"y", "yes"}
+
+
+def _utc_now():
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC)
 
 
 def _resolve_fleet_registry(args: argparse.Namespace) -> FleetRegistry | None:
