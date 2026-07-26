@@ -412,6 +412,29 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .fleet-arm .v { font-family: var(--mono); font-weight: 700; font-size: 15px; margin: 3px 0; }
   .fleet-arm.router { border-color: #b7dfc6; background: #eefaf1; }
   .fleet-cmd { font-family: var(--mono); font-size: 12px; background: #0f1720; color: #d7e2ee; border-radius: 9px; padding: 12px 14px; white-space: pre-wrap; word-break: break-word; line-height: 1.7; margin: 8px 0; }
+  /* ---- live cockpit (Phase C) ---- */
+  .panel.cockpit { border-color: #e6b7b7; background: #fdf5f5; }
+  .panel.cockpit .eyebrow { color: #b4453a; }
+  .ck-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin: 6px 0 4px; }
+  @media (min-width: 820px) { .ck-grid { grid-template-columns: 1fr 1fr; } }
+  .ck-box { background: var(--elev); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 13px; }
+  .ck-box .kv { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .ck-box .kv:last-child { border-bottom: 0; }
+  .ck-box .kv .k { color: var(--muted); }
+  .ck-box .kv .v { font-family: var(--mono); font-weight: 600; word-break: break-word; text-align: right; }
+  .ck-box .miss { color: #b4453a; font-family: var(--mono); font-size: 12px; margin-top: 6px; }
+  .ck-task { border-bottom: 1px dashed var(--line); padding: 7px 0; }
+  .ck-task:last-child { border-bottom: 0; }
+  .ck-task .id { font-family: var(--mono); font-weight: 700; font-size: 12px; }
+  .ck-task .cl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; }
+  .ck-task .pr { font-size: 12px; color: var(--fg); margin: 3px 0; }
+  .ck-task .va { font-family: var(--mono); font-size: 11px; color: var(--brand); }
+  .ck-run { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0 4px; }
+  .ck-run input[type=number] { font-family: var(--mono); font-size: 13px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; width: 130px; }
+  .ck-approve { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .ck-gauge { height: 14px; background: var(--elev); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 8px 0 4px; }
+  .ck-gauge span { display: block; height: 100%; width: 0; background: var(--brand); transition: width .3s; }
+  .ck-gauge span.over { background: #b4453a; }
 </style>
 </head>
 <body>
@@ -481,6 +504,45 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <div class="arena-verdict" id="arenaVerdict">&mdash;</div>
     <p class="caveat">Cost &amp; accuracy reuse the same offline machinery as every other panel (<code>measured = false</code>).
       Latency is an <b>illustrative projection</b> from token counts &mdash; not wall-clock; a live run is where real timings come from.</p>
+  </section>
+
+  <section class="panel cockpit" id="cockpitPanel" hidden>
+    <div class="eyebrow">Live cockpit &mdash; the only place paid runs happen</div>
+    <h2 class="sec">Measure it live <span class="arena-meta" id="ckMode">&mdash;</span></h2>
+    <p class="sec-sub">This panel is served by <code>cost-router dashboard --live</code> on your machine. It reads your
+      Foundry connection from the environment (<b>no credential fields here</b>), shows the exact prompts and a
+      dry-run cost, and only spends after <b>you</b> click <b>approve &amp; run</b>. The public site never renders it.</p>
+
+    <div class="ck-grid">
+      <div class="ck-col">
+        <div class="cls">1 &middot; Connection</div>
+        <div id="ckStatus" class="ck-box"><div class="foot">loading status&#8230;</div></div>
+      </div>
+      <div class="ck-col">
+        <div class="cls">2 &middot; Prompts &amp; dry-run (no calls yet)</div>
+        <div id="ckCatalog" class="ck-box"><div class="foot">loading catalog&#8230;</div></div>
+      </div>
+    </div>
+
+    <div class="cls">3 &middot; Run gate &mdash; this button is the human approval</div>
+    <div class="ck-run">
+      <label for="ckBudget">Budget cap (USD)</label>
+      <input id="ckBudget" type="number" step="0.01" min="0" placeholder="e.g. 0.50" />
+      <label class="ck-approve"><input id="ckApprove" type="checkbox" /> I approve spending against this budget</label>
+      <button class="fleet-run" id="ckRunBtn">approve &amp; run (measured&#61;true)</button>
+    </div>
+    <p class="caveat" id="ckGate">The run halts at the credential, budget, and approval gates until all three are green.</p>
+
+    <div id="ckProgress" hidden>
+      <div class="cls">4 &middot; Live progress</div>
+      <div class="ck-gauge"><span id="ckGaugeBar"></span></div>
+      <p class="foot" id="ckProgressText">&mdash;</p>
+    </div>
+
+    <div id="ckSnapshot" hidden>
+      <div class="cls">5 &middot; Snapshot (re-read from disk &mdash; the replay is the check)</div>
+      <div id="ckSnapshotBody" class="ck-box"><div class="foot">&mdash;</div></div>
+    </div>
   </section>
 
   <section class="panel" id="fleetPanel" hidden>
@@ -1526,12 +1588,157 @@ function renderFleetRun(d) {
   $("fleetNote").textContent = d.note || "";
 }
 
+// -- live cockpit (Phase C) --------------------------------------------------
+// Revealed only when the page URL carries cockpit=1 AND a session token, which
+// only `cost-router dashboard --live` prints to the console. The public/static
+// build never carries cockpit=1, so this panel and its /cockpit/* routes stay
+// dark and no live surface ships (D10 parity: one UI, one mode flag).
+let COCKPIT = null;
+let CK_TIMER = null;
+function ckUrl(path) {
+  const sep = path.indexOf("?") >= 0 ? "&" : "?";
+  return path + sep + "token=" + encodeURIComponent(COCKPIT.token);
+}
+function ckRow(k, v) {
+  return "<div class='kv'><span class='k'>" + k + "</span><span class='v'>" + v + "</span></div>";
+}
+async function loadCockpitStatus() {
+  try {
+    const d = await (await fetch(ckUrl("/cockpit/status"))).json();
+    const f = d.foundry || {};
+    let html = ckRow("endpoint", f.endpoint || "\\u2014") +
+      ckRow("auth", f.auth_method || "\\u2014") +
+      ckRow("credentialed", String(f.credentialed)) +
+      ckRow("deployment", f.deployment || "\\u2014") +
+      ckRow("api version", f.api_version || "\\u2014") +
+      ckRow("pricing", f.pricing_path || "\\u2014") +
+      ckRow("measured", String(d.measured));
+    const miss = f.missing || [];
+    if (miss.length) {
+      html += "<div class='miss'>missing: " + miss.join(", ") +
+        " \\u2014 set these in .env, then run `az login`.</div>";
+    }
+    $("ckStatus").innerHTML = html;
+  } catch (e) {
+    $("ckStatus").innerHTML = "<div class='foot'>status unavailable</div>";
+  }
+}
+async function loadCockpitCatalog() {
+  try {
+    const d = await (await fetch(ckUrl("/cockpit/catalog?n=1"))).json();
+    if (d.error) { $("ckCatalog").innerHTML = "<div class='foot'>" + d.error + "</div>"; return; }
+    let html = "";
+    for (const t of (d.tasks || [])) {
+      const prompt = String(t.user_prompt || t.prompt || "").slice(0, 160);
+      const va = t.validation ? ("check: " + JSON.stringify(t.validation)) : "ungraded";
+      html += "<div class='ck-task'><span class='id'>" + t.task_id + "</span>" +
+        "<span class='cl'>" + (t.class || "") + "</span>" +
+        "<div class='pr'>" + prompt + "</div>" +
+        "<div class='va'>" + va + "</div></div>";
+    }
+    const est = d.estimate || {};
+    if (est.est_total_usd != null) {
+      html += "<div class='cls'>dry-run &mdash; projection, no calls</div>" +
+        ckRow("tasks \\u00d7 candidates \\u00d7 n",
+          est.tasks + " \\u00d7 " + est.candidates + " \\u00d7 " + est.n +
+          " = " + est.calls + " calls") +
+        ckRow("projected cost", usdSmart(est.est_total_usd));
+    }
+    $("ckCatalog").innerHTML = html || "<div class='foot'>no prompt tasks</div>";
+  } catch (e) {
+    $("ckCatalog").innerHTML = "<div class='foot'>catalog unavailable</div>";
+  }
+}
+async function runCockpit() {
+  const btn = $("ckRunBtn");
+  const budget = parseFloat($("ckBudget").value);
+  const approve = $("ckApprove").checked;
+  btn.disabled = true;
+  btn.textContent = "requesting\\u2026";
+  try {
+    const resp = await fetch(ckUrl("/cockpit/run"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ approve: approve, budget_usd: isNaN(budget) ? null : budget }),
+    });
+    const d = await resp.json();
+    if (!d.ran) {
+      $("ckGate").textContent = "\\u26A0 " + (d.reason || d.error || "run refused");
+      return;
+    }
+    $("ckGate").textContent = "run " + d.run_id + " started \\u2014 streaming progress\\u2026";
+    $("ckProgress").hidden = false;
+    pollCockpitProgress(d.run_id, d.run_dir);
+  } catch (e) {
+    $("ckGate").textContent = "run request failed";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "approve & run (measured=true)";
+  }
+}
+function renderCockpitProgress(p) {
+  const total = p.cells_total || 0;
+  const done = p.cells_done || 0;
+  const spent = p.running_cost_usd || 0;
+  const budget = p.budget_usd;
+  const bar = $("ckGaugeBar");
+  const spendFrac = budget ? Math.min(spent / budget, 1) : (total ? done / total : 0);
+  bar.style.width = (spendFrac * 100).toFixed(1) + "%";
+  bar.className = (budget && spent >= budget) ? "over" : "";
+  $("ckProgressText").textContent =
+    done + "/" + total + " cells \\u00b7 " + usdSmart(spent) +
+    (budget != null ? " / " + usdSmart(budget) + " budget" : "") +
+    " \\u00b7 " + (p.throttles || 0) + " throttles \\u00b7 " + (p.failures || 0) + " failures" +
+    (p.event ? " \\u00b7 " + p.event : "");
+}
+async function pollCockpitProgress(runId, runDir) {
+  if (CK_TIMER) clearInterval(CK_TIMER);
+  CK_TIMER = setInterval(async () => {
+    try {
+      const d = await (await fetch(ckUrl("/cockpit/progress?run=" + encodeURIComponent(runId)))).json();
+      const p = d.progress;
+      if (!p) return;
+      renderCockpitProgress(p);
+      if (p.event === "budget_halt" || (p.cells_total && p.cells_done >= p.cells_total)) {
+        clearInterval(CK_TIMER);
+        CK_TIMER = null;
+        loadCockpitSnapshot(runDir);
+      }
+    } catch (e) { /* transient — keep polling */ }
+  }, 1000);
+}
+async function loadCockpitSnapshot(run) {
+  try {
+    const d = await (await fetch(ckUrl("/cockpit/snapshot?run=" + encodeURIComponent(run)))).json();
+    $("ckSnapshot").hidden = false;
+    if (d.error) { $("ckSnapshotBody").innerHTML = "<div class='foot'>" + d.error + "</div>"; return; }
+    $("ckSnapshotBody").innerHTML =
+      ckRow("run", d.run) +
+      ckRow("replay ok", String(d.ok)) +
+      ckRow("summary matches", String(d.summary_matches)) +
+      ckRow("measured", String(d.measured));
+  } catch (e) {
+    $("ckSnapshotBody").innerHTML = "<div class='foot'>snapshot unavailable</div>";
+  }
+}
+function initCockpit() {
+  const q = new URLSearchParams(window.location.search);
+  if (q.get("cockpit") !== "1" || !q.get("token")) return;  // public build stays dark
+  COCKPIT = { token: q.get("token") };
+  $("cockpitPanel").hidden = false;
+  $("ckMode").textContent = "\\u2014 localhost \\u00b7 token-gated";
+  $("ckRunBtn").addEventListener("click", runCockpit);
+  loadCockpitStatus();
+  loadCockpitCatalog();
+}
+
 $("run").addEventListener("click", runReplay);
 $("fleetRun").addEventListener("click", runFleet);
 if (window.innerWidth < 960) { const d = $("policyDetails"); if (d) d.removeAttribute("open"); }
 loadHealth();
 loadArena();
 loadFleet();
+initCockpit();
 loadExperiments();
 loadHistory();
 loadSweep();

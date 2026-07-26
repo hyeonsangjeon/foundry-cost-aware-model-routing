@@ -23,6 +23,7 @@ from router.measure import (
     PreregDecision,
     RetryPolicy,
     build_catalog,
+    build_publish_bundle,
     compute_summary,
     estimate_dry_run,
     evaluate_prereg,
@@ -323,6 +324,52 @@ def test_replay_detects_tampering(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
+# Publish bundle (C8) — public-mockup export with tenant pricing masked
+# --------------------------------------------------------------------------- #
+
+
+def test_publish_bundle_keeps_result_and_masks_tenant_pricing(tmp_path):
+    result = _run(
+        tmp_path,
+        ScriptedClient(),
+        pricing_path="samples/pricing/foundry-5series.yaml",
+        endpoint="https://aoai-secret-name.cognitiveservices.azure.com",
+        region="eastus",
+        git_commit="deadbeef",
+    )
+    bundle = build_publish_bundle(result.run_dir)
+    # The measured RESULT is kept (that is the whole point of the public mockup).
+    assert bundle["provenance"]["measured"] is True
+    assert bundle["result"]["cost"]["savings_pct"] == result.summary["cost"]["savings_pct"]
+    assert bundle["n"] == result.summary["n"]
+    assert bundle["git_commit"] == "deadbeef"
+    # Tenant-specific rate card is masked: no absolute pricing path or raw rates.
+    blob = json.dumps(bundle)
+    assert "samples/pricing" not in blob
+    assert "per_million" not in blob and "input_per_1k" not in blob
+    # Endpoint is host-only (scheme://netloc), matching status() redaction.
+    assert bundle["provenance"]["endpoint"] == (
+        "https://aoai-secret-name.cognitiveservices.azure.com"
+    )
+    assert bundle["provenance"]["pricing"]["note"].startswith("tenant rate card masked")
+
+
+def test_publish_refuses_unreplayable_snapshot(tmp_path):
+    result = _run(tmp_path, ScriptedClient())
+    # Corrupt the sealed summary so the snapshot no longer replays.
+    (result.run_dir / "summary.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="does not replay"):
+        build_publish_bundle(result.run_dir)
+
+
+def test_publish_bundle_is_deterministic(tmp_path):
+    from router.measure import publish_bundle_json
+
+    result = _run(tmp_path, ScriptedClient())
+    assert publish_bundle_json(result.run_dir) == publish_bundle_json(result.run_dir)
+
+
+# --------------------------------------------------------------------------- #
 # Budget guard (partial snapshot)
 # --------------------------------------------------------------------------- #
 
@@ -337,6 +384,33 @@ def test_budget_guard_halts_and_marks_partial(tmp_path):
     assert replay_measure(result.run_dir).ok
     # and it stopped before running the full 20-cell sweep
     assert result.summary["attempts"] < 5 * 2 * 2
+
+
+def test_progress_hook_fires_per_cell(tmp_path):
+    events: list[dict] = []
+    result = _run(tmp_path, ScriptedClient(), progress=events.append)
+    cells = [e for e in events if e.get("event") == "cell_done"]
+    assert len(cells) == 5 * 2 * 2  # every (task × repeat × candidate) cell
+    # cells_done climbs monotonically to the full total; cost never decreases
+    assert [e["cells_done"] for e in cells] == list(range(1, len(cells) + 1))
+    assert cells[-1]["cells_done"] == cells[-1]["cells_total"] == 20
+    assert all(a["running_cost_usd"] <= b["running_cost_usd"]
+               for a, b in zip(cells, cells[1:], strict=False))
+    assert cells[-1]["running_cost_usd"] == pytest.approx(result.summary["cost"]["total_usd"])
+    # a clean scripted run books no throttles or failures
+    assert cells[-1]["throttles"] == 0 and cells[-1]["failures"] == 0
+
+
+def test_progress_hook_reports_budget_halt_and_throttles(tmp_path):
+    events: list[dict] = []
+    client = ScriptedClient(throttle={("gpt-5.4-nano", "t-0001"): 1})
+    _run(tmp_path, client, budget_usd=0.02, progress=events.append)
+    assert any(e.get("event") == "budget_halt" for e in events)
+    halt = next(e for e in events if e.get("event") == "budget_halt")
+    assert halt["cells_done"] < halt["cells_total"]  # stopped early
+    assert "budget cap reached" in halt["stopped_reason"]
+    # the one throttled attempt is tallied on the running counters
+    assert max(e.get("throttles", 0) for e in events) >= 1
 
 
 # --------------------------------------------------------------------------- #
