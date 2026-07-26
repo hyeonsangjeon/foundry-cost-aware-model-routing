@@ -5,6 +5,17 @@
 KB(그라운딩) 설정, system prompt, 팬아웃·앙상블 메커니즘, 그리고 실험별 세팅을 한 곳에
 모았습니다.
 
+!!! note "먼저 필요한 것 — 선행 조건 3가지"
+    Azure 쪽에서 이 세 가지만 있으면 시작할 수 있습니다:
+
+    1. **Azure AI Foundry 리소스 1개** (Cognitive Services / Azure OpenAI 계정) — 예: `aoai-foundry-iq-demo-ext`.
+    2. **`model-router` 배포 1개** — 이 하나로 크로스 프로바이더 라우팅이 됩니다(하위 OpenAI·xAI·DeepSeek·Meta 모델은 별도 배포 불필요, Anthropic Claude만 예외).
+    3. **`Cognitive Services OpenAI User` 롤** — 호출 주체(사용자/서비스 주체)에 부여하면 키리스 **Entra** 인증으로 호출됩니다. API 키는 쓰지 않습니다.
+
+    이 저장소는 **인프라를 만들지 않습니다** — 이미 배포된 리소스에 붙어 측정합니다. 앙상블 arm에서
+    특정 파트너 모델을 직접 지목하려면 그 배포 이름만 fleet YAML에 추가하면 됩니다(BYO). IaC
+    프로비저닝은 후속 컴패니언 자산입니다. 자세한 절차는 §1.
+
 !!! success "이건 전부 실측입니다 (`measured = true`)"
     아래 숫자는 키리스 **Microsoft Entra ID**로 실제 배포를 호출해 얻은 것입니다. Foundry의
     단일 `model-router` 배포가 하나의 문제집(큐레이션 5건)을 실제로 이렇게 분기했습니다:
@@ -17,16 +28,24 @@ KB(그라운딩) 설정, system prompt, 팬아웃·앙상블 메커니즘, 그�
     포착 스냅샷: [`samples/responses/foundry-arena-measured.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/responses/foundry-arena-measured.json).
     재현: `cost-router foundry arena --live --max-output-tokens 3000`.
 
+    이 스냅샷은 초기 **5-시리즈 라우팅 리소스**(`aoai-router5-ext-faf57f`)에서 캡처된 정직한
+    히스토리입니다 — provenance는 그대로 보존합니다. 현재 **go-forward 리소스는 아래
+    `aoai-foundry-iq-demo-ext`**(eastus)이며 동일한 키리스 방법으로 동작합니다: 프론티어는
+    `gpt-5.6-sol`, GPT-5.4는 `mini`/`nano`만 유지하고 여기에 멀티프로바이더 파트너 7종이 더해집니다.
+
 ---
 
 ## 0. 두 개의 플레인 — 라우팅 vs 그라운딩
 
-이 데모의 Azure 자원은 역할이 뚜렷한 **두 플레인**으로 나뉩니다. 섞지 않는 게 이해의 핵심입니다.
+이 데모의 Azure 자원은 역할이 뚜렷한 **두 플레인**으로 나뉩니다 — 이제 둘 다 **하나의 Foundry
+리소스**(`aoai-foundry-iq-demo-ext`, eastus)에 통합돼 있습니다. 섞지 않는 게 이해의 핵심입니다.
+(초기엔 라우팅용 5-시리즈 리소스가 따로 있었고 [§4·§5의 실측 스냅샷](#4-fanout)이 거기서
+캡처됐습니다 — 그 히스토리는 그대로 두고, 지금부터의 셋업은 demo-ext 단일 리소스를 씁니다.)
 
 | 플레인 | 리소스 | 배포/자원 | 하는 일 |
 | --- | --- | --- | --- |
-| **라우팅 플레인** | `aoai-router5-ext-faf57f` (`rg-foundry-router-5series`, eastus2) | `model-router` + `gpt-5.4` · `gpt-5.4-mini` · `gpt-5.4-nano` | 프롬프트별 모델 선정·추론(아레나·라이브 실험) |
-| **그라운딩 플레인** | `aoai-foundry-iq-demo-ext` (`rg-foundry-iq-demo-ext`, eastus) + `srch-foundry-iq-demo-ext` (Azure AI Search) | `text-embedding-3-large` + 벡터 인덱스 | KB 임베딩·검색(RAG 그라운딩) |
+| **라우팅 플레인** | `aoai-foundry-iq-demo-ext` (`rg-foundry-iq-demo-ext`, eastus) | `model-router` + 멀티프로바이더 fleet(`gpt-5.6-sol`·`gpt-4o`·`gpt-5.4-mini`·`gpt-5.4-nano` + 파트너 7종) | 프롬프트별 모델 선정·추론(아레나·라이브 실험) |
+| **그라운딩 플레인** | **같은** `aoai-foundry-iq-demo-ext` + `srch-foundry-iq-demo-ext` (Azure AI Search) | `text-embedding-3-large` + 벡터 인덱스 | KB 임베딩·검색(RAG 그라운딩) |
 
 - **아레나/헤드투헤드 실험은 라우팅 플레인만** 씁니다(추론 전용, KB 불필요).
 - **KB 그라운딩은 선택**입니다. 실험에 근거 문서를 붙이고 싶을 때만 그라운딩 플레인을 씁니다
@@ -44,9 +63,9 @@ KB(그라운딩) 설정, system prompt, 팬아웃·앙상블 메커니즘, 그�
 az login --tenant <TENANT_ID> --use-device-code   # 헤드리스/샌드박스는 device-code
 az account set --subscription <SUBSCRIPTION_ID>
 
-RG=rg-foundry-router-5series
-LOC=eastus2
-ACCT=aoai-router5-ext-faf57f     # 전역 유일해야 함(접미사로 충돌 회피)
+RG=rg-foundry-iq-demo-ext
+LOC=eastus
+ACCT=aoai-foundry-iq-demo-ext     # 전역 유일해야 함(demo-ext 리소스)
 
 # 1) 리소스 그룹
 az group create -n "$RG" -l "$LOC"
@@ -60,11 +79,14 @@ az cognitiveservices account create \
   --api-properties disableLocalAuth=true       # 키 인증 OFF → Entra ID 전용
 ```
 
-### 1-1. 배포 만들기 — Model Router + 5시리즈
+### 1-1. 배포 만들기 — Model Router + 멀티프로바이더 fleet
 
-Model Router는 **단일 배포**지만, 내부적으로 여러 벤더 모델(OpenAI GPT-5 계열, xAI Grok,
-gpt-oss 등)로 프롬프트를 분기합니다. 5시리즈 3종은 아레나의 단일/팬아웃 arm이 **직접**
-호출합니다.
+Model Router는 **배포 하나로 알아서 되는** 선정 레이어입니다 — 그 하나만 배포하면 OpenAI
+GPT-5 계열뿐 아니라 xAI Grok · DeepSeek · Meta Llama · gpt-oss까지 **별도 배포 없이** 프롬프트마다
+분기합니다(Anthropic Claude만 예외적으로 직접 배포 필요). 아래 fleet 배포는 라우터가 아니라
+아레나의 **직접 호출/팬아웃 arm**(cheapest·premium·ensemble)이 쓰는 것으로, 이 데모의
+`aoai-foundry-iq-demo-ext`에 실제로 올라간 배포를 그대로 재현합니다
+([`samples/fleet/foundry-ext-full.fleet.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/fleet/foundry-ext-full.fleet.yaml)가 정본).
 
 ```bash
 # 라우터(하나로 다 되는 선정 레이어)
@@ -75,8 +97,9 @@ az cognitiveservices account deployment create \
   --model-format OpenAI \
   --sku-name GlobalStandard --sku-capacity 10
 
-# 5시리즈 3-티어 (nano=저렴, mini=중간, full=프론티어)
-for M in "gpt-5.4-nano:2026-03-17" "gpt-5.4-mini:2026-03-17" "gpt-5.4:2026-03-05"; do
+# Azure OpenAI 서피스 (provider=openai) — 프론티어/미드/저렴 티어
+# (frontier=gpt-5.6-sol·gpt-4o, mid=gpt-5.4-mini, floor=gpt-5.4-nano)
+for M in "gpt-5.6-sol:2026-07-09" "gpt-4o:2024-11-20" "gpt-5.4-mini:2026-03-17" "gpt-5.4-nano:2026-03-17"; do
   NAME="${M%%:*}"; VER="${M##*:}"
   az cognitiveservices account deployment create \
     -g "$RG" -n "$ACCT" \
@@ -85,10 +108,31 @@ for M in "gpt-5.4-nano:2026-03-17" "gpt-5.4-mini:2026-03-17" "gpt-5.4:2026-03-05
     --model-format OpenAI \
     --sku-name GlobalStandard --sku-capacity 10
 done
+```
 
-# 확인
+파트너/OSS 7종은 **같은 리소스·같은 Entra 신원**에 올라가지만 와이어 경로만 Azure AI Model
+Inference(`*.services.ai.azure.com/models`)이고, `--model-format`은 각 퍼블리셔가 다릅니다
+(OpenAI 아님). 아래 배포명·모델·버전을 그대로 만들되 `--model-format`은
+`az cognitiveservices account list-models`로 확인해 채웁니다:
+
+| 배포명 (`deployment`) | 모델(`--model-name`) | 버전 |
+| --- | --- | --- |
+| `deepseek-v4-pro` | `DeepSeek-V4-Pro` | `2026-04-23` |
+| `mistral-large-3` | `Mistral-Large-3` | `1` |
+| `grok-4-1-fast-reasoning` | `grok-4-1-fast-reasoning` | `1` |
+| `kimi-k2-6` | `Kimi-K2.6` | `2026-04-20` |
+| `llama-4-maverick` | `Llama-4-Maverick-17B-128E-Instruct-FP8` | `1` |
+| `cohere-command-a-plus` | `Cohere-command-a-plus-05-2026` | `1` |
+| `phi-4-reasoning` | `Phi-4-reasoning` | `1` |
+
+```bash
+# 퍼블리셔별 model-format/버전 확인 → 위 표대로 배포
+az cognitiveservices account list-models -g "$RG" -n "$ACCT" \
+  --query "[?!starts_with(name,'gpt') && name!='model-router'].{name:name, version:version, format:format}" -o table
+
+# 확인 — 최종 배포 목록
 az cognitiveservices account deployment list -g "$RG" -n "$ACCT" \
-  --query "[].{name:name, model:properties.model.name, version:properties.model.version}" -o table
+  --query "sort_by([].{name:name, model:properties.model.name, version:properties.model.version}, &name)" -o table
 ```
 
 ### 1-2. 키리스 역할 부여 (Entra ID)
@@ -110,10 +154,17 @@ az role assignment create \
 있으면 브릿지가 자동으로 Entra ID로 전환합니다.
 
 ```bash
-AZURE_AI_FOUNDRY_ENDPOINT=https://aoai-router5-ext-faf57f.cognitiveservices.azure.com/
+AZURE_AI_FOUNDRY_ENDPOINT=https://aoai-foundry-iq-demo-ext.cognitiveservices.azure.com/
 AZURE_AI_FOUNDRY_MODEL_ROUTER=model-router
 AZURE_AI_FOUNDRY_AUTH=entra        # 선택 — 비워도 키가 없으면 자동 entra
 # AZURE_AI_FOUNDRY_API_KEY=        # 비워 둠 (키리스)
+
+# 멀티프로바이더 fleet + 요율(어떤 배포가 각 arm을 맡나 / 실측 청구 요율)
+FOUNDRY_FLEET_PATH=samples/fleet/foundry-ext-full.fleet.yaml
+FOUNDRY_PRICING_PATH=samples/pricing/foundry-ext-full.yaml
+# 파트너/OSS 서피스 엔드포인트는 비워 두면 리소스명에서 자동 파생
+# (https://aoai-foundry-iq-demo-ext.services.ai.azure.com/models)
+# AZURE_AI_FOUNDRY_INFERENCE_ENDPOINT=
 ```
 
 ```bash
@@ -129,12 +180,12 @@ cost-router foundry status          # credentialed: yes / auth method: Microsoft
 ## 2. KB(그라운딩) 설정 — 선택 {#2-kb}
 
 실험에 **근거 문서**(사내 위키, 리포 문서 등)를 붙이려면 벡터 인덱스를 만들어 그라운딩합니다.
-라우팅 플레인엔 임베딩이 없으므로 **그라운딩 플레인**(`text-embedding-3-large` +
-Azure AI Search)을 씁니다.
+라우팅·그라운딩이 이제 **같은 리소스**(`aoai-foundry-iq-demo-ext`)에 있으므로 임베딩
+(`text-embedding-3-large`)도 여기서 바로 쓰고, 검색만 Azure AI Search를 붙입니다.
 
 ```bash
 GRG=rg-foundry-iq-demo-ext
-GACCT=aoai-foundry-iq-demo-ext          # text-embedding-3-large 보유
+GACCT=aoai-foundry-iq-demo-ext          # text-embedding-3-large 보유(라우팅과 동일 리소스)
 SEARCH=srch-foundry-iq-demo-ext         # Azure AI Search
 
 # 1) 임베딩 배포 확인 (없으면 생성)
@@ -220,6 +271,13 @@ task = ArenaTask(
 - **라우터**는 단 한 번 호출해 승자 모델 비용만 청구합니다.
 
 ### 실측 결과 (큐레이션 5건, `max_completion_tokens=3000`)
+
+!!! note "이 표는 초기 5-시리즈 라우팅 리소스의 정직한 실측 히스토리입니다"
+    아래 숫자·모델(`gpt-5.4`, `grok`)과 위 arm 표의 `premium=gpt-5.4`는
+    `aoai-router5-ext-faf57f`에서 캡처된 그대로입니다 — provenance 보존을 위해 재작성하지
+    않습니다. **go-forward**(`aoai-foundry-iq-demo-ext`)에서는 `premium`/프론티어 arm이
+    `gpt-5.6-sol`, `ensemble`이 멀티프로바이더 벤치 전체로 확장됩니다
+    ([`samples/fleet/foundry-ext-full.fleet.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/fleet/foundry-ext-full.fleet.yaml)의 `roles`가 정본). demo-ext에서의 새 실측은 승인 시 재캡처합니다.
 
 | arm | 실비용(5건 합) | 평균 지연 | 메모 |
 | --- | --- | --- | --- |

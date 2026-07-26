@@ -134,17 +134,18 @@ def ensemble_all_summary(
     }
 
 
-def model_router_pick(
+def single_call_pick(
     task: Mapping[str, Any],
     candidates: tuple[Candidate, ...],
 ) -> Candidate:
-    """Difficulty-tiered single pick modeling a prompt-based model router.
+    """Difficulty-tiered single pick modeling any single-call router's shape.
 
     Buckets the task's predicted value (:func:`task_value`) into the ordered
     candidate ladder: easy prompts land on the cheapest tier, hard prompts on
     the priciest. This is a *transparent proxy for a single-call router's shape*
     (one model per prompt, chosen up front) — not a claim about any managed
-    router's internal logic. The live adapter measures the real thing.
+    router's internal logic (Azure AI Foundry's Model Router included). The live
+    adapter measures the real thing.
     """
 
     n = len(candidates)
@@ -168,7 +169,7 @@ def score_single_call_arm(
     ``pick`` chooses a single candidate per task; coverage reuses the router's
     own :func:`is_clean` predicate on the same signals, so the arm is only
     covered when that single pick passes every check. Shared by the offline
-    ``model_router`` arm and the live Foundry Model Router adapter so both score
+    ``single_call`` arm and the live Foundry Model Router adapter so both score
     identically. Deterministic and offline.
     """
 
@@ -199,18 +200,19 @@ def score_single_call_arm(
     }
 
 
-def model_router_summary(
+def single_call_summary(
     workload: Mapping[str, Mapping[str, Any]],
     signals: Mapping[str, Mapping[str, Mapping[str, Any]]],
     policy: PolicyTable,
     pricing: PricingTable,
 ) -> dict[str, Any]:
-    """Score the offline difficulty-tiered single-call model-router arm.
+    """Score the offline difficulty-tiered single-call arm.
 
-    Routes every task to one model by predicted difficulty (:func:`model_router_pick`)
-    with no fan-out and no escalation — the structural opposite of the router's
-    observe-then-escalate mix. Surfaces the honest cost of committing up front.
-    ``measured = false``; the pick rule is an illustrative proxy.
+    Routes every task to one model by predicted difficulty (:func:`single_call_pick`)
+    with no fan-out and no escalation — the structural shape of any per-prompt
+    router (Azure AI Foundry's Model Router included), and the opposite of this
+    repo's observe-then-escalate mix. Surfaces the honest cost of committing up
+    front. ``measured = false``; the pick rule is an illustrative proxy.
     """
 
     result = score_single_call_arm(
@@ -218,11 +220,20 @@ def model_router_summary(
         signals,
         policy,
         pricing,
-        pick=lambda _task_id, task, candidates: model_router_pick(task, candidates),
+        pick=lambda _task_id, task, candidates: single_call_pick(task, candidates),
     )
     result["selection"] = "difficulty-tiered-single-call"
     result["labels"] = {"measured": False, "equivalent": "illustrative"}
     return result
+
+
+# Backward-compatible aliases. ``single_call`` is the canonical name for the
+# single-call routing arm; ``model_router`` is retained so existing imports and
+# recorded artifacts keep resolving. See docs/lab-notebook/07-model-router.md
+# for the framing (single-call routing is what the built-in Model Router does;
+# this repo adds the observe-then-escalate layer on top).
+model_router_pick = single_call_pick
+model_router_summary = single_call_summary
 
 
 def single_call_baseline_arms(

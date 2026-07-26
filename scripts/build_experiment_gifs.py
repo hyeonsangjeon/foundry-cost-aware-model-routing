@@ -354,11 +354,11 @@ def draw_model_router(d, t, spec):
     arc_gauge(d, 320, 400, 108, prog * 0.52, AMBER, f"{prog * 52:.0f}%", "single-call")
     arc_gauge(d, 800, 400, 108, prog * 1.00, GREEN, f"{prog * 100:.0f}%", "escalate")
     d.text((320, 250), "pick one tier up front", font=font("monob", 14), fill=INK, anchor="mm")
-    d.text((320, 272), "(Foundry model-router)", font=font("mono", 12), fill=MUTED, anchor="mm")
+    d.text((320, 272), "(any single-call router)", font=font("mono", 12), fill=MUTED, anchor="mm")
     d.text((320, 540), "$1.59 · commits before any check", font=font("mono", 13),
            fill=MUTED, anchor="mm")
     d.text((800, 250), "observe, raise only on fail", font=font("monob", 14), fill=INK, anchor="mm")
-    d.text((800, 272), "(this repo's mix)", font=font("mono", 12), fill=MUTED, anchor="mm")
+    d.text((800, 272), "(this repo's layer on top)", font=font("mono", 12), fill=MUTED, anchor="mm")
     d.text((800, 540), "$1.66 · reclaims full coverage", font=font("mono", 13),
            fill=MUTED, anchor="mm")
     d.text((560, 380), "+48", font=font("monob", 30), fill=GREEN, anchor="mm")
@@ -398,10 +398,10 @@ SPECS = {
         "reproduce": "cost-router experiment run limits", "draw": draw_limits,
     },
     "model-router": {
-        "title_a": "Model Router —", "title_b": "pick once vs raise",
+        "title_a": "Single-call routing —", "title_b": "pick once vs escalate",
         "subtitle": "single-call tier pick vs observe-and-escalate, at one cost band",
         "score": ("52%", "100%", AMBER, GREEN), "score_note": "+48%p · ~4% more cost",
-        "reproduce": "cost-router experiment run model-router", "draw": draw_model_router,
+        "reproduce": "cost-router experiment run single-call", "draw": draw_model_router,
     },
 }
 

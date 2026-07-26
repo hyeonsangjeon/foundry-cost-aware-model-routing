@@ -28,8 +28,8 @@ from .baseline import (
     baseline_cost_usd,
     baseline_model_for_task,
     ensemble_all_summary,
-    model_router_summary,
     single_call_baseline_arms,
+    single_call_summary,
     single_tier_summary,
 )
 from .budget import BudgetGate
@@ -52,7 +52,7 @@ from .offline import (
     synthesize_shared_signals,
     synthesize_task_signals,
 )
-from .pricing import PricingTable
+from .pricing import PricingTable, format_usd
 from .profile import stratify_traces
 from .signals import (
     SignalBundle,
@@ -391,21 +391,31 @@ def _strategy_comparison(
     policy: PolicyTable,
     pricing: PricingTable,
 ) -> dict[str, dict[str, float]]:
-    """Cost + coverage for all-mini, all-premium, ensemble, model-router, mix.
+    """Cost + coverage for all-mini, all-premium, ensemble, single-call, mix.
 
     all-mini/all-premium reuse :func:`single_tier_summary`; ensemble fans out to
-    every model; ``model_router`` is a difficulty-tiered single-call pick (one
-    model per prompt, no escalation — the shape of a managed model router); the
-    mix is the routed result already in ``summary``. Together they surface the
-    trade-off: cheapest-only loses coverage, premium/ensemble hold coverage but
-    cost the most, a single-call router commits up front, and only the
-    observe-then-escalate mix wins on both cost and coverage.
+    every model; ``single_call`` is a difficulty-tiered single-call pick (one
+    model per prompt, no escalation — the shape of any per-prompt router,
+    including Azure AI Foundry's Model Router); the mix is the routed result
+    already in ``summary``. Together they surface the trade-off: cheapest-only
+    loses coverage, premium/ensemble hold coverage but cost the most, a
+    single-call router commits up front, and only the observe-then-escalate mix
+    wins on both cost and coverage. The arm is emitted under the canonical
+    ``single_call`` key and mirrored to the ``model_router`` alias for
+    backward-compatible consumers.
     """
 
     mini = single_tier_summary(routed_tasks, signals, policy, pricing, cheapest=True)
     premium = single_tier_summary(routed_tasks, signals, policy, pricing, cheapest=False)
     ensemble = ensemble_all_summary(routed_tasks, signals, policy, pricing)
-    router = model_router_summary(routed_tasks, signals, policy, pricing)
+    single = single_call_summary(routed_tasks, signals, policy, pricing)
+    single_call_arm = {
+        "total_cost_usd": single["total_cost_usd"],
+        "coverage": single["coverage"],
+        "selection": single["selection"],
+        "model_counts": single["model_counts"],
+        "labels": single["labels"],
+    }
     return {
         "all_mini": {
             "total_cost_usd": mini["total_cost_usd"],
@@ -419,13 +429,8 @@ def _strategy_comparison(
             "total_cost_usd": ensemble["total_cost_usd"],
             "coverage": ensemble["coverage"],
         },
-        "model_router": {
-            "total_cost_usd": router["total_cost_usd"],
-            "coverage": router["coverage"],
-            "selection": router["selection"],
-            "model_counts": router["model_counts"],
-            "labels": router["labels"],
-        },
+        "single_call": single_call_arm,
+        "model_router": single_call_arm,  # backward-compat alias (deprecated)
         "mix": {
             "total_cost_usd": summary["total_cost_usd"],
             "coverage": summary["coverage"],
@@ -842,7 +847,7 @@ def format_replay_text(report: ReplayReport) -> str:
         f"mode={trace['mode']} "
         f"chosen={trace['chosen']} "
         f"reason={trace['reason']} "
-        f"cost=${_cost(trace):.6f}"
+        f"cost={format_usd(_cost(trace))}"
         for trace in report.traces
     ]
     summary = report.summary
@@ -852,7 +857,7 @@ def format_replay_text(report: ReplayReport) -> str:
         f"tasks={summary['tasks']} "
         f"accepted={summary['accepted']} "
         f"coverage={summary['coverage']:.1%} "
-        f"cost=${summary['total_cost_usd']:.6f}"
+        f"cost={format_usd(summary['total_cost_usd'])}"
     )
     lines.extend(_format_before_after(summary))
     ledger = summary.get("ledger")
@@ -889,9 +894,9 @@ def _format_before_after(summary: Mapping[str, Any]) -> list[str]:
     return [
         "",
         "before / after  (offline projection over synthetic data; labels.measured=false)",
-        f"  BEFORE  naive: premium model on every task   ${baseline:.6f}",
-        f"  AFTER   cost-aware routing                   ${routed:.6f}",
-        f"  SAVED   ${delta:.6f}  ({delta_pct:.1%} lower)  at {coverage:.1%} coverage",
+        f"  BEFORE  naive: premium model on every task   {format_usd(baseline)}",
+        f"  AFTER   cost-aware routing                   {format_usd(routed)}",
+        f"  SAVED   {format_usd(delta)}  ({delta_pct:.1%} lower)  at {coverage:.1%} coverage",
         f"  strategy  single-route={single} ensemble={ensemble}"
         + (f"  |  {routes}" if routes else ""),
     ]
@@ -925,7 +930,7 @@ def format_eval_report(report: dict[str, Any]) -> str:
         for cls, stats in sorted(by_class.items()):
             lines.append(
                 f"  {cls}: tasks={stats['tasks']} "
-                f"accepted={stats['accepted']} cost=${stats['cost_usd']:.6f}"
+                f"accepted={stats['accepted']} cost={format_usd(stats['cost_usd'])}"
             )
     baseline_arms = report.get("baseline_arms")
     if baseline_arms:
@@ -933,7 +938,7 @@ def format_eval_report(report: dict[str, Any]) -> str:
         for arm, stats in baseline_arms.items():
             lines.append(
                 f"  {arm}: coverage={stats['coverage']:.1%} "
-                f"cost=${stats['total_cost_usd']:.6f}"
+                f"cost={format_usd(stats['total_cost_usd'])}"
             )
     return "\n".join(lines)
 

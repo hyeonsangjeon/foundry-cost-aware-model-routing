@@ -14,7 +14,7 @@ import textwrap
 from pathlib import Path
 
 from . import __version__
-from .baseline import model_router_summary
+from .baseline import single_call_summary
 from .experiment import (
     format_experiment_list,
     format_experiment_text,
@@ -75,7 +75,7 @@ from .pipeline import (
     run_replay,
     run_route_once,
 )
-from .pricing import PricingTable
+from .pricing import PricingTable, format_usd, format_usd_avg
 
 # Bundled recorded provider-usage snapshot: replayed offline so `foundry live`
 # demonstrates the measured scoring path with no credentials (measured=false).
@@ -681,9 +681,9 @@ def _cmd_metrics_history(args: argparse.Namespace) -> int:
         print(
             f"  {stamp}  {row.get('experiment'):<10} "
             f"cov={float(row.get('coverage', 0.0)):.1%} "
-            f"routed=${float(row.get('routed_usd', 0.0)):.6f} "
+            f"routed={format_usd(float(row.get('routed_usd', 0.0)))} "
             f"saved={float(row.get('delta_pct', 0.0)):.1%} "
-            f"fanout_tax=${float(row.get('ensemble_tax_usd', 0.0)):.6f} "
+            f"fanout_tax={format_usd(float(row.get('ensemble_tax_usd', 0.0)))} "
             f"repro={'PASS' if row.get('reproducible') else 'FAIL'}"
         )
     return 0
@@ -937,8 +937,8 @@ def _cmd_foundry_live(args: argparse.Namespace) -> int:
     labels = summary["labels"]
     print(f"Azure Model Router — measured spend  ({mode})")
     print(f"  tasks             : {summary['tasks']}")
-    print(f"  routed cost (real): ${summary['total_cost_usd']:.6f}")
-    print(f"  avg $/task        : ${summary['avg_usd_per_task']:.6f}")
+    print(f"  routed cost (real): {format_usd(summary['total_cost_usd'])}")
+    print(f"  avg $/task        : {format_usd_avg(summary['avg_usd_per_task'])}")
     coverage = summary["coverage"]
     if coverage is None:
         print(f"  coverage          : ungraded ({labels['coverage_basis']} — "
@@ -1019,7 +1019,7 @@ def _cmd_foundry_router(args: argparse.Namespace) -> int:
         print(f"foundry router: {exc}")
         return 1
 
-    proxy = model_router_summary(workload, signals, policy, pricing)
+    proxy = single_call_summary(workload, signals, policy, pricing)
 
     config = FoundryConfig.from_env()
     if args.live:
@@ -1063,11 +1063,11 @@ def _cmd_foundry_router(args: argparse.Namespace) -> int:
     delta = arm["total_cost_usd"] - proxy["total_cost_usd"]
     print(f"Azure Model Router — single-call choice  ({mode})")
     print(f"  tasks                 : {arm['tasks']}")
-    print(f"  offline proxy pick    : ${proxy['total_cost_usd']:.6f}   "
+    print(f"  offline proxy pick    : {format_usd(proxy['total_cost_usd'])}   "
           f"coverage {proxy['coverage']:.1%}  (difficulty-tiered, illustrative)")
-    print(f"  router choices        : ${arm['total_cost_usd']:.6f}   "
+    print(f"  router choices        : {format_usd(arm['total_cost_usd'])}   "
           f"coverage {arm['coverage']:.1%}  (decisions: {labels['decisions']})")
-    print(f"  Δ cost vs proxy       : {'+' if delta >= 0 else '-'}${abs(delta):.6f}")
+    print(f"  Δ cost vs proxy       : {'+' if delta >= 0 else '-'}{format_usd(abs(delta))}")
     mix = arm["model_counts"]
     mix_str = ", ".join(f"{model}×{count}" for model, count in sorted(mix.items()))
     print(f"  chosen models         : {mix_str}")
@@ -1113,7 +1113,9 @@ def _cmd_foundry_arena(args: argparse.Namespace) -> int:
         print("foundry arena: not credentialed — set AZURE_AI_FOUNDRY_* in .env, then `az login`.")
         return 1
 
-    fleet = FoundryFleet.from_config(config, max_output_tokens=args.max_output_tokens)
+    fleet = FoundryFleet.from_config(
+        config, max_output_tokens=args.max_output_tokens, providers=slate.providers
+    )
     try:
         outcomes = run_live_arena(fleet, tasks, slate, pricing)
     except (RuntimeError, ValueError, KeyError) as exc:
@@ -1168,7 +1170,7 @@ def _print_arena_report(report: dict, slate: FleetSlate) -> None:
     }
     for arm in ("cheapest", "premium", "ensemble", "router"):
         totals = report["arm_totals"][arm]
-        print(f"  {arm:9s} {totals['total_cost_usd']:>14.6f} "
+        print(f"  {arm:9s} {format_usd(totals['total_cost_usd']):>14s} "
               f"{totals['avg_latency_ms']:>10.0f}ms  {billing[arm]}")
     print("")
     mix = ", ".join(f"{m}×{n}" for m, n in report["router_model_mix"].items())
@@ -1261,13 +1263,13 @@ def _print_models_list(registry: FleetRegistry) -> None:
     config = FoundryConfig.from_env()
     print(f"fleet  (source: {registry.source})   credentialed: {_yn(config.credentialed)}")
     print("")
-    print(f"  {'#':>2}  {'name':<16} {'deployment':<18} {'tier':<9} roles")
-    print(f"  {'-' * 2}  {'-' * 16} {'-' * 18} {'-' * 9} {'-' * 22}")
+    print(f"  {'#':>2}  {'name':<16} {'deployment':<18} {'tier':<9} {'surface':<8} roles")
+    print(f"  {'-' * 2}  {'-' * 16} {'-' * 18} {'-' * 9} {'-' * 8} {'-' * 22}")
     for index, model in enumerate(registry.models, start=1):
         roles = ", ".join(registry.roles_for(model.name)) or "-"
         print(
             f"  {index:>2}  {model.name:<16} {model.deployment:<18} "
-            f"{(model.tier or '-'):<9} {roles}"
+            f"{(model.tier or '-'):<9} {model.provider:<8} {roles}"
         )
     print("")
     _print_slate(registry)
@@ -1487,7 +1489,7 @@ def format_compare_text(payload: dict[str, object]) -> str:
         result = "✓ pass" if a["passed"] else "✗ fail"
         lines.append(
             f"{a['label']:<19} {_compact_models(a):<28} "
-            f"${a['cost_usd']:>10.6f} {a['latency_ms']:>9.0f}ms  {result} {marks}".rstrip()
+            f"{format_usd(a['cost_usd']):>11s} {a['latency_ms']:>9.0f}ms  {result} {marks}".rstrip()
         )
     acc = winners["accuracy"]
     acc_label = f"{len(acc)} of {len(approaches)} pass" if acc else "none pass"

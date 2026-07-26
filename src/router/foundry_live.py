@@ -40,6 +40,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
+from urllib.parse import urlsplit
 
 from policy import PolicyTable
 
@@ -57,6 +58,10 @@ DEFAULT_TOKEN_SCOPE = "https://cognitiveservices.azure.com/.default"
 # tuple wins, so both the Foundry-specific and the generic Azure OpenAI names work.
 FOUNDRY_LIVE_ENV_VARS: dict[str, tuple[str, ...]] = {
     "endpoint": ("AZURE_AI_FOUNDRY_ENDPOINT", "AZURE_OPENAI_ENDPOINT"),
+    "inference_endpoint": (
+        "AZURE_AI_FOUNDRY_INFERENCE_ENDPOINT",
+        "AZURE_AI_INFERENCE_ENDPOINT",
+    ),
     "deployment": ("AZURE_AI_FOUNDRY_MODEL_ROUTER", "AZURE_MODEL_ROUTER_DEPLOYMENT"),
     "api_key": ("AZURE_AI_FOUNDRY_API_KEY", "AZURE_OPENAI_API_KEY"),
     "api_version": ("AZURE_AI_FOUNDRY_API_VERSION", "AZURE_OPENAI_API_VERSION"),
@@ -75,6 +80,13 @@ ENTRA_AUTH_ALIASES: frozenset[str] = frozenset(
     {"entra", "entra-id", "entraid", "aad", "azuread", "azure_ad", "azure-ad", "identity"}
 )
 KEY_AUTH_ALIASES: frozenset[str] = frozenset({"key", "apikey", "api_key", "api-key"})
+
+# Provider labels that select the Azure AI Model Inference surface instead of the
+# Azure OpenAI chat-completions route. Kept in sync with fleet.normalize_provider
+# but defined locally to avoid a fleet -> foundry_arena -> foundry_live import cycle.
+FOUNDRY_PROVIDER_ALIASES: frozenset[str] = frozenset(
+    {"foundry", "inference", "ai-inference", "model-inference", "maas"}
+)
 
 # Task fields tried, in order, to find the prompt text to send to a live router.
 PROMPT_FIELDS: tuple[str, ...] = ("prompt", "text", "input", "question")
@@ -140,6 +152,7 @@ class FoundryConfig:
     """
 
     endpoint: str | None = None
+    inference_endpoint: str | None = None
     deployment: str | None = None
     api_key: str | None = None
     api_version: str | None = None
@@ -155,6 +168,7 @@ class FoundryConfig:
         environ = env if env is not None else os.environ
         return cls(
             endpoint=_first_env(environ, FOUNDRY_LIVE_ENV_VARS["endpoint"]),
+            inference_endpoint=_first_env(environ, FOUNDRY_LIVE_ENV_VARS["inference_endpoint"]),
             deployment=_first_env(environ, FOUNDRY_LIVE_ENV_VARS["deployment"]),
             api_key=_first_env(environ, FOUNDRY_LIVE_ENV_VARS["api_key"]),
             api_version=_first_env(environ, FOUNDRY_LIVE_ENV_VARS["api_version"]),
@@ -173,6 +187,29 @@ class FoundryConfig:
         """AAD scope requested for Entra ID tokens (data-plane default)."""
 
         return self.token_scope or DEFAULT_TOKEN_SCOPE
+
+    @property
+    def resolved_inference_endpoint(self) -> str | None:
+        """Base URL for the Azure AI **Model Inference** surface (partner models).
+
+        Partner/OSS deployments (DeepSeek, Mistral, Cohere, Llama, Phi, xAI,
+        Moonshot) on a Foundry (``kind=AIServices``) resource are reached at
+        ``https://<resource>.services.ai.azure.com/models`` rather than the Azure
+        OpenAI ``chat/completions`` route. An explicit
+        ``AZURE_AI_FOUNDRY_INFERENCE_ENDPOINT`` wins; otherwise it is derived from
+        the resource name in :attr:`endpoint`. Returns ``None`` when no endpoint
+        is configured or the host is not a recognisable Azure resource host.
+        """
+
+        if self.inference_endpoint:
+            return self.inference_endpoint.rstrip("/")
+        if not self.endpoint:
+            return None
+        host = urlsplit(self.endpoint).hostname or ""
+        name = host.split(".", 1)[0].strip()
+        if not name or "." not in host:
+            return None
+        return f"https://{name}.services.ai.azure.com/models"
 
     @property
     def router_configured(self) -> bool:
@@ -349,12 +386,17 @@ class AzureModelRouterClient:
 
     config: FoundryConfig
     sdk_client: Any = None
+    inference_client: Any = None
     token_provider: Callable[[], str] | None = None
     max_output_tokens: int = 512
     temperature: float | None = None
 
     def complete(
-        self, task: Mapping[str, Any], *, deployment: str | None = None
+        self,
+        task: Mapping[str, Any],
+        *,
+        deployment: str | None = None,
+        provider: str = "openai",
     ) -> RouterOutcome:
         """Run one task through a deployment and capture its real usage.
 
@@ -362,6 +404,12 @@ class AzureModelRouterClient:
         same keyless transport can call a *named* model (e.g. ``gpt-5.4-nano``)
         for the fan-out/single-model arms of the live arena. When omitted, the
         configured ``model-router`` deployment picks the model per prompt.
+
+        ``provider`` selects the call surface. ``"openai"`` (default) uses the
+        Azure OpenAI ``chat/completions`` route (Model Router + gpt-5.x).
+        ``"foundry"`` routes through the Azure AI **Model Inference** endpoint,
+        the surface partner/OSS deployments (DeepSeek, Mistral, Cohere, Llama,
+        Phi, xAI, Moonshot) answer on. Both live on the same Foundry resource.
         """
 
         if not self.config.credentialed:
@@ -375,6 +423,8 @@ class AzureModelRouterClient:
             )
         target = deployment or str(self.config.deployment)
         messages = _messages_for(task)
+        if str(provider or "").strip().lower() in FOUNDRY_PROVIDER_ALIASES:
+            return self._complete_foundry(target, messages)
         client = self._sdk_client()
         # 5-series/reasoning deployments require `max_completion_tokens` and reject
         # a custom `temperature`; the Model Router accepts the same shape, so one
@@ -389,6 +439,23 @@ class AzureModelRouterClient:
         response = client.chat.completions.create(**kwargs)
         return RouterOutcome(
             model=_response_model(response) or target,
+            usage=_usage_from_response(response),
+            provenance="live",
+        )
+
+    def _complete_foundry(
+        self, deployment: str, messages: list[dict[str, str]]
+    ) -> RouterOutcome:
+        """Call a partner deployment via the Azure AI Model Inference surface."""
+
+        client = self._inference_sdk_client()
+        response = client.complete(
+            model=deployment,
+            messages=messages,
+            max_tokens=self.max_output_tokens,
+        )
+        return RouterOutcome(
+            model=_response_model(response) or deployment,
             usage=_usage_from_response(response),
             provenance="live",
         )
@@ -415,6 +482,54 @@ class AzureModelRouterClient:
             self.sdk_client = AzureOpenAI(api_key=str(self.config.api_key), **common)
         return self.sdk_client
 
+    def _inference_sdk_client(self) -> Any:
+        """Lazily build (and cache) an Azure AI Inference ``ChatCompletionsClient``.
+
+        Injected via ``inference_client`` in tests. Uses the same auth choice as
+        the OpenAI path: an API key when configured, otherwise a Microsoft Entra
+        ID credential scoped to the data plane. Imported lazily so the default
+        offline path never needs ``azure-ai-inference``.
+        """
+
+        if self.inference_client is not None:
+            return self.inference_client
+        endpoint = self.config.resolved_inference_endpoint
+        if not endpoint:
+            raise RuntimeError(
+                "No Azure AI Model Inference endpoint is configured for partner "
+                "(provider=foundry) models. Set AZURE_AI_FOUNDRY_INFERENCE_ENDPOINT "
+                "or a resolvable AZURE_AI_FOUNDRY_ENDPOINT on a Foundry "
+                "(kind=AIServices) resource."
+            )
+        try:
+            from azure.ai.inference import ChatCompletionsClient
+        except ImportError as exc:  # pragma: no cover - depends on optional extra
+            raise RuntimeError(
+                "Partner (provider=foundry) models need the azure-ai-inference "
+                "package. Install the live extra with `pip install "
+                "foundry-cost-router[foundry]` (or `pip install azure-ai-inference`)."
+            ) from exc
+        if self.config.auth_method == "entra":
+            credential = self._entra_credential()
+            self.inference_client = ChatCompletionsClient(
+                endpoint=endpoint,
+                credential=credential,
+                credential_scopes=[self.config.resolved_token_scope],
+            )
+        else:
+            try:
+                from azure.core.credentials import AzureKeyCredential
+            except ImportError as exc:  # pragma: no cover - depends on optional extra
+                raise RuntimeError(
+                    "Partner (provider=foundry) key auth needs azure-core. Install "
+                    "`pip install foundry-cost-router[foundry]`."
+                ) from exc
+            self.inference_client = ChatCompletionsClient(
+                endpoint=endpoint,
+                credential=AzureKeyCredential(str(self.config.api_key)),
+            )
+        return self.inference_client
+
     def _entra_token_provider(self) -> Callable[[], str]:
         """Build a bearer-token provider from the ambient Azure identity.
 
@@ -424,7 +539,7 @@ class AzureModelRouterClient:
         """
 
         try:
-            from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+            from azure.identity import get_bearer_token_provider
         except ImportError as exc:  # pragma: no cover - depends on optional extra
             raise RuntimeError(
                 "Microsoft Entra ID auth needs the azure-identity package. Install "
@@ -432,8 +547,26 @@ class AzureModelRouterClient:
                 "(or `pip install azure-identity`), then run `az login`."
             ) from exc
         return get_bearer_token_provider(
-            DefaultAzureCredential(), self.config.resolved_token_scope
+            self._entra_credential(), self.config.resolved_token_scope
         )
+
+    def _entra_credential(self) -> Any:
+        """Return a ``DefaultAzureCredential`` (az login / managed identity / env).
+
+        Shared by the Azure OpenAI token provider and the Azure AI Inference
+        client. Imported lazily so the default offline path never needs
+        ``azure-identity``.
+        """
+
+        try:
+            from azure.identity import DefaultAzureCredential
+        except ImportError as exc:  # pragma: no cover - depends on optional extra
+            raise RuntimeError(
+                "Microsoft Entra ID auth needs the azure-identity package. Install "
+                "the live extra with `pip install foundry-cost-router[foundry]` "
+                "(or `pip install azure-identity`), then run `az login`."
+            ) from exc
+        return DefaultAzureCredential()
 
 
 def measured_router_summary(

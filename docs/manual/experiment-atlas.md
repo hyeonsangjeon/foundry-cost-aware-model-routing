@@ -92,7 +92,7 @@ Only **layer 3 (SELECT)** changes shape between experiments. There are exactly *
 
     ![Single-call routing: pick one model per prompt up front by difficulty tier, with no escalation](../assets/mechanism-single-call.svg)
 
-    *Used by · `model-router`*  ·  code: `model_router_pick()`
+    *Used by · `single-call`*  ·  code: `single_call_pick()`
 
 ---
 
@@ -100,6 +100,16 @@ Only **layer 3 (SELECT)** changes shape between experiments. There are exactly *
 
 Every card lists **what it processes**, **which models**, **which mechanism**, the **dial** it turns,
 the **headline** (re-derived live by the command shown), and a link to the full lab-notebook entry.
+
+!!! info "How the six map to the four differentiators (atop the built-in router's selection)"
+    Azure AI Foundry's **built-in Model Router** already handles *selection* — one deploy, cross-
+    provider (Grok · DeepSeek · Llama · gpt-oss with no separate deploy; Claude the exception). So
+    "routes many providers" is **table-stakes**, not the differentiator. These experiments quantify
+    the **layer on top** — the repo's four differentiators: **① verification-based adoption**
+    (`hero`, `curated`, `limits`) · **② the ensemble axis / fan-out tax** (`ensemble`) ·
+    **③ the cost governor** (`adaptive`) · **④ the audit trace** (the measured bridge + ledger
+    below). The **`model-router`** card is the **⭐ centerpiece**: the head-to-head that shows *why
+    this layer exists next to the built-in router* — single-call 52% vs observe-and-escalate 100%.
 
 Each card **opens with a looping animation** that traces its real mechanism — flow dots, the
 escalation ladder, or the fan-out — while the offline (`measured=false`) numbers count up live.
@@ -221,15 +231,16 @@ on hard work.
 
 | | |
 | --- | --- |
+| **Role** | ⭐ **Centerpiece** — the direct contrast that justifies the layer atop the built-in router |
 | **Processes** | 100 synthetic tasks |
 | **Models** | full ladder per class |
 | **Mechanism** | **Single-call** arm compared against the escalating **mix** |
-| **Dial** | surfaces a `model_router` strategy arm alongside the mix |
+| **Dial** | surfaces a `single_call` strategy arm alongside the mix |
 | **Headline** | single-call **52%** coverage vs mix **100%** — an **escalation gain of +48%p** at comparable cost |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100`, **`min_escalation_gain 0.30`** |
 
 ```bash
-cost-router experiment run model-router
+cost-router experiment run single-call
 ```
 
 A single-call router commits before it sees any check, so a wrong pick can't be corrected and
@@ -279,7 +290,9 @@ returns which one in `response.model`.
 ### Follow along — keyless (Microsoft Entra) end to end
 
 Uses **Microsoft Entra ID only** (no API keys are ever created or stored). Replace the `<PLACEHOLDERS>`.
-We used region **`eastus2`** (it carries the full GPT-5 lineup + `model-router`).
+We used region **`eastus2`** (it carries the full GPT-5 lineup + `model-router`) for that experiment-09
+proof. The **go-forward** resource is `aoai-foundry-iq-demo-ext` in **`eastus`** — same keyless method,
+with `gpt-5.6-sol` as the frontier plus a full multi-provider fleet ([manual · Foundry setup](foundry-setup.md)).
 
 ```bash
 # 0) Sign in and pin the subscription (device code for headless/sandbox shells)

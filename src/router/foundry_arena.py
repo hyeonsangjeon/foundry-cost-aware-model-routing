@@ -90,6 +90,9 @@ class FleetSlate:
     cheapest: str = "gpt-5.4-nano"
     premium: str = "gpt-5.4"
     ensemble: tuple[str, ...] = ("gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4")
+    # deployment -> call surface ("openai" | "foundry"). Empty ⇒ every arm on the
+    # default Azure OpenAI surface (back-compat with the pre-provider slate).
+    providers: Mapping[str, str] = field(default_factory=dict)
 
     def deployments(self) -> tuple[str, ...]:
         """Every distinct deployment this slate touches (for status/preflight)."""
@@ -99,6 +102,11 @@ class FleetSlate:
             if name not in seen:
                 seen.append(name)
         return tuple(seen)
+
+    def provider_for(self, deployment: str) -> str:
+        """Call surface for ``deployment`` (defaults to ``openai``)."""
+
+        return self.providers.get(deployment, "openai")
 
 
 @dataclass(frozen=True)
@@ -194,6 +202,7 @@ class FoundryFleet:
     """
 
     client: AzureModelRouterClient
+    providers: Mapping[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_config(
@@ -203,6 +212,7 @@ class FoundryFleet:
         sdk_client: Any = None,
         token_provider: Any = None,
         max_output_tokens: int = 2048,
+        providers: Mapping[str, str] | None = None,
     ) -> FoundryFleet:
         return cls(
             AzureModelRouterClient(
@@ -210,7 +220,8 @@ class FoundryFleet:
                 sdk_client=sdk_client,
                 token_provider=token_provider,
                 max_output_tokens=max_output_tokens,
-            )
+            ),
+            providers=dict(providers or {}),
         )
 
     @classmethod
@@ -225,7 +236,11 @@ class FoundryFleet:
         """Run one task through ``deployment`` and capture usage + latency."""
 
         started = perf_counter()
-        outcome: RouterOutcome = self.client.complete(task.payload(), deployment=deployment)
+        outcome: RouterOutcome = self.client.complete(
+            task.payload(),
+            deployment=deployment,
+            provider=self.providers.get(deployment, "openai"),
+        )
         latency_ms = (perf_counter() - started) * 1000.0
         return LiveCall(
             deployment=deployment,

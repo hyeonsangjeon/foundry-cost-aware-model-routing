@@ -11,11 +11,27 @@ full coverage. Ten one-command experiments make the case *and* mark its limits;
 a live bridge routes against your real Foundry deployments and seals the
 measured spend into a tamper-evident ledger.
 
+> **Proof it's real (experiment 09):** wired to a live Azure AI Foundry
+> **Model Router** deployment (keyless Entra), one call really split to
+> `gpt-5.4` (×3) and `grok-4-1-fast-reasoning` (×2) — the repo's first
+> `measured=true` run, sealed into a hash-chained, replayable ledger.
+
 Two honesty rules run through everything: offline runs are **projections over
 synthetic data** (`labels.measured=false`), and only a **fresh live call** is
 ever labeled `measured=true`. The repo is intentionally small — source, tests,
 placeholder configuration, and synthetic samples only; private notes and
 diagrams stay outside Git.
+
+> **Complementary to the built-in Model Router, not a replacement.** Azure AI
+> Foundry's **Model Router** already picks a model per prompt — one deployment,
+> cross-provider (OpenAI + Grok + DeepSeek + Llama + gpt-oss with no separate
+> deploy; Claude the sole exception), and it works. *Model selection is solved.*
+> This asset is the **layer on top**: it **verifies** the selected result against
+> execution signals (accept only when clean), **escalates** on failure, **governs**
+> multi-model spend before it happens, and makes every decision **auditable**
+> (hash-chained, cost-replayable ledger). It even folds the built-in router in as
+> a first-class candidate arm — an asset that *leverages* the product rather than
+> competing with it.
 
 📘 **한국어 매뉴얼 · 실험노트 (github.io):**
 <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
@@ -89,7 +105,7 @@ real **measured** runs against a live Foundry Model Router:
 | 04 | [No free lunch](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/04-no-free-lunch/) | A workload where only the top model passes? | 100% coverage, **0%** saved (the boundary) |
 | 05 | [Ensemble fan-out tax](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% coverage, **−47%** — but fan-out spends **3.74×** the winner (the hidden tax) |
 | 06 | [Adaptive fan-out dial](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/06-fanout-dial/) | Can you keep the savings but drop the tax? | one budget dial: coverage/savings stay flat, tax **3.74× → $0** (the honest fix for exp 05) |
-| 07 | [Routing layer](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/07-model-router/) | What if you pick once, like Azure AI Foundry Model Router? | single-call routing holds **52%** coverage; observe-then-escalate mix reaches **100%** at ~the same cost (gain **+48%p**) |
+| 07 | [Routing layer](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/07-model-router/) | Single-call routing — pick once, no escalation (the shape any per-prompt router has, including ours in ordered-only mode)? | 52% coverage; layering observe-then-escalate on top reaches 100% at ~the same cost (gain **+48%p**) — experiment 09 wires a real deployment in as this arm |
 | 08 | [Arena](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/08-arena/) *(per-task lens)* | One problem, four ways — cost · latency · accuracy at a glance? | router is the **cheapest correct** answer but the **slowest** (sequential escalation); latency is a **new illustrative projection** |
 | 09 | [Live routing proof](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/09-live-routing-proof/) *(measured)* | Wired to a real Foundry Model Router, what does it actually pick? | one `model-router` deployment really split to **`gpt-5.4` (×3) and `grok-4-1-fast-reasoning` (×2)** — the repo's **first `measured = true`** run, keyless Entra |
 | 10 | [Measured ledger](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/10-measured-ledger/) *(measured)* | Once it's measured, can anyone re-verify the spend wasn't tampered with? | the live run is sealed into a **hash-chained, cost-replayable** ledger — `measured-replay` re-derives every cost from token usage × a pinned rate card; **one edited byte fails it**, the offline ledger stays untouched |
@@ -100,9 +116,20 @@ latency axis). Each `expect` contract fails CI if the projection ever drifts —
 including a two-sided ceiling that rejects **phantom savings** and an
 escalation-gain floor that keeps observe-then-escalate honest. Read them as one
 story in the
-[**story arc**](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc/),
+[**story arc**](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc/)
+([EN summary](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc-en/)),
 or dive into the full
 [Korean lab notebook](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/).
+
+## Deployment philosophy — bring your own routes
+
+This repo attaches to Foundry deployments you **already have**; it provisions
+nothing. To add an arm, put its **deployment name** in a fleet YAML
+(`samples/fleet/*.yaml`) — that is the whole bring-your-own-route step. The
+built-in **Model Router** arm needs no extra deployment: a single `model-router`
+deployment already routes cross-provider (OpenAI · xAI · DeepSeek · Meta)
+internally, so this repo layers verify → escalate → govern → audit *on top*
+instead of re-deploying those models.
 
 ## Usage
 
@@ -173,25 +200,30 @@ Experiment 06 pins this with a `max_tax_ratio` ceiling (lab notebook: 실험 06 
 cost-router experiment run adaptive          # 100% coverage, −47% — fan-out tax dialed to 0.00×
 ```
 
-The routing layer — Azure AI Foundry **Model Router** is a *single-call* router
-(it picks one model per prompt, not an ensemble). Experiment 07 adds it as the
-frontier's fifth arm: single-call routing holds only **52%** coverage, while
-observe-then-escalate reaches **100%** at ~the same cost — a **+48%p**
-escalation gain pinned by a `min_escalation_gain` contract. A dependency-free,
-env-gated adapter (`FOUNDRY_*`) lets a live deployment's decisions replace the
-offline proxy (lab notebook: 실험 07 · 라우팅 레이어):
+The routing layer — single-call routing picks one model per prompt, up front,
+with no escalation. That's the shape any per-prompt router has, including Azure
+AI Foundry's built-in **Model Router** (and this repo's own ordered-only mode).
+Experiment 07 adds that shape as the frontier's fifth arm: single-call routing
+holds **52%** coverage, while layering observe-then-escalate on top reaches
+**100%** at ~the same cost — a **+48%p** escalation gain pinned by a
+`min_escalation_gain` contract. It's a complement, not a replacement —
+experiment 09 wires a *real* Model Router in as that arm and proves it
+`measured=true`. A dependency-free, env-gated adapter (`FOUNDRY_*`) lets a live
+deployment's decisions replace the offline proxy (lab notebook: 실험 07 · 라우팅
+레이어):
 
 ```bash
-cost-router experiment run model-router      # 100% coverage, −25.5% — single-call vs escalate gain +48%p
+cost-router experiment run single-call       # 100% coverage, −25.5% — single-call vs escalate gain +48%p
 ```
 
 The live measured bridge — turning that env-gated adapter into **measured
-spend**. `cost-router foundry live` scores a Model Router run on the endpoint's
-**real token usage** (not synthetic tokens): recorded snapshot `$0.156730 / 100%`
-vs the offline projection `$0.087030 / 60%`. `measured=true` is reserved for a
-genuine live call; without credentials it replays a recorded snapshot so the path
-stays offline/deterministic. Secrets are never printed — `foundry status` masks
-them (manual: 라이브 실측 브릿지):
+spend**. `cost-router foundry live` prices a Model Router run on the endpoint's
+**real token usage** (not synthetic tokens): the recorded snapshot costs out to
+`$0.02` measured spend (avg `$0.0041`/task), coverage ungraded — spend is
+measured; correctness needs a grader. `measured=true` is reserved for a genuine
+live call; without credentials it replays a recorded snapshot so the path stays
+offline/deterministic. Secrets are never printed — `foundry status` masks them
+(manual: 라이브 실측 브릿지):
 
 ```bash
 cost-router foundry status                   # redacted config + live-call readiness
@@ -210,9 +242,9 @@ escalate only on failure). Over the full 100-row synthetic workload:
 
 ```text
 before / after  (offline projection over synthetic data; labels.measured=false)
-  BEFORE  naive: premium model on every task   $2.226910
-  AFTER   cost-aware routing                   $1.659167
-  SAVED   $0.567743  (25.5% lower)  at 100.0% coverage
+  BEFORE  naive: premium model on every task   $2.23
+  AFTER   cost-aware routing                   $1.66
+  SAVED   $0.57  (25.5% lower)  at 100.0% coverage
   strategy  single-route=74 ensemble=26  |  clean-first=19 compared=18 escalated=55 tie-broken=8
 ```
 
@@ -380,7 +412,7 @@ union is the guaranteed clean fallback. Raising a candidate's `prior_pass` alone
 therefore leaves the signals untouched (zero delta), while dropping an expensive
 fallback exposes the coverage risk it creates instead of hiding it. Over the
 synthetic 100-row workload the bundled candidate (which removes the `premium-max`
-fallback from `repo_patch`) routes for `$1.337137` vs the seed's `$1.659167`, but
+fallback from `repo_patch`) routes for `$1.34` vs the seed's `$1.66`, but
 coverage drops to `93%` (base `100%`) — the report surfaces that trade-off rather
 than masking it. The result is deterministic for a given workload, and all models
 stay generic placeholders.

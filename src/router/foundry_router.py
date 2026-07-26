@@ -3,7 +3,7 @@
 Azure AI Foundry Model Router is the *single-call* routing layer: it picks one
 model per prompt, up front. This adapter is a thin, dependency-free seam that
 lets a real deployment's routing **decisions** replace the offline
-difficulty-tiered proxy in :func:`router.baseline.model_router_summary` — while
+difficulty-tiered proxy in :func:`router.baseline.single_call_summary` — while
 scoring cost and coverage on the exact same offline signals so the two are
 comparable on one frontier.
 
@@ -35,7 +35,7 @@ from typing import Any
 
 from policy import Candidate, PolicyTable
 
-from .baseline import model_router_pick, score_single_call_arm
+from .baseline import score_single_call_arm, single_call_pick
 from .foundry_live import AzureModelRouterClient, normalize_model_name
 from .pricing import PricingTable
 
@@ -60,7 +60,7 @@ class FoundryModelRouter:
     """Env-gated seam to an Azure AI Foundry Model Router deployment.
 
     Holds connection details and an injected ``client`` callable. With no client
-    the adapter is inert and callers fall back to the offline ``model_router``
+    the adapter is inert and callers fall back to the offline ``single_call``
     arm (``measured = false``). With a client it returns the deployment's real
     per-prompt model choice via :meth:`choose`.
     """
@@ -110,7 +110,7 @@ class FoundryModelRouter:
             raise RuntimeError(
                 "FoundryModelRouter is not available: set the endpoint/deployment "
                 "environment variables and inject a `client` callable. Until then "
-                "the offline model_router arm (measured=false) stands in."
+                "the offline single_call arm (measured=false) stands in."
             )
         assert self.client is not None and self.deployment is not None  # for type-checkers
         return str(self.client(self.deployment, task))
@@ -137,7 +137,7 @@ def summary_from_choices(
     def pick(task_id: str, task: Mapping[str, Any], candidates: tuple[Candidate, ...]) -> Candidate:
         name = choices.get(task_id)
         match = _candidate_by_model(candidates, name) if name else None
-        return match or model_router_pick(task, candidates)
+        return match or single_call_pick(task, candidates)
 
     result = score_single_call_arm(workload, signals, policy, pricing, pick=pick)
     result["selection"] = "foundry-model-router"

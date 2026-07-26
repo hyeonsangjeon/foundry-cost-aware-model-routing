@@ -924,7 +924,7 @@ function renderFrontier(s) {
   const mini = st.all_mini || { total_cost_usd: s.total_cost_usd, coverage: s.coverage };
   const mix = { total_cost_usd: s.total_cost_usd, coverage: s.coverage };
   const ens = st.all_ensemble || null;
-  const mr = st.model_router || null;
+  const mr = st.single_call || st.model_router || null;
   const W = 460, H = 250, L = 44, R = 20, T = 34, B = 40;
   const pw = W - L - R, ph = H - T - B, yb = T + ph, x1 = W - R;
   const costMax = Math.max(prem.total_cost_usd, mix.total_cost_usd, mini.total_cost_usd,
@@ -963,7 +963,7 @@ function renderFrontier(s) {
     label(mini, "mini", "all-mini", "start", 11, 4) +
     label(prem, "prem", "all-premium", "end", -10, -12) +
     (ens ? label(ens, "ens", "ensemble-all", "end", -10, -12) : "") +
-    (mr ? label(mr, "mr", "model-router", "start", 11, 4) : "") +
+    (mr ? label(mr, "mr", "single-call", "start", 11, 4) : "") +
     label(mix, "mix", "cost-aware mix", "end", -12, 20);
   host.innerHTML =
     "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='cost versus coverage frontier: only the cost-aware mix reaches full coverage at low cost'>" +
@@ -1425,7 +1425,9 @@ async function loadFleet() {
       "<div class='h'><span class='name'>" + m.name + "</span>" +
       "<span class='tiertag'>" + (m.tier || "") + "</span></div>" +
       "<div class='role'>" + (m.label || "") + "</div>" +
-      "<div class='rw'>deployment: " + m.deployment + " \\u00b7 roles: " + (m.roles || []).join(", ") + "</div>";
+      "<div class='rw'>deployment: " + m.deployment +
+      " \\u00b7 surface: " + (m.provider || "openai") +
+      " \\u00b7 roles: " + (m.roles || []).join(", ") + "</div>";
     cat.appendChild(row);
   }
   const slate = d.slate || {};

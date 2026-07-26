@@ -1,14 +1,33 @@
 # 실험 07 · 라우팅 레이어 — 한 번 고르기 vs 관찰하고 올리기
 
+!!! quote "⭐ 이 저장소의 센터피스 — 내장 라우터 옆에 왜 이 자산이 존재하나"
+    Azure AI Foundry **내장 Model Router**는 프롬프트당 모델을 고르는 **'선택'** 을 이미 잘 합니다
+    (배포 하나·크로스 프로바이더). 이 실험은 그 위에 얹히는 층의 **존재 이유**를 한 화면에 담습니다
+    — 단일 선택 **52%** vs 관찰-후-에스컬레이션 **100%**(+48%p), *비슷한 비용에*. *선택은 내장이,
+    검증·거버넌스·감사는 이 저장소가.* 그리고 *"실제 라우터를 이 arm에 그대로 꽂으면?"* 의
+    **측정된** 답이 [실험 09](09-live-routing-proof.md) — 키리스 Entra로 라이브 배포를 불러
+    `gpt-5.4`×3·`grok-4-1-fast-reasoning`×2로 실제 갈린 이 저장소의 첫 `measured=true` 실행입니다.
+
 !!! abstract "한 줄 요약"
     Azure AI Foundry **Model Router**는 프롬프트마다 모델을 **한 번** 고르는 *단일 호출*
     라우팅 레이어입니다(앙상블이 아닙니다). 이 실험은 그 형태를 프런티어에 **다섯 번째 점**
-    `model_router`으로 올립니다 — 난이도로 한 모델을 미리 고르되 **에스컬레이션이 없어**
+    `single_call`으로 올립니다 — 난이도로 한 모델을 미리 고르되 **에스컬레이션이 없어**
     합성 100건에서 커버리지가 **52%**에 그칩니다. 관찰-후-에스컬레이션하는 `cost-aware mix`는
     비슷한 비용(**$1.66 vs $1.59**)으로 커버리지 **100%**를 채웁니다 — 그 차이 **+48%p**를
     새 재현성 계약 `min_escalation_gain`이 고정합니다. 실제 Foundry Model Router의 선택 실력은
     **측정된 값**이라, 자격 증명 뒤의 게이트된 어댑터(측정 브리지)로 그 결정을 그대로 끼워
     넣을 수 있게 열어 두었습니다. 모든 수치는 `measured = false`.
+
+!!! tip "운영 관점 — Model Router는 '배포 하나면 알아서 된다'"
+    실제 운영에서 Model Router는 **배포 하나**로 끝납니다. 지원 모델(OpenAI GPT-4/5 계열, xAI
+    Grok, DeepSeek, Meta Llama, gpt-oss)은 **따로 배포하지 않아도** 라우터가 프롬프트마다 알아서
+    고릅니다 — 유일한 예외는 직접 배포가 필요한 Anthropic Claude입니다. 즉 내장 라우터는 이미
+    **크로스 프로바이더**입니다. 그래서 *"여러 회사 모델을 라우팅한다"* 는 사실은 차별점이 아니라
+    **기본기(table-stakes)** 이고, 이 저장소의 축은 그 위 — 관찰-후-에스컬레이션 · 검증 기반 채택 ·
+    앙상블 세금 계량 · 비용 거버너 · 감사 원장 — 에 있습니다([핵심 개념](../manual/concept.md)).
+    이 저장소는 그 라우터를 **대체하지 않고** 프런티어의 **일급 후보 arm**으로 품어 **보완**합니다 —
+    *제품을 대체하는 게 아니라 활용하는* 자산입니다. 아래 실험은 바로 그 "한 번 고르기(라우터) vs
+    관찰하고 올리기(mix)"의 커버리지 격차를 계량합니다.
 
 ## 이 실험은 무엇인가
 
@@ -17,12 +36,12 @@
   고릅니다. 이는 이 저장소의 `route_task`(관찰-후-에스컬레이션)와 **같은 계층**이자,
   이 저장소의 **킬러 히어로 방법론**이 최적화하는 바로 그 라우팅 레이어입니다. 그러니
   Model Router는 곁다리 기능이 아니라 프런티어의 **일급 arm**으로 들어가야 합니다.
-- **작업(무엇을):** 단일 호출 라우팅 레이어를 프런티어의 다섯 번째 전략(`model_router`)으로
+- **작업(무엇을):** 단일 호출 라우팅 레이어를 프런티어의 다섯 번째 전략(`single_call`)으로
   추가합니다 — 태스크 **가치**(난이도)로 클래스 사다리에서 한 모델을 고르고, 그 한 번의
   선택으로 **에스컬레이션 없이** 커버리지·비용을 같은 오프라인 신호로 채점합니다. 그리고
   "단일 호출은 에스컬레이션이 버는 커버리지를 잃는다"를 **하한 계약**
   `min_escalation_gain`으로 고정합니다.
-- **실험(무엇을 검증):** 합성 100건에서 (1) `model_router`가 **커버리지 52%**로 프런티어
+- **실험(무엇을 검증):** 합성 100건에서 (1) `single_call`가 **커버리지 52%**로 프런티어
   **밖**(둘 다 이기는 코너 밖)에 있고, (2) `cost-aware mix`는 **비슷한 비용**으로 **커버리지
   100%**를 달성하며, (3) 그 **에스컬레이션 이득 +48%p**가 30% 하한을 넘김을 검증합니다.
 
@@ -39,12 +58,12 @@
 | **cost-aware mix** (이 저장소) | 싼 것부터, **실패하면 에스컬레이션** | 100%를 낮은 비용으로 | `route_task` 전체 |
 
 Azure AI Foundry Model Router는 이 저장소가 하는 일의 **제품화된 얇은 라우팅 레이어**입니다 —
-프롬프트를 보고 모델을 한 번 고릅니다. 그래서 이 실험의 `model_router` arm은 그 **형태**를
+프롬프트를 보고 모델을 한 번 고릅니다. 그래서 이 실험의 `single_call` arm은 그 **형태**를
 투명하게 흉내 냅니다: 태스크 가치(난이도)로 클래스 사다리에서 인덱스를 고르는
 `floor(value × N)` 규칙입니다(쉬우면 가장 싼 `mini-fast`, 어려우면 `premium-max`).
 
 !!! warning "이 arm은 자리표시자다 (`measured = false`, `equivalent = illustrative`)"
-    `model_router` arm은 단일 호출 라우터의 **모양**을 보여주는 투명한 프록시일 뿐,
+    `single_call` arm은 단일 호출 라우터의 **모양**을 보여주는 투명한 프록시일 뿐,
     Azure의 내부 선택 로직이 아닙니다. 합성 100건에서 선택은 다섯 모델에 고루 퍼집니다
     (`mini-fast` 31 · `swift-coder` 23 · `balanced-pro` 20 · `deep-reasoner` 19 ·
     `premium-max` 7) — 스트로맨이 아니라 사다리 전체를 쓰는 공정한 난이도 라우터입니다.
@@ -58,12 +77,12 @@ Azure AI Foundry Model Router는 이 저장소가 하는 일의 **제품화된 �
 | 전략 | 비용 | 커버리지 | 위치 |
 | --- | --- | --- | --- |
 | all-mini | $0.187913 | 22% | 좌하단 (싸지만 커버리지 붕괴) |
-| **model_router** (단일 호출) | **$1.587646** | **52%** | **프런티어 밖** — 미리 고르고 회복 불가 |
+| **single_call** (단일 호출) | **$1.587646** | **52%** | **프런티어 밖** — 미리 고르고 회복 불가 |
 | cost-aware mix | $1.659167 | **100%** | 좌상단 both-win 코너 |
 | all-premium | $2.226910 | 100% | 우상단 (같은 커버리지, 최대 비용) |
 | all-ensemble | $4.225226 | 100% | 프런티어 밖 최우측 ([팬아웃 세금](05-ensemble-fanout.md)) |
 
-핵심은 `model_router`와 `mix`의 대비입니다:
+핵심은 `single_call`와 `mix`의 대비입니다:
 
 - **비용은 거의 같습니다** — 단일 호출 $1.587646 vs 관찰-후-에스컬레이션 $1.659167 (**+4.5%**).
 - **커버리지는 두 배 차이입니다** — 52% vs 100%. **에스컬레이션 이득 = +48%p.**
@@ -84,18 +103,18 @@ Azure AI Foundry Model Router는 이 저장소가 하는 일의 **제품화된 �
 ## 실험 07 — 에스컬레이션 이득을 계약으로 고정
 
 ```bash
-cost-router experiment run model-router
+cost-router experiment run single-call    # (구 이름 model-router 도 별칭으로 동작)
 ```
 
 ```text
 before / after  (offline projection over synthetic data; labels.measured=false)
-  BEFORE  naive: premium model on every task   $2.226910
-  AFTER   cost-aware routing                   $1.659167
-  SAVED   $0.567743  (25.5% lower)  at 100.0% coverage
+  BEFORE  naive: premium model on every task   $2.23
+  AFTER   cost-aware routing                   $1.66
+  SAVED   $0.57  (25.5% lower)  at 100.0% coverage
 
 spotlight  t-0078 · validate · clean-first
-  routed  mini-fast      $0.000293
-  naive   deep-reasoner  $0.007059   (24.1x more)
+  routed  mini-fast      $0.0003
+  naive   deep-reasoner  $0.0071   (24.1x more)
 
 reproducibility  PASS
   PASS  coverage: 100.0% ≥ 100.0%
@@ -104,7 +123,7 @@ reproducibility  PASS
   PASS  escalation_gain: mix 100.0% − single-call 52.0% = +48.0% ≥ 30.0%
 ```
 
-새 계약 체크 `escalation_gain`은 *"관찰-후-에스컬레이션(mix)이 단일 호출(model_router)보다
+새 계약 체크 `escalation_gain`은 *"관찰-후-에스컬레이션(mix)이 단일 호출(single_call)보다
 커버리지를 최소 30%p 더 벌어야 한다"* 를 고정합니다. 만약 누군가 라우팅에서 에스컬레이션을
 빼거나(mix가 단일 호출처럼 붕괴) arm을 부풀리면, 이득이 30%p 아래로 떨어져 **CI가
 실패**합니다.
@@ -117,7 +136,7 @@ reproducibility  PASS
 
 ## <a name="측정-브리지"></a>측정 브리지 — 게이트된 라이브 어댑터
 
-`model_router` arm의 선택은 자리표시자 프록시입니다. 실제 Azure AI Foundry Model Router의
+`single_call` arm의 선택은 자리표시자 프록시입니다. 실제 Azure AI Foundry Model Router의
 **결정**을 끼워 넣고 싶다면, 의존성 없는 게이트 어댑터
 `router.foundry_router.FoundryModelRouter`를 씁니다:
 
@@ -190,7 +209,7 @@ Azure Model Router — single-call choice  (recorded snapshot (…/model-router-
 
 ## 웹앱에서 보기 — 프런티어의 파란 점
 
-대시보드 **비용 × 커버리지 프런티어**에 다섯 번째 점 `model_router`(파란 점)를 추가했습니다.
+대시보드 **비용 × 커버리지 프런티어**에 다섯 번째 점 `single_call`(파란 점)를 추가했습니다.
 `all-mini`(주황)·`all-premium`(빨강)·`all-ensemble`(보라)·`cost-aware mix`(초록) 사이에서,
 파란 점은 **both-win 코너 밖 아래쪽**(낮은 커버리지)에 앉아 "단일 호출은 미리 걸어서 코너에
 못 간다"를 한눈에 보여줍니다.
@@ -202,9 +221,10 @@ Azure Model Router — single-call choice  (recorded snapshot (…/model-router-
 이 실험은 *"단일 호출 라우팅은 관찰-후-에스컬레이션보다 커버리지를 잃는다"* 를 보입니다.
 하지만 두 가지 정직한 단서:
 
-1. **`model_router` arm은 자리표시자입니다.** 실제 Foundry Model Router의 선택 실력은 이
+1. **`single_call` arm은 자리표시자입니다.** 실제 Foundry Model Router의 선택 실력은 이
    프록시보다 좋을 수 있습니다 — 그 향상은 **측정된 값**이고, [측정 브리지](#측정-브리지)로
-   끼워 넣어 같은 프런티어에서 비교해야 합니다. 이 실험은 그 자리를 열어 둘 뿐, 그 실력을
+   끼워 넣어 같은 프런티어에서 비교해야 합니다. 그 브리지를 실제 배포에 물려 측정한 것이
+   [실험 09](09-live-routing-proof.md)입니다. 이 실험은 그 자리를 열어 둘 뿐, 그 실력을
    대신 주장하지 않습니다.
 2. **비용·커버리지는 오프라인 투영입니다.** 라이브 결정을 넣어도 `measured = false`입니다.
    진짜 측정된 우열은 실제 토큰·평가가 필요합니다.
@@ -226,7 +246,7 @@ Azure Model Router — single-call choice  (recorded snapshot (…/model-router-
 
 ```bash
 pip install -e .
-cost-router experiment run model-router          # 사람이 읽는 요약 (에스컬레이션 이득 계약 포함)
-cost-router experiment run model-router --json    # 계약 체크 + 전략 arm
+cost-router experiment run single-call            # 사람이 읽는 요약 (에스컬레이션 이득 계약 포함)
+cost-router experiment run single-call --json     # 계약 체크 + 전략 arm
 cost-router replay --synth                         # 프런티어 다섯 전략을 직접 확인
 ```
