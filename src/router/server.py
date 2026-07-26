@@ -29,6 +29,7 @@ signals are synthesized for the task's policy candidates. ``/batch-route`` takes
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -46,6 +47,13 @@ from .experiment import (
 )
 from .fleet import FleetRegistry
 from .foundry_live import FoundryConfig
+from .measure import (
+    DEFAULT_N,
+    MeasureCandidate,
+    build_catalog,
+    load_prompt_workload,
+    replay_measure,
+)
 from .metrics import (
     ExperimentMetrics,
     JsonlMetricsStore,
@@ -120,6 +128,7 @@ class RouterService:
         policy: Any | None = None,
         pricing: PricingTable | None = None,
         metrics_store: JsonlMetricsStore | None = None,
+        cockpit_token: str | None = None,
     ) -> None:
         self.policy = policy or load_policy()
         if pricing is not None:
@@ -135,6 +144,11 @@ class RouterService:
         self._history: list[dict[str, Any]] | None = None
         self._samples_root = find_samples_root()
         self._fleet: FleetRegistry | None = None
+        # Cockpit (Phase C): only enabled when a session token is set (i.e. via
+        # `cost-router dashboard --live`). The public/static build leaves it None,
+        # so every /cockpit/* route 404s and no live surface ships.
+        self.cockpit_token = cockpit_token
+        self._cockpit_progress: dict[str, dict[str, Any]] = {}
 
     # -- endpoint handlers ------------------------------------------------
 
@@ -311,6 +325,192 @@ class RouterService:
             },
         )
 
+    # -- cockpit (Phase C, live-run control surface) ----------------------
+
+    def _cockpit_authed(self, path: str) -> bool:
+        """A /cockpit/* request is authorised only with the exact session token."""
+
+        if not self.cockpit_token:
+            return False
+        token = _query_value(path, "token")
+        return bool(token) and token == self.cockpit_token
+
+    def _cockpit_candidates(self) -> list[MeasureCandidate]:
+        slate = self._fleet_registry().slate()
+        return [
+            MeasureCandidate(model=dep, deployment=dep, provider=slate.provider_for(dep))
+            for dep in slate.ensemble
+        ]
+
+    def _cockpit_workload_path(self, path: str) -> Path:
+        wl = _query_value(path, "workload")
+        if wl:
+            return Path(wl)
+        return self._samples_root / "samples" / "telemetry" / "curated-arena-live.sample.jsonl"
+
+    def cockpit_status(self) -> ServiceResponse:
+        """Connection panel (C2): masked Foundry status + fleet slate + pricing.
+
+        Reuses :meth:`FoundryConfig.status` (already redacted — no secret leaves)
+        and the fleet slate, so the browser shows exactly what is wired and what
+        is missing, with zero credential input fields.
+        """
+
+        registry = self._fleet_registry()
+        slate = registry.slate()
+        return ServiceResponse(
+            200,
+            {
+                "foundry": FoundryConfig.from_env().status(),
+                "fleet": {
+                    "source": registry.source,
+                    "roles": registry.role_assignments(),
+                    "ensemble": list(slate.ensemble),
+                },
+                "pricing_loaded": self.pricing is not None,
+                "measured": False,
+            },
+        )
+
+    def cockpit_catalog(self, path: str) -> ServiceResponse:
+        """Pre-flight catalog (C4/B4): prompts, validation, candidates, cost — no calls."""
+
+        if self.pricing is None:
+            return _error(503, "no pricing table loaded; set FOUNDRY_PRICING_PATH")
+        workload_path = self._cockpit_workload_path(path)
+        try:
+            workload = load_prompt_workload(workload_path)
+        except (OSError, ValueError) as exc:
+            return _error(400, f"workload load failed: {exc}")
+        if not workload:
+            return _error(400, f"no prompt-bearing tasks in {workload_path}")
+        candidates = self._cockpit_candidates()
+        if not candidates:
+            return _error(400, "no candidates in the fleet ensemble slate")
+        n = _query_int(path, "n", DEFAULT_N)
+        catalog = build_catalog(workload, candidates, n=n, pricing=self.pricing)
+        catalog["workload_path"] = str(workload_path)
+        return ServiceResponse(200, catalog)
+
+    def cockpit_run(self, body: bytes) -> ServiceResponse:
+        """Run gate (C4): validate every gate; the paid sweep runs only past them.
+
+        Offline/uncredentialed/unapproved requests get an honest ``ran=false``
+        with the reason — this is the tested path. The live branch (credentialed,
+        approved, budgeted) is the operator-gated leaf and never runs in CI.
+        """
+
+        parsed = _load_json_object(body)
+        if isinstance(parsed, ServiceResponse):
+            return parsed
+        approve = bool(parsed.get("approve"))
+        budget = parsed.get("budget_usd")
+        experiment = str(parsed.get("experiment") or "cockpit")
+        config = FoundryConfig.from_env()
+        gates = {
+            "approved": approve,
+            "credentialed": config.credentialed,
+            "budget_set": isinstance(budget, (int, float)) and budget is not None,
+        }
+        if not all(gates.values()):
+            reason = self._cockpit_refusal(gates)
+            return ServiceResponse(
+                200,
+                {"ran": False, "gates": gates, "reason": reason, "measured": False},
+            )
+        return self._cockpit_launch(  # pragma: no cover - live path (operator-gated)
+            parsed, experiment=experiment, budget=float(budget), config=config
+        )
+
+    @staticmethod
+    def _cockpit_refusal(gates: Mapping[str, bool]) -> str:
+        if not gates["credentialed"]:
+            return ("not credentialed — set AZURE_AI_FOUNDRY_* in .env and run "
+                    "`az login`; the cockpit reads Entra creds from the environment.")
+        if not gates["budget_set"]:
+            return "no budget cap — set budget_usd from the dry-run estimate before running."
+        if not gates["approved"]:
+            return "not approved — the operator must click 'approve & run' to spend."
+        return "blocked."
+
+    def _cockpit_launch(  # pragma: no cover - live path (operator-gated)
+        self, parsed: Mapping[str, Any], *, experiment: str, budget: float,
+        config: FoundryConfig,
+    ) -> ServiceResponse:
+        import threading
+        from datetime import UTC, datetime
+
+        from .foundry_live import AzureModelRouterClient
+        from .measure import (
+            AzureMeasureClient,
+            RetryPolicy,
+            evaluate_prereg,
+            make_run_id,
+            run_measure,
+        )
+
+        workload_path = Path(parsed.get("workload") or self._cockpit_workload_path(""))
+        workload = load_prompt_workload(workload_path)
+        candidates = self._cockpit_candidates()
+        run_id = make_run_id()
+        out_root = Path("results/measured") / experiment / run_id
+        prereg = evaluate_prereg(
+            Path("results/measured") / experiment / "prereg.md",
+            run_started_at=datetime.now(UTC),
+            allow_no_prereg=bool(parsed.get("allow_no_prereg")),
+        )
+        if not prereg.allowed:
+            return ServiceResponse(
+                200, {"ran": False, "reason": f"prereg gate: {prereg.note}", "measured": False}
+            )
+        self._cockpit_progress[run_id] = {"cells_done": 0, "cells_total": 0, "event": "starting"}
+
+        def _worker() -> None:
+            client = AzureMeasureClient(AzureModelRouterClient(config=config))
+            run_measure(
+                workload, candidates, client=client, pricing=self.pricing,
+                exp_id=experiment, run_dir=out_root, run_id=run_id, budget_usd=budget,
+                retry=RetryPolicy(), prereg=prereg,
+                progress=lambda ev: self._cockpit_progress.__setitem__(run_id, ev),
+            )
+
+        threading.Thread(target=_worker, daemon=True).start()
+        return ServiceResponse(
+            200, {"ran": True, "run_id": run_id, "run_dir": str(out_root), "measured": True}
+        )
+
+    def cockpit_progress(self, path: str) -> ServiceResponse:
+        """Latest streamed progress for a run (C5). Empty until a run starts."""
+
+        run_id = _query_value(path, "run") or ""
+        return ServiceResponse(
+            200, {"run_id": run_id, "progress": self._cockpit_progress.get(run_id)}
+        )
+
+    def cockpit_snapshot(self, path: str) -> ServiceResponse:
+        """Render a committed snapshot by REPLAYING it (C6) — the replay is the check."""
+
+        run = _query_value(path, "run")
+        if not run:
+            return _error(400, "pass ?run=<snapshot dir>")
+        run_dir = Path(run)
+        try:
+            report = replay_measure(run_dir)
+        except (OSError, ValueError, KeyError) as exc:
+            return _error(400, f"snapshot replay failed: {exc}")
+        summary = report.recomputed_summary if isinstance(report.recomputed_summary, dict) else {}
+        labels = summary.get("labels", {}) if isinstance(summary, dict) else {}
+        return ServiceResponse(
+            200,
+            {
+                "run": str(run_dir),
+                "ok": report.ok,
+                "summary_matches": report.summary_matches,
+                "summary": summary,
+                "measured": bool(labels.get("measured")),
+            },
+        )
+
     def route(self, body: bytes) -> ServiceResponse:
         parsed = _load_json_object(body)
         if isinstance(parsed, ServiceResponse):
@@ -383,6 +583,25 @@ class RouterService:
             return self.batch_route(body)
         if method == "POST" and route == "/fleet/run":
             return self.fleet_run(body)
+        if route.startswith("/cockpit/"):
+            # Cockpit is inert unless a session token is set (dashboard --live).
+            # The public/static build leaves it None, so these 404 and no live
+            # surface ships. When enabled, every route needs the exact token.
+            if not self.cockpit_token:
+                return _error(404, f"not found: {route}")
+            if not self._cockpit_authed(path):
+                return _error(403, "cockpit requires a valid ?token=")
+            if method == "GET" and route == "/cockpit/status":
+                return self.cockpit_status()
+            if method == "GET" and route == "/cockpit/catalog":
+                return self.cockpit_catalog(path)
+            if method == "GET" and route == "/cockpit/progress":
+                return self.cockpit_progress(path)
+            if method == "GET" and route == "/cockpit/snapshot":
+                return self.cockpit_snapshot(path)
+            if method == "POST" and route == "/cockpit/run":
+                return self.cockpit_run(body)
+            return _error(404, f"not found: {route}")
         if route in _KNOWN_ROUTES:
             return _error(405, f"method {method} not allowed for {route}")
         return _error(404, f"not found: {route}")
@@ -504,6 +723,16 @@ def _query_flag(path: str, name: str) -> bool:
 def _query_value(path: str, name: str) -> str | None:
     values = parse_qs(urlsplit(path).query).get(name)
     return values[0].strip() if values and values[0].strip() else None
+
+
+def _query_int(path: str, name: str, default: int) -> int:
+    raw = _query_value(path, name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
 
 
 def _load_json_object(body: bytes) -> dict[str, Any] | ServiceResponse:

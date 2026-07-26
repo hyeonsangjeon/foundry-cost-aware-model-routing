@@ -746,3 +746,230 @@ def test_dashboard_shows_experiments_and_history_panels(service: RouterService) 
     assert "loadHistory" in script
     assert "experiments:" in script  # EP fallback map carries the routes
     assert "metricsHistory:" in script
+
+
+# -- cockpit (Phase C: live-run control surface) -----------------------------
+
+COCKPIT_TOKEN = "test-session-token-abc123"
+CURATED_WORKLOAD = ROOT / "samples" / "telemetry" / "curated-arena-live.sample.jsonl"
+
+
+@pytest.fixture()
+def cockpit() -> RouterService:
+    return RouterService(cockpit_token=COCKPIT_TOKEN)
+
+
+def _authed(path: str) -> str:
+    sep = "&" if "?" in path else "?"
+    return f"{path}{sep}token={COCKPIT_TOKEN}"
+
+
+class _FakeMeasureClient:
+    """Deterministic offline stand-in for the live Azure client (no egress)."""
+
+    def attempt(self, *, deployment: str, provider: str, task: dict):
+        from router.measure import AttemptResult
+
+        return AttemptResult(
+            http_status=200,
+            model=deployment,
+            usage={"input": 1000, "cached": 200, "output": 500, "reasoning": 100},
+            latency_ms=12.3,
+            provenance="live",
+        )
+
+
+def _offline_snapshot(tmp_path: Path) -> Path:
+    """Seal a deterministic snapshot offline so /cockpit/snapshot has something to replay."""
+
+    from datetime import UTC, datetime
+
+    from router.measure import (
+        MeasureCandidate,
+        PreregDecision,
+        RetryPolicy,
+        load_prompt_workload,
+        run_measure,
+    )
+    from router.pricing import PricingTable
+
+    workload = load_prompt_workload(CURATED_WORKLOAD)
+    candidates = [
+        MeasureCandidate("gpt-5.4-nano", "gpt-5.4-nano"),
+        MeasureCandidate("gpt-5.4", "gpt-5.4"),
+    ]
+    pricing = PricingTable.from_yaml(ROOT / "samples" / "pricing" / "foundry-5series.yaml")
+    prereg = PreregDecision(
+        True, "abc123", "2026-07-25T00:00:00+00:00", "prereg committed before run"
+    )
+    result = run_measure(
+        workload,
+        candidates,
+        client=_FakeMeasureClient(),
+        pricing=pricing,
+        exp_id="cockpit",
+        run_dir=tmp_path / "cockpit" / "RUN",
+        run_id="RUN",
+        n=2,
+        retry=RetryPolicy(max_retries=3, base_backoff_ms=1.0),
+        sleeper=lambda _s: None,
+        now=datetime(2026, 7, 26, tzinfo=UTC),
+        prereg=prereg,
+    )
+    return result.run_dir
+
+
+def test_cockpit_is_inert_without_a_session_token(service: RouterService) -> None:
+    # The public/static build sets no token, so every cockpit route 404s and no
+    # live surface ships.
+    assert service.dispatch("GET", "/cockpit/status?token=anything").status == 404
+    assert service.dispatch("GET", "/cockpit/catalog").status == 404
+    assert service.dispatch("POST", "/cockpit/run", b"{}").status == 404
+
+
+def test_cockpit_requires_the_exact_token(cockpit: RouterService) -> None:
+    assert cockpit.dispatch("GET", "/cockpit/status").status == 403  # missing
+    assert cockpit.dispatch("GET", "/cockpit/status?token=wrong").status == 403
+    assert cockpit.dispatch("GET", _authed("/cockpit/status")).status == 200
+
+
+def test_cockpit_run_refuses_without_token(cockpit: RouterService) -> None:
+    # The paid route is unreachable without the token, before any gate logic.
+    status, payload = _post(cockpit, "/cockpit/run", {"approve": True})
+    assert status == 403
+
+
+def test_cockpit_status_is_masked_and_offline(cockpit: RouterService) -> None:
+    payload = cockpit.dispatch("GET", _authed("/cockpit/status")).payload
+    assert payload["measured"] is False
+    foundry = payload["foundry"]
+    # Reuses FoundryConfig.status(): endpoints are host-only, secrets masked.
+    assert foundry["measured"] is False
+    assert "api_key" in foundry  # present but masked (never the raw secret)
+    assert set(payload["fleet"]["roles"]) == {"router", "cheapest", "premium", "ensemble"}
+
+
+def test_cockpit_catalog_surfaces_prompts_validation_and_estimate(
+    cockpit: RouterService,
+) -> None:
+    payload = cockpit.dispatch("GET", _authed("/cockpit/catalog?n=1")).payload
+    assert payload["tasks"], "catalog must list the prompt-bearing tasks"
+    # B4: prompts + validation visible before any call; dry-run cost present.
+    first = payload["tasks"][0]
+    assert "user_prompt" in first or "prompt" in first
+    assert "estimate" in payload
+    assert payload["workload_path"].endswith("curated-arena-live.sample.jsonl")
+
+
+def test_cockpit_run_refuses_when_not_credentialed(
+    cockpit: RouterService, monkeypatch
+) -> None:
+    # Force the uncredentialed state so this is deterministic on any machine AND
+    # can never reach the live-launch branch: an approved+budgeted run still
+    # halts at the credential gate, and the paid sweep never fires.
+    import types
+
+    from router import server
+
+    monkeypatch.setattr(
+        server.FoundryConfig, "from_env",
+        lambda *a, **k: types.SimpleNamespace(credentialed=False),
+    )
+    status, payload = _post(
+        cockpit, _authed("/cockpit/run"), {"approve": True, "budget_usd": 1.0}
+    )
+    assert status == 200
+    assert payload["ran"] is False
+    assert payload["gates"]["credentialed"] is False
+    assert "credential" in payload["reason"].lower()
+
+
+def test_cockpit_run_lists_every_gate(cockpit: RouterService) -> None:
+    _status, payload = _post(cockpit, _authed("/cockpit/run"), {"approve": False})
+    assert set(payload["gates"]) == {"approved", "credentialed", "budget_set"}
+    assert payload["measured"] is False
+
+
+def test_cockpit_progress_is_empty_until_a_run_starts(cockpit: RouterService) -> None:
+    payload = cockpit.dispatch("GET", _authed("/cockpit/progress?run=none")).payload
+    assert payload == {"run_id": "none", "progress": None}
+
+
+def test_cockpit_snapshot_replays_committed_run(
+    cockpit: RouterService, tmp_path: Path
+) -> None:
+    run_dir = _offline_snapshot(tmp_path)
+    # C6: completion re-reads the snapshot; the replay recompute is the check.
+    payload = cockpit.dispatch(
+        "GET", _authed(f"/cockpit/snapshot?run={run_dir}")
+    ).payload
+    assert payload["ok"] is True
+    assert payload["summary_matches"] is True
+    assert payload["run"] == str(run_dir)
+
+
+def test_cockpit_snapshot_replay_is_deterministic(
+    cockpit: RouterService, tmp_path: Path
+) -> None:
+    run_dir = _offline_snapshot(tmp_path)
+    a = cockpit.dispatch("GET", _authed(f"/cockpit/snapshot?run={run_dir}")).payload
+    b = cockpit.dispatch("GET", _authed(f"/cockpit/snapshot?run={run_dir}")).payload
+    assert a["summary"] == b["summary"]
+
+
+def test_cockpit_binds_localhost_only() -> None:
+    # C1: the cockpit server binds the loopback interface.
+    httpd = make_server("127.0.0.1", 0, service=RouterService(cockpit_token=COCKPIT_TOKEN))
+    try:
+        assert httpd.server_address[0] == "127.0.0.1"
+    finally:
+        httpd.server_close()
+
+
+def test_dashboard_live_forces_localhost_and_token_url(monkeypatch) -> None:
+    # C1: `dashboard --live` refuses a non-local host and prints a token URL.
+    import argparse
+
+    from router import cli, server
+
+    captured: dict = {}
+
+    def _fake_serve(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(server, "serve", _fake_serve)
+    args = argparse.Namespace(
+        host="0.0.0.0", port=0, policy=None, live=True,
+        env_file=Path("/nonexistent-cockpit-test.env"),
+    )
+    assert cli._cmd_dashboard(args) == 0
+    assert captured["host"] == "127.0.0.1"
+    assert "cockpit=1&token=" in captured["open_hint"]
+    assert captured["service"].cockpit_token
+
+
+def test_dashboard_cockpit_panel_is_present_but_dark_by_default(
+    service: RouterService,
+) -> None:
+    html = service.dispatch("GET", "/").payload
+    # D10 parity: the cockpit ships in the SAME UI, hidden until the URL carries
+    # cockpit=1 + a token (which only `dashboard --live` prints).
+    assert 'id="cockpitPanel"' in html
+    assert re.search(r'id="cockpitPanel"[^>]*\bhidden\b', html), "cockpit must default hidden"
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    assert "initCockpit" in script
+    assert 'q.get("cockpit") !== "1"' in script
+    # No credential inputs in the cockpit (C2: creds come from the environment).
+    assert "password" not in html.lower()
+
+
+def test_dashboard_cockpit_has_no_credential_or_external_calls(
+    service: RouterService,
+) -> None:
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    # Cockpit fetches are same-origin /cockpit/* only (no hard-coded hosts).
+    assert "/cockpit/status" in script
+    assert "/cockpit/run" in script
+    assert "http://" not in script and "https://" not in script

@@ -61,12 +61,14 @@ from .measure import (
     MeasuredContract,
     RetryPolicy,
     build_catalog,
+    build_publish_bundle,
     estimate_dry_run,
     evaluate_prereg,
     format_catalog,
     format_dry_run_table,
     load_prompt_workload,
     make_run_id,
+    publish_bundle_json,
     replay_measure,
     run_measure,
     verify_contract,
@@ -166,6 +168,27 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", type=int, default=8000, help="bind port (default 8000)")
     serve.add_argument("--policy", type=Path, default=None, help="policy YAML to serve")
     serve.set_defaults(func=_cmd_serve)
+
+    dashboard = subparsers.add_parser(
+        "dashboard",
+        help="Serve the dashboard; --live adds the token-gated operator cockpit.",
+    )
+    dashboard.add_argument("--host", default="127.0.0.1", help="bind host (default 127.0.0.1)")
+    dashboard.add_argument(
+        "--port", type=int, default=0,
+        help="bind port (default: a random free port, for --live isolation)",
+    )
+    dashboard.add_argument("--policy", type=Path, default=None, help="policy YAML to serve")
+    dashboard.add_argument(
+        "--env-file", type=Path, default=Path(".env"),
+        help="dotenv to load before reading Foundry config (for --live status/run)",
+    )
+    dashboard.add_argument(
+        "--live", action="store_true",
+        help="enable the localhost-only, session-token-gated live cockpit "
+        "(the paid run still needs credentials + the operator's approve button)",
+    )
+    dashboard.set_defaults(func=_cmd_dashboard)
 
     hero = subparsers.add_parser(
         "hero",
@@ -561,6 +584,38 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     from . import server
 
     return server.serve(host=args.host, port=args.port, policy_path=args.policy)
+
+
+def _cmd_dashboard(args: argparse.Namespace) -> int:
+    import secrets
+
+    from . import server
+
+    if not args.live:
+        port = args.port or 8000
+        return server.serve(host=args.host, port=port, policy_path=args.policy)
+
+    # Live cockpit (C1): localhost only, random free port, session-token URL. The
+    # token gates every /cockpit/* route; without --live the cockpit routes 404
+    # and the public build ships no live surface. The paid run still needs Entra
+    # credentials + the operator's "approve & run" click (server-side gates). The
+    # .env is loaded first so status/catalog/run read the operator's Foundry
+    # config (endpoint, deployment, fleet, pricing) just like `measure run`.
+    load_dotenv_file(args.env_file)
+    host = args.host
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        print(
+            "cost-router: --live binds localhost only; using 127.0.0.1 instead of "
+            f"{host!r}.",
+            flush=True,
+        )
+        host = "127.0.0.1"
+    token = secrets.token_urlsafe(24)
+    service = server.RouterService(policy=load_policy(args.policy), cockpit_token=token)
+    port = args.port or (49152 + secrets.randbelow(16000))
+    open_hint = f"/?cockpit=1&token={token}"
+    print("cost-router: live cockpit enabled (localhost, token-gated).", flush=True)
+    return server.serve(host=host, port=port, service=service, open_hint=open_hint)
 
 
 def _cmd_policy_show(args: argparse.Namespace) -> int:
@@ -1330,6 +1385,18 @@ def _build_measure_parser(subparsers: argparse._SubParsersAction) -> None:
     catalog.add_argument("--env-file", type=Path, default=Path(".env"), help="dotenv to load first")
     catalog.set_defaults(func=_cmd_measure_catalog)
 
+    publish = measure_sub.add_parser(
+        "publish",
+        help="Turn a sealed snapshot into a public-mockup bundle (tenant rates masked).",
+    )
+    publish.add_argument("--run", type=Path, required=True, help="snapshot run directory")
+    publish.add_argument(
+        "--out", type=Path, default=None,
+        help="write the bundle here (default: results/published/<exp>/<run-id>.json)",
+    )
+    publish.add_argument("--json", action="store_true", help="print the bundle to stdout")
+    publish.set_defaults(func=_cmd_measure_publish)
+
 
 def _measure_candidates(args: argparse.Namespace) -> tuple[list[MeasureCandidate], str]:
     """Resolve the candidate models to measure (explicit --candidates or fleet slate)."""
@@ -1497,6 +1564,34 @@ def _cmd_measure_replay(args: argparse.Namespace) -> int:
         print(f"  fingerprint issues     : {', '.join(report.fingerprint_issues)}")
     print(f"status: {'PASS' if report.ok else 'FAIL'}")
     return 0 if report.ok else 1
+
+
+def _cmd_measure_publish(args: argparse.Namespace) -> int:
+    try:
+        bundle = build_publish_bundle(args.run)
+        text = publish_bundle_json(args.run)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"measure publish: {exc}")
+        print("status: FAIL")
+        return 1
+    if args.json:
+        print(text)
+        return 0
+    out = args.out
+    if out is None:
+        out = DEFAULT_SNAPSHOT_ROOT.parent / "published" / str(bundle["exp_id"]) / (
+            str(bundle["run_id"]) + ".json"
+        )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text + "\n", encoding="utf-8")
+    print(f"measure publish: {args.run}")
+    print(f"  → wrote {out}")
+    print(f"  measured={bundle['provenance']['measured']}  "
+          f"n={bundle['n']}  commit={bundle['git_commit']}  "
+          f"captured={bundle['captured_at']}")
+    print("  tenant rate card masked — absolute unit prices not published.")
+    print("  commit this bundle yourself once you have reviewed it.")
+    return 0
 
 
 def _cmd_measure_verify(args: argparse.Namespace) -> int:

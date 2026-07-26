@@ -1038,6 +1038,7 @@ def run_measure(
     sleeper: Callable[[float], None] = sleep,
     clock: Callable[[], str] | None = None,
     now: datetime | None = None,
+    progress: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> MeasureRunResult:
     """Run a measured sweep and seal it into a §3 snapshot directory.
 
@@ -1045,6 +1046,12 @@ def run_measure(
     on its own — the live adapter (:class:`AzureMeasureClient`) is the only path
     that does, and only on ``--live``. Halts cleanly at ``budget_usd`` and writes
     a ``partial = true`` snapshot; resumes from an existing traces file.
+
+    ``progress``, when given, is called once per finished cell (and once when a
+    budget cap halts the run) with a small dict — ``cells_done``/``cells_total``,
+    running spend vs. budget, throttle/failure tallies, and the last cell's
+    identity. The cockpit (Phase C) streams these; it is a pure observer and
+    never gates or mutates the run.
     """
 
     retry = retry or RetryPolicy()
@@ -1072,6 +1079,25 @@ def run_measure(
     running_cost = round(sum(float(r.get("cost_usd", 0.0)) for r in prior_rows), 6)
     partial = False
     stopped_reason: str | None = None
+    cells_total = len(workload) * n * len(candidates)
+    cells_done = len(already)
+    throttles = 0
+    failures = 0
+
+    def _emit(**extra: Any) -> None:
+        if progress is None:
+            return
+        progress(
+            {
+                "cells_done": cells_done,
+                "cells_total": cells_total,
+                "running_cost_usd": running_cost,
+                "budget_usd": budget_usd,
+                "throttles": throttles,
+                "failures": failures,
+                **extra,
+            }
+        )
 
     for task_id in workload:
         task = workload[task_id]
@@ -1084,6 +1110,7 @@ def run_measure(
                     stopped_reason = (
                         f"budget cap reached: ${running_cost:.6f} ≥ ${budget_usd:.6f}"
                     )
+                    _emit(event="budget_halt", stopped_reason=stopped_reason)
                     break
                 new_rows, _ = run_candidate(
                     client, task, candidate,
@@ -1093,6 +1120,22 @@ def run_measure(
                 rows.extend(new_rows)
                 running_cost = round(
                     running_cost + sum(float(r.get("cost_usd", 0.0)) for r in new_rows), 6
+                )
+                cells_done += 1
+                throttles += sum(1 for r in new_rows if int(r.get("http_status", 0)) == 429)
+                last = new_rows[-1] if new_rows else {}
+                cell_failed = bool(last.get("fail_reason")) or not (
+                    200 <= int(last.get("http_status", 0)) < 300
+                )
+                if cell_failed:
+                    failures += 1
+                _emit(
+                    event="cell_done",
+                    task_id=task_id,
+                    repeat_idx=repeat_idx,
+                    candidate=candidate.model,
+                    http_status=int(last.get("http_status", 0)),
+                    failed=cell_failed,
                 )
             if partial:
                 break
@@ -1259,6 +1302,78 @@ def replay_measure(run_dir: Path | str) -> ReplayResult:
         fingerprint_issues=tuple(fingerprint_issues),
         recomputed_summary=recomputed,
     )
+
+
+# --------------------------------------------------------------------------- #
+# Publish (C8) — turn a sealed snapshot into a public-mockup bundle
+# --------------------------------------------------------------------------- #
+
+
+def build_publish_bundle(run_dir: Path | str) -> dict[str, Any]:
+    """Transform a sealed snapshot into the JSON the public mockup (Phase D) reads.
+
+    Keeps the measured **result** (costs, coverage, savings, tokens, latency,
+    run date, commit, n, fingerprint) but drops tenant-specific rate-card data:
+    the absolute ``pricing_path`` and the raw ``pricing.snapshot.yaml`` never
+    ship, and the endpoint is redacted to host-only. Refuses to publish a
+    snapshot that does not replay (the replay is the integrity gate), so a
+    corrupted or hand-edited snapshot can never reach the public site.
+    """
+
+    from .foundry_live import _redact_endpoint
+
+    path = Path(run_dir)
+    report = replay_measure(path)
+    if not report.ok:
+        raise ValueError(
+            f"refusing to publish {path}: snapshot does not replay "
+            f"(summary_matches={report.summary_matches}, "
+            f"fingerprints_ok={report.fingerprints_ok}, "
+            f"cost_mismatches={len(report.cost_mismatches)})"
+        )
+    summary = json.loads((path / "summary.json").read_text(encoding="utf-8"))
+    manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
+    labels = dict(summary.get("labels") or {})
+    return {
+        "schema": "cost-router/measured-publish/v1",
+        "exp_id": summary.get("exp_id", manifest.get("exp_id")),
+        "run_id": summary.get("run_id", manifest.get("run_id")),
+        "captured_at": manifest.get("timestamp"),
+        "git_commit": manifest.get("git_commit"),
+        "n": summary.get("n", manifest.get("n")),
+        "partial": bool(labels.get("partial", manifest.get("partial", False))),
+        "workload_fingerprint": manifest.get("workload_fingerprint"),
+        "deployments": manifest.get("deployments", summary.get("candidates", [])),
+        "candidates": summary.get("candidates", []),
+        "labels": labels,
+        "result": {
+            "cost": summary.get("cost"),
+            "coverage": summary.get("coverage"),
+            "tokens": summary.get("tokens"),
+            "cache": summary.get("cache"),
+            "latency_ms": summary.get("latency_ms"),
+            "throttle": summary.get("throttle"),
+            "failures": len(summary.get("failures", [])),
+        },
+        "provenance": {
+            "measured": bool(labels.get("measured", manifest.get("labels", {}).get("measured"))),
+            "endpoint": _redact_endpoint(manifest.get("endpoint")),
+            "region": manifest.get("region"),
+            "pricing": {
+                "version": manifest.get("pricing_version"),
+                "basis": labels.get("cost_basis", "list-price"),
+                "note": "tenant rate card masked — absolute unit prices not published",
+            },
+            "replay_ok": report.ok,
+            "summary_matches": report.summary_matches,
+        },
+    }
+
+
+def publish_bundle_json(run_dir: Path | str) -> str:
+    """Stable, byte-reproducible JSON for a publish bundle."""
+
+    return _dumps(build_publish_bundle(run_dir))
 
 
 # --------------------------------------------------------------------------- #
