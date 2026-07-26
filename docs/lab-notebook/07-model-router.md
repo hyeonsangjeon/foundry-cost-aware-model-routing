@@ -76,15 +76,15 @@ Azure AI Foundry Model Router는 이 저장소가 하는 일의 **제품화된 �
 
 | 전략 | 비용 | 커버리지 | 위치 |
 | --- | --- | --- | --- |
-| all-mini | $0.187913 | 22% | 좌하단 (싸지만 커버리지 붕괴) |
-| **single_call** (단일 호출) | **$1.587646** | **52%** | **프런티어 밖** — 미리 고르고 회복 불가 |
-| cost-aware mix | $1.659167 | **100%** | 좌상단 both-win 코너 |
-| all-premium | $2.226910 | 100% | 우상단 (같은 커버리지, 최대 비용) |
-| all-ensemble | $4.225226 | 100% | 프런티어 밖 최우측 ([팬아웃 세금](05-ensemble-fanout.md)) |
+| all-mini | $0.19 | 22% | 좌하단 (싸지만 커버리지 붕괴) |
+| **single_call** (단일 호출) | **$1.59** | **52%** | **프런티어 밖** — 미리 고르고 회복 불가 |
+| cost-aware mix | $1.66 | **100%** | 좌상단 both-win 코너 |
+| all-premium | $2.23 | 100% | 우상단 (같은 커버리지, 최대 비용) |
+| all-ensemble | $4.23 | 100% | 프런티어 밖 최우측 ([팬아웃 세금](05-ensemble-fanout.md)) |
 
 핵심은 `single_call`와 `mix`의 대비입니다:
 
-- **비용은 거의 같습니다** — 단일 호출 $1.587646 vs 관찰-후-에스컬레이션 $1.659167 (**+4.5%**).
+- **비용은 거의 같습니다** — 단일 호출 $1.59 vs 관찰-후-에스컬레이션 $1.66 (**+4.5%**).
 - **커버리지는 두 배 차이입니다** — 52% vs 100%. **에스컬레이션 이득 = +48%p.**
 
 즉 *"거의 같은 돈으로, 관찰하고 올리면 커버리지를 두 배로 채운다."* 단일 호출은 싸서가
@@ -159,7 +159,7 @@ reproducibility  PASS
 from router.foundry_router import load_recorded_choices, summary_from_choices
 choices = load_recorded_choices("samples/responses/model-router-choices.sample.json")
 arm = summary_from_choices(workload, signals, policy, pricing, choices)
-# 강한 모델로 기운 기록 실행: 커버리지 100%, $0.127136 — 에스컬레이션 mix($0.055)의 약 2.3배
+# 강한 모델로 기운 기록 실행: 커버리지 100%, $0.13 — 에스컬레이션 mix($0.06)의 약 2.3배
 ```
 
 이 기록 실행은 강한 모델로 기울어 커버리지 100%를 찍지만, 같은 커버리지를 관찰-후-에스컬레이션
@@ -194,9 +194,9 @@ cost-router foundry router --live --capture picks.json   # 진짜 선택을 스�
 ```text
 Azure Model Router — single-call choice  (recorded snapshot (…/model-router-choices.sample.json))
   tasks                 : 5
-  offline proxy pick    : $0.087030   coverage 60.0%  (difficulty-tiered, illustrative)
-  router choices        : $0.127136   coverage 100.0%  (decisions: recorded)
-  Δ cost vs proxy       : +$0.040106
+  offline proxy pick    : $0.09   coverage 60.0%  (difficulty-tiered, illustrative)
+  router choices        : $0.13   coverage 100.0%  (decisions: recorded)
+  Δ cost vs proxy       : +$0.04
   chosen models         : balanced-pro×2, deep-reasoner×2, premium-max×1
   labels                : measured=no  decisions=recorded
 ```

@@ -31,13 +31,13 @@ cost-router hero          # 플래그십 실험을 한 번에 실행
 
 ```text
 before / after  (offline projection over synthetic data; labels.measured=false)
-  BEFORE  naive: premium model on every task   $2.226910
-  AFTER   cost-aware routing                   $1.659167
-  SAVED   $0.567743  (25.5% lower)  at 100.0% coverage
+  BEFORE  naive: premium model on every task   $2.23
+  AFTER   cost-aware routing                   $1.66
+  SAVED   $0.57  (25.5% lower)  at 100.0% coverage
 
 spotlight  t-0078 · validate · clean-first
-  routed  mini-fast      $0.000293
-  naive   deep-reasoner  $0.007059   (24.1x more)
+  routed  mini-fast      $0.0003
+  naive   deep-reasoner  $0.0071   (24.1x more)
 
 reproducibility  PASS
   PASS  coverage: 100.0% ≥ 100.0%

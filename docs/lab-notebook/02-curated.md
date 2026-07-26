@@ -28,25 +28,25 @@ cost-router experiment run curated
 
 ```text
 before / after  (offline projection over synthetic data; labels.measured=false)
-  BEFORE  naive: premium model on every task   $0.127136
-  AFTER   cost-aware routing                   $0.055038
-  SAVED   $0.072098  (56.7% lower)  at 100.0% coverage
+  BEFORE  naive: premium model on every task   $0.13
+  AFTER   cost-aware routing                   $0.06
+  SAVED   $0.07  (56.7% lower)  at 100.0% coverage
 ```
 
 | 지표 | 값 |
 | --- | --- |
 | 태스크 수 | 5 |
 | 커버리지 | 100.0% |
-| 나이브 비용 | $0.127136 |
-| 라우팅 비용 | $0.055038 |
+| 나이브 비용 | $0.13 |
+| 라우팅 비용 | $0.06 |
 | 절감률 | 56.7% |
 
 ## 스포트라이트
 
 ```text
 spotlight  t-0005 · validate · clean-first
-  routed  mini-fast      $0.000215
-  naive   deep-reasoner  $0.005121   (23.8x more)
+  routed  mini-fast      $0.0002
+  naive   deep-reasoner  $0.0051   (23.8x more)
 ```
 
 ## 이 실험을 언제 쓰나
