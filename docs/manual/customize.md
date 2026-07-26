@@ -56,11 +56,14 @@
    로드 시 검사됨). 주관적 기준은 금지.
 3. **실험에 연결.** 실험 YAML의 `dataset.workload`를 새 파일로 지목(또는 새 실험 YAML 작성).
 4. **플릿·단가 지정.** `.env`에서 `FOUNDRY_FLEET_PATH`·`FOUNDRY_PRICING_PATH`를 본인 배포·단가로.
-5. **먼저 dry-run, 그다음 승인 실행.** `cost-router measure run --dry-run`으로 예산·프롬프트를
-   먼저 눈으로 확인 → 문제 없으면 `--live --budget-usd <상한>`으로 승인 실행. 프롬프트가
-   바뀌면 manifest의 `workload_fingerprint`가 달라져 **다른 실험으로 정직하게 기록**됩니다.
+5. **먼저 카탈로그로 확인, 그다음 승인 실행.** `cost-router measure catalog --workload
+   samples/telemetry/my-workload.jsonl`로 **나갈 프롬프트 전문·검증 규칙·후보 모델·추정
+   토큰·예상 비용**을 먼저 눈으로 확인 → 문제 없으면 `cost-router measure run --live
+   --budget-usd <상한>`으로 승인 실행. 프롬프트가 바뀌면 manifest의 `workload_fingerprint`가
+   달라져 **다른 실험으로 정직하게 기록**됩니다.
 
 !!! tip "실행 전에 다 보인다"
-    무엇이 나가는지는 실행 **전에** 확인할 수 있습니다 — 태스크 목록, 각 프롬프트 전문,
-    검증 규칙, 후보 모델, 추정 토큰까지. "지금 이게 나갑니다"가 한눈에 보인 다음에야
+    무엇이 나가는지는 실행 **전에** 확인할 수 있습니다 — `cost-router measure catalog`가
+    태스크 목록, 각 프롬프트 전문, 검증 규칙, 후보 모델, 추정 토큰, dry-run 비용까지
+    한 화면에 보여줍니다(유료 호출 0). "지금 이게 나갑니다"가 눈에 보인 다음에야
     (유료) 라이브 호출이 시작됩니다.

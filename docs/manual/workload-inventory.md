@@ -37,7 +37,10 @@
 두 워크로드는 **프롬프트가 곧 실험**이므로(같은 파이프라인, 다른 프롬프트 = 다른 실험),
 manifest에 **워크로드 지문**(`workload_fingerprint`, SHA-256)이 봉인되어 프롬프트가 바뀌면
 격차 뷰가 서로 다른 실험으로 취급합니다. 스키마·검증 규칙·바꿔 끼우는 지점은
-[커스터마이징 가이드](customize.md)를 보세요.
+[커스터마이징 가이드](customize.md)를, 스키마 예시는
+`samples/workloads/curated.template.jsonl`을 보세요. 어떤 워크로드든 실행 **전에**
+`cost-router measure catalog --workload <파일>`로 나갈 프롬프트·검증 규칙·후보·추정 비용을
+유료 호출 0으로 미리 볼 수 있습니다.
 
 !!! note "정직성 경계"
     이 표는 **구현된 현재 상태**입니다. 실측 워크로드(`curated-24`·`hero-100-prompts`)의
