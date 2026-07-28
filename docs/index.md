@@ -62,6 +62,22 @@ cost-router hero --serve   # 실행 후 오프라인 대시보드를 띄웁니�
     이 데모는 GitHub Pages에 미리 렌더링된 정적 파일입니다 — 서버도, 네트워크
     호출도, 비밀값도 없습니다. 숫자는 `cost-router hero`와 동일하게 생성됩니다.
 
+## 목업이 아니라 당신의 Azure로 — 브라우저 콕핏
+
+위 라이브 데모는 **이미 측정해 커밋해 둔 결과의 목업**(읽기 전용)입니다. 같은 화면을
+**당신의 Foundry 배포로 실시간**으로 돌리려면 로컬 콕핏을 씁니다 — 브라우저에 자격증명은
+한 번도 들어가지 않습니다(`127.0.0.1` 전용 + 세션 토큰, Entra는 `az login`에서 읽음).
+
+```bash
+az login                      # 키리스 Entra — 브라우저에 입력란 없음
+cost-router dashboard --live  # 127.0.0.1 + 임의 포트 + 세션 토큰 URL 출력
+```
+
+연결 확인 → 나갈 프롬프트·dry-run 비용 → **승인하고 실행**(사람 게이트) → 실시간 진행 →
+`results/measured/<exp>/<run-id>` 스냅샷 재생까지, 목업과 **똑같은 UI**로. 처음부터 끝까지의
+설정은 [Foundry 실전 구성](manual/foundry-setup.md) → [커스터마이징·콕핏](manual/customize.md) →
+[감사 원장](manual/ledger.md) 순서를 그대로 따라가면 됩니다.
+
 ## 무엇을 보게 되나요
 
 <div class="grid cards" markdown>
