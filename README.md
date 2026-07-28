@@ -90,6 +90,22 @@ below for the config format, the terminal `/model` picker, dashboard selection,
 and a single-deployment smoke test. Only a fresh live call is ever labeled
 `measured=true`; everything offline stays an honest projection.
 
+Prefer a **browser, one-button** flow instead of the CLI? `cost-router dashboard
+--live` serves the *same* dashboard bound to `127.0.0.1` with a session token —
+**no credential ever touches the browser** (Entra is read from `az login`):
+
+```bash
+az login                      # keyless Entra — no credential field in the browser
+cost-router dashboard --live  # 127.0.0.1 + random port + a session-token URL
+```
+
+Connection check → the exact prompts + dry-run cost → **approve & run** (the human
+gate) → live progress → snapshot replay — then seal and re-verify the spend with
+`cost-router ledger measured-replay`. This is the clone → `.env` → one-button path;
+the public demo above is a read-only mockup of an already-measured run. Full
+recipe: the [cockpit & customization guide](docs/manual/customize.md) and the
+[end-to-end Foundry setup](docs/manual/foundry-setup.md).
+
 ### The experiment arc — honest by construction
 
 This repo proves where cost-aware routing **wins** and, just as deliberately,
