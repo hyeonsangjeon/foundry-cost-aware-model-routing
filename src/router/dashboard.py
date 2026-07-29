@@ -1570,10 +1570,16 @@ function renderFleetRun(d) {
     if (!a) continue;
     const div = document.createElement("div");
     div.className = "fleet-arm" + (k === "router" ? " router" : "");
-    const flag = affected.has(k) ? "\\u2020" : "";
+    const hit = affected.has(k);
+    // Fail closed: an affected amount is shown only when a verified annotation
+    // vouches for the artifact it came from. Otherwise the figure is withheld.
+    const vouched = disc.annotation_available === true;
+    const shown = (hit && (!vouched || a.total_cost_usd == null || a.cost_withheld === true))
+      ? (disc.withheld || "withheld")
+      : usdSmart(a.total_cost_usd);
     div.innerHTML =
       "<div class='k'>" + k + "</div>" +
-      "<div class='v'>" + usdSmart(a.total_cost_usd) + flag + "</div>" +
+      "<div class='v'>" + shown + (hit ? "\\u2020" : "") + "</div>" +
       "<div class='k'>" + Math.round(a.avg_latency_ms) + " ms avg</div>";
     host.appendChild(div);
   }

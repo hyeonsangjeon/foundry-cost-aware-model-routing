@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -474,3 +474,36 @@ def savings_claim_allowed(disclosure: Mapping[str, Any]) -> bool:
     """True only when a disclosure explicitly permits a Model Router savings claim."""
 
     return disclosure.get("savings_claim_allowed") is True
+
+
+def historical_amount_showable(disclosure: Mapping[str, Any]) -> bool:
+    """True only when a verified annotation vouches for the artifact behind an amount.
+
+    A Model Router amount survives as *historical output* — never as a cost claim —
+    and that standing comes entirely from an annotation that pins the artifact it
+    was read from by hash. Without one we cannot say which bytes produced the
+    figure, so the figure itself is withheld rather than printed next to a footnote
+    that says it is withheld.
+    """
+
+    return disclosure.get("annotation_available") is True
+
+
+def router_amount_text(
+    disclosure: Mapping[str, Any],
+    amount: Any,
+    formatter: Callable[[Any], str],
+    *,
+    compact: bool = False,
+) -> str:
+    """Format a Model Router-derived amount, or the withheld notice when unvouched.
+
+    ``compact`` returns a bare ``withheld`` token for fixed-width table cells; the
+    full reason still reaches the reader through the disclosure footnote.
+    """
+
+    if amount is None or not historical_amount_showable(disclosure):
+        if compact:
+            return "withheld"
+        return str(disclosure.get("withheld") or "withheld")
+    return formatter(amount)

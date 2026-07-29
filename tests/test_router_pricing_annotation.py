@@ -379,3 +379,90 @@ def test_arena_display_marks_only_the_router_arm(capsys: pytest.CaptureFixture[s
     assert "unaffected (direct-model, never charged the markup)" in out
     for arm in DIRECT_ARMS:
         assert arm in out
+
+
+# --------------------------------------------------------------------------
+# an unvouched amount is withheld, not printed beside a "withheld" footnote
+# --------------------------------------------------------------------------
+
+
+def _hide_annotation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ann, "DEFAULT_ANNOTATION_RELPATH", "samples/annotations/absent.json")
+
+
+def test_amount_is_showable_only_when_an_annotation_vouches_for_it() -> None:
+    assert ann.historical_amount_showable(router_cost_disclosure()) is True
+    assert ann.historical_amount_showable({"annotation_available": False}) is False
+    assert ann.historical_amount_showable({}) is False
+
+
+def test_router_amount_text_withholds_without_a_vouching_annotation() -> None:
+    fmt = lambda v: f"${v:.6f}"  # noqa: E731
+    vouched = router_cost_disclosure()
+    assert ann.router_amount_text(vouched, 0.020806, fmt) == "$0.020806"
+    unvouched = {"annotation_available": False, "withheld": "withheld — no annotation"}
+    assert ann.router_amount_text(unvouched, 0.020806, fmt) == "withheld — no annotation"
+    assert ann.router_amount_text(unvouched, 0.020806, fmt, compact=True) == "withheld"
+    # A null amount is withheld even when an annotation is present.
+    assert ann.router_amount_text(vouched, None, fmt) == vouched["withheld"]
+
+
+def test_arena_render_withholds_the_router_amount_when_unvouched(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from router.foundry_arena import FleetSlate
+
+    _hide_annotation(monkeypatch)
+    report = RouterService().dispatch(
+        "POST", "/fleet/run", body=json.dumps({"roles": {}}).encode()
+    ).payload["report"]
+    cli._print_arena_report(report, FleetSlate())
+    out = capsys.readouterr().out
+    rows = {
+        ln.split()[0]: ln
+        for ln in out.splitlines()
+        if ln.startswith("  ") and "ms  " in ln and ln.split()[0:1]
+    }
+    assert "withheld" in rows["router"]
+    assert "$" not in rows["router"]
+    # Direct-model arms still show their amounts — they were never affected.
+    for arm in DIRECT_ARMS:
+        assert "$" in rows[arm]
+        assert "withheld" not in rows[arm]
+
+
+def test_foundry_live_withholds_the_amount_when_unvouched(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _hide_annotation(monkeypatch)
+    assert cli.main(["foundry", "live"]) == 0
+    out = capsys.readouterr().out
+    cost_line = next(ln for ln in out.splitlines() if "routed cost" in ln)
+    avg_line = next(ln for ln in out.splitlines() if "avg $/task" in ln)
+    assert "withheld" in cost_line and "$0.02" not in cost_line
+    assert "withheld" in avg_line and "$0.0041" not in avg_line
+
+
+def test_publisher_withholds_the_router_amount_when_unvouched(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = json.loads(ARENA.read_text(encoding="utf-8"))
+    _hide_annotation(monkeypatch)
+    report = RouterService().dispatch(
+        "POST", "/fleet/run", body=json.dumps({"roles": {}}).encode()
+    ).payload["report"]
+    totals = report["arm_totals"]
+    assert totals["router"]["total_cost_usd"] is None
+    assert totals["router"]["cost_withheld"] is True
+    for arm in DIRECT_ARMS:
+        assert totals[arm]["total_cost_usd"] == source["arm_totals"][arm]["total_cost_usd"]
+        assert "cost_withheld" not in totals[arm]
+    # Withholding must never write back into the artifact it read.
+    assert json.loads(ARENA.read_text(encoding="utf-8")) == source
+
+
+def test_dashboard_withholds_an_unvouched_router_amount() -> None:
+    from router.dashboard import DASHBOARD_HTML
+
+    assert "disc.annotation_available === true" in DASHBOARD_HTML
+    assert "cost_withheld === true" in DASHBOARD_HTML

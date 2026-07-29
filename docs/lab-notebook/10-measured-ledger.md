@@ -122,8 +122,8 @@ annotation의 적용을 받는다는 표시입니다 — 이 원장에 라우터
 ## 변조를 잡는다 — 두 개의 독립 방어선
 
 !!! danger "데모 A — 비용 위조(재봉인 안 함): `record_hash` 불일치"
-    라우터 팔의 비용 하나를 `$0.014502 → $0.000001`로 몰래 고치고 **다시 봉인하지 않으면**,
-    정규 페이로드가 더는 `record_hash`와 맞지 않아 즉시 잡힙니다:
+    라우터 팔의 봉인된 금액 하나를 `$0.014502`§ → `$0.000001`로 몰래 고치고 **다시 봉인하지
+    않으면**, 정규 페이로드가 더는 `record_hash`와 맞지 않아 즉시 잡힙니다:
 
     ```text
     error: invalid measured ledger record at …:3: measured ledger record_hash does not match its canonical payload

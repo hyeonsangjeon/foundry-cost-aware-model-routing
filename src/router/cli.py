@@ -14,7 +14,7 @@ import textwrap
 from pathlib import Path
 
 from . import __version__
-from .annotations import router_cost_disclosure, savings_claim_allowed
+from .annotations import router_amount_text, router_cost_disclosure, savings_claim_allowed
 from .baseline import single_call_summary
 from .experiment import (
     format_experiment_list,
@@ -1047,8 +1047,10 @@ def _cmd_foundry_live(args: argparse.Namespace) -> int:
     disclosure = summary.get("router_cost_disclosure") or router_cost_disclosure()
     print(f"Azure Model Router — measured usage  ({mode})")
     print(f"  tasks             : {summary['tasks']}")
-    print(f"  routed cost†      : {format_usd(summary['total_cost_usd'])}")
-    print(f"  avg $/task†       : {format_usd_avg(summary['avg_usd_per_task'])}")
+    print(f"  routed cost†      : "
+          f"{router_amount_text(disclosure, summary['total_cost_usd'], format_usd)}")
+    print(f"  avg $/task†       : "
+          f"{router_amount_text(disclosure, summary['avg_usd_per_task'], format_usd_avg)}")
     coverage = summary["coverage"]
     if coverage is None:
         print(f"  coverage          : ungraded ({labels['coverage_basis']} — "
@@ -1283,8 +1285,13 @@ def _print_arena_report(report: dict, slate: FleetSlate) -> None:
     }
     for arm in ("cheapest", "premium", "ensemble", "router"):
         totals = report["arm_totals"][arm]
-        marker = "†" if arm in affected else " "
-        print(f"  {arm:9s} {format_usd(totals['total_cost_usd']) + marker:>15s} "
+        if arm in affected:
+            cell = router_amount_text(
+                disclosure, totals["total_cost_usd"], format_usd, compact=True
+            ) + "†"
+        else:
+            cell = format_usd(totals["total_cost_usd"]) + " "
+        print(f"  {arm:9s} {cell:>15s} "
               f"{totals['avg_latency_ms']:>10.0f}ms  {billing[arm]}")
     print("")
     mix = ", ".join(f"{m}×{n}" for m, n in report["router_model_mix"].items())
