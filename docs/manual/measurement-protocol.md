@@ -84,6 +84,30 @@ pricing.snapshot.yaml  # 이 런에 쓰인 단가를 그대로 봉인
 예상 coverage / 예상 절감률(범위) · **projection 대비 격차의 예상 방향과 이유 한 줄** ·
 이번 런에서 무엇이 나오면 "실패"인지 · 예산 상한.
 
+### 3.4 표본 크기와 증거 등급 (`evidence_tier`)
+
+몇 개의 프롬프트를 돌려야 결과를 "결과"라고 부를 수 있는가 — 이 임계값은 우리가 정한 게
+아니라 **Microsoft의 Model Router 평가 가이드**를 그대로 따릅니다.
+
+> 워크로드 프롬프트 **100개 이상**이라야 통계적으로 신뢰할 만한 결과를 얻을 수 있고,
+> **30개 미만**은 방향성(directional) 신호만 줍니다.
+>
+> — Microsoft Learn, *Evaluate model router for your workload*,
+> <https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/model-router#evaluate-model-router-for-your-workload>
+> (확인일 **2026-07-29**)
+
+그래서 이 저장소는 워크로드마다 `evidence_tier`를 붙입니다:
+
+| 워크로드 | 프롬프트 수 | `evidence_tier` | 근거 |
+| --- | --- | --- | --- |
+| `curated-24` | 24 | **`directional`** | 30 미만 — 방향성 신호만 |
+| `hero-100-prompts` | 100 | 더 강한 등급의 **첫 후보** | 100 이상 권고를 충족 |
+
+!!! note "인용 보존 규칙"
+    위 URL과 **확인일(2026-07-29)** 은 이 임계값을 Microsoft에 귀속시키는 모든 자리에서
+    함께 보존합니다. 원문이 나중에 바뀌더라도 **확인일은 그대로 두고**, 이 저장소가 유지하는
+    증거 정책과 현재 벤더 가이드를 구분해서 적습니다.
+
 ---
 
 ## 4. 결정론과 지문

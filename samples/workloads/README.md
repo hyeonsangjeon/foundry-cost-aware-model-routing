@@ -22,11 +22,17 @@
 
 ## 파일
 
-| 파일 | 규모 | 상태 |
-| --- | --- | --- |
-| `curated.template.jsonl` | 3 (예시) | **스키마 템플릿** — 스키마를 보여주는 예시일 뿐, 실험용 최종본 아님 |
-| `curated-24.jsonl` | 24 | 🚧 **미작성 — 운영자 승인 대기** (exp03·04·06·07 실측용) |
-| `hero-100-prompts.jsonl` | 100 | 🚧 **미작성 — 운영자 승인 대기** (exp01 실측용) |
+| 파일 | 규모 | `evidence_tier` | 상태 |
+| --- | --- | --- | --- |
+| `curated.template.jsonl` | 3 (예시) | — | **스키마 템플릿** — 스키마를 보여주는 예시일 뿐, 실험용 최종본 아님 |
+| `curated-24.jsonl` | 24 | **`directional`** | 🚧 **미작성 — 운영자 승인 대기** (exp03·04·06·07 실측용) |
+| `hero-100-prompts.jsonl` | 100 | 더 강한 등급의 첫 후보 | 🚧 **미작성 — 운영자 승인 대기** (exp01 실측용) |
+
+> **표본 크기 임계값의 출처.** Microsoft의 Model Router 평가 가이드는 **100개 이상**의 워크로드
+> 프롬프트라야 통계적으로 신뢰할 만한 결과를 얻을 수 있고, **30개 미만**은 방향성(directional)
+> 신호만 준다고 안내합니다 — 그래서 24개짜리 `curated-24`는 `evidence_tier = directional`입니다.
+> 출처: <https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/model-router#evaluate-model-router-for-your-workload>
+> (확인일 **2026-07-29**)
 
 !!! note "정직성·승인 경계 (§9)"
     실측 워크로드의 태스크·프롬프트는 **콘텐츠 설계**입니다. `curated.template.jsonl`은

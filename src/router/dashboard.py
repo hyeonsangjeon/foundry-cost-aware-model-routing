@@ -605,8 +605,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <div class="frontier">
       <div class="fttl">Cost &times; coverage &mdash; the trade-off frontier</div>
       <div id="frontier"><small style="color:var(--muted)">run a replay&#8230;</small></div>
-      <div class="fnote"><span class="fnote-dot"></span><b>model-router</b> (파란 점) = Azure AI Foundry
-        Model Router 형태의 <b>단일 호출</b> 라우팅 레이어 &mdash; 프롬프트마다 한 모델을 미리 고르고 에스컬레이션이 없어
+      <div class="fnote"><span class="fnote-dot"></span><b>single-call</b> (파란 점) = 프롬프트마다
+        모델을 <b>한 번</b> 고르는 단일 호출 라우팅 레이어의 일반형 &mdash; 미리 고르고 에스컬레이션이 없어
         커버리지가 낮습니다. 관찰-후-에스컬레이션하는 <b>cost-aware mix</b>가 비슷한 비용으로 커버리지를 채웁니다.
         <a href="../lab-notebook/07-model-router/">실험 07 &rarr;</a> <span class="badge measured">measured=false</span></div>
     </div>

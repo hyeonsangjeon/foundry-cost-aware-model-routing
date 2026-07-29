@@ -1,7 +1,7 @@
 # Experiment Atlas — how each experiment is built
 
 > **English visual manual.** The dashboard's **Experiments — click for the metrics** strip has six
-> tabs — `adaptive`, `curated`, `ensemble`, `hero`, `limits`, `model-router`. Each one re-runs the
+> tabs — `adaptive`, `curated`, `ensemble`, `hero`, `limits`, `single-call`. Each one re-runs the
 > *same* router over a workload and prints cost · coverage · fan-out tax under a reproducibility
 > contract. This page opens the hood: **which models** each uses, **what it processes**, **which
 > selection mechanism** (ordered escalation, fan-out, or single-call), and the **honest headline**.
@@ -15,7 +15,7 @@
 
 ## At a glance
 
-![Six experiments at a glance: hero and curated use ordered escalation, ensemble fans out, adaptive turns fan-out off, limits shows the honest floor, model-router compares single-call to the mix](../assets/experiments-overview.svg)
+![Six experiments at a glance: hero and curated use ordered escalation, ensemble fans out, adaptive turns fan-out off, limits shows the honest floor, single-call compares one up-front pick to the mix](../assets/experiments-overview.svg)
 
 Same models, same pricing, same policy everywhere. Each experiment flips exactly **one dial** — the
 workload, the fan-out gate, or the comparison arm — so you can read one idea at a time.
@@ -108,8 +108,9 @@ the **headline** (re-derived live by the command shown), and a link to the full 
     the **layer on top** — the repo's four differentiators: **① verification-based adoption**
     (`hero`, `curated`, `limits`) · **② the ensemble axis / fan-out tax** (`ensemble`) ·
     **③ the cost governor** (`adaptive`) · **④ the audit trace** (the measured bridge + ledger
-    below). The **`model-router`** card is the **⭐ centerpiece**: the head-to-head that shows *why
-    this layer exists next to the built-in router* — single-call 52% vs observe-and-escalate 100%.
+    below). The **single-call** card is the **⭐ centerpiece**: the head-to-head that shows *why
+    this layer exists next to the built-in router* — one up-front pick, no escalation, versus
+    observe-and-escalate. The synthetic coverage numbers are in that card.
 
 Each card **opens with a looping animation** that traces its real mechanism — flow dots, the
 escalation ladder, or the fan-out — while the offline (`measured=false`) numbers count up live.
@@ -225,9 +226,9 @@ correctly escalates to the top model on every task. It does not invent savings �
 on hard work.
 → [Lab-notebook 04](../lab-notebook/04-no-free-lunch.md)
 
-### `model-router` — one pick vs observe-and-escalate
+### `single-call` — one pick vs observe-and-escalate { #model-router-one-pick-vs-observe-and-escalate }
 
-![Animated model-router loop: a single-call lane picks one tier up front and stalls at 52% coverage, while the escalation lane observes cheap failures and raises only when needed to reach 100% coverage at the same cost band (+48 percentage points)](../assets/gif/model-router.gif)
+![Animated single-call loop: a single-call lane picks one tier up front and stalls at 52% coverage, while the escalation lane observes cheap failures and raises only when needed to reach 100% coverage at the same cost band (+48 percentage points)](../assets/gif/model-router.gif)
 
 | | |
 | --- | --- |
@@ -244,9 +245,12 @@ cost-router experiment run single-call
 ```
 
 A single-call router commits before it sees any check, so a wrong pick can't be corrected and
-coverage drops to 52%. The observe-then-escalate mix reclaims full coverage for nearly the same
-cost. The real Foundry Model Router's pick-skill is proprietary — that gap is exactly what the
-**measured** live bridge captures next.
+coverage of this synthetic arm drops to 52%. The observe-then-escalate mix reclaims full coverage
+for nearly the same cost.
+
+That figure is a projection of the generic *shape*, not a score for any shipped product. The real
+Foundry Model Router's pick-skill is proprietary — that gap is exactly what the **measured** live
+bridge captures next.
 → [Lab-notebook 07](../lab-notebook/07-model-router.md)
 
 ---
@@ -261,7 +265,7 @@ Put the single-call arms next to the routing strategies and the trade-off is vis
 | Strategy | Selection | Cost | Coverage |
 | --- | --- | ---: | ---: |
 | `all-mini` | cheapest candidate on every task | **$0.19** | 22.0% |
-| `model-router` | single difficulty-tiered pick | $1.59 | 52.0% |
+| `single-call` | single difficulty-tiered pick | $1.59 | 52.0% |
 | **`cost-aware mix`** | **cheapest-clean-first, escalate on fail** | **$1.66** | **100.0%** |
 | `all-premium` (naive) | priciest candidate on every task | $2.23 | 100.0% |
 | `ensemble-all` | fan out to every model, every task | $4.23 | 100.0% |

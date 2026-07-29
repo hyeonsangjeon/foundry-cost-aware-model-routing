@@ -67,11 +67,14 @@ turns out to be a single budget dial you can turn down to $0 while savings stay 
 (06). The gain is real, but it is neither infinite nor free to inflate.
 
 **Act 3 · Selection vs verification, then proof (07–10).** Experiment 07 is the
-centerpiece: single-call selection — the shape of any per-prompt router, including
-the built-in Model Router — holds only 52% coverage, while layering
+centerpiece: the generic `single-call` arm — one up-front pick per prompt, no
+escalation — holds only 52% coverage on synthetic tasks, while layering
 observe-then-escalate on top reaches 100% at comparable cost (+48%p). Experiment 08
-adds the latency axis (the cheapest correct answer is also the slowest). Finally
-09–10 wire a **real** Model Router deployment in as that arm over keyless Entra,
-capture the first `measured=true` run, and seal it into a hash-chained ledger that
-anyone can replay — one edited byte fails verification. *Selection is solved by the
-product; this repo is the verify / escalate / govern / audit layer on top.*
+adds the latency axis (the cheapest correct answer is also the slowest).
+
+That number projects the *shape* every per-prompt router shares; it is not a score
+for any shipped product. Finally 09–10 wire a **real** Model Router deployment in as
+that arm over keyless Entra, capture the first `measured=true` run, and seal it into
+a hash-chained ledger that anyone can replay — one edited byte fails verification.
+*Selection is solved by the product; this repo is the verify / escalate / govern /
+audit layer on top.*
