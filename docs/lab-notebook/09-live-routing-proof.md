@@ -50,19 +50,32 @@
 - **요청:** `chat.completions.create(model="model-router", …)` — 언제나 라우터 배포 이름.
 - **증명:** 응답의 `response.model`이 **라우터가 실제로 태운 백엔드 모델**을 담습니다. 이 값이
   ground truth입니다([`_response_model`](../manual/foundry-live.md)).
-- **비용:** 응답의 **실제 `usage`** 토큰으로 계산(`_usage_from_response`) — 합성 토큰이 아님.
+- **usage:** 응답의 **실제 `usage`** 토큰을 그대로 기록(`_usage_from_response`) — 합성 토큰이
+  아님. 여기에 요율을 곱한 금액은 라우터 팔에 한해 불완전합니다(아래 참조).
 - **인증:** 리소스가 `disableLocalAuth=true`(키 인증 꺼짐)라 **API 키 없이** `az login` 신원의
   Entra 토큰(`https://cognitiveservices.azure.com/.default`)으로만 호출.
 
 ## 결과 — 라우터가 실제로 고른 모델 (measured 스냅샷)
 
+!!! danger "이 표의 비용 열은 **불완전**합니다 — 비용 주장에 쓰지 마세요"
+    Model Router 과금은 **합성(composite)**입니다: **라우터 input 토큰 마크업** + 라우터가
+    고른 **하위 모델의 input·output** 요금. 이 캡처는 하위 모델 요율만으로 값을 매겼으므로
+    아래 `비용†` 열은 **청구 항목 하나가 빠져 있습니다**. 근사치가 아니라 **불완전**입니다.
+    원본 금액은 히스토리로 그대로 두고, 어떤 비용·절감 주장에서도 제외합니다. 근거와 범위는
+    versioned annotation
+    [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
+    에 고정돼 있고, 렌더러·발행기·리플레이가 이를 **강제**합니다(annotation이 없거나 어긋나면
+    라우터 비용 출력이 닫힙니다). **모델 선택·usage·지연·인증은 영향받지 않습니다.**
+
 | 태스크 | 클래스 | 요청 배포 | **라우터가 실제로 서빙한 모델** | in | out | reasoning | 비용† | 지연‡ |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| t-0001 | generate | `model-router` | **`grok-4-1-fast-reasoning`** | 54 | 0 | 1078 | `$0.004326` | 11.11 s |
-| t-0003 | repo_patch | `model-router` | `gpt-5.4-2026-03-05` | 72 | 541 | 10 | `$0.002276` | 6.72 s |
-| t-0004 | plan | `model-router` | `gpt-5.4-2026-03-05` | 50 | 1032 | 158 | `$0.004810` | 12.19 s |
-| t-0005 | validate | `model-router` | `gpt-5.4-2026-03-05` | 53 | 543 | 76 | `$0.002529` | 7.10 s |
-| t-0006 | test | `model-router` | **`grok-4-1-fast-reasoning`** | 59 | 0 | 1293 | `$0.005187` | 10.84 s |
+| t-0001 | generate | `model-router` | **`grok-4-1-fast-reasoning`** | 54 | 0 | 1078 | `$0.004326`† | 11.11 s |
+| t-0003 | repo_patch | `model-router` | `gpt-5.4-2026-03-05` | 72 | 541 | 10 | `$0.002276`† | 6.72 s |
+| t-0004 | plan | `model-router` | `gpt-5.4-2026-03-05` | 50 | 1032 | 158 | `$0.004810`† | 12.19 s |
+| t-0005 | validate | `model-router` | `gpt-5.4-2026-03-05` | 53 | 543 | 76 | `$0.002529`† | 7.10 s |
+| t-0006 | test | `model-router` | **`grok-4-1-fast-reasoning`** | 59 | 0 | 1293 | `$0.005187`† | 10.84 s |
+
+†라우터 input 마크업이 빠진 **불완전한** 히스토리 금액. ‡실측 wall-clock.
 
 **라우터가 사용한 모델 집계:** `gpt-5.4-2026-03-05` × 3 · `grok-4-1-fast-reasoning` × 2.
 `selection = azure-model-router` · `provenance = live` · `measured = true` · `spend_source =
@@ -93,9 +106,11 @@ provider-usage`. 라우팅 분포는 두 번의 독립 실행에서 **동일**�
     - **측정 안 됨:** **정확도(pass/fail).** `grader`를 주입하지 않았으므로 각 답이 *맞았는지*는
       채점하지 않았습니다 → `coverage_measured = false`. 실제 apply/compile/test 하네스를
       물려야 정확도까지 실측됩니다.
-    - **비용의 요율은 예시값.** 토큰은 실측이지만, 요율은 번들 `illustrative.yaml`의 **`default`
-      요율**(gpt-5.4·grok 모두 여기에 해당)로 곱했습니다 — 여러분 테넌트의 **실제 청구액이
-      아닙니다**. 실제 요율 YAML(`FOUNDRY_PRICING_PATH`)을 주면 그 값으로 계산됩니다.
+    - **라우터 파생 비용은 불완전.** 토큰은 실측이지만, 라우팅된 호출의 금액은 **하위 모델
+      요율만**으로 계산돼 **라우터 input 마크업이 빠져 있습니다**. 근사가 아니라 청구 항목이
+      하나 없는 **불완전**한 값이라, 히스토리로만 남기고 비용·절감 주장에서 제외합니다.
+      요율 자체도 예시값이라 여러분 테넌트의 **실제 청구액이 아닙니다**. 반면 단일 모델을
+      직접 부르는 팔(`cheapest`·`premium`·`ensemble`)은 마크업 대상이 아니라 **영향 없습니다**.
     - **라이브 스냅샷.** 이 리소스는 이 작업용으로 만든 것이고, 표의 수치는 한 번의 실측
       스냅샷입니다. 재실행하면 라우팅 결정은 같아도 토큰·비용·지연은 달라질 수 있습니다.
 
@@ -131,15 +146,18 @@ cost-router foundry live --live \
 ```
 
 요약의 `labels.measured = true` · `model_counts`(라우터가 실제 고른 모델별 건수) ·
-`total_cost_usd`(실측 토큰 기반)를 확인하세요. 임의 프롬프트도 같은 방식입니다 —
-`--workload my-prompts.jsonl`. 채점까지 실측하려면 `grader`를 주입하세요
-([foundry-live 매뉴얼](../manual/foundry-live.md)).
+`total_tokens`를 확인하세요. `total_cost_usd`도 함께 나오지만 라우터 파생 금액은 위에 적은
+이유로 **불완전**하며, 요약의 `router_cost_disclosure` 블록이 그 사실을 명시합니다. 임의
+프롬프트도 같은 방식입니다 — `--workload my-prompts.jsonl`. 채점까지 실측하려면 `grader`를
+주입하세요([foundry-live 매뉴얼](../manual/foundry-live.md)).
 
 ## 실험 08을 실측으로 — 4-way 라이브 아레나
 
 실험 08의 "문제 하나 × 네 방법"을 전부 **실제 Foundry 호출**로 돌리는 명령이 새로
-생겼습니다. `cheapest`·`premium`·`ensemble`·`router` 네 팔을 실제로 호출해 **비용·지연을
-실측**합니다(정확도는 미채점 — 그래더 주입 시 측정 가능).
+생겼습니다. `cheapest`·`premium`·`ensemble`·`router` 네 팔을 실제로 호출해 **usage와 지연을
+실측**합니다(정확도는 미채점 — 그래더 주입 시 측정 가능). 단일 모델 팔의 금액은 요율 카드가
+그대로 적용되지만, **`router` 팔의 금액은 라우터 마크업이 빠져 불완전**하므로 리포트는 라우터
+절감 수치를 아예 내보내지 않습니다.
 
 ```bash
 # 4-way 라이브 아레나 — 실비용·실지연, 리포트/원장 저장
@@ -156,8 +174,12 @@ cost-router foundry arena --live \
 
 !!! quote "정직한 관찰 — 라이브 라우터는 품질 최적화형"
     오프라인 실험 08은 라우터를 '가장 싼 정답'으로 투영했지만, **실측 라우터는 어지간한 코딩
-    문제를 추론 모델로 보내는 품질 최적화형**이라 *추론을 끈* 단일 `gpt-5.4`보다 비쌀 수
-    있습니다. 대신 **팬아웃 앙상블보다 싸고**(1콜/1청구) 프롬프트마다 벤더를 적정 배치합니다.
+    문제를 추론 모델로 보내는 품질 최적화형**입니다 — 다섯 콜 중 둘이 추론 모델(`grok`)로
+    갔습니다. 이건 **모델 선택**에 대한 관찰이고, 응답의 `model` 필드가 근거입니다. 다만
+    **어느 쪽이 더 싸다는 비교는 여기서 할 수 없습니다** — 라우터 파생 금액에 라우터 input
+    마크업이 빠져 있어 팬아웃 앙상블이나 단일 `gpt-5.4`와의 비용 대조가 성립하지 않습니다.
+    구조적으로 라우터는 프롬프트당 1콜/1청구, 팬아웃은 N콜/N청구라는 **호출 수**의 차이는
+    남지만, 그 자체가 금액 우열을 뜻하진 않습니다.
     설정·근거는 [Foundry 실전 구성 매뉴얼](../manual/foundry-setup.md)을 보세요.
 
 ---

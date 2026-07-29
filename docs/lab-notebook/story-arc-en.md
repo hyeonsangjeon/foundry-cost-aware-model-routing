@@ -23,7 +23,7 @@ four axes this notebook meters offline:
 - **① Verify-then-adopt** — accept only when execution signals are clean, escalate the failures (gains in 01–02, guardrails in 03–04).
 - **② Ensemble axis** — expose and meter the fan-out tax (winner-only vs summing all = 3.74×) ([05](05-ensemble-fanout.md)).
 - **③ Cost governor** — dial that tax down with a budget gate (3.74× → $0) ([06](06-fanout-dial.md)).
-- **④ Audit trace** — seal measured spend into a tamper-evident, cost-replayable ledger ([09](09-live-routing-proof.md) · [10](10-measured-ledger.md)).
+- **④ Audit trace** — seal measured runs into a tamper-evident, cost-replayable ledger ([09](09-live-routing-proof.md) · [10](10-measured-ledger.md)).
 
 **[Experiment 07](07-model-router.md)** *is* that contrast: single-call selection
 (**52%**) vs observe-then-escalate mix (**100%**) at ~the same cost. *Selection is

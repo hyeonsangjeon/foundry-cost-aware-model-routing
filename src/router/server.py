@@ -37,6 +37,11 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
+from .annotations import (
+    historical_amount_showable,
+    router_cost_disclosure,
+    savings_claim_allowed,
+)
 from .dashboard import DASHBOARD_HTML
 from .experiment import (
     Experiment,
@@ -631,15 +636,46 @@ class RouterService:
         data = json.loads(path.read_text(encoding="utf-8"))
         labels = dict(data.get("labels") or {})
         labels.update({"measured": False, "provenance": "recorded", "captured_from": "live"})
+        # The router arm's stored amount omits the Model Router input-token
+        # markup, so this publisher never republishes a savings figure with it.
+        disclosure = router_cost_disclosure(root=self._samples_root)
+        savings = data.get("router_vs_premium_savings_pct")
+        arm_totals = self._publishable_arm_totals(data.get("arm_totals"), disclosure)
         report = {
             "tasks": data.get("tasks"),
-            "arm_totals": data.get("arm_totals"),
+            "arm_totals": arm_totals,
             "router_model_mix": data.get("router_model_mix"),
-            "router_vs_premium_savings_pct": data.get("router_vs_premium_savings_pct"),
+            "router_vs_premium_savings_pct": (
+                savings if savings_claim_allowed(disclosure) else None
+            ),
+            "router_cost_disclosure": disclosure,
             "labels": labels,
             "captured_at": data.get("captured_at"),
         }
         return {"report": report, "fleet": data.get("resource")}
+
+    @staticmethod
+    def _publishable_arm_totals(
+        arm_totals: Any, disclosure: Mapping[str, Any]
+    ) -> dict[str, Any] | None:
+        """Withhold Router-derived amounts no verified annotation vouches for.
+
+        With a valid annotation the amount is republished as historical output.
+        Without one we cannot say which bytes produced it, so the affected arms
+        carry ``None`` instead of a number a consumer might render as fact.
+        Direct-model arms are never touched.
+        """
+
+        if not isinstance(arm_totals, Mapping):
+            return arm_totals
+        published = {arm: dict(totals) for arm, totals in arm_totals.items()}
+        if historical_amount_showable(disclosure):
+            return published
+        for arm in disclosure.get("affected_arms") or ("router",):
+            if arm in published:
+                published[arm]["total_cost_usd"] = None
+                published[arm]["cost_withheld"] = True
+        return published
 
     def _resolve_pricing(self, body: dict[str, Any]) -> PricingTable | None:
         mode = body.get("pricing", "illustrative")

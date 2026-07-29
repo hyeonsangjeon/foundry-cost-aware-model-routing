@@ -181,7 +181,7 @@ def test_arm_measured_flag_requires_all_live() -> None:
     assert ArmResult("a", "s", "d", "m", 1, "single-call", 0.0, 1.0, (recorded,)).measured is False
 
 
-def test_arena_report_aggregates_mix_and_savings() -> None:
+def test_arena_report_aggregates_mix_and_withholds_savings() -> None:
     fleet, _ = _fleet()
     pricing = _pricing()
     outcomes = [run_arena_task(fleet, _task(), FleetSlate(), pricing)]
@@ -190,8 +190,13 @@ def test_arena_report_aggregates_mix_and_savings() -> None:
     assert report["labels"]["measured"] is True
     assert report["router_model_mix"] == {"grok-4-1-fast-reasoning": 1}
     assert set(report["arm_totals"]) == {"cheapest", "premium", "ensemble", "router"}
-    # router (grok) is cheaper than premium (gpt-5.4) in this fake -> positive savings
-    assert report["router_vs_premium_savings_pct"] > 0
+    # The router amount omits the Model Router input-token markup, so the report
+    # carries the disclosure and withholds the router-versus-premium delta.
+    disclosure = report["router_cost_disclosure"]
+    assert disclosure["pricing_incomplete"] is True
+    assert disclosure["savings_claim_allowed"] is False
+    assert disclosure["reason_code"] == "missing_router_input_markup"
+    assert report["router_vs_premium_savings_pct"] is None
 
 
 # -- inputs & ledger ---------------------------------------------------------

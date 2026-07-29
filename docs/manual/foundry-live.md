@@ -146,11 +146,12 @@ summary = measured_router_summary(
 #                      coverage_measured, coverage_basis}
 ```
 
-- **비용**은 `outcome.usage`를 `pricing`으로 계산 — 실측 지출.
+- **비용**은 `outcome.usage`를 `pricing`으로 계산합니다. usage는 실측이지만, `model-router`
+  배포로 간 호출의 금액은 **라우터 input 마크업이 빠져 불완전**합니다(아래 `†` 참조).
 - **커버리지**는 `grader`가 있으면 측정(`coverage_basis = "graded"`), 없으면 그 모델의
   오프라인 신호 투영(`"offline-projection"`)입니다. 포착된 **실제 모델**은 오프라인 신호에
   대응 행이 없으므로 커버리지는 정직하게 **미채점**(`coverage = null`,
-  `coverage_basis = "ungraded"`)이 됩니다 — 지출은 측정되지만 정확도는 아닙니다.
+  `coverage_basis = "ungraded"`)이 됩니다 — usage는 측정되지만 정확도는 아닙니다.
 - **`measured`**는 모든 outcome의 provenance가 `live`일 때만 `true`.
 - **`model_aliases`**는 `gpt-4o` 같은 벤더 이름을 요율/신호 키로 매핑합니다.
 
@@ -167,13 +168,27 @@ cost-router foundry live
 ```
 
 ```text
-Azure Model Router — measured spend  (recorded snapshot (…/model-router-usage.sample.json))
-  routed cost (real): $0.020334          # 포착된 실제 usage를 5-시리즈 요율로 계산
-  coverage          : ungraded (ungraded — spend is measured, correctness needs a grader)
+Azure Model Router — measured usage  (recorded snapshot (…/model-router-usage.sample.json))
+  tasks             : 5
+  routed cost†      : $0.02              # 포착된 실제 usage를 5-시리즈 요율로 계산
+  avg $/task†       : $0.0041
+  coverage          : ungraded (ungraded — usage is measured, correctness needs a grader)
+  spend source      : provider-usage
   provenance        : recorded
   measured          : no                 # 재생이므로 measured=false
+  † Model Router-derived cost omits the router input-token markup component. Retained as historical output; not publishable and not usable for a savings claim.
   → this is a replay/projection; run with --live + credentials for measured=true.
 ```
+
+!!! danger "`†` — 라우터 파생 금액은 **불완전**합니다"
+    Model Router 과금은 합성입니다: **라우터 input 토큰 마크업** + 고른 하위 모델의
+    input·output. 요율 카드에 마크업 항목이 없어 라우팅된 호출의 금액에는 **청구 항목 하나가
+    빠져 있습니다** — 근사가 아니라 불완전입니다. 금액은 히스토리로 표시하되 비용·절감
+    주장에는 쓰지 않으며, CLI가 이 각주를 **직접 강제**합니다: versioned annotation
+    [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
+    을 못 읽거나 해시가 어긋나면 더 엄격한 문구로 **fail-closed** 됩니다. 토큰 usage·모델
+    선택·지연·인증은 이 결함과 무관하게 유효하고, 단일 배포를 직접 부르는 arm은 영향받지
+    않습니다.
 
 ### 녹화 스냅샷을 실제 Azure로 다시 포착 — `--capture`
 
@@ -216,12 +231,14 @@ cost-router foundry live --live \
 ```
 
 ```text
-Azure Model Router — measured spend  (LIVE Azure Model Router)
+Azure Model Router — measured usage  (LIVE Azure Model Router)
   tasks             : 5
-  routed cost (real): $…                 # 여러분 배포가 실제로 청구한 usage
+  routed cost†      : $…                 # 여러분 배포가 실제로 청구한 usage × 요율 카드
+  avg $/task†       : $…
   coverage (projected): …                # grader 없으면 오프라인 신호 투영
   provenance        : live
   measured          : yes                # 방금 일어난 라이브 호출
+  † Model Router-derived cost omits the router input-token markup component. …
 ```
 
 크리덴셜이 아직 없으면, **같은 워크로드를 녹화 스냅샷으로** 돌려 경로를 그대로 확인할 수
@@ -255,7 +272,8 @@ dashboard** 패널과 `metrics history`가 그대로 읽습니다:
 ```bash
 cost-router foundry live --store runs.jsonl
 cost-router metrics history --store runs.jsonl
-# 2026-…Z  foundry-live cov=0.0% routed=$0.020334 …   # cov=0.0% = 미채점(수치 히스토리 기본값), measured=no
+# 2026-…Z  foundry-live cov=0.0% routed=$0.020334 …   # cov=0.0% = 미채점, measured=no
+#                                    ↑ 라우터 파생 금액 — pricing incomplete (위 † 참조)
 ```
 
 행에는 `measured` 플래그와 `provenance`·`spend_source` 차원이 실려, 라이브 실측 실행과
@@ -298,4 +316,5 @@ client = AzureModelRouterClient(
 !!! tip "정직함 규약과의 관계"
     이 브릿지는 [정직함 규약](../honesty.md)의 *"여러분 테넌트의 라이브 eval → `measured =
     true`"* 행을 실제로 채우는 코드입니다. 요율은 `samples/pricing/your-tenant.yaml`(gitignored)에
-    **여러분의 실제 요율**을 넣어야 측정 지출이 여러분 범위로 정확해집니다.
+    **여러분의 실제 요율**을 넣어야 금액이 여러분 범위로 가까워집니다(라우터 파생 금액은 마크업
+    항목이 채워지기 전까지 그와 별개로 불완전한 채입니다).

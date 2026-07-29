@@ -1552,6 +1552,17 @@ function renderFleetRun(d) {
   $("fleetResult").hidden = false;
   const rep = d.report || {};
   const arms = rep.arm_totals || {};
+  // Fail closed: without an explicit disclosure the router arm is treated as
+  // pricing-incomplete and no savings figure is rendered.
+  const disc = rep.router_cost_disclosure || {
+    annotation_available: false,
+    savings_claim_allowed: false,
+    affected_arms: ["router"],
+    label: "pricing annotation unavailable",
+    short: "Model Router cost is withheld because its pricing annotation is unavailable.",
+    withheld: "withheld"
+  };
+  const affected = new Set(disc.affected_arms || ["router"]);
   const host = $("fleetArms");
   host.innerHTML = "";
   for (const k of ["cheapest", "ensemble", "premium", "router"]) {
@@ -1559,21 +1570,29 @@ function renderFleetRun(d) {
     if (!a) continue;
     const div = document.createElement("div");
     div.className = "fleet-arm" + (k === "router" ? " router" : "");
+    const hit = affected.has(k);
+    // Fail closed: an affected amount is shown only when a verified annotation
+    // vouches for the artifact it came from. Otherwise the figure is withheld.
+    const vouched = disc.annotation_available === true;
+    const shown = (hit && (!vouched || a.total_cost_usd == null || a.cost_withheld === true))
+      ? (disc.withheld || "withheld")
+      : usdSmart(a.total_cost_usd);
     div.innerHTML =
       "<div class='k'>" + k + "</div>" +
-      "<div class='v'>" + usdSmart(a.total_cost_usd) + "</div>" +
+      "<div class='v'>" + shown + (hit ? "\\u2020" : "") + "</div>" +
       "<div class='k'>" + Math.round(a.avg_latency_ms) + " ms avg</div>";
     host.appendChild(div);
   }
   const lab = rep.labels || {};
   const savings = rep.router_vs_premium_savings_pct;
+  const claimable = disc.savings_claim_allowed === true && savings != null;
   const lb = $("fleetLabels");
   lb.innerHTML = "";
   const badges = [
     ["measured", String(lab.measured)],
     ["provenance", lab.provenance || "\\u2014"],
     ["cost_basis", lab.cost_basis || "\\u2014"],
-    ["router vs premium", (savings != null ? savings + "%" : "\\u2014")],
+    ["router vs premium", (claimable ? savings + "%" : (disc.withheld || "withheld"))],
   ];
   for (const [k, v] of badges) {
     const c = document.createElement("span");
@@ -1585,7 +1604,7 @@ function renderFleetRun(d) {
   const mixStr = Object.entries(mix).map(([m, n]) => m + "\\u00d7" + n).join(", ");
   $("fleetRouterMix").textContent = mixStr ? ("router picked: " + mixStr) : "\\u2014";
   $("fleetLive").textContent = d.live_command || "\\u2014";
-  $("fleetNote").textContent = d.note || "";
+  $("fleetNote").textContent = "\\u2020 " + (disc.short || "") + " " + (d.note || "");
 }
 
 // -- live cockpit (Phase C) --------------------------------------------------

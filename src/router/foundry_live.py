@@ -44,6 +44,7 @@ from urllib.parse import urlsplit
 
 from policy import PolicyTable
 
+from .annotations import router_cost_disclosure
 from .pricing import PricingTable
 from .select import is_clean
 
@@ -644,6 +645,10 @@ def measured_router_summary(
         "avg_usd_per_task": round(total / counted, 6) if counted else 0.0,
         "model_counts": model_counts,
         "selection": "azure-model-router",
+        # Every amount above is derived from a Model Router deployment, so it
+        # inherits the pricing-incompleteness disclosure. It travels with the
+        # summary so no downstream publisher can drop it.
+        "router_cost_disclosure": router_cost_disclosure(),
         "labels": {
             "measured": measured,
             "spend_source": "provider-usage",
