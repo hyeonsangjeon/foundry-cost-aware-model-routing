@@ -136,8 +136,8 @@ def test_foundry_live_recorded_surface(capsys: pytest.CaptureFixture[str]) -> No
     out = capsys.readouterr().out
     _assert_reader_precision(out)
     # The README quotes these exact rendered values.
-    assert "routed cost (real): $0.02" in out
-    assert "avg $/task        : $0.0041" in out
+    assert "routed cost†      : $0.02" in out
+    assert "avg $/task†       : $0.0041" in out
 
 
 # --------------------------------------------------------------------------

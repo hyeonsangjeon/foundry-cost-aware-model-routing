@@ -155,7 +155,7 @@ real **measured** runs against a live Foundry Model Router:
 | 07 | [Routing layer](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/07-model-router/) | Single-call routing — pick once, no escalation (the shape any per-prompt router has, including ours in ordered-only mode)? | 52% coverage; layering observe-then-escalate on top reaches 100% at ~the same cost (gain **+48%p**) — experiment 09 wires a real deployment in as this arm |
 | 08 | [Arena](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/08-arena/) *(per-task lens)* | One problem, four ways — cost · latency · accuracy at a glance? | router is the **cheapest correct** answer but the **slowest** (sequential escalation); latency is a **new illustrative projection** |
 | 09 | [Live routing proof](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/09-live-routing-proof/) *(measured)* | Wired to a real Foundry Model Router, what does it actually pick? | one `model-router` deployment really split to **`gpt-5.4` (×3) and `grok-4-1-fast-reasoning` (×2)** — the repo's **first `measured = true`** run, keyless Entra |
-| 10 | [Measured ledger](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/10-measured-ledger/) *(measured)* | Once it's measured, can anyone re-verify the spend wasn't tampered with? | the live run is sealed into a **hash-chained, cost-replayable** ledger — `measured-replay` re-derives every cost from token usage × a pinned rate card; **one edited byte fails it**, the offline ledger stays untouched |
+| 10 | [Measured ledger](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/10-measured-ledger/) *(measured)* | Once it's measured, can anyone re-verify the record wasn't tampered with? | the live run is sealed into a **hash-chained, cost-replayable** ledger — `measured-replay` re-derives every amount from token usage × a pinned rate card; **one edited byte fails it**, the offline ledger stays untouched. Integrity, not a cost claim: the router arm's amounts are **pricing-incomplete** and carry a versioned annotation that every renderer enforces |
 
 Experiments 01–02 are the win; 03–07 are the guardrails; 08 is a per-task **lens**
 (an interactive arena that collapses the frontier to a single task and adds a
@@ -267,10 +267,18 @@ cost-router experiment run single-call       # 100% coverage, −25.5% — singl
 ```
 
 The live measured bridge — turning that env-gated adapter into **measured
-spend**. `cost-router foundry live` prices a Model Router run on the endpoint's
-**real token usage** (not synthetic tokens): the recorded snapshot costs out to
-`$0.02` measured spend (avg `$0.0041`/task), coverage ungraded — spend is
-measured; correctness needs a grader. `measured=true` is reserved for a genuine
+usage**. `cost-router foundry live` prices a Model Router run on the endpoint's
+**real token usage** (not synthetic tokens): the recorded snapshot reports
+`$0.02` (avg `$0.0041`/task) as **pricing-incomplete historical output**,
+coverage ungraded — usage is measured; correctness needs a grader. Model
+Router billing is composite (a router input-token markup **plus** the resolved
+model's charges) and the pinned rate card declares no markup, so every routed
+amount omits one billed component. The CLI marks those figures `†` and refuses
+to publish a router savings claim; if the versioned annotation
+([`samples/annotations/legacy-router-pricing.annotation.json`](samples/annotations/legacy-router-pricing.annotation.json))
+is missing or its hashes drift, every renderer, publisher and replay **fails
+closed**. Direct-model arms are never charged the markup and are unaffected.
+`measured=true` is reserved for a genuine
 live call; without credentials it replays a recorded snapshot so the path stays
 offline/deterministic. Secrets are never printed — `foundry status` masks them
 (manual: 라이브 실측 브릿지):

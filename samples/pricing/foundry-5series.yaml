@@ -1,16 +1,26 @@
 # Azure AI Foundry 5-series + Model Router fleet — per-1M-token LIST prices (USD).
 #
 # BASIS: public Azure AI Foundry list prices (global standard deployment, 2025).
-#   Model Router bills at the UNDERLYING model's rate, so this table is keyed by
-#   the models the router actually dispatches to on this resource
-#   (aoai-router5-ext-faf57f): the GPT-5.4 family, xAI Grok 4 Fast, and gpt-oss.
+#   This table is keyed by the models the router actually dispatches to on this
+#   resource (aoai-router5-ext-faf57f): the GPT-5.4 family, xAI Grok 4 Fast, and
+#   gpt-oss.
+#
+# INCOMPLETE FOR ROUTED CALLS: Model Router pricing is composite — a router
+#   input-token markup PLUS the resolved underlying model's input and output
+#   charges. This card declares no router input-markup component, so any total
+#   it produces for a `model-router` deployment omits one billed component and
+#   is incomplete, not merely approximate. Direct-model arms are unaffected:
+#   a single model deployment is never charged the router markup. The rates
+#   below are left as captured; see
+#   samples/annotations/legacy-router-pricing.annotation.json.
 #
 # HONESTY: `cost-router foundry arena --live` prices REAL token usage from REAL
 #   calls (labels.measured = true, spend_source = provider-usage). The dollar
-#   figure is that real usage x THESE list rates. For exact tenant spend, copy
-#   this file, drop in your negotiated rates, and pass --pricing (or set
-#   FOUNDRY_PRICING_PATH). Model names are normalized (a trailing -YYYY-MM-DD
-#   version suffix is stripped) before lookup, so dated ids like
+#   figure is that real usage x THESE list rates — complete for direct-model
+#   arms, incomplete for routed calls per the note above. For exact tenant
+#   spend, copy this file, drop in your negotiated rates, and pass --pricing (or
+#   set FOUNDRY_PRICING_PATH). Model names are normalized (a trailing
+#   -YYYY-MM-DD version suffix is stripped) before lookup, so dated ids like
 #   `gpt-5.4-2026-03-05` price against the `gpt-5.4` row below.
 #
 # Reasoning tokens are billed at the output rate. Cached input reflects Azure
@@ -35,7 +45,9 @@ models:
   gpt-5:                    { input: 1.25, cached: 0.125, output: 10.00, reasoning: 10.00 }
 
   # The router deployment itself never bills directly (it delegates), but keep a
-  # row so an unresolved id is never silently cheap.
+  # row so an unresolved id is never silently cheap. This row does NOT make a
+  # routed total complete — the router input-token markup is a separate,
+  # undeclared component.
   model-router:             { input: 1.25, cached: 0.125, output: 10.00, reasoning: 10.00 }
 
 # Any model not listed prices at the frontier rate so unknowns are never underpriced.

@@ -37,6 +37,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
+from .annotations import router_cost_disclosure, savings_claim_allowed
 from .dashboard import DASHBOARD_HTML
 from .experiment import (
     Experiment,
@@ -631,11 +632,18 @@ class RouterService:
         data = json.loads(path.read_text(encoding="utf-8"))
         labels = dict(data.get("labels") or {})
         labels.update({"measured": False, "provenance": "recorded", "captured_from": "live"})
+        # The router arm's stored amount omits the Model Router input-token
+        # markup, so this publisher never republishes a savings figure with it.
+        disclosure = router_cost_disclosure(root=self._samples_root)
+        savings = data.get("router_vs_premium_savings_pct")
         report = {
             "tasks": data.get("tasks"),
             "arm_totals": data.get("arm_totals"),
             "router_model_mix": data.get("router_model_mix"),
-            "router_vs_premium_savings_pct": data.get("router_vs_premium_savings_pct"),
+            "router_vs_premium_savings_pct": (
+                savings if savings_claim_allowed(disclosure) else None
+            ),
+            "router_cost_disclosure": disclosure,
             "labels": labels,
             "captured_at": data.get("captured_at"),
         }

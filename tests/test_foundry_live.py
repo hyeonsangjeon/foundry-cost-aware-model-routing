@@ -610,7 +610,7 @@ def test_cli_foundry_live_recorded_records_to_store(
 ) -> None:
     store = tmp_path / "history.jsonl"
     assert cli.main(["foundry", "live", "--store", str(store)]) == 0
-    assert "measured spend" in capsys.readouterr().out
+    assert "measured usage" in capsys.readouterr().out
     rows = [json.loads(line) for line in store.read_text(encoding="utf-8").splitlines() if line]
     assert len(rows) == 1
     assert rows[0]["experiment"] == "foundry-live"

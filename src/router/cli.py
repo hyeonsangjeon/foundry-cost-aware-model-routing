@@ -14,6 +14,7 @@ import textwrap
 from pathlib import Path
 
 from . import __version__
+from .annotations import router_cost_disclosure, savings_claim_allowed
 from .baseline import single_call_summary
 from .experiment import (
     format_experiment_list,
@@ -697,17 +698,35 @@ def _cmd_ledger_replay(args: argparse.Namespace) -> int:
 
 
 def _cmd_ledger_measured_replay(args: argparse.Namespace) -> int:
-    from .ledger import verify_measured_ledger
+    from .ledger import MeasuredJsonlLedger, verify_measured_records
 
     try:
-        report = verify_measured_ledger(args.ledger)
+        records = MeasuredJsonlLedger(args.ledger).read_all()
+        report = verify_measured_records(records)
     except (OSError, ValueError) as exc:
         print(f"error: {exc}")
+        print("status: FAIL")
+        return 1
+    arms = {
+        str(name).strip().lower()
+        for record in records
+        for name in (record.outcome.get("arms") or {})
+    }
+    # A replay that re-derives a Model Router amount asserts that amount is
+    # sound. Without a valid annotation covering the router arm that assertion
+    # cannot be made, so the replay fails closed instead of printing PASS.
+    disclosure = router_cost_disclosure()
+    affected = sorted(arms & {str(a).strip().lower() for a in disclosure["affected_arms"]})
+    if affected and not disclosure["annotation_available"]:
+        print(f"error: {disclosure['error']}")
         print("status: FAIL")
         return 1
     print(f"records: {report.records}")
     print(f"replayed: {report.replayed}")
     print("  → each recorded call cost re-derived from its usage × the pinned rate card")
+    if affected:
+        print(f"  → {', '.join(affected)} arm cost is {disclosure['label']}")
+        print(f"     {disclosure['short']}")
     print(f"status: {'PASS' if report.ok else 'FAIL'}")
     if report.mismatches:
         print(json.dumps(list(report.mismatches), indent=2, sort_keys=True))
@@ -1025,20 +1044,22 @@ def _cmd_foundry_live(args: argparse.Namespace) -> int:
         return 0
 
     labels = summary["labels"]
-    print(f"Azure Model Router — measured spend  ({mode})")
+    disclosure = summary.get("router_cost_disclosure") or router_cost_disclosure()
+    print(f"Azure Model Router — measured usage  ({mode})")
     print(f"  tasks             : {summary['tasks']}")
-    print(f"  routed cost (real): {format_usd(summary['total_cost_usd'])}")
-    print(f"  avg $/task        : {format_usd_avg(summary['avg_usd_per_task'])}")
+    print(f"  routed cost†      : {format_usd(summary['total_cost_usd'])}")
+    print(f"  avg $/task†       : {format_usd_avg(summary['avg_usd_per_task'])}")
     coverage = summary["coverage"]
     if coverage is None:
         print(f"  coverage          : ungraded ({labels['coverage_basis']} — "
-              "spend is measured, correctness needs a grader)")
+              "usage is measured, correctness needs a grader)")
     else:
         cov_kind = "measured" if labels["coverage_measured"] else "projected"
         print(f"  coverage ({cov_kind}): {coverage:.1%}")
     print(f"  spend source      : {labels['spend_source']}")
     print(f"  provenance        : {labels['provenance']}")
     print(f"  measured          : {_yn(labels['measured'])}")
+    print(f"  † {disclosure['short']}")
     if not labels["measured"]:
         print("  → this is a replay/projection; run with --live + credentials for measured=true.")
     return 0
@@ -1242,6 +1263,8 @@ def _cmd_foundry_arena(args: argparse.Namespace) -> int:
 
 def _print_arena_report(report: dict, slate: FleetSlate) -> None:
     labels = report["labels"]
+    disclosure = report.get("router_cost_disclosure") or router_cost_disclosure()
+    affected = set(disclosure.get("affected_arms") or ("router",))
     print("Azure AI Foundry — live arena (one problem, four ways)")
     print(f"  tasks     : {report['tasks']}   measured: {_yn(labels['measured'])}   "
           f"cost basis: {labels['cost_basis']}   accuracy: {labels['accuracy']}")
@@ -1249,9 +1272,9 @@ def _print_arena_report(report: dict, slate: FleetSlate) -> None:
           f"router={slate.router}")
     print(f"  ensemble  : {' + '.join(slate.ensemble)}")
     print("")
-    header = f"  {'arm':9s} {'cost (real $)':>14s} {'avg latency':>12s}  billing"
+    header = f"  {'arm':9s} {'cost (list $)':>15s} {'avg latency':>12s}  billing"
     print(header)
-    print(f"  {'-' * 9} {'-' * 14:>14s} {'-' * 11:>12s}  {'-' * 16}")
+    print(f"  {'-' * 9} {'-' * 15:>15s} {'-' * 11:>12s}  {'-' * 16}")
     billing = {
         "cheapest": "single-call",
         "premium": "single-call",
@@ -1260,14 +1283,23 @@ def _print_arena_report(report: dict, slate: FleetSlate) -> None:
     }
     for arm in ("cheapest", "premium", "ensemble", "router"):
         totals = report["arm_totals"][arm]
-        print(f"  {arm:9s} {format_usd(totals['total_cost_usd']):>14s} "
+        marker = "†" if arm in affected else " "
+        print(f"  {arm:9s} {format_usd(totals['total_cost_usd']) + marker:>15s} "
               f"{totals['avg_latency_ms']:>10.0f}ms  {billing[arm]}")
     print("")
     mix = ", ".join(f"{m}×{n}" for m, n in report["router_model_mix"].items())
     print(f"  router picked      : {mix}")
-    print(f"  router vs premium  : {report['router_vs_premium_savings_pct']:.1f}% cheaper "
-          f"(real usage, list-price basis)")
-    print("  note: cost + latency are MEASURED; per-answer accuracy is ungraded "
+    savings = report.get("router_vs_premium_savings_pct")
+    if savings is None or not savings_claim_allowed(disclosure):
+        print(f"  router vs premium  : {disclosure['withheld']}")
+    else:
+        print(f"  router vs premium  : {savings:.1f}% cheaper "
+              f"(real usage, list-price basis)")
+    print(f"  † {disclosure['short']}")
+    unaffected = disclosure.get("unaffected_arms") or []
+    if unaffected:
+        print(f"    unaffected (direct-model, never charged the markup): {', '.join(unaffected)}")
+    print("  note: usage + latency are MEASURED; per-answer accuracy is ungraded "
           "(plug a grader to score correctness).")
 
 

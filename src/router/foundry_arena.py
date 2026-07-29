@@ -43,6 +43,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
+from .annotations import router_cost_disclosure, savings_claim_allowed
 from .foundry_live import (
     AzureModelRouterClient,
     FoundryConfig,
@@ -396,10 +397,13 @@ def arena_report(outcomes: Sequence[ArenaOutcome], pricing: PricingTable) -> dic
         picked = o.arms["router"].chosen_model
         router_models[picked] = router_models.get(picked, 0) + 1
     measured = bool(outcomes) and all(o.labels["measured"] for o in outcomes)
-    premium_total = totals["premium"]["total_cost_usd"]
-    router_total = totals["router"]["total_cost_usd"]
+    # The router arm's cost omits the Model Router input-token markup, so a
+    # router-versus-premium delta is not a publishable saving. The number is
+    # withheld here rather than at the renderer so no consumer of this report
+    # can republish it as complete.
+    disclosure = router_cost_disclosure()
     savings_pct = (
-        round((premium_total - router_total) / premium_total * 100, 1) if premium_total else 0.0
+        _router_vs_premium_savings_pct(totals) if savings_claim_allowed(disclosure) else None
     )
     return {
         "version": 1,
@@ -408,6 +412,7 @@ def arena_report(outcomes: Sequence[ArenaOutcome], pricing: PricingTable) -> dic
         "arm_totals": totals,
         "router_model_mix": router_models,
         "router_vs_premium_savings_pct": savings_pct,
+        "router_cost_disclosure": disclosure,
         "labels": {
             "measured": measured,
             "provenance": "live" if measured else "mixed",
@@ -417,6 +422,16 @@ def arena_report(outcomes: Sequence[ArenaOutcome], pricing: PricingTable) -> dic
         },
         "results": per_task,
     }
+
+
+def _router_vs_premium_savings_pct(totals: Mapping[str, Mapping[str, float]]) -> float:
+    """Router-versus-premium delta, only ever emitted when a savings claim is allowed."""
+
+    premium_total = float(totals["premium"]["total_cost_usd"])
+    router_total = float(totals["router"]["total_cost_usd"])
+    if not premium_total:
+        return 0.0
+    return round((premium_total - router_total) / premium_total * 100, 1)
 
 
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "annotation_id": "legacy-router-pricing-incomplete",
+  "annotation_version": 1,
+  "supersedes": null,
+  "issued_at": "2026-07-29",
+  "title": "Model Router-derived cost in the committed measured artifacts is pricing-incomplete",
+  "reason_code": "missing_router_input_markup",
+  "reason": "Azure AI Foundry Model Router pricing is composite: a router input-token markup plus the resolved underlying model's input and output charges. The committed artifacts below priced every routed call at the resolved underlying model's rate alone, because the rate card they were scored against declares no router input-markup component. Every Model Router-derived amount in these artifacts therefore omits one billed component and is incomplete, not merely approximate.",
+  "authority": "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/model-router#evaluate-model-router-for-your-workload",
+  "effects": {
+    "pricing_incomplete": true,
+    "publishable": false,
+    "savings_claim_allowed": false
+  },
+  "disclosure": {
+    "label": "pricing incomplete — missing Router input markup",
+    "short": "Model Router-derived cost omits the router input-token markup component. Retained as historical output; not publishable and not usable for a savings claim.",
+    "withheld": "withheld — Model Router cost is pricing-incomplete (missing Router input markup)"
+  },
+  "reprice": {
+    "repriced": false,
+    "reason": "No historically applicable router input-markup rate for the 2026-07-20 capture window is pinned in this repository, and the capture predates any rate card that carries such a component. Reconstructing one would be an estimate, so no historical amount is recomputed. The original amounts stay byte-identical as historical output and are excluded from every cost or savings claim.",
+    "requires": [
+      "a pinned router input-markup rate that is provably applicable to the capture date, region, and deployment SKU",
+      "a pinned underlying-model rate basis for every model the router resolved to, on the same basis"
+    ]
+  },
+  "scope": {
+    "affected_arms": [
+      "router"
+    ],
+    "affected_deployments": [
+      "model-router"
+    ],
+    "applies_when": "a cost is derived from a request sent to a Model Router deployment and priced by a rate card that declares no router input-markup component",
+    "unaffected": {
+      "arms": [
+        "cheapest",
+        "premium",
+        "ensemble"
+      ],
+      "reason": "Direct-model arms address a single model deployment and are never charged a router input-token markup. Their amounts are not downgraded by this annotation; only the router arm is incomplete."
+    },
+    "unaffected_evidence": [
+      "which model the router resolved to, as reported by the provider response model field",
+      "provider-reported token usage",
+      "wall-clock latency",
+      "keyless Microsoft Entra ID authentication",
+      "hash-chain integrity and deterministic cost re-derivation of the sealed ledger"
+    ]
+  },
+  "evidence_artifacts": [
+    {
+      "path": "samples/responses/foundry-arena-measured.json",
+      "role": "measured_response_sample",
+      "sha256": "7c8c2de8824f61d7b259ef7707846fe60828120d466febceaa74bc4273fa51b5",
+      "bytes": 24269,
+      "immutable": true,
+      "affected_fields": [
+        "arm_totals.router.total_cost_usd",
+        "results[].arms.router.cost_usd",
+        "results[].arms.router.calls[].cost_usd",
+        "_note (its cost comparison against the fan-out ensemble is superseded by this annotation and must not be quoted)"
+      ]
+    },
+    {
+      "path": "samples/ledger/arena-measured.ledger.jsonl",
+      "role": "measured_ledger",
+      "sha256": "89ee0d1bc2a01e2d86d96c15c69d45f07ca72e228b3c5769b341b94964d9c8d1",
+      "bytes": 16158,
+      "immutable": true,
+      "affected_fields": [
+        "outcome.arms.router.cost_usd",
+        "outcome.arms.router.calls[].cost_usd"
+      ],
+      "record_hashes": [
+        "2ebe46b76991fd957f5920b22d0040f7d73b08c16dc88900952a02f60bebf64f",
+        "9f70f421498eec2f0279af354234fcdc7ec393e919e04179e87b2a1d72ae9544",
+        "a3d0d95451ff810894fdd2306fc4200920ca9ea6637184241bc2f8f5ee93dcef",
+        "89b6da64fa12ef7b53421b26ea301ce8d7dfa9de2b07339fc74ed759c7c5f724",
+        "8847b126d77e935e4a1049bd4353093ded6e1d50637f42a8a8fd74dccc2bd627"
+      ],
+      "chain_head": "8847b126d77e935e4a1049bd4353093ded6e1d50637f42a8a8fd74dccc2bd627",
+      "note": "Record and chain hashes are reproduced here so this annotation can be checked against the sealed ledger without altering a single ledger byte. The ledger still verifies exactly as it did before this annotation existed."
+    },
+    {
+      "path": "samples/responses/model-router-usage.sample.json",
+      "role": "recorded_router_usage",
+      "sha256": "48233d00b7541800e7a91ad309406191b4b63ce9e1ad33e7fcf31fb750e9f093",
+      "bytes": 1842,
+      "immutable": true,
+      "affected_fields": [],
+      "note": "Stores provider-reported usage only and no cost, but every cost derived from replaying it is Model Router-derived and inherits this annotation."
+    }
+  ],
+  "rate_basis": {
+    "path": "samples/pricing/foundry-5series.yaml",
+    "router_input_markup_declared": false,
+    "note": "The rate card the artifacts above were scored against. It prices routed calls at the resolved underlying model's rate and declares no router input-markup component, which is the direct cause of the incompleteness. Its rates are left unchanged; repricing them would fabricate history."
+  }
+}

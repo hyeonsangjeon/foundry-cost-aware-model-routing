@@ -45,12 +45,62 @@ cost-router ledger measured-replay --ledger runs/arena.jsonl
 records: 5
 replayed: 5
   → each recorded call cost re-derived from its usage × the pinned rate card
+  → router arm cost is pricing incomplete — missing Router input markup
+     Model Router-derived cost omits the router input-token markup component. Retained as historical output; not publishable and not usable for a savings claim.
 status: PASS
 ```
 
+마지막 두 줄은 원장에 `model-router` 배포로 기록된 행이 있을 때만 나옵니다 — 라우터 파생
+금액은 라우터 input 마크업이 빠져 **불완전**하기 때문입니다. 그런 행이 있는데 pricing
+annotation을 못 읽거나 해시가 어긋나면 검증은 **`status: FAIL`로 닫힙니다**.
+
 !!! note "두 원장은 일부러 분리됩니다"
-    오프라인 원장은 오프라인 투영만, 측정 원장은 실측 지출만 담습니다. 공유하는 것은 순수 해시
+    오프라인 원장은 오프라인 투영만, 측정 원장은 실측 usage만 담습니다. 공유하는 것은 순수 해시
     프리미티브뿐이라 어느 쪽도 상대의 엄격함/정직 라벨을 흐리지 않습니다.
+
+## 봉인된 기록을 고치지 않고 정정하기 — pricing annotation
+
+봉인된 원장은 **불변**입니다. 그런데 나중에 *"이 금액을 계산한 요율 근거 자체가 불완전했다"*
+는 사실이 드러나면 어떻게 할까요? 바이트를 고치면 해시가 깨지고, 무엇보다 **증거를 조작**하는
+셈입니다. 그래서 이 저장소는 원본을 그대로 두고 **versioned annotation**을 덧붙입니다.
+
+실제 사례가 하나 있습니다.
+[`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
+
+- **무엇이 틀렸나** — Azure Model Router 과금은 **합성**입니다: 라우터 input 토큰 마크업 +
+  고른 하위 모델의 input·output. 커밋된 요율 카드에는 마크업 항목이 **없어서**, 라우팅된
+  호출의 금액에는 청구 항목 하나가 빠져 있습니다. 근사치가 아니라 **불완전**입니다.
+- **무엇은 멀쩡한가** — 토큰 usage, 라우터가 고른 모델, 지연, 인증, 그리고 해시 체인 무결성.
+  단일 배포를 직접 부르는 arm(`cheapest`·`premium`·`ensemble`)은 마크업 대상이 아니므로
+  금액도 **영향 없습니다**.
+- **왜 리프라이스하지 않았나** — 캡처 시점에 적용 가능한 마크업 요율이 저장소 어디에도
+  고정돼 있지 않습니다. 추정으로 역산하면 그건 **역사적 비용을 지어내는 것**이라, 원금액을
+  히스토리 출력으로 남기고 비용·절감 주장에서만 제외합니다.
+
+annotation은 대상 아티팩트를 **경로 + `sha256` + 바이트 크기**로 지목하고, 원장에 대해서는
+**레코드 해시 5개와 체인 헤드**까지 함께 적어 둡니다. 로더가 매 호출마다 파일을 다시 읽고
+다시 해싱하므로 아티팩트가 바뀌었거나 annotation이 변조되면 즉시 어긋납니다.
+
+```json
+"effects": {
+  "pricing_incomplete": true,
+  "publishable": false,
+  "savings_claim_allowed": false
+},
+"reprice": { "repriced": false }
+```
+
+!!! danger "fail-closed — 없으면 더 조용해집니다"
+    `router` 금액을 렌더하거나 발행하는 모든 표면(아레나 리포트, `foundry live` 요약,
+    `ledger measured-replay`, `/fleet/run` 발행기, 대시보드, 정적 빌드)이 이 annotation을
+    **로드·강제**합니다. 파일이 없거나, 스키마가 깨졌거나, 아티팩트 해시가 어긋나거나,
+    `repriced: false`인데 `savings_claim_allowed`를 `true`로 올려 두면 — 라우터 비용/절감
+    출력은 **더 엄격한 쪽으로 닫힙니다**(그리고 `measured-replay`는 `status: FAIL`).
+    "annotation을 지우면 경고가 사라진다"는 우회로는 없습니다.
+
+    리프라이스가 정당해지려면 annotation이 `reprice.rate_basis`(마크업 요율·하위 요율·적용
+    일자)와 해시로 지목된 `reprice.superseding_artifact`를 **증거로** 들고 와야 합니다.
+    그게 없으면 로더가 거부합니다 — *증명 없는 리프라이스는 불가*가 스키마에 박혀 있습니다.
 
 ## 원장 레코드에 담기는 것
 
