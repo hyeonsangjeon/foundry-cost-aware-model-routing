@@ -79,6 +79,38 @@ def _number(value: Any) -> float:
         return 0.0
 
 
+#: Reader-facing USD rendering contract.
+#:
+#: Every *human-readable* surface renders money through :func:`format_usd` or
+#: :func:`format_usd_avg`: totals use two decimals, sub-cent amounts use four so
+#: real per-task costs do not collapse to ``$0.00``. The dashboard mirrors the
+#: same rule in ``usdSmart`` / ``usdAvg``.
+#:
+#: The listed callables are the declared reader-facing renderers; they are
+#: enforced by ``tests/test_reader_facing_precision.py``. Machine surfaces —
+#: ``--json`` payloads, the audit ledger JSONL, replay records, embedded facts
+#: and any calculation input — deliberately keep canonical full precision and
+#: must never be routed through these formatters.
+READER_FACING_USD_RENDERERS: tuple[str, ...] = (
+    "router.pipeline.format_replay_text",
+    "router.experiment.format_experiment_text",
+    "router.measure.format_dry_run_table",
+    "router.measure.format_catalog",
+    "router.cli.format_compare_text",
+)
+
+#: Machine surfaces that must retain canonical (unrounded) precision.
+CANONICAL_PRECISION_SURFACES: tuple[str, ...] = (
+    "router.pipeline.format_replay_json",
+    "router.pipeline.format_eval_report",
+    "router.pipeline.format_regression_report",
+    "router.measure run-record stopped_reason",
+    "router.ledger",
+    "experiment --json",
+    "replay --ledger",
+)
+
+
 def format_usd(value: float) -> str:
     """Format a USD amount for a human-readable surface (CLI, README, docs).
 

@@ -388,12 +388,12 @@
 ## 2026-07-16 · 실험 07 「라우팅 레이어」 — 한 번 고르기 vs 관찰하고 올리기
 
 !!! note "한 줄 요약"
-    Azure AI Foundry **Model Router**를 프런티어의 **일급 arm**으로 올렸습니다. Model Router는
-    앙상블이 아니라 프롬프트마다 모델을 **한 번** 고르는 *단일 호출* 라우팅 레이어입니다 —
-    이 저장소의 킬러 히어로 방법론이 최적화하는 바로 그 계층. 합성 100건에서 단일 호출은
-    커버리지 **52%**에 그치고, 관찰-후-에스컬레이션 mix는 비슷한 비용(**$1.59 vs $1.66**)에
-    **100%**를 채웁니다 — 그 이득 **+48%p**를 새 계약 `min_escalation_gain`이 고정합니다.
-    모든 수치는 `measured = false`.
+    프롬프트마다 모델을 **한 번** 고르는 *단일 호출* 라우팅 레이어를 프런티어의 **일급 arm**
+    `single_call`로 올렸습니다 — 앙상블이 아니라, 이 저장소의 킬러 히어로 방법론이 최적화하는
+    바로 그 계층입니다. 합성 100건에서 단일 호출은 커버리지 **52%**에 그치고,
+    관찰-후-에스컬레이션 mix는 비슷한 비용(**$1.59 vs $1.66**)에 **100%**를 채웁니다 —
+    그 이득 **+48%p**를 새 계약 `min_escalation_gain`이 고정합니다.
+    모든 수치는 합성 데이터에 대한 오프라인 투영이며 `measured = false`입니다.
 
 - **상황(왜):** "Foundry Model Router로 앙상블하자"는 요청은 개념 혼동에서 출발했습니다 —
   Model Router는 앙상블이 아니라 **단일 호출 라우터**입니다. 사용자와 정리한 결론: 이건
@@ -422,6 +422,13 @@
   RuntimeError; 기록 픽스처 채점 $0.127136/100%, 라이브 provenance). 새 테스트
   `test_model_router.py`(18개) + `test_replay`/`test_server` 갱신으로 **pytest 289개 통과** ·
   ruff clean · mkdocs strict OK. 모든 수치 `measured = false`.
+
+!!! note "이후 이름 정리 — 이 arm은 지금 `single-call`입니다"
+    위 기록은 당시 이름(`model_router` / `experiment run model-router`)을 그대로 보존한
+    것입니다. 이후 합성 arm은 **`single-call`** 로 정리됐습니다 — 지금 실행하는 명령은
+    `cost-router experiment run single-call`, 실험 자산은 `experiments/single-call.yaml`
+    입니다. 문서 URL(`07-model-router.md`)과 실제 Azure 배포 이름(`model-router`)은
+    바뀌지 않았습니다.
 
 !!! quote "정직한 단서"
     `model_router` arm은 단일 호출 라우터의 **모양**을 보여주는 프록시일 뿐 Azure의 내부

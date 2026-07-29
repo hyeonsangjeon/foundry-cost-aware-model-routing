@@ -29,10 +29,17 @@
 텔레메트리로 돌기 때문입니다. 실측(`measured = true`)으로 올리려면 프롬프트+검증을 갖춘
 워크로드가 있어야 하고, 그게 BOLT-02 Phase B의 남은 작업입니다:
 
-| 필요 워크로드 | 규모 | 겨냥 실험 | 상태 |
-| --- | --- | --- | --- |
-| `curated-24` | 중간(24) | 03 · 04 · 06 · 07 | 🚧 **초안·승인 대기**(§9 콘텐츠 게이트) |
-| `hero-100-prompts` | 100 | 01 | 🚧 **초안·승인 대기** |
+| 필요 워크로드 | 규모 | `evidence_tier` | 겨냥 실험 | 상태 |
+| --- | --- | --- | --- | --- |
+| `curated-24` | 중간(24) | **`directional`** | 03 · 04 · 06 · 07 | 🚧 **초안·승인 대기**(§9 콘텐츠 게이트) |
+| `hero-100-prompts` | 100 | 더 강한 등급의 첫 후보 | 01 | 🚧 **초안·승인 대기** |
+
+!!! quote "표본 크기 임계값의 출처"
+    Microsoft의 Model Router 평가 가이드는 **100개 이상**의 워크로드 프롬프트라야 통계적으로
+    신뢰할 만한 결과를 얻을 수 있고, **30개 미만**은 방향성(directional) 신호만 준다고 안내합니다.
+    그래서 24개짜리 `curated-24`는 `evidence_tier = directional`입니다.
+    출처: <https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/model-router#evaluate-model-router-for-your-workload>
+    (확인일 **2026-07-29**) · 자세한 규칙은 [측정 프로토콜 §3.4](measurement-protocol.md)
 
 두 워크로드는 **프롬프트가 곧 실험**이므로(같은 파이프라인, 다른 프롬프트 = 다른 실험),
 manifest에 **워크로드 지문**(`workload_fingerprint`, SHA-256)이 봉인되어 프롬프트가 바뀌면

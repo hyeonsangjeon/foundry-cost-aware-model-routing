@@ -5,16 +5,60 @@
 [![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**Cost-aware model routing over Azure AI Foundry** — send the cheapest model
-that still passes, escalate only when it doesn't, and prove the savings hold at
-full coverage. Ten one-command experiments make the case *and* mark its limits;
-a live bridge routes against your real Foundry deployments and seals the
-measured spend into a tamper-evident ledger.
+**Send the cheapest model that still passes, escalate only when it doesn't, and
+prove the savings hold at full coverage.** Every routing decision is verified
+against execution signals, governed before the spend happens, and sealed into a
+tamper-evident, cost-replayable ledger.
 
-> **Proof it's real (experiment 09):** wired to a live Azure AI Foundry
-> **Model Router** deployment (keyless Entra), one call really split to
-> `gpt-5.4` (×3) and `grok-4-1-fast-reasoning` (×2) — the repo's first
-> `measured=true` run, sealed into a hash-chained, replayable ledger.
+![Hero experiment: premium-on-everything bills $2.23 while try-cheap-first routing bills $1.66 — 25.5% lower at 100% coverage over 100 synthetic tasks](docs/assets/gif/hero.gif)
+
+<sub>Generated deterministically from this repository's own verified numbers by
+[`scripts/build_experiment_gifs.py`](scripts/build_experiment_gifs.py). Offline
+projection over synthetic data — `labels.measured=false`. Reproduce with
+`cost-router experiment run hero`.</sub>
+
+> **Strongest evidence — a five-prompt wiring proof (experiment 09).** Wired to a
+> live Azure AI Foundry **Model Router** deployment over keyless Entra, one call
+> really split to `gpt-5.4` (×3) and `grok-4-1-fast-reasoning` (×2) — this repo's
+> first `measured=true` run, sealed into a hash-chained, replayable ledger.
+> **Read it as a wiring proof, not a benchmark:** five prompts is far below the
+> ≥100-prompt bar Microsoft gives for statistically reliable results (fewer than
+> 30 prompts is directional only), and the run measures routing, usage, latency,
+> auth and replay integrity — not savings.
+> [Experiment 09 →](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/09-live-routing-proof/)
+
+### Try it offline — free, no account, no Azure call
+
+```bash
+git clone https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing.git
+cd foundry-cost-aware-model-routing
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .          # core dep: pyyaml
+cost-router hero          # before/after + reproducibility self-check
+```
+
+**After install, the first result lands in well under a second** — the
+`cost-router hero --json` segment was observed at **0.12 s** on both supported
+interpreters (CPython 3.11.15 / 3.12.13); a fresh clone plus install added
+roughly **6–9 s** on the same machine. Environment metadata and the full segment
+table → [install guide](docs/manual/install.md).
+
+### Where to go next
+
+- **Methodology** — [measurement protocol](docs/manual/measurement-protocol.md)
+  (what may be called `measured`, sample-size tiers, snapshot/replay contract)
+  and [core concepts](docs/manual/concept.md).
+- **Benchmark evidence** — the [ten experiments](#the-experiment-arc--honest-by-construction)
+  below, and the [experiment atlas](docs/manual/experiment-atlas.md) for how each
+  one is built.
+- **Full manual (한국어)** —
+  <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
+- **Interactive offline demo** (no install, no account, nothing is billed) —
+  <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1>
+  — animated before/after, the cost × coverage frontier, and the policy-A/B
+  coverage cliff, rendered from the same offline projection.
+
+---
 
 Two honesty rules run through everything: offline runs are **projections over
 synthetic data** (`labels.measured=false`), and only a **fresh live call** is
@@ -33,33 +77,14 @@ diagrams stay outside Git.
 > a first-class candidate arm — an asset that *leverages* the product rather than
 > competing with it.
 
-📘 **한국어 매뉴얼 · 실험노트 (github.io):**
-<https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
-
-▶️ **Live interactive dashboard (no install, auto-plays):**
-<https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1>
-— animated before/after, the cost × coverage frontier, and the policy-A/B
-coverage cliff, rendered from the same offline projection.
-
 ## Requirements
 
 - **Python 3.11+** — the router uses `StrEnum`, so 3.10 fails to import. Check
-  first with `python3 --version`.
+  first with `python3 --version`. Supported and timed: **3.11** and **3.12**.
 - `git`, plus network access for a one-time install (the only core dependency
   is `pyyaml`).
 
-## Quickstart
-
-Clone, create a virtualenv, and install the `cost-router` console script:
-
-```bash
-git clone https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing.git
-cd foundry-cost-aware-model-routing
-python3 -m venv .venv && source .venv/bin/activate    # recommended
-pip install -e .                                      # core dep: pyyaml
-```
-
-### 1 · Offline preview (30 seconds, no network or credentials)
+## Offline preview in depth
 
 `cost-router hero` runs the flagship experiment as a **deterministic offline
 projection over synthetic data** (`labels.measured=false`) — a *preview*, not a
@@ -72,7 +97,12 @@ cost-router hero
 cost-router hero --serve --port 8000   # dashboard; auto-falls back if the port is busy
 ```
 
-### 2 · Make it real — register your fleet, then measure
+## Make it real — your own Foundry deployments
+
+> **Status: target / in progress.** The existing-Foundry journey below works
+> today, but its end-to-end release gate is not yet in place, so treat the
+> timings as a target rather than a promise. The offline path above is the
+> guaranteed one.
 
 The preview above is synthetic. To route against **your** deployed Azure AI
 Foundry models, register them in a fleet config, pick which one plays each arm
@@ -102,11 +132,12 @@ cost-router dashboard --live  # 127.0.0.1 + random port + a session-token URL
 Connection check → the exact prompts + dry-run cost → **approve & run** (the human
 gate) → live progress → snapshot replay — then seal and re-verify the spend with
 `cost-router ledger measured-replay`. This is the clone → `.env` → one-button path;
-the public demo above is a read-only mockup of an already-measured run. Full
-recipe: the [cockpit & customization guide](docs/manual/customize.md) and the
+the public page linked above is an **interactive offline demo** — a read-only
+replay of an already-measured run, not a live paid dashboard. Full recipe: the
+[cockpit & customization guide](docs/manual/customize.md) and the
 [end-to-end Foundry setup](docs/manual/foundry-setup.md).
 
-### The experiment arc — honest by construction
+## The experiment arc — honest by construction
 
 This repo proves where cost-aware routing **wins** and, just as deliberately,
 where it **doesn't**. Ten one-command experiments — 01–08 are deterministic
@@ -218,15 +249,18 @@ cost-router experiment run adaptive          # 100% coverage, −47% — fan-out
 
 The routing layer — single-call routing picks one model per prompt, up front,
 with no escalation. That's the shape any per-prompt router has, including Azure
-AI Foundry's built-in **Model Router** (and this repo's own ordered-only mode).
-Experiment 07 adds that shape as the frontier's fifth arm: single-call routing
-holds **52%** coverage, while layering observe-then-escalate on top reaches
-**100%** at ~the same cost — a **+48%p** escalation gain pinned by a
-`min_escalation_gain` contract. It's a complement, not a replacement —
-experiment 09 wires a *real* Model Router in as that arm and proves it
-`measured=true`. A dependency-free, env-gated adapter (`FOUNDRY_*`) lets a live
-deployment's decisions replace the offline proxy (lab notebook: 실험 07 · 라우팅
-레이어):
+AI Foundry's built-in **Model Router** and this repo's own ordered-only mode.
+Selection is the product's job; everything below is the layer on top of it. A
+dependency-free, env-gated adapter (`FOUNDRY_*`) lets a live deployment's
+decisions replace the offline proxy, and experiment 09 wires that real
+deployment in as the arm and proves it `measured=true`.
+
+Experiment 07 adds the *shape* to the frontier as a fifth arm — a generic
+**single-call** projection over synthetic tasks (`measured=false`), not a
+product measurement. That generic arm holds **52%** coverage, while layering
+observe-then-escalate on top reaches **100%** at ~the same cost — a **+48%p**
+escalation gain pinned by a `min_escalation_gain` contract (lab notebook: 실험
+07 · 라우팅 레이어):
 
 ```bash
 cost-router experiment run single-call       # 100% coverage, −25.5% — single-call vs escalate gain +48%p
@@ -251,10 +285,14 @@ cost-router foundry live --live --workload my-prompts.jsonl \
 
 ### The 30-second before / after
 
-`make replay` (and `cost-router replay`) end with a naive-vs-routed block: the
-naive column bills the most expensive candidate for every task, the routed
-column is cost-aware routing (cheapest candidate that passes its own checks,
-escalate only on failure). Over the full 100-row synthetic workload:
+`make replay-all` (and `cost-router replay --synth`) end with a naive-vs-routed
+block: the naive column bills the most expensive candidate for every task, the
+routed column is cost-aware routing (cheapest candidate that passes its own
+checks, escalate only on failure). Over the full 100-row synthetic workload:
+
+```bash
+cost-router replay --workload samples/telemetry/mixed-coding-workload.sample.jsonl --synth
+```
 
 ```text
 before / after  (offline projection over synthetic data; labels.measured=false)
