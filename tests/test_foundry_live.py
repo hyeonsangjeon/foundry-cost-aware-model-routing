@@ -20,11 +20,15 @@ from policy import load_default_policy
 from router import cli
 from router.baseline import single_call_summary
 from router.foundry_live import (
+    AZURE_AI_INFERENCE_RETIREMENT_DATE,
     DEFAULT_API_VERSION,
     AzureModelRouterClient,
     FoundryConfig,
+    ProviderScopedOutError,
     RecordedRouterClient,
     RouterOutcome,
+    TransportTimeouts,
+    assert_provider_benchmark_safe,
     capture_recorded_usage,
     load_dotenv_file,
     load_recorded_usage,
@@ -837,3 +841,115 @@ def test_complete_provider_openai_never_touches_inference_client(
     )
     client.complete({"task_id": "t", "prompt": "hi"}, deployment="gpt-5.4-nano")
     assert inference.calls == []  # default provider stayed on the OpenAI surface
+
+
+# --------------------------------------------------------------------------- #
+# BOLT-03B: SDK floor, retries-off, transport timeouts, azure-ai-inference scope-out
+# --------------------------------------------------------------------------- #
+
+
+def _entra_config() -> FoundryConfig:
+    return FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://r.example/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_AUTH": "entra",
+        }
+    )
+
+
+def test_sdk_client_disables_retries_and_wires_timeouts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # httpx is only present with the [foundry] extra; the individual-cutoff
+    # assertion is meaningful only then. Without it the SDK path falls back to a
+    # single float deadline (covered by the default-timeout test below).
+    httpx = pytest.importorskip("httpx")
+    captured = _install_fake_openai(monkeypatch, _canned_response("gpt-4o"))
+    client = AzureModelRouterClient(
+        config=_entra_config(),
+        token_provider=lambda: "tok",
+        timeouts=TransportTimeouts(connect=3, read=7, write=5, pool=4, overall=60),
+    )
+    client._sdk_client()
+    # The runner owns every retry: 1 reserved attempt == 1 outbound request.
+    assert captured["max_retries"] == 0
+    timeout = captured["timeout"]
+    # When httpx is present the four transport cutoffs reach the client.
+    assert isinstance(timeout, httpx.Timeout)
+    assert timeout.connect == 3 and timeout.read == 7
+    assert timeout.write == 5 and timeout.pool == 4
+
+
+def test_sdk_client_defaults_to_bounded_timeouts(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = _install_fake_openai(monkeypatch, _canned_response("gpt-4o"))
+    client = AzureModelRouterClient(config=_entra_config(), token_provider=lambda: "t")
+    client._sdk_client()
+    assert captured["max_retries"] == 0
+    assert "timeout" in captured  # never an unbounded (None) transport deadline
+
+
+def test_transport_timeouts_reject_invalid_and_oversized_cutoffs() -> None:
+    with pytest.raises(ValueError):
+        TransportTimeouts(read=float("inf"))
+    with pytest.raises(ValueError):
+        TransportTimeouts(connect=0)
+    with pytest.raises(ValueError):
+        TransportTimeouts(read=True)  # a bool is not a valid duration
+    # A per-transport cutoff may not exceed the overall runner deadline.
+    with pytest.raises(ValueError):
+        TransportTimeouts(read=200, overall=120)
+
+
+def test_transport_timeouts_from_retry_mapping() -> None:
+    timeouts = TransportTimeouts.from_retry(
+        {
+            "connect_timeout_seconds": 2,
+            "read_timeout_seconds": 50,
+            "write_timeout_seconds": 20,
+            "pool_timeout_seconds": 3,
+            "overall_timeout_seconds": 90,
+        }
+    )
+    assert (timeouts.connect, timeouts.read, timeouts.overall) == (2.0, 50.0, 90.0)
+
+
+def test_provider_foundry_scoped_out_of_benchmark_and_publishable() -> None:
+    # The retiring azure-ai-inference surface must fail closed on measured paths.
+    with pytest.raises(ProviderScopedOutError) as exc:
+        assert_provider_benchmark_safe("foundry", run_mode="benchmark")
+    assert AZURE_AI_INFERENCE_RETIREMENT_DATE in str(exc.value)
+    with pytest.raises(ProviderScopedOutError):
+        assert_provider_benchmark_safe("inference", publishable=True)
+    # Opt-in wiring smoke on the partner surface stays allowed.
+    assert_provider_benchmark_safe("foundry", run_mode="smoke")
+    # The golden OpenAI surface is never affected.
+    assert_provider_benchmark_safe("openai", run_mode="benchmark")
+    assert_provider_benchmark_safe("openai", publishable=True)
+
+
+def test_benchmark_client_refuses_partner_provider() -> None:
+    inference = _FakeInferenceClient()
+    client = AzureModelRouterClient(
+        config=_entra_config(), inference_client=inference, benchmark_mode=True
+    )
+    with pytest.raises(ProviderScopedOutError):
+        client.complete(
+            {"task_id": "t", "prompt": "hi"},
+            deployment="deepseek-v4-pro",
+            provider="foundry",
+        )
+    assert inference.calls == []  # failed closed before any dispatch
+
+
+def test_smoke_client_still_allows_partner_provider() -> None:
+    inference = _FakeInferenceClient()
+    client = AzureModelRouterClient(
+        config=_entra_config(), inference_client=inference, benchmark_mode=False
+    )
+    outcome = client.complete(
+        {"task_id": "t", "prompt": "hi"},
+        deployment="deepseek-v4-pro",
+        provider="foundry",
+    )
+    assert outcome.provenance == "live" and len(inference.calls) == 1

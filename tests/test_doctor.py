@@ -1,0 +1,312 @@
+"""Tests for the doctor pre-flight (BOLT-03B step 6). Fully offline."""
+
+from __future__ import annotations
+
+import pytest
+
+from router.doctor import (
+    FAIL,
+    OK,
+    UNKNOWN,
+    DeploymentEvidence,
+    DoctorInputs,
+    run_doctor,
+    verify_deployment_evidence,
+)
+
+
+def _inputs(**overrides) -> DoctorInputs:
+    base = dict(
+        run_mode="smoke",
+        endpoint="https://aoai-demo.cognitiveservices.azure.com/",
+        endpoint_kind="azure_openai",
+        deployments=["gpt-4o"],
+        arms=[{"name": "cheapest"}],
+        workload_path="samples/workloads/validated-smoke.example.jsonl",
+        workload_ok=True,
+        rate_card_present=True,
+        rate_card_covers_all_arms=True,
+        authorization_ceiling_usd=1.0,
+        planned_cells=5,
+        base_transport_attempts=1,
+        max_transport_attempts=3,
+        output_token_ceiling=4096,
+        conservative_max_authorized_spend_usd="0.150000",
+        prereg_note="smoke wiring-only; preregistration not required",
+        prereg_allowed=True,
+        output_dir="/tmp/runs",
+        output_dir_writable=True,
+        retain_raw_outputs=False,
+        wiring_only=True,
+        deps_present=True,
+    )
+    base.update(overrides)
+    return DoctorInputs(**base)
+
+
+def _get(report, name):
+    return next(c for c in report.checks if c.name == name)
+
+
+# --- authentication vs authorization are three distinct facts ---------------
+
+def test_token_rbac_deployment_are_separate_fields():
+    report = run_doctor(
+        _inputs(),
+        token_probe=lambda: "tok",
+        rbac_probe=lambda: None,
+        deployment_probe=lambda: None,
+    )
+    assert report.token_acquired is True
+    assert report.data_plane_rbac_verified is None
+    assert report.deployment_config_verified is None
+
+
+def test_token_acquired_is_not_rbac_proof():
+    report = run_doctor(_inputs(), token_probe=lambda: "tok", rbac_probe=lambda: None)
+    assert report.token_acquired is True
+    # A token does not imply RBAC.
+    assert report.data_plane_rbac_verified is None
+    assert "not RBAC proof" in _get(report, "token").detail
+
+
+def test_token_failure_sets_false_and_fails():
+    def boom():
+        raise RuntimeError("no credential")
+
+    report = run_doctor(_inputs(), token_probe=boom)
+    assert report.token_acquired is False
+    assert _get(report, "token").status == FAIL
+
+
+def test_missing_token_probe_is_unknown_not_success():
+    report = run_doctor(_inputs(), token_probe=None)
+    assert report.token_acquired is False
+    assert _get(report, "token").status == UNKNOWN
+
+
+# --- unknown is never rendered as success -----------------------------------
+
+def test_unknown_never_rendered_as_success():
+    report = run_doctor(
+        _inputs(), token_probe=lambda: "tok", rbac_probe=lambda: None,
+        deployment_probe=lambda: None,
+    )
+    text = report.to_text()
+    assert "data_plane_rbac_verified = unknown" in text
+    assert "deployment_config_verified = unknown" in text
+    # unknown rows are not marked with the success glyph
+    for line in text.splitlines():
+        if "rbac:" in line or "deployments:" in line:
+            assert not line.startswith("✓")
+
+
+def test_deployment_unknown_is_unknown_status():
+    report = run_doctor(_inputs(), deployment_probe=lambda: None)
+    assert report.deployment_config_verified is None
+    assert _get(report, "deployments").status == UNKNOWN
+
+
+def test_deployment_verified_true():
+    report = run_doctor(_inputs(), deployment_probe=lambda: True)
+    assert report.deployment_config_verified is True
+    assert _get(report, "deployments").status == OK
+
+
+def test_no_deployment_configured_fails():
+    report = run_doctor(_inputs(deployments=[]))
+    assert _get(report, "deployments").status == FAIL
+    assert report.deployment_config_verified is False
+
+
+# --- RBAC failure must not dead-end -----------------------------------------
+
+def test_rbac_unknown_prints_lookup_first_then_assignment():
+    report = run_doctor(_inputs(), rbac_probe=lambda: None)
+    check = _get(report, "rbac")
+    assert check.status == UNKNOWN
+    remediation = check.next_step
+    assert remediation is not None
+    # read-only lookup appears before the mutating assignment
+    show_idx = remediation.index("az cognitiveservices account show")
+    assign_idx = remediation.index("az role assignment create")
+    assert show_idx < assign_idx
+
+
+def test_rbac_remediation_uses_placeholders_not_guessed_ids():
+    report = run_doctor(_inputs(), rbac_probe=lambda: False)
+    remediation = _get(report, "rbac").next_step
+    assert "<PRINCIPAL_ID>" in remediation
+    assert "<RESOURCE_ID>" in remediation
+    # Never emit the real tenant/subscription IDs from the environment memory.
+    assert "6d93cc9b" not in remediation
+    assert "4b7c60a5" not in remediation
+
+
+def test_rbac_false_fails_with_remediation():
+    report = run_doctor(_inputs(), rbac_probe=lambda: False)
+    check = _get(report, "rbac")
+    assert check.status == FAIL
+    assert report.data_plane_rbac_verified is False
+    assert check.next_step is not None
+
+
+def test_rbac_true_ok():
+    report = run_doctor(_inputs(), rbac_probe=lambda: True)
+    assert report.data_plane_rbac_verified is True
+    assert _get(report, "rbac").status == OK
+
+
+def test_rbac_probe_exception_is_unknown_not_false():
+    def boom():
+        raise RuntimeError("read-only lookup unavailable")
+
+    report = run_doctor(_inputs(), rbac_probe=boom)
+    assert report.data_plane_rbac_verified is None
+    assert _get(report, "rbac").status == UNKNOWN
+
+
+# --- doctor never sends an inference prompt ---------------------------------
+
+def test_doctor_only_calls_injected_probes():
+    calls: list[str] = []
+    run_doctor(
+        _inputs(),
+        token_probe=lambda: (calls.append("token"), "tok")[1],
+        rbac_probe=lambda: (calls.append("rbac"), True)[1],
+        deployment_probe=lambda: (calls.append("deploy"), True)[1],
+    )
+    # Exactly the identity/management probes — no inference surface exists.
+    assert calls == ["token", "rbac", "deploy"]
+
+
+# --- pricing coverage -------------------------------------------------------
+
+def test_benchmark_requires_complete_pinned_pricing():
+    report = run_doctor(
+        _inputs(run_mode="benchmark", rate_card_covers_all_arms=False),
+        token_probe=lambda: "tok", rbac_probe=lambda: True,
+        deployment_probe=lambda: True,
+    )
+    assert _get(report, "pricing").status == FAIL
+
+
+def test_smoke_ok_with_authorization_ceiling_only():
+    report = run_doctor(
+        _inputs(run_mode="smoke", rate_card_present=False,
+                rate_card_covers_all_arms=False, authorization_ceiling_usd=0.5)
+    )
+    assert _get(report, "pricing").status == OK
+
+
+def test_smoke_without_pricing_or_ceiling_fails():
+    report = run_doctor(
+        _inputs(run_mode="smoke", rate_card_present=False,
+                rate_card_covers_all_arms=False, authorization_ceiling_usd=None)
+    )
+    assert _get(report, "pricing").status == FAIL
+
+
+# --- endpoint safety --------------------------------------------------------
+
+def test_non_https_endpoint_fails():
+    report = run_doctor(_inputs(endpoint="http://evil.example.com/"))
+    assert _get(report, "endpoint").status == FAIL
+
+
+def test_unrecognized_host_fails():
+    report = run_doctor(_inputs(endpoint="https://evil.example.com/"))
+    assert _get(report, "endpoint").status == FAIL
+
+
+def test_recognized_host_ok():
+    report = run_doctor(_inputs())
+    assert _get(report, "endpoint").status == OK
+
+
+# --- approval bounds never say "exactly N" ----------------------------------
+
+def test_plan_bounds_show_base_and_max_not_exactly():
+    report = run_doctor(_inputs(base_transport_attempts=1, max_transport_attempts=3))
+    detail = _get(report, "authorized spend").detail
+    assert "up to 3 transport attempts" in detail
+    assert "base 1" in detail
+    assert "exactly" not in detail.lower()
+
+
+# --- benchmark fail-closed gate: unknown blocks the paid path ---------------
+
+def test_benchmark_gate_blocks_on_unknown_rbac():
+    report = run_doctor(
+        _inputs(run_mode="benchmark"),
+        token_probe=lambda: "tok", rbac_probe=lambda: None,
+        deployment_probe=lambda: True,
+    )
+    gate = _get(report, "benchmark authorization")
+    assert gate.status == FAIL
+    assert "data_plane_rbac_verified" in gate.detail
+    assert report.ready is False
+
+
+def test_benchmark_gate_passes_when_all_verified():
+    report = run_doctor(
+        _inputs(run_mode="benchmark"),
+        token_probe=lambda: "tok", rbac_probe=lambda: True,
+        deployment_probe=lambda: True,
+    )
+    assert _get(report, "benchmark authorization").status == OK
+
+
+def test_smoke_has_no_benchmark_gate():
+    report = run_doctor(_inputs(run_mode="smoke"))
+    assert not any(c.name == "benchmark authorization" for c in report.checks)
+
+
+def test_ready_is_false_when_any_check_fails():
+    report = run_doctor(_inputs(deployments=[]))
+    assert report.ready is False
+
+
+# --- deployment evidence verification (mode/version/subset + propagation) ----
+
+def _evidence(**over):
+    base = dict(
+        management_api_version="2024-10-01", retrieved_at="2026-07-01T00:00:00Z",
+        payload_hash="abc", etag="v1", mode="router", version="2025-01-01",
+        subset=("gpt-4o", "grok"),
+    )
+    base.update(over)
+    return DeploymentEvidence(**base)
+
+
+def test_deployment_evidence_match():
+    ok, note = verify_deployment_evidence(_evidence(), _evidence())
+    assert ok is True
+    assert "matches" in note
+
+
+def test_deployment_evidence_mismatch_outside_window_fails():
+    ok, note = verify_deployment_evidence(
+        _evidence(), _evidence(version="2025-09-09", payload_hash="zzz")
+    )
+    assert ok is False
+    assert "differs" in note
+
+
+def test_deployment_evidence_mismatch_within_window_waits():
+    ok, note = verify_deployment_evidence(
+        _evidence(), _evidence(subset=("gpt-4o",), payload_hash="zzz"),
+        seconds_since_change=30,
+    )
+    assert ok is False
+    assert "propagation window" in note
+
+
+def test_deployment_evidence_subset_matters():
+    a = _evidence(subset=("gpt-4o", "grok"))
+    b = _evidence(subset=("gpt-4o",))
+    assert a.matches(b) is False
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-q"]))

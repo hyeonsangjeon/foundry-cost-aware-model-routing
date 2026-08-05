@@ -26,8 +26,18 @@ dev = [
     "pytest>=8.0",
 ]
 foundry = [
-    "openai>=1.0",
+    # openai>=1.75.0 is the floor for the documented Azure OpenAI Chat
+    # Completions sample this runner targets (BOLT-03B). The runner disables
+    # SDK-level retries and wires explicit connect/read/write/pool timeouts, so
+    # a floor that supports `max_retries=` and an `httpx.Timeout` is required.
+    "openai>=1.75.0",
     "azure-identity>=1.15",
+    # SCOPED OUT (BOLT-03B): azure-ai-inference is a beta SDK documented for
+    # retirement on 2026-08-26. It backs only the opt-in partner surface
+    # (provider=foundry), which is code-enforced out of benchmark/publishable
+    # paths (see router.foundry_live.assert_provider_benchmark_safe). Kept as an
+    # optional extra for wiring smokes; migrate before it can carry a measured
+    # cost claim.
     "azure-ai-inference>=1.0",
 ]
 

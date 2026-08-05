@@ -143,6 +143,23 @@ class AttemptResult:
     def throttled(self) -> bool:
         return self.http_status == 429
 
+    @property
+    def server_error(self) -> bool:
+        """A retryable 5xx transport failure (distinct from a 4xx client error)."""
+
+        return 500 <= self.http_status <= 599
+
+    @property
+    def retryable(self) -> bool:
+        """Runner-owned retry set: 429 throttling and 5xx server errors.
+
+        Timeouts (408/0) are deliberately *not* retried here: a read timeout may
+        leave the request in flight, so the runner seals it as unreconciled
+        exposure rather than risk a double charge. 4xx client errors are fatal.
+        """
+
+        return self.throttled or self.server_error
+
 
 @runtime_checkable
 class MeasureClient(Protocol):
@@ -543,13 +560,17 @@ def run_candidate(
                 )
             )
             return rows, result
-        can_retry = result.throttled and attempt_idx <= retry.max_retries
+        can_retry = result.retryable and attempt_idx <= retry.max_retries
         if can_retry:
             wait = retry.backoff_ms(attempt_idx)
             backoff_total += wait
-            fail_reason: str | None = "throttled_429"
+            fail_reason: str | None = (
+                "throttled_429" if result.throttled else f"retry_http_{result.http_status}"
+            )
         elif result.throttled:
             fail_reason = "throttle_exhausted"
+        elif result.server_error:
+            fail_reason = f"http_{result.http_status}_exhausted"
         elif result.http_status == 408 or result.http_status == 0:
             fail_reason = "timeout" if result.http_status == 408 else "transport_error"
         else:

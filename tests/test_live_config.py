@@ -262,6 +262,65 @@ def test_benchmark_plan_json_carries_hash_and_sources(
     assert payload["execution"]["endpoint"]["data_plane"] is None
 
 
+def test_doctor_runs_offline_and_reports_separate_facts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Zero egress: doctor must never open a socket (and never send a prompt).
+    import socket
+
+    def _blocked(*_a: Any, **_k: Any):  # noqa: ANN202 - test guard
+        raise AssertionError("doctor attempted a network connection")
+
+    monkeypatch.setattr(socket, "socket", _blocked)
+    monkeypatch.setattr(socket, "create_connection", _blocked)
+    # Deterministic regardless of whether the [foundry] extra is installed:
+    # the benchmark gate (not incidental missing deps) is what fails closed here.
+    monkeypatch.setattr(cli, "_foundry_extra_present", lambda: True)
+    mapping = _benchmark_config(tmp_path)
+    mapping["foundry"]["azure_openai_endpoint"] = (
+        "https://acme-res.cognitiveservices.azure.com/"
+    )
+    _rate_card(tmp_path)
+    config_path = tmp_path / ".foundry.local.yaml"
+    config_path.write_text(yaml.safe_dump(mapping), encoding="utf-8")
+
+    # Benchmark with no verified identity/RBAC/deployment → fail closed (exit 1).
+    assert cli.main(["doctor", "--config", str(config_path)]) == 1
+    out = capsys.readouterr().out
+    # The three facts are reported separately, and unknown is not success.
+    assert "token_acquired = false" in out
+    assert "data_plane_rbac_verified = unknown" in out
+    assert "deployment_config_verified = unknown" in out
+    # Benchmark fails closed until those are verified.
+    assert "benchmark authorization" in out
+
+
+def test_doctor_json_shape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("AZURE_AI_FOUNDRY_ENDPOINT", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_ENDPOINT", raising=False)
+    monkeypatch.setattr(cli, "_foundry_extra_present", lambda: True)
+    mapping = _benchmark_config(tmp_path)
+    mapping["run_mode"] = "smoke"
+    mapping["foundry"]["azure_openai_endpoint"] = (
+        "https://acme-res.cognitiveservices.azure.com/"
+    )
+    mapping["benchmark"]["smoke_authorization_ceiling_usd"] = 0.5
+    mapping["benchmark"]["budget_usd"] = 5.0
+    _rate_card(tmp_path)
+    config_path = tmp_path / ".foundry.local.yaml"
+    config_path.write_text(yaml.safe_dump(mapping), encoding="utf-8")
+
+    assert cli.main(["doctor", "--config", str(config_path), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["token_acquired"] is False
+    assert payload["data_plane_rbac_verified"] is None
+    assert payload["deployment_config_verified"] is None
+    # smoke has no benchmark-authorization gate, so a template-free smoke is ready.
+    assert not any(c["name"] == "benchmark authorization" for c in payload["checks"])
+
+
 def test_plan_hash_is_deterministic(tmp_path: Path) -> None:
     mapping = _benchmark_config(tmp_path)
     _, plan_a = _resolve(tmp_path, mapping, require_run_ready=True)

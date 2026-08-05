@@ -17,6 +17,11 @@ from pathlib import Path
 from . import __version__
 from .annotations import router_amount_text, router_cost_disclosure, savings_claim_allowed
 from .baseline import single_call_summary
+from .doctor import (
+    DoctorInputs,
+    az_cli_available,
+    run_doctor,
+)
 from .experiment import (
     format_experiment_list,
     format_experiment_text,
@@ -277,6 +282,7 @@ def build_parser() -> argparse.ArgumentParser:
     _build_measure_parser(subparsers)
     _build_config_parser(subparsers)
     _build_benchmark_parser(subparsers)
+    _build_doctor_parser(subparsers)
     return parser
 
 
@@ -2242,6 +2248,149 @@ def _cmd_benchmark_plan(args: argparse.Namespace) -> int:
         return 0
     _print_plan(plan)
     return 0
+
+
+def _build_doctor_parser(subparsers: argparse._SubParsersAction) -> None:
+    doctor = subparsers.add_parser(
+        "doctor",
+        help="Offline pre-flight checks before any paid call (never sends a prompt).",
+    )
+    _add_plan_args(doctor)
+    doctor.add_argument(
+        "--check-identity", action="store_true",
+        help="attempt Entra token acquisition (the ONLY egress; never an inference "
+             "prompt). Off by default so doctor is fully offline.",
+    )
+    doctor.set_defaults(func=_cmd_doctor)
+
+
+def _doctor_inputs_from_plan(plan, *, deps_present: bool) -> DoctorInputs:
+    ex = plan.execution
+    endpoint = ex["endpoint"]
+    pricing = ex["pricing"]
+    view = plan.approval_view()
+    rate_card_present = bool(pricing.get("rate_card_path"))
+    deployments = [
+        arm["deployment"] for arm in ex["arms"]
+        if arm.get("deployment") and not _is_placeholder_value(arm["deployment"])
+    ]
+    workload_path = ex["workload"]["path"]
+    artifacts = ex.get("artifacts") or {}
+    privacy = ex.get("privacy") or {}
+    local_root = artifacts.get("local_root")
+    return DoctorInputs(
+        run_mode=plan.run_mode,
+        endpoint=endpoint.get("data_plane"),
+        endpoint_kind=endpoint.get("dialect", ""),
+        deployments=deployments,
+        arms=list(ex["arms"]),
+        workload_path=workload_path,
+        workload_ok=Path(workload_path).is_file(),
+        rate_card_present=rate_card_present,
+        rate_card_covers_all_arms=rate_card_present,
+        authorization_ceiling_usd=pricing.get("smoke_authorization_ceiling_usd"),
+        planned_cells=plan.planned_cells,
+        base_transport_attempts=plan.base_transport_attempts,
+        max_transport_attempts=plan.max_transport_attempts,
+        output_token_ceiling=int(ex.get("request", {}).get("max_output_tokens", 0)),
+        conservative_max_authorized_spend_usd=format_usd(
+            view["worst_case_reservation_usd"]
+        ).lstrip("$"),
+        prereg_note=_doctor_prereg_note(plan),
+        prereg_allowed=_doctor_prereg_allowed(plan),
+        output_dir=local_root,
+        output_dir_writable=_dir_writable(local_root),
+        retain_raw_outputs=bool(privacy.get("retain_raw_outputs", False)),
+        wiring_only=plan.run_mode != "benchmark",
+        deps_present=deps_present,
+        az_cli_present=az_cli_available(),
+    )
+
+
+def _is_placeholder_value(value: object) -> bool:
+    text = str(value or "").strip().lower()
+    return not text or text.startswith("<") or "placeholder" in text or "your-" in text
+
+
+def _dir_writable(path: str | None) -> bool:
+    if not path:
+        return False
+    target = Path(path)
+    probe = target if target.exists() else target.parent
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    return os.access(probe, os.W_OK)
+
+
+def _doctor_prereg_note(plan) -> str:
+    prereg = plan.execution.get("preregistration") or {}
+    if plan.run_mode == "benchmark":
+        committed = prereg.get("commit") or prereg.get("committed_at")
+        if committed:
+            return f"preregistration committed ({committed})"
+        return "benchmark requires a committed preregistration"
+    return "smoke wiring-only; preregistration not required"
+
+
+def _doctor_prereg_allowed(plan) -> bool:
+    prereg = plan.execution.get("preregistration") or {}
+    if plan.run_mode == "benchmark":
+        return bool(prereg.get("commit") or prereg.get("committed_at"))
+    return True
+
+
+def _cmd_doctor(args: argparse.Namespace) -> int:
+    _config, plan = _resolve_plan_or_error(args, label="doctor", require_run_ready=False)
+    if plan is None:
+        return 1
+
+    deps_present = _foundry_extra_present()
+    inputs = _doctor_inputs_from_plan(plan, deps_present=deps_present)
+
+    token_probe = None
+    if getattr(args, "check_identity", False):
+        token_probe = _doctor_token_probe(plan)
+
+    report = run_doctor(inputs, token_probe=token_probe)
+
+    if args.json:
+        payload = {
+            "ready": report.ready,
+            "token_acquired": report.token_acquired,
+            "data_plane_rbac_verified": report.data_plane_rbac_verified,
+            "deployment_config_verified": report.deployment_config_verified,
+            "checks": [
+                {"name": c.name, "status": c.status, "detail": c.detail,
+                 "next_step": c.next_step}
+                for c in report.checks
+            ],
+        }
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+    else:
+        print(report.to_text())
+    return 0 if report.ready else 1
+
+
+def _foundry_extra_present() -> bool:
+    import importlib.util
+
+    return all(
+        importlib.util.find_spec(mod) is not None
+        for mod in ("openai", "azure.identity")
+    )
+
+
+def _doctor_token_probe(plan):
+    """Build a token probe from the ambient Azure identity (never sends a prompt)."""
+
+    def probe() -> str:
+        from azure.identity import DefaultAzureCredential
+
+        scope = "https://cognitiveservices.azure.com/.default"
+        token = DefaultAzureCredential().get_token(scope)
+        return token.token
+
+    return probe
 
 
 def _cmd_benchmark_smoke(args: argparse.Namespace) -> int:
