@@ -47,6 +47,11 @@ import yaml
 
 from . import __version__
 from .pricing import PricingTable, format_usd
+from .pricing_engine import (
+    PricingEngine,
+    as_engine,
+    engine_from_snapshot,
+)
 
 # Bumped when the snapshot layout or summary schema changes in a
 # non-backward-compatible way (recorded in every manifest for auditing).
@@ -85,6 +90,7 @@ class MeasureCandidate:
     model: str
     deployment: str
     provider: str = "openai"
+    router: bool = False
 
     @classmethod
     def coerce(cls, value: MeasureCandidate | str | Mapping[str, Any]) -> MeasureCandidate:
@@ -97,6 +103,7 @@ class MeasureCandidate:
             model=str(value["model"]),
             deployment=deployment,
             provider=str(value.get("provider", "openai")),
+            router=bool(value.get("router", False)),
         )
 
 
@@ -295,7 +302,7 @@ def estimate_dry_run(
     candidates: Sequence[MeasureCandidate],
     *,
     n: int,
-    pricing: PricingTable,
+    pricing: PricingTable | PricingEngine,
     default_tokens: Mapping[str, float] | None = None,
 ) -> dict[str, Any]:
     """Estimate the spend of a live run *before* making any call.
@@ -303,27 +310,42 @@ def estimate_dry_run(
     Cost = Σ over (task × candidate × n) of ``pricing × est-tokens``. Token
     estimates come from each task's ``tokens`` block when present, else from
     ``default_tokens`` — the estimate is a planning figure, never a measurement.
+    Under the v2 composite card a Model-Router arm's pick is unknown before the
+    run, so its cell is honestly *unpriced* (``est_cost_usd = null``) and the
+    run's reservation ceiling falls back to the budget rather than a guess.
     """
 
+    engine = as_engine(pricing)
     tokens_default = dict(default_tokens or DEFAULT_DRY_RUN_TOKENS)
     per_candidate: list[dict[str, Any]] = []
     grand_total = 0.0
+    unpriced_models: list[str] = []
     for candidate in candidates:
         cand_total = 0.0
+        cand_priced = True
         for task in workload.values():
             est = task.get("tokens") if isinstance(task.get("tokens"), Mapping) else tokens_default
-            cand_total += pricing.cost_usd(candidate.model, est)
-        cand_total *= n
-        grand_total += cand_total
+            priced = engine.price_estimate(candidate, est)
+            if priced.priced and priced.cost_usd is not None:
+                cand_total += priced.cost_usd
+            else:
+                cand_priced = False
+        if cand_priced:
+            cand_total *= n
+            grand_total += cand_total
+            est_cost: float | None = round(cand_total, 6)
+        else:
+            est_cost = None
+            unpriced_models.append(candidate.model)
         per_candidate.append(
             {
                 "model": candidate.model,
                 "deployment": candidate.deployment,
                 "calls": len(workload) * n,
-                "est_cost_usd": round(cand_total, 6),
+                "est_cost_usd": est_cost,
             }
         )
-    return {
+    estimate: dict[str, Any] = {
         "tasks": len(workload),
         "candidates": len(candidates),
         "n": n,
@@ -332,6 +354,11 @@ def estimate_dry_run(
         "est_total_usd": round(grand_total, 6),
         "labels": {"measured": False, "estimate": True, "basis": "list-price × est-tokens"},
     }
+    if engine.version >= 2:
+        estimate["labels"]["basis"] = "composite-rate-card-v2 × est-tokens"
+        estimate["unpriced_models"] = unpriced_models
+        estimate["cost_complete"] = not unpriced_models
+    return estimate
 
 
 def format_dry_run_table(estimate: Mapping[str, Any], *, budget_usd: float | None = None) -> str:
@@ -346,8 +373,10 @@ def format_dry_run_table(estimate: Mapping[str, Any], *, budget_usd: float | Non
         f"  {'-' * 22} {'-' * 6} {'-' * 12}",
     ]
     for row in estimate["per_candidate"]:
+        est = row["est_cost_usd"]
+        cost_cell = "unpriced" if est is None else format_usd(est)
         lines.append(
-            f"  {row['model'][:22]:22s} {row['calls']:>6d} {format_usd(row['est_cost_usd']):>12s}"
+            f"  {row['model'][:22]:22s} {row['calls']:>6d} {cost_cell:>12s}"
         )
     lines.append(f"  {'-' * 22} {'-' * 6} {'-' * 12}")
     lines.append(f"  {'TOTAL (estimate)':22s} {estimate['calls']:>6d} "
@@ -360,6 +389,13 @@ def format_dry_run_table(estimate: Mapping[str, Any], *, budget_usd: float | Non
                      f"headroom {format_usd(headroom)})")
     lines.append("")
     lines.append("  basis: list-price × per-task token estimate; real spend depends on live usage.")
+    unpriced = estimate.get("unpriced_models")
+    if unpriced:
+        lines.append(
+            "  unpriced (composite card, pick unknown pre-run): "
+            + ", ".join(unpriced)
+            + " — reserved against the budget cap, not a per-cell estimate."
+        )
     return "\n".join(lines)
 
 
@@ -373,7 +409,7 @@ def build_catalog(
     candidates: Sequence[MeasureCandidate],
     *,
     n: int,
-    pricing: PricingTable,
+    pricing: PricingTable | PricingEngine,
 ) -> dict[str, Any]:
     """Assemble the full pre-run picture *before* any call (D12).
 
@@ -477,16 +513,23 @@ def _trace_row(
     http_status: int,
     retries: int,
     backoff_ms_total: float,
-    cost_usd: float,
+    cost_usd: float | None,
     passed: bool | None,
     score: float | None,
     fail_reason: str | None,
     measured: bool,
     ts: str,
+    extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build one canonical trace row (§3.2). Field order is fixed for readability."""
+    """Build one canonical trace row (§3.2). Field order is fixed for readability.
 
-    return {
+    ``cost_usd`` is ``None`` for an *unpriced* attempt (fail-closed: the amount
+    is withheld, never fabricated as ``0.0``). ``extra`` carries engine-specific
+    columns (the v2 composite breakdown) so replay recomputes the identical
+    number; the v1 engine passes nothing, keeping legacy rows byte-identical.
+    """
+
+    row: dict[str, Any] = {
         "run_id": run_id,
         "exp_id": exp_id,
         "task_id": task_id,
@@ -503,13 +546,16 @@ def _trace_row(
         "http_status": int(http_status),
         "retries": int(retries),
         "backoff_ms_total": round(float(backoff_ms_total), 1),
-        "cost_usd": round(float(cost_usd), 6),
+        "cost_usd": None if cost_usd is None else round(float(cost_usd), 6),
         "pass": passed,
         "score": score,
         "fail_reason": fail_reason,
         "labels": {"measured": bool(measured)},
         "ts": ts,
     }
+    if extra:
+        row.update(extra)
+    return row
 
 
 def run_candidate(
@@ -520,7 +566,7 @@ def run_candidate(
     run_id: str,
     exp_id: str,
     repeat_idx: int,
-    pricing: PricingTable,
+    pricing: PricingTable | PricingEngine,
     retry: RetryPolicy,
     grader: Grader | None = None,
     sleeper: Callable[[float], None] = sleep,
@@ -533,6 +579,7 @@ def run_candidate(
     the retry budget records ``fail_reason = "throttle_exhausted"``.
     """
 
+    engine = as_engine(pricing)
     now = clock or (lambda: datetime.now(UTC).isoformat(timespec="milliseconds"))
     task_id = str(task.get("task_id") or task.get("id") or "")
     rows: list[dict[str, Any]] = []
@@ -545,7 +592,7 @@ def run_candidate(
         retries = attempt_idx - 1
         if result.ok:
             usage = dict(result.usage or {})
-            cost = pricing.cost_usd(candidate.model, usage)
+            priced = engine.price(candidate, resolved_model=result.model, usage=usage)
             passed: bool | None = None
             if grader is not None:
                 passed = bool(grader(task_id, task, candidate.model, usage))
@@ -554,9 +601,10 @@ def run_candidate(
                     run_id=run_id, exp_id=exp_id, task_id=task_id, repeat_idx=repeat_idx,
                     candidate_model=candidate.model, attempt_idx=attempt_idx, tokens=usage,
                     latency_ms=result.latency_ms, http_status=result.http_status,
-                    retries=retries, backoff_ms_total=backoff_total, cost_usd=cost,
+                    retries=retries, backoff_ms_total=backoff_total, cost_usd=priced.cost_usd,
                     passed=passed, score=None, fail_reason=None,
                     measured=result.provenance == "live", ts=now(),
+                    extra=priced.trace_fields(),
                 )
             )
             return rows, result
@@ -605,7 +653,7 @@ def _percentile(sorted_values: Sequence[float], pct: float) -> float:
 
 def compute_summary(
     traces: Sequence[Mapping[str, Any]],
-    pricing: PricingTable,
+    pricing: PricingTable | PricingEngine,
     *,
     exp_id: str,
     run_id: str,
@@ -620,15 +668,21 @@ def compute_summary(
     byte-identical: every number is derived only from the recorded traces and
     the pinned rate card. Each successful call's ``cost_usd`` is re-derived from
     its usage × ``pricing`` — a mismatch surfaces as a ``cost_mismatch`` failure.
+    An *unpriced* attempt (v2 fail-closed) withholds its amount (``cost_usd`` is
+    ``null``): it still counts as a graded call but adds no spend, is excluded
+    from the savings comparison, and marks the run ``cost_complete = false``.
     """
 
+    engine = as_engine(pricing)
     by_candidate: dict[str, dict[str, Any]] = {
-        model: {"total_usd": 0.0, "calls": 0, "latencies": [], "tokens": _zero_tokens()}
+        model: {"total_usd": 0.0, "calls": 0, "unpriced": 0, "latencies": [],
+                "tokens": _zero_tokens()}
         for model in candidate_models
     }
     totals_tokens = _zero_tokens()
     total_cost = 0.0
     ok_calls = 0
+    unpriced_calls = 0
     graded = 0
     accepted = 0
     http_429 = 0
@@ -657,23 +711,43 @@ def compute_summary(
             ok_calls += 1
             if not measured_label:
                 all_live = False
-            expected_cost = pricing.cost_usd(model, tokens)
-            recorded_cost = float(row.get("cost_usd", 0.0))
-            if round(expected_cost, 6) != round(recorded_cost, 6):
+            expected = engine.recompute(row)
+            recorded_raw = row.get("cost_usd", 0.0)
+            recorded_is_none = recorded_raw is None
+            recorded_cost = 0.0 if recorded_is_none else float(recorded_raw)
+            cost_priced = expected.priced and not recorded_is_none
+            if expected.priced != (not recorded_is_none):
+                # Integrity breach: one side claims a number the other withholds.
+                cost_mismatches.append(
+                    {
+                        "task_id": row.get("task_id"),
+                        "candidate_model": model,
+                        "attempt_idx": row.get("attempt_idx"),
+                        "recorded": None if recorded_is_none else recorded_cost,
+                        "expected": expected.cost_usd,
+                    }
+                )
+            elif cost_priced and round(expected.cost_usd, 6) != round(recorded_cost, 6):
                 cost_mismatches.append(
                     {
                         "task_id": row.get("task_id"),
                         "candidate_model": model,
                         "attempt_idx": row.get("attempt_idx"),
                         "recorded": recorded_cost,
-                        "expected": expected_cost,
+                        "expected": expected.cost_usd,
                     }
                 )
-            total_cost += recorded_cost
             bucket = by_candidate.setdefault(
-                model, {"total_usd": 0.0, "calls": 0, "latencies": [], "tokens": _zero_tokens()}
+                model,
+                {"total_usd": 0.0, "calls": 0, "unpriced": 0, "latencies": [],
+                 "tokens": _zero_tokens()},
             )
-            bucket["total_usd"] += recorded_cost
+            if cost_priced:
+                total_cost += recorded_cost
+                bucket["total_usd"] += recorded_cost
+            else:
+                unpriced_calls += 1
+                bucket["unpriced"] += 1
             bucket["calls"] += 1
             bucket["latencies"].append(float(row.get("latency_ms", 0.0)))
             _add_tokens(bucket["tokens"], tokens)
@@ -707,17 +781,30 @@ def compute_summary(
     for model in sorted(by_candidate):
         bucket = by_candidate[model]
         calls = bucket["calls"]
+        priced_calls = calls - bucket["unpriced"]
         latencies = sorted(bucket["latencies"])
-        candidate_out[model] = {
+        entry = {
             "total_usd": round(bucket["total_usd"], 6),
             "calls": calls,
-            "avg_usd_per_call": round(bucket["total_usd"] / calls, 6) if calls else 0.0,
+            "avg_usd_per_call": (
+                round(bucket["total_usd"] / priced_calls, 6) if priced_calls else 0.0
+            ),
             "latency_p50_ms": round(_percentile(latencies, 50), 1),
             "latency_p95_ms": round(_percentile(latencies, 95), 1),
             "tokens": {k: round(v, 1) for k, v in bucket["tokens"].items()},
         }
+        if engine.version >= 2:
+            entry["unpriced_calls"] = bucket["unpriced"]
+            entry["cost_complete"] = bucket["unpriced"] == 0
+        candidate_out[model] = entry
 
-    priced = {m: v["total_usd"] for m, v in candidate_out.items() if v["calls"] > 0}
+    # Only cost-complete arms enter the savings comparison: an unpriced arm is
+    # never treated as a cheap $0 winner (fail-closed withholds, never claims).
+    priced = {
+        m: v["total_usd"]
+        for m, v in candidate_out.items()
+        if v["calls"] > 0 and by_candidate[m]["unpriced"] == 0
+    }
     if priced:
         naive_total = max(priced.values())
         best_total = min(priced.values())
@@ -750,7 +837,7 @@ def compute_summary(
         accuracy = "ungraded"
 
     measured = saw_call and all_live
-    return {
+    summary: dict[str, Any] = {
         "schema_version": SUMMARY_SCHEMA_VERSION,
         "exp_id": exp_id,
         "run_id": run_id,
@@ -762,7 +849,7 @@ def compute_summary(
         "labels": {
             "measured": measured,
             "spend_source": "provider-usage",
-            "cost_basis": "list-price",
+            "cost_basis": engine.cost_basis_label(),
             "accuracy": accuracy,
             "partial": bool(partial),
         },
@@ -795,6 +882,14 @@ def compute_summary(
         "failures": failures,
         "integrity": {"cost_mismatches": cost_mismatches},
     }
+    if engine.version >= 2:
+        # Fail-closed cost completeness: any withheld amount makes the run's
+        # spend total a floor, not a settled figure, and blocks a savings claim.
+        summary["cost"]["unpriced_calls"] = unpriced_calls
+        summary["cost"]["cost_complete"] = unpriced_calls == 0
+        if unpriced_calls:
+            summary["cost"]["savings_claim_allowed"] = False
+    return summary
 
 
 def _zero_tokens() -> dict[str, float]:
@@ -1068,7 +1163,7 @@ def run_measure(
     candidates: Sequence[MeasureCandidate],
     *,
     client: MeasureClient,
-    pricing: PricingTable,
+    pricing: PricingTable | PricingEngine,
     exp_id: str,
     run_dir: Path | str,
     run_id: str | None = None,
@@ -1109,6 +1204,7 @@ def run_measure(
     run_path = Path(run_dir)
     run_path.mkdir(parents=True, exist_ok=True)
 
+    engine = as_engine(pricing)
     already = _completed_keys(run_path) if resume else set()
     prior_rows: list[dict[str, Any]] = []
     if resume and (run_path / "traces.jsonl").is_file():
@@ -1125,7 +1221,7 @@ def run_measure(
 
     candidate_models = [c.model for c in candidates]
     rows: list[dict[str, Any]] = list(prior_rows)
-    running_cost = round(sum(float(r.get("cost_usd", 0.0)) for r in prior_rows), 6)
+    running_cost = round(sum(float(r.get("cost_usd") or 0.0) for r in prior_rows), 6)
     partial = False
     stopped_reason: str | None = None
     cells_total = len(workload) * n * len(candidates)
@@ -1171,14 +1267,14 @@ def run_measure(
                         break
                 new_rows, _ = run_candidate(
                     client, task, candidate,
-                    run_id=run_id, exp_id=exp_id, repeat_idx=repeat_idx, pricing=pricing,
+                    run_id=run_id, exp_id=exp_id, repeat_idx=repeat_idx, pricing=engine,
                     retry=retry, grader=grader, sleeper=sleeper, clock=clock,
                 )
                 if hooks is not None and hooks.after_cell is not None:
                     hooks.after_cell(cell_id, new_rows)
                 rows.extend(new_rows)
                 running_cost = round(
-                    running_cost + sum(float(r.get("cost_usd", 0.0)) for r in new_rows), 6
+                    running_cost + sum(float(r.get("cost_usd") or 0.0) for r in new_rows), 6
                 )
                 cells_done += 1
                 throttles += sum(1 for r in new_rows if int(r.get("http_status", 0)) == 429)
@@ -1202,7 +1298,7 @@ def run_measure(
             break
 
     summary = compute_summary(
-        rows, pricing,
+        rows, engine,
         exp_id=exp_id, run_id=run_id, n=n,
         task_ids=[str(r.get("task_id")) for r in rows],
         candidate_models=candidate_models, partial=partial,
@@ -1211,7 +1307,7 @@ def run_measure(
     # Write payload files first, then fingerprint them into the manifest.
     traces_text = _dump_traces(rows)
     summary_text = _dumps(summary)
-    pricing_text = pricing_snapshot_yaml(pricing)
+    pricing_text = engine.snapshot_yaml()
     prereg_text = _prereg_text(prereg)
     files = {
         "traces.jsonl": traces_text,
@@ -1241,7 +1337,7 @@ def run_measure(
         "measured_cost_usd": summary["cost"]["total_usd"],
         "retry": retry.to_dict(),
         "pricing_path": pricing_path,
-        "pricing_version": pricing.version,
+        "pricing_version": engine.version,
         "workload_fingerprint": workload_fingerprint(workload),
         "prereg": {
             "commit_hash": prereg.commit_hash if prereg else None,
@@ -1322,14 +1418,14 @@ def replay_measure(run_dir: Path | str) -> ReplayResult:
     prereg_text = (path / "prereg.md").read_text(encoding="utf-8")
 
     traces = [json.loads(line) for line in traces_text.splitlines() if line.strip()]
-    pricing = pricing_from_snapshot_yaml(pricing_text)
+    engine = engine_from_snapshot(pricing_text)
     stored_summary = json.loads(stored_summary_text)
 
     stored_partial = bool(
         stored_summary.get("labels", {}).get("partial", manifest.get("partial", False))
     )
     recomputed = compute_summary(
-        traces, pricing,
+        traces, engine,
         exp_id=stored_summary.get("exp_id", manifest.get("exp_id", "")),
         run_id=stored_summary.get("run_id", manifest.get("run_id", "")),
         n=int(stored_summary.get("n", manifest.get("n", 1))),
