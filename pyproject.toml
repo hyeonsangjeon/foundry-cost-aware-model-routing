@@ -44,6 +44,9 @@ policy = ["*.yaml"]
 line-length = 100
 target-version = "py311"
 src = ["src", "samples", "evals", "tests"]
+# Benchmark fixtures emulate arbitrary model submissions (including deliberately
+# buggy ones); they are graded by the harness, not linted as library code.
+extend-exclude = ["benchmarks/original-coding/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
