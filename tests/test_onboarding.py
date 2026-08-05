@@ -226,7 +226,7 @@ def test_quickstart_maps_readiness_timeout_to_nonzero_and_tears_down(monkeypatch
     torn = {"count": 0}
 
     def fake_boot(py, host, port, *, tele):
-        raise ob.ReadinessTimeout("never ready (injected)")
+        raise qs.ob.ReadinessTimeout("never ready (injected)")
 
     def fake_teardown(proc):
         torn["count"] += 1
@@ -258,9 +258,9 @@ def test_quickstart_reports_cleanup_failure_as_nonzero(monkeypatch):
     monkeypatch.setattr(qs, "run_hero", lambda py, *, tele: {"ok": True, "checks": [{"ok": True}]})
 
     def boom(proc, timeout=5.0):
-        raise ob.CleanupError("process would not die (injected)")
+        raise qs.ob.CleanupError("process would not die (injected)")
 
-    monkeypatch.setattr(ob, "terminate_process_tree", boom)
+    monkeypatch.setattr(qs.ob, "terminate_process_tree", boom)
     args = qs._parse_args(["--ci", "--no-install"])
     assert qs.run(args) == 5  # cleanup failure is surfaced
 

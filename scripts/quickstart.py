@@ -31,6 +31,7 @@ any Azure call itself.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import platform
@@ -43,9 +44,27 @@ import webbrowser
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from router import onboarding as ob  # noqa: E402
+
+def _load_onboarding():
+    """Load the onboarding core *without* importing the ``router`` package.
+
+    ``router/__init__.py`` pulls in the whole runtime (incl. pyyaml), which does
+    not exist yet on the bare interpreter a fresh cloner runs this script with.
+    ``onboarding.py`` is pure standard library, so we exec it straight from its
+    file — the venv/install this script creates is what makes ``router`` usable.
+    """
+
+    path = _REPO_ROOT / "src" / "router" / "onboarding.py"
+    spec = importlib.util.spec_from_file_location("_cost_router_onboarding", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolves annotations via sys.modules
+    spec.loader.exec_module(module)
+    return module
+
+
+ob = _load_onboarding()
 
 
 def _log(msg: str, *, quiet: bool = False) -> None:
