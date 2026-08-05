@@ -273,6 +273,9 @@ def test_doctor_runs_offline_and_reports_separate_facts(
 
     monkeypatch.setattr(socket, "socket", _blocked)
     monkeypatch.setattr(socket, "create_connection", _blocked)
+    # Deterministic regardless of whether the [foundry] extra is installed:
+    # the benchmark gate (not incidental missing deps) is what fails closed here.
+    monkeypatch.setattr(cli, "_foundry_extra_present", lambda: True)
     mapping = _benchmark_config(tmp_path)
     mapping["foundry"]["azure_openai_endpoint"] = (
         "https://acme-res.cognitiveservices.azure.com/"
@@ -297,6 +300,7 @@ def test_doctor_json_shape(
 ) -> None:
     monkeypatch.delenv("AZURE_AI_FOUNDRY_ENDPOINT", raising=False)
     monkeypatch.delenv("AZURE_OPENAI_ENDPOINT", raising=False)
+    monkeypatch.setattr(cli, "_foundry_extra_present", lambda: True)
     mapping = _benchmark_config(tmp_path)
     mapping["run_mode"] = "smoke"
     mapping["foundry"]["azure_openai_endpoint"] = (

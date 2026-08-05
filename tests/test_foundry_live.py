@@ -861,6 +861,10 @@ def _entra_config() -> FoundryConfig:
 def test_sdk_client_disables_retries_and_wires_timeouts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # httpx is only present with the [foundry] extra; the individual-cutoff
+    # assertion is meaningful only then. Without it the SDK path falls back to a
+    # single float deadline (covered by the default-timeout test below).
+    httpx = pytest.importorskip("httpx")
     captured = _install_fake_openai(monkeypatch, _canned_response("gpt-4o"))
     client = AzureModelRouterClient(
         config=_entra_config(),
@@ -871,10 +875,7 @@ def test_sdk_client_disables_retries_and_wires_timeouts(
     # The runner owns every retry: 1 reserved attempt == 1 outbound request.
     assert captured["max_retries"] == 0
     timeout = captured["timeout"]
-    # httpx is a transitive openai dependency; when present the four transport
-    # cutoffs reach the client individually.
-    import httpx
-
+    # When httpx is present the four transport cutoffs reach the client.
     assert isinstance(timeout, httpx.Timeout)
     assert timeout.connect == 3 and timeout.read == 7
     assert timeout.write == 5 and timeout.pool == 4
