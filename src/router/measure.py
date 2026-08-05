@@ -1037,6 +1037,32 @@ def _completed_keys(run_dir: Path) -> set[tuple[str, int, str]]:
     return done
 
 
+@dataclass(frozen=True)
+class CellId:
+    """The identity of one logical cell (task x repeat x arm) in plan order."""
+
+    task_id: str
+    repeat_idx: int
+    model: str
+
+
+@dataclass(frozen=True)
+class RunHooks:
+    """Optional per-cell seams so a caller can gate/observe the sweep.
+
+    ``before_cell`` runs *before* a cell dispatches: return a non-empty
+    halt-reason string to stop the sweep (the run seals ``partial = true`` with
+    that reason, exactly like the budget-cap halt), or ``None`` to admit the
+    dispatch. ``after_cell`` runs after a cell's rows are recorded. Both default
+    to ``None``, so the measured CLI path is unchanged; the Cockpit injects
+    gate-backed closures (03B :class:`SpendLedger` reservation-before-dispatch +
+    :class:`AbortGate` admission) here rather than forking a second sweep loop.
+    """
+
+    before_cell: Callable[[CellId], str | None] | None = None
+    after_cell: Callable[[CellId, list[dict[str, Any]]], None] | None = None
+
+
 def run_measure(
     workload: Mapping[str, Mapping[str, Any]],
     candidates: Sequence[MeasureCandidate],
@@ -1061,6 +1087,7 @@ def run_measure(
     clock: Callable[[], str] | None = None,
     now: datetime | None = None,
     progress: Callable[[Mapping[str, Any]], None] | None = None,
+    hooks: RunHooks | None = None,
 ) -> MeasureRunResult:
     """Run a measured sweep and seal it into a §3 snapshot directory.
 
@@ -1134,11 +1161,21 @@ def run_measure(
                     )
                     _emit(event="budget_halt", stopped_reason=stopped_reason)
                     break
+                cell_id = CellId(task_id=task_id, repeat_idx=repeat_idx, model=candidate.model)
+                if hooks is not None and hooks.before_cell is not None:
+                    halt_reason = hooks.before_cell(cell_id)
+                    if halt_reason:
+                        partial = True
+                        stopped_reason = halt_reason
+                        _emit(event="halt", stopped_reason=stopped_reason)
+                        break
                 new_rows, _ = run_candidate(
                     client, task, candidate,
                     run_id=run_id, exp_id=exp_id, repeat_idx=repeat_idx, pricing=pricing,
                     retry=retry, grader=grader, sleeper=sleeper, clock=clock,
                 )
+                if hooks is not None and hooks.after_cell is not None:
+                    hooks.after_cell(cell_id, new_rows)
                 rows.extend(new_rows)
                 running_cost = round(
                     running_cost + sum(float(r.get("cost_usd", 0.0)) for r in new_rows), 6

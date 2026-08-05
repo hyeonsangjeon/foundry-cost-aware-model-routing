@@ -105,6 +105,10 @@ evals/out/
 evals/**/*.local.*
 reports/*.local.*
 
+# measured run output (cost-router dashboard --live cockpit, measure runs) —
+# traces/summaries can carry labels.measured=true, never committed
+/results/
+
 # deploy artifacts that may carry resource ids / endpoints
 scripts/.deploy-*
 *.resource-ids.txt

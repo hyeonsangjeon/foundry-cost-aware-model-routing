@@ -703,3 +703,58 @@ def test_compute_summary_is_pure_and_order_stable():
                         task_ids=["t1"], candidate_models=["gpt-5.4-nano"], partial=False)
     assert a == b
     assert a["integrity"]["cost_mismatches"] == []
+
+
+# --------------------------------------------------------------------------- #
+# RunHooks — per-cell gate/observer seam (03C cockpit uses this)
+# --------------------------------------------------------------------------- #
+
+
+def test_run_hooks_observe_every_dispatched_cell(tmp_path):
+    from router.measure import CellId, RunHooks
+
+    seen: list[CellId] = []
+    after: list[tuple[CellId, int]] = []
+    hooks = RunHooks(
+        before_cell=lambda cell: (seen.append(cell), None)[1],
+        after_cell=lambda cell, rows: after.append((cell, len(rows))),
+    )
+    result = _run(tmp_path, ScriptedClient(), n=1, hooks=hooks)
+    planned = len(_workload()) * 1 * len(_candidates())
+    assert len(seen) == planned  # one before_cell per logical cell
+    assert len(after) == planned
+    assert result.summary["labels"]["partial"] is False
+    assert {c.model for c in seen} == {"gpt-5.4-nano", "gpt-5.4"}
+
+
+def test_run_hooks_before_cell_halts_and_seals_partial(tmp_path):
+    from router.measure import CellId, RunHooks
+
+    dispatched: list[CellId] = []
+
+    def _before(cell: CellId) -> str | None:
+        if len(dispatched) >= 2:
+            return "aborted by operator"
+        dispatched.append(cell)
+        return None
+
+    result = _run(tmp_path, ScriptedClient(), n=1, hooks=RunHooks(before_cell=_before))
+    rows = [
+        json.loads(line)
+        for line in (result.run_dir / "traces.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert len(dispatched) == 2  # halted before the 3rd cell dispatched
+    assert len(rows) == 2  # only the admitted cells produced trace rows
+    assert result.summary["labels"]["partial"] is True
+    manifest = json.loads((result.run_dir / "manifest.json").read_text())
+    assert manifest["stopped_reason"] == "aborted by operator"
+
+
+def test_run_hooks_default_none_leaves_measured_path_unchanged(tmp_path):
+    # Sealed output must be byte-identical whether hooks=None or hooks=RunHooks().
+    from router.measure import RunHooks
+
+    a = _run(tmp_path / "a", ScriptedClient(), n=1)
+    b = _run(tmp_path / "b", ScriptedClient(), n=1, hooks=RunHooks())
+    assert (a.run_dir / "summary.json").read_text() == (b.run_dir / "summary.json").read_text()

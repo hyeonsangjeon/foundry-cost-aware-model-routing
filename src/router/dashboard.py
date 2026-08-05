@@ -525,16 +525,19 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </div>
 
     <div class="cls">3 &middot; Run gate &mdash; this button is the human approval</div>
+    <div id="ckPlan" class="ck-box"><div class="foot">loading plan&#8230;</div></div>
     <div class="ck-run">
       <label for="ckBudget">Budget cap (USD)</label>
       <input id="ckBudget" type="number" step="0.01" min="0" placeholder="e.g. 0.50" />
-      <label class="ck-approve"><input id="ckApprove" type="checkbox" /> I approve spending against this budget</label>
-      <button class="fleet-run" id="ckRunBtn">approve &amp; run (measured&#61;true)</button>
+      <label class="ck-approve"><input id="ckApprove" type="checkbox" /> I approve running this exact plan</label>
+      <button class="fleet-run" id="ckRunBtn">approve &amp; run</button>
     </div>
-    <p class="caveat" id="ckGate">The run halts at the credential, budget, and approval gates until all three are green.</p>
+    <p class="caveat" id="ckGate">The run halts at the plan-approval and budget gates until they are green.
+      <b>measured=true is only ever shown after completion + a clean snapshot replay</b>, never at start.</p>
 
     <div id="ckProgress" hidden>
-      <div class="cls">4 &middot; Live progress</div>
+      <div class="cls">4 &middot; Live progress
+        <button class="fleet-run" id="ckAbortBtn">abort run</button></div>
       <div class="ck-gauge"><span id="ckGaugeBar"></span></div>
       <p class="foot" id="ckProgressText">&mdash;</p>
     </div>
@@ -788,6 +791,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
+// Text-safe HTML escaping (03C): any workload/config/API-derived value that is
+// composed into innerHTML must pass through esc() so a prompt or reason string
+// can never inject markup. Prefer textContent; esc() is for the concat sites.
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+}[c]));
 // Endpoint map — defaults hit this service's live JSON routes. A static export
 // (e.g. Vercel) injects window.__ENDPOINTS__ to point at pre-rendered files.
 const EP = (typeof window !== "undefined" && window.__ENDPOINTS__) || {
@@ -1484,12 +1493,12 @@ async function loadFleet() {
     const row = document.createElement("div");
     row.className = "catrow";
     row.innerHTML =
-      "<div class='h'><span class='name'>" + m.name + "</span>" +
-      "<span class='tiertag'>" + (m.tier || "") + "</span></div>" +
-      "<div class='role'>" + (m.label || "") + "</div>" +
-      "<div class='rw'>deployment: " + m.deployment +
-      " \\u00b7 surface: " + (m.provider || "openai") +
-      " \\u00b7 roles: " + (m.roles || []).join(", ") + "</div>";
+      "<div class='h'><span class='name'>" + esc(m.name) + "</span>" +
+      "<span class='tiertag'>" + esc(m.tier || "") + "</span></div>" +
+      "<div class='role'>" + esc(m.label || "") + "</div>" +
+      "<div class='rw'>deployment: " + esc(m.deployment) +
+      " \\u00b7 surface: " + esc(m.provider || "openai") +
+      " \\u00b7 roles: " + esc((m.roles || []).join(", ")) + "</div>";
     cat.appendChild(row);
   }
   const slate = d.slate || {};
@@ -1578,8 +1587,8 @@ function renderFleetRun(d) {
       ? (disc.withheld || "withheld")
       : usdSmart(a.total_cost_usd);
     div.innerHTML =
-      "<div class='k'>" + k + "</div>" +
-      "<div class='v'>" + shown + (hit ? "\\u2020" : "") + "</div>" +
+      "<div class='k'>" + esc(k) + "</div>" +
+      "<div class='v'>" + esc(shown) + (hit ? "\\u2020" : "") + "</div>" +
       "<div class='k'>" + Math.round(a.avg_latency_ms) + " ms avg</div>";
     host.appendChild(div);
   }
@@ -1597,7 +1606,7 @@ function renderFleetRun(d) {
   for (const [k, v] of badges) {
     const c = document.createElement("span");
     c.className = "chip";
-    c.innerHTML = "<small>" + k + "</small> <b>" + v + "</b>";
+    c.innerHTML = "<small>" + esc(k) + "</small> <b>" + esc(v) + "</b>";
     lb.appendChild(c);
   }
   const mix = rep.router_model_mix || {};
@@ -1619,11 +1628,13 @@ function ckUrl(path) {
   return path + sep + "token=" + encodeURIComponent(COCKPIT.token);
 }
 function ckRow(k, v) {
-  return "<div class='kv'><span class='k'>" + k + "</span><span class='v'>" + v + "</span></div>";
+  return "<div class='kv'><span class='k'>" + esc(k) + "</span><span class='v'>" + esc(v) + "</span></div>";
 }
 async function loadCockpitStatus() {
   try {
     const d = await (await fetch(ckUrl("/cockpit/status"))).json();
+    COCKPIT.planBound = !!d.plan_bound;
+    COCKPIT.planHash = d.plan_hash || null;
     const f = d.foundry || {};
     let html = ckRow("endpoint", f.endpoint || "\\u2014") +
       ckRow("auth", f.auth_method || "\\u2014") +
@@ -1634,7 +1645,7 @@ async function loadCockpitStatus() {
       ckRow("measured", String(d.measured));
     const miss = f.missing || [];
     if (miss.length) {
-      html += "<div class='miss'>missing: " + miss.join(", ") +
+      html += "<div class='miss'>missing: " + esc(miss.join(", ")) +
         " \\u2014 set these in .env, then run `az login`.</div>";
     }
     $("ckStatus").innerHTML = html;
@@ -1642,18 +1653,37 @@ async function loadCockpitStatus() {
     $("ckStatus").innerHTML = "<div class='foot'>status unavailable</div>";
   }
 }
+async function loadCockpitPlan() {
+  // The approval preview: planned_cells + a base..max transport-attempts RANGE
+  // (never "exactly N"), bound to the one server-side plan_hash.
+  try {
+    const d = await (await fetch(ckUrl("/cockpit/preview"))).json();
+    if (d.error) { $("ckPlan").innerHTML = "<div class='foot'>" + esc(d.error) + "</div>"; return; }
+    COCKPIT.planHash = d.plan_hash || COCKPIT.planHash;
+    $("ckPlan").innerHTML =
+      ckRow("plan_hash", d.plan_hash || "\\u2014") +
+      ckRow("planned cells", String(d.planned_cells != null ? d.planned_cells : "\\u2014")) +
+      ckRow("transport attempts / call",
+        (d.base_transport_attempts != null ? d.base_transport_attempts : "?") +
+        " \\u2013 " + (d.max_transport_attempts != null ? d.max_transport_attempts : "?") +
+        " (retryable \\u2014 not a fixed count)") +
+      ckRow("budget", d.budget_usd != null ? usdSmart(d.budget_usd) : "\\u2014");
+  } catch (e) {
+    $("ckPlan").innerHTML = "<div class='foot'>plan unavailable (bind one with --config)</div>";
+  }
+}
 async function loadCockpitCatalog() {
   try {
     const d = await (await fetch(ckUrl("/cockpit/catalog?n=1"))).json();
-    if (d.error) { $("ckCatalog").innerHTML = "<div class='foot'>" + d.error + "</div>"; return; }
+    if (d.error) { $("ckCatalog").innerHTML = "<div class='foot'>" + esc(d.error) + "</div>"; return; }
     let html = "";
     for (const t of (d.tasks || [])) {
       const prompt = String(t.user_prompt || t.prompt || "").slice(0, 160);
       const va = t.validation ? ("check: " + JSON.stringify(t.validation)) : "ungraded";
-      html += "<div class='ck-task'><span class='id'>" + t.task_id + "</span>" +
-        "<span class='cl'>" + (t.class || "") + "</span>" +
-        "<div class='pr'>" + prompt + "</div>" +
-        "<div class='va'>" + va + "</div></div>";
+      html += "<div class='ck-task'><span class='id'>" + esc(t.task_id) + "</span>" +
+        "<span class='cl'>" + esc(t.class || "") + "</span>" +
+        "<div class='pr'>" + esc(prompt) + "</div>" +
+        "<div class='va'>" + esc(va) + "</div></div>";
     }
     const est = d.estimate || {};
     if (est.est_total_usd != null) {
@@ -1668,33 +1698,70 @@ async function loadCockpitCatalog() {
     $("ckCatalog").innerHTML = "<div class='foot'>catalog unavailable</div>";
   }
 }
+function ckNewIdemKey() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "ck-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+}
 async function runCockpit() {
   const btn = $("ckRunBtn");
   const budget = parseFloat($("ckBudget").value);
   const approve = $("ckApprove").checked;
   btn.disabled = true;
   btn.textContent = "requesting\\u2026";
+  // A fresh idempotency key per approved click; the server dedupes retries and
+  // refuses a concurrent run via its active-run lock.
+  COCKPIT.idemKey = ckNewIdemKey();
+  COCKPIT.runId = null;
   try {
     const resp = await fetch(ckUrl("/cockpit/run"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ approve: approve, budget_usd: isNaN(budget) ? null : budget }),
+      body: JSON.stringify({
+        approve: approve,
+        plan_hash: COCKPIT.planHash,
+        idempotency_key: COCKPIT.idemKey,
+        budget_usd: isNaN(budget) ? null : budget,
+      }),
     });
     const d = await resp.json();
     if (!d.ran) {
       $("ckGate").textContent = "\\u26A0 " + (d.reason || d.error || "run refused");
       return;
     }
-    $("ckGate").textContent = "run " + d.run_id + " started \\u2014 streaming progress\\u2026";
+    // The start response never claims measured=true — only a verified replay does.
+    COCKPIT.runId = d.run_id;
+    $("ckGate").textContent = "run " + d.run_id +
+      " started \\u2014 measured pending completion + replay\\u2026";
     $("ckProgress").hidden = false;
-    pollCockpitProgress(d.run_id, d.run_dir);
+    pollCockpitProgress(d.run_id, d.run_id);
   } catch (e) {
     $("ckGate").textContent = "run request failed";
   } finally {
     btn.disabled = false;
-    btn.textContent = "approve & run (measured=true)";
+    btn.textContent = "approve & run";
   }
 }
+async function abortCockpit() {
+  if (!COCKPIT.runId) return;
+  const btn = $("ckAbortBtn");
+  btn.disabled = true;
+  btn.textContent = "aborting\\u2026";
+  try {
+    const d = await (await fetch(ckUrl("/cockpit/abort"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ run_id: COCKPIT.runId }),
+    })).json();
+    const flight = d.any_in_flight ? " (an in-flight call may still settle)" : "";
+    $("ckGate").textContent = "abort: " + (d.status || "requested") + flight;
+  } catch (e) {
+    $("ckGate").textContent = "abort request failed";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "abort run";
+  }
+}
+const CK_TERMINAL = ["complete", "partial", "failed", "aborted", "replay_verified", "replay_failed"];
 function renderCockpitProgress(p) {
   const total = p.cells_total || 0;
   const done = p.cells_done || 0;
@@ -1704,13 +1771,18 @@ function renderCockpitProgress(p) {
   const spendFrac = budget ? Math.min(spent / budget, 1) : (total ? done / total : 0);
   bar.style.width = (spendFrac * 100).toFixed(1) + "%";
   bar.className = (budget && spent >= budget) ? "over" : "";
+  const exposure = p.unreconciled_exposure_usd
+    ? " \\u00b7 " + usdSmart(p.unreconciled_exposure_usd) + " unreconciled" : "";
   $("ckProgressText").textContent =
     done + "/" + total + " cells \\u00b7 " + usdSmart(spent) +
-    (budget != null ? " / " + usdSmart(budget) + " budget" : "") +
-    " \\u00b7 " + (p.throttles || 0) + " throttles \\u00b7 " + (p.failures || 0) + " failures" +
-    (p.event ? " \\u00b7 " + p.event : "");
+    (budget != null ? " / " + usdSmart(budget) + " budget" : "") + exposure +
+    (p.state ? " \\u00b7 " + p.state : "") +
+    (p.stopped_reason ? " \\u00b7 " + p.stopped_reason : "");
+  // The abort control is live only while the run can still be cancelled.
+  const abortBtn = $("ckAbortBtn");
+  if (abortBtn) abortBtn.hidden = !p.abort_available;
 }
-async function pollCockpitProgress(runId, runDir) {
+async function pollCockpitProgress(runId, snapRef) {
   if (CK_TIMER) clearInterval(CK_TIMER);
   CK_TIMER = setInterval(async () => {
     try {
@@ -1718,10 +1790,12 @@ async function pollCockpitProgress(runId, runDir) {
       const p = d.progress;
       if (!p) return;
       renderCockpitProgress(p);
-      if (p.event === "budget_halt" || (p.cells_total && p.cells_done >= p.cells_total)) {
+      if (CK_TERMINAL.indexOf(p.state) >= 0) {
         clearInterval(CK_TIMER);
         CK_TIMER = null;
-        loadCockpitSnapshot(runDir);
+        const abortBtn = $("ckAbortBtn");
+        if (abortBtn) abortBtn.hidden = true;
+        loadCockpitSnapshot(snapRef);
       }
     } catch (e) { /* transient — keep polling */ }
   }, 1000);
@@ -1730,12 +1804,19 @@ async function loadCockpitSnapshot(run) {
   try {
     const d = await (await fetch(ckUrl("/cockpit/snapshot?run=" + encodeURIComponent(run)))).json();
     $("ckSnapshot").hidden = false;
-    if (d.error) { $("ckSnapshotBody").innerHTML = "<div class='foot'>" + d.error + "</div>"; return; }
-    $("ckSnapshotBody").innerHTML =
+    if (d.error) { $("ckSnapshotBody").innerHTML = "<div class='foot'>" + esc(d.error) + "</div>"; return; }
+    let html =
       ckRow("run", d.run) +
+      ckRow("state", d.state || "\\u2014") +
       ckRow("replay ok", String(d.ok)) +
       ckRow("summary matches", String(d.summary_matches)) +
       ckRow("measured", String(d.measured));
+    // 03Z-b: an unverified replay withholds the cost amount itself.
+    if (d.cost_withheld) {
+      html += "<div class='miss'>cost withheld \\u2014 snapshot did not replay clean; " +
+        "no amount or savings is published.</div>";
+    }
+    $("ckSnapshotBody").innerHTML = html;
   } catch (e) {
     $("ckSnapshotBody").innerHTML = "<div class='foot'>snapshot unavailable</div>";
   }
@@ -1743,11 +1824,14 @@ async function loadCockpitSnapshot(run) {
 function initCockpit() {
   const q = new URLSearchParams(window.location.search);
   if (q.get("cockpit") !== "1" || !q.get("token")) return;  // public build stays dark
-  COCKPIT = { token: q.get("token") };
+  COCKPIT = { token: q.get("token"), planHash: null, runId: null };
   $("cockpitPanel").hidden = false;
   $("ckMode").textContent = "\\u2014 localhost \\u00b7 token-gated";
   $("ckRunBtn").addEventListener("click", runCockpit);
+  const abortBtn = $("ckAbortBtn");
+  if (abortBtn) { abortBtn.hidden = true; abortBtn.addEventListener("click", abortCockpit); }
   loadCockpitStatus();
+  loadCockpitPlan();
   loadCockpitCatalog();
 }
 
