@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import sys
 import textwrap
 from pathlib import Path
 
@@ -97,6 +98,17 @@ from .pipeline import (
     run_route_once,
 )
 from .pricing import PricingTable, format_usd, format_usd_avg
+from .run_plan import (
+    DEFAULT_LOCAL_CONFIG,
+    SUPPORTED_LOCALES,
+    ApprovalError,
+    LocalRunConfig,
+    PlanError,
+    check_approval,
+    execute_benchmark,
+    resolve_run_plan,
+    write_local_config,
+)
 
 # Bundled recorded provider-usage snapshot: replayed offline so `foundry live`
 # demonstrates the measured scoring path with no credentials (measured=false).
@@ -125,6 +137,26 @@ def _resolve_pricing_path(explicit: Path | None) -> Path:
         if value:
             return Path(value)
     return DEFAULT_FLEET_PRICING
+
+
+def _warn_legacy_config(command: str) -> None:
+    """Emit a documented deprecation notice for the standalone env/flag config path.
+
+    BOLT-03A makes the canonical :class:`~router.run_plan.ResolvedRunPlan`
+    (``cost-router benchmark plan``) the single source of truth for preview,
+    approval, run, manifest, and replay. The legacy per-command environment/flag
+    configuration still works, but it is deprecated: it carries independent
+    resolution semantics the canonical plan now owns. Written to stderr so it
+    never contaminates ``--json`` stdout or a captured summary.
+    """
+
+    print(
+        f"note: `cost-router {command}` uses the legacy environment/flag config path, "
+        "deprecated by BOLT-03A in favor of the canonical run plan "
+        "(`cost-router config init` then `cost-router benchmark plan --config "
+        ".foundry.local.yaml`). See docs/manual/run-plan.md.",
+        file=sys.stderr,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -168,6 +200,10 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default="127.0.0.1", help="bind host (default 127.0.0.1)")
     serve.add_argument("--port", type=int, default=8000, help="bind port (default 8000)")
     serve.add_argument("--policy", type=Path, default=None, help="policy YAML to serve")
+    serve.add_argument(
+        "--locale", choices=SUPPORTED_LOCALES, default=None,
+        help="reserved presentation locale (en|ko); no execution effect — i18n owns behavior",
+    )
     serve.set_defaults(func=_cmd_serve)
 
     dashboard = subparsers.add_parser(
@@ -188,6 +224,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--live", action="store_true",
         help="enable the localhost-only, session-token-gated live cockpit "
         "(the paid run still needs credentials + the operator's approve button)",
+    )
+    dashboard.add_argument(
+        "--locale", choices=SUPPORTED_LOCALES, default=None,
+        help="reserved presentation locale (en|ko); no execution effect — i18n owns behavior",
     )
     dashboard.set_defaults(func=_cmd_dashboard)
 
@@ -235,6 +275,8 @@ def build_parser() -> argparse.ArgumentParser:
     _build_metrics_parser(subparsers)
     _build_models_parser(subparsers)
     _build_measure_parser(subparsers)
+    _build_config_parser(subparsers)
+    _build_benchmark_parser(subparsers)
     return parser
 
 
@@ -985,6 +1027,7 @@ def _capture_recorded_snapshot(args: argparse.Namespace) -> int:
 
 def _cmd_foundry_live(args: argparse.Namespace) -> int:
     load_dotenv_file(args.env_file)
+    _warn_legacy_config("foundry live")
 
     if args.capture is not None:
         return _capture_recorded_snapshot(args)
@@ -1199,6 +1242,7 @@ def _cmd_foundry_router(args: argparse.Namespace) -> int:
 
 def _cmd_foundry_arena(args: argparse.Namespace) -> int:
     load_dotenv_file(args.env_file)
+    _warn_legacy_config("foundry arena")
     workload = args.workload or DEFAULT_ARENA_WORKLOAD
     pricing_path = args.pricing or DEFAULT_FLEET_PRICING
     try:
@@ -1476,6 +1520,7 @@ def _git_head() -> str | None:
 
 def _cmd_measure_run(args: argparse.Namespace) -> int:
     load_dotenv_file(args.env_file)
+    _warn_legacy_config("measure run")
     workload_path = args.workload or DEFAULT_ARENA_WORKLOAD
     pricing_path = _resolve_pricing_path(args.pricing)
     try:
@@ -1555,6 +1600,7 @@ def _cmd_measure_run(args: argparse.Namespace) -> int:
 
 def _cmd_measure_catalog(args: argparse.Namespace) -> int:
     load_dotenv_file(args.env_file)
+    _warn_legacy_config("measure catalog")
     workload_path = args.workload or DEFAULT_ARENA_WORKLOAD
     pricing_path = _resolve_pricing_path(args.pricing)
     try:
@@ -2006,6 +2052,266 @@ def _cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------- #
+# Canonical run plan — config init, benchmark plan/smoke/run (BOLT-03A)
+# --------------------------------------------------------------------------- #
+
+
+def _add_locale_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--locale",
+        choices=SUPPORTED_LOCALES,
+        default=None,
+        help="reserved presentation locale (en|ko); excluded from plan_hash — i18n owns behavior",
+    )
+
+
+def _build_config_parser(subparsers: argparse._SubParsersAction) -> None:
+    config = subparsers.add_parser(
+        "config",
+        help="Canonical local run config — scaffold a placeholder .foundry.local.yaml.",
+    )
+    config_sub = config.add_subparsers(dest="config_command")
+
+    init = config_sub.add_parser(
+        "init",
+        help="Write a placeholder .foundry.local.yaml from the committed template (no secrets).",
+    )
+    init.add_argument(
+        "--output", type=Path, default=Path(DEFAULT_LOCAL_CONFIG),
+        help=f"where to write the local config (default: {DEFAULT_LOCAL_CONFIG})",
+    )
+    init.add_argument(
+        "--force", action="store_true", help="overwrite an existing file",
+    )
+    init.set_defaults(func=_cmd_config_init)
+
+
+def _build_benchmark_parser(subparsers: argparse._SubParsersAction) -> None:
+    benchmark = subparsers.add_parser(
+        "benchmark",
+        help="Resolve one canonical run plan, then preview/approve/run it (offline by default).",
+    )
+    benchmark_sub = benchmark.add_subparsers(dest="benchmark_command")
+
+    plan = benchmark_sub.add_parser(
+        "plan",
+        help="Resolve + print the redacted plan and its deterministic plan_hash. Zero egress.",
+    )
+    _add_plan_args(plan)
+    plan.set_defaults(func=_cmd_benchmark_plan)
+
+    smoke = benchmark_sub.add_parser(
+        "smoke",
+        help="Wiring-only one-call check. Previews the plan; --live needs --approve-plan.",
+    )
+    _add_plan_args(smoke)
+    _add_live_args(smoke)
+    smoke.set_defaults(func=_cmd_benchmark_smoke)
+
+    run = benchmark_sub.add_parser(
+        "run",
+        help="Full measured sweep. Previews the plan; --live needs --approve-plan.",
+    )
+    _add_plan_args(run)
+    _add_live_args(run)
+    run.set_defaults(func=_cmd_benchmark_run)
+
+
+def _add_plan_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--config", type=Path, default=Path(DEFAULT_LOCAL_CONFIG),
+        help=f"canonical run config (default: {DEFAULT_LOCAL_CONFIG})",
+    )
+    parser.add_argument(
+        "--budget-usd", type=float, default=None,
+        help="override the config's budget_usd (CLI wins over YAML)",
+    )
+    parser.add_argument(
+        "--max-output-tokens", type=int, default=None,
+        help="override the config's benchmark.max_output_tokens (CLI wins over YAML)",
+    )
+    parser.add_argument("--json", action="store_true", help="print the resolved plan as JSON")
+    _add_locale_arg(parser)
+
+
+def _add_live_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--live", action="store_true",
+        help="make REAL Azure calls (requires credentials AND a matching --approve-plan)",
+    )
+    parser.add_argument(
+        "--approve-plan", default=None, metavar="PLAN_HASH",
+        help="the plan_hash printed by `benchmark plan`; a stale/mismatched value is rejected",
+    )
+    parser.add_argument("--env-file", type=Path, default=Path(".env"), help="dotenv to load first")
+    parser.add_argument("--region", default=None, help="Azure region label for the manifest")
+
+
+def _plan_overrides(args: argparse.Namespace) -> dict[str, object]:
+    overrides: dict[str, object] = {}
+    if getattr(args, "budget_usd", None) is not None:
+        overrides["budget_usd"] = args.budget_usd
+    if getattr(args, "max_output_tokens", None) is not None:
+        overrides["max_output_tokens"] = args.max_output_tokens
+    return overrides
+
+
+def _cmd_config_init(args: argparse.Namespace) -> int:
+    try:
+        out = write_local_config(args.output, force=args.force)
+    except PlanError as exc:
+        print(f"config init: {exc}")
+        return 1
+    print(f"config init: wrote {out} (placeholder template — no secrets).")
+    print("  Next: fill in your endpoint + local paths, set `template: false`, then")
+    print(f"        cost-router benchmark plan --config {out}")
+    return 0
+
+
+def _resolve_plan_or_error(
+    args: argparse.Namespace, *, label: str, require_run_ready: bool
+):
+    """Resolve a plan for a CLI command, printing a ``label:`` error on failure."""
+
+    try:
+        config = LocalRunConfig.from_yaml(args.config)
+        plan = resolve_run_plan(
+            config,
+            cli_overrides=_plan_overrides(args),
+            cli_locale=getattr(args, "locale", None),
+            require_run_ready=require_run_ready,
+        )
+    except PlanError as exc:
+        print(f"{label}: {exc}")
+        return None, None
+    return config, plan
+
+
+def _print_plan(plan) -> None:
+    """Print the full redacted plan, then the human-approval summary."""
+
+    ex = plan.execution
+    print(f"resolved run plan   ({plan.config_source})")
+    print(f"  plan_hash         : {plan.plan_hash}")
+    print(f"  live_ready        : {_yn(plan.live_ready)}")
+    print(f"  run_mode          : {ex['run_mode']}")
+    endpoint = ex["endpoint"]
+    print(f"  endpoint          : {endpoint['data_plane'] or '(unset — template/placeholder)'} "
+          f"[{endpoint['dialect']}, auth={endpoint['auth_mode']}, api={endpoint['api_version']}]")
+    print("  arms              :")
+    for arm in ex["arms"]:
+        print(f"    - {arm['id']}  ({arm['kind']}, provider={arm['provider']}, "
+              f"deployment={arm['deployment']})")
+    workload = ex["workload"]
+    print(f"  workload          : {workload['path']}  {workload['fingerprint']}")
+    pricing = ex["pricing"]
+    if pricing["rate_card_path"]:
+        print(f"  rate card         : {pricing['rate_card_path']}  v{pricing['schema_version']} "
+              f"{pricing['currency']}  {pricing['fingerprint']}")
+    print(f"  authorization     : {pricing['authorization_basis']}"
+          + (f"  (ceiling ${pricing['smoke_authorization_ceiling_usd']:.2f})"
+             if pricing["smoke_authorization_ceiling_usd"] is not None else ""))
+    print(f"  budget            : {format_usd(plan.budget_usd)}")
+    print(f"  grader            : {ex['grader']['kind']} v{ex['grader']['version']}")
+    print(f"  locale (display)  : {plan.locale}  (source={plan.presentation['locale_source']}; "
+          "not in plan_hash)")
+    _print_approval_view(plan)
+    for warning in plan.warnings:
+        print(f"  ⚠ {warning}")
+
+
+def _print_approval_view(plan) -> None:
+    view = plan.approval_view()
+    print("  — approval summary —")
+    print(f"    planned cells   : {view['planned_cells']}")
+    print(f"    transport attempts / cell : base {view['base_transport_attempts']}, "
+          f"max {view['max_transport_attempts']} "
+          "(retries may dispatch anywhere in [base, max] — not an exact call count)")
+    print(f"    worst-case reservation : {format_usd(view['worst_case_reservation_usd'])} "
+          f"({plan.execution['budget']['reservation_basis']})")
+    print(f"    approve with    : --approve-plan {plan.plan_hash}")
+
+
+def _cmd_benchmark_plan(args: argparse.Namespace) -> int:
+    _config, plan = _resolve_plan_or_error(args, label="benchmark plan", require_run_ready=False)
+    if plan is None:
+        return 1
+    if args.json:
+        print(json.dumps(plan.to_dict(), indent=2, sort_keys=True, ensure_ascii=False))
+        return 0
+    _print_plan(plan)
+    return 0
+
+
+def _cmd_benchmark_smoke(args: argparse.Namespace) -> int:
+    return _benchmark_preview_or_dispatch(args, kind="smoke")
+
+
+def _cmd_benchmark_run(args: argparse.Namespace) -> int:
+    return _benchmark_preview_or_dispatch(args, kind="run")
+
+
+def _benchmark_preview_or_dispatch(args: argparse.Namespace, *, kind: str) -> int:
+    label = f"benchmark {kind}"
+    live = bool(getattr(args, "live", False))
+    config, plan = _resolve_plan_or_error(
+        args, label=label, require_run_ready=live
+    )
+    if plan is None:
+        return 1
+
+    if kind == "run" and plan.run_mode != "benchmark":
+        print(f"{label}: config run_mode is '{plan.run_mode}', not 'benchmark'. "
+              "Use `benchmark smoke` for a wiring check, or set run_mode: benchmark.")
+        return 1
+
+    if not live:
+        if args.json:
+            print(json.dumps(plan.to_dict(), indent=2, sort_keys=True, ensure_ascii=False))
+        else:
+            _print_plan(plan)
+            print("")
+            print(f"{label}: PREVIEW only — no live calls were made (zero egress).")
+            print(f"  Re-run with --live --approve-plan {plan.plan_hash} once an operator "
+                  "approves the spend.")
+            print("  `cost-router foundry status` must show credentialed: yes (az login).")
+        return 2
+
+    # --- live path (operator-gated; approval bound to the exact plan_hash) ----
+    try:
+        check_approval(plan, getattr(args, "approve_plan", None))
+    except ApprovalError as exc:
+        print(f"{label}: {exc}")
+        return 1
+
+    load_dotenv_file(args.env_file)
+    fconfig = FoundryConfig.from_env()
+    if not fconfig.credentialed:  # pragma: no cover - live guard
+        print(f"{label} --live: not credentialed; set AZURE_AI_FOUNDRY_* in .env, then `az login`.")
+        return 1
+    client = AzureMeasureClient(  # pragma: no cover - live path
+        AzureModelRouterClient(
+            config=fconfig, max_output_tokens=plan.execution["request"]["max_output_tokens"]
+        )
+    )
+    out_root = Path(plan.execution["artifacts"]["local_root"])
+    run_dir = out_root / kind / make_run_id()
+    try:  # pragma: no cover - live path
+        result = execute_benchmark(
+            config, plan, client=client, run_dir=run_dir, exp_id=kind,
+            git_commit=_git_head(),
+            region=args.region,
+        )
+    except (PlanError, RuntimeError, ValueError, KeyError, OSError) as exc:  # pragma: no cover
+        print(f"{label} --live: {exc}")
+        return 1
+    print(  # pragma: no cover - live path
+        f"{label} --live: sealed snapshot {result.run_dir}  plan_hash {plan.plan_hash}"
+    )
+    return 0  # pragma: no cover
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if not getattr(args, "command", None):
@@ -2027,6 +2333,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "foundry" and not getattr(args, "foundry_command", None):
         print("usage: cost-router foundry [status | live [--live] [--store PATH]]")
+        return 0
+    if args.command == "config" and not getattr(args, "config_command", None):
+        print(f"usage: cost-router config init [--output {DEFAULT_LOCAL_CONFIG}] [--force]")
+        return 0
+    if args.command == "benchmark" and not getattr(args, "benchmark_command", None):
+        print("usage: cost-router benchmark [plan | smoke | run] --config PATH")
         return 0
     if args.command == "models" and not getattr(args, "models_command", None):
         args.fleet = None

@@ -1,0 +1,79 @@
+# cost-router — canonical local run plan (TEMPLATE).
+#
+# Copy this to `.foundry.local.yaml` with `cost-router config init`, then fill in
+# YOUR endpoint and local paths. The filled `.foundry.local.yaml` is gitignored
+# and must NEVER contain a credential: no api_key, access_token, bearer_token,
+# client_secret, password, or connection_string. Sign in with Microsoft Entra ID
+# (`az login`) instead — keyless auth is the golden path.
+#
+# This is one control-plane entry point. Versioned workloads, fleet/pricing rate
+# cards, and pre-registration stay as separate inspectable artifacts referenced
+# from here. Resolve, redact, and hash the whole thing offline with:
+#
+#     cost-router benchmark plan --config .foundry.local.yaml
+#
+# `benchmark plan` never egresses; it prints the redacted resolved plan and a
+# deterministic plan_hash you approve before any paid call.
+
+schema_version: 1
+template: true # config init writes a local copy; set false to become run-ready.
+run_mode: smoke # smoke | benchmark
+
+foundry:
+  auth: entra # keyless Microsoft Entra ID (az login). Key auth is not the 10-min contract.
+  endpoint_kind: azure_openai # only dialect wired in v1 (Azure OpenAI resource data-plane).
+  azure_openai_endpoint: https://<resource>.openai.azure.com/
+  model_inference_endpoint: null # partner/OSS models (services.ai.azure.com/models); optional.
+  api_version: "2024-10-21"
+  deployment_evidence:
+    management_resource_id: null # optional ARM resource id, OR an exported payload below.
+    exported_arm_payload: null # path to a captured control-plane payload (benchmark only).
+    management_api_version: null
+    captured_at: null
+    payload_hash_or_etag: null
+
+# The template ships one permissive Model Router arm. It works against a default
+# Balanced / full-roster Model Router deployment and needs no mode/subset
+# evidence. A full benchmark config adds router-cost / router-balanced /
+# router-quality / direct-premium arms and pins `expected` mode/version/subset.
+arms:
+  - id: router-smoke
+    kind: model_router
+    provider: openai
+    requested_model: model-router
+    deployment: model-router
+    expected: null # optional for smoke; fixed (format,name,version) required for benchmark.
+
+benchmark:
+  workload: samples/workloads/validated-smoke.example.jsonl # prompt-bearing, synthetic.
+  rate_card: null # required for benchmark; optional for wiring-only smoke.
+  smoke_authorization_ceiling_usd: 0.10 # hard local cap reserved before any dispatch.
+  repetitions: 1
+  max_output_tokens: 256
+  budget_usd: 0.10
+  grader:
+    kind: exec-signals
+    version: 1
+  estimand: null # required in benchmark mode (analysis unit, aggregation, cost/pass, paired stat).
+  preregistration: null
+  random_seed: 20260729
+  retry:
+    max_retries: 0 # runner-owned; provider-client internal retries are disabled.
+    connect_timeout_seconds: 10
+    read_timeout_seconds: 90
+    write_timeout_seconds: 30
+    pool_timeout_seconds: 10
+    overall_timeout_seconds: 120
+  quality_gate: null # required in benchmark mode.
+
+privacy:
+  retain_raw_prompts: false
+  retain_raw_outputs: false
+  retain_raw_response_ids: false
+
+artifacts:
+  local_root: results/local
+  publish_sanitized: false
+
+display:
+  locale: en # presentation-only; en|ko. Does NOT affect plan_hash. Full behavior lands in i18n.

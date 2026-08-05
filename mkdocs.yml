@@ -57,6 +57,7 @@ nav:
       - "커스터마이징 · 내 워크로드로": manual/customize.md
       - "플릿 등록 & 모델 선택": manual/fleet.md
       - "Foundry 실전 구성 · 실험별 세팅": manual/foundry-setup.md
+      - "정본 실행 계획 · Resolved Run Plan": manual/run-plan.md
       - 감사 원장: manual/ledger.md
   - 실험노트:
       - 소개와 방법론: lab-notebook/index.md
