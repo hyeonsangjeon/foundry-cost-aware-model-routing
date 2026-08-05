@@ -89,6 +89,103 @@ FOUNDRY_PROVIDER_ALIASES: frozenset[str] = frozenset(
     {"foundry", "inference", "ai-inference", "model-inference", "maas"}
 )
 
+# --------------------------------------------------------------------------- #
+# azure-ai-inference scope-out (BOLT-03B decision)
+# --------------------------------------------------------------------------- #
+#
+# The golden path (Model Router + direct gpt-5.x arms) speaks the Azure OpenAI
+# ``chat/completions`` surface through the ``openai`` SDK. The partner surface
+# (``provider=foundry``) is served by ``azure-ai-inference``, a beta SDK that
+# Microsoft has documented for retirement. We deliberately do NOT migrate it in
+# 03B: it is opt-in, it is not on any benchmark arm, and migrating would widen
+# scope without changing a single measured number. Instead we *scope it out* and
+# enforce that scope-out in code — a partner arm may never enter benchmark or a
+# publishable path on a retiring SDK, and that must fail loudly, not silently.
+AZURE_AI_INFERENCE_RETIREMENT_DATE: str = "2026-08-26"
+AZURE_AI_INFERENCE_SCOPE_OUT_REASON: str = (
+    "azure-ai-inference (provider=foundry) is a beta SDK documented for "
+    f"retirement on {AZURE_AI_INFERENCE_RETIREMENT_DATE}; it is scoped out of "
+    "benchmark/publishable measurement in BOLT-03B and must be migrated to an "
+    "OpenAI v1 surface before it can carry a measured cost claim."
+)
+
+
+class ProviderScopedOutError(RuntimeError):
+    """Raised when a scoped-out provider is used on a benchmark/publishable path."""
+
+
+def assert_provider_benchmark_safe(
+    provider: str | None, *, run_mode: str | None = None, publishable: bool = False
+) -> None:
+    """Fail closed when a scoped-out provider enters a benchmark/publishable path.
+
+    ``provider=foundry`` (the retiring ``azure-ai-inference`` surface) may be used
+    for an opt-in wiring smoke, but it must never silently carry a measured
+    benchmark cost or a publishable result. A documentation note alone is not
+    enough — if someone later points a benchmark at that arm, the run must abort
+    on the retiring SDK rather than pass quietly.
+    """
+
+    label = str(provider or "").strip().lower()
+    if label not in FOUNDRY_PROVIDER_ALIASES:
+        return
+    if publishable or str(run_mode or "").strip().lower() == "benchmark":
+        raise ProviderScopedOutError(AZURE_AI_INFERENCE_SCOPE_OUT_REASON)
+
+
+@dataclass(frozen=True)
+class TransportTimeouts:
+    """Resolved per-transport HTTP cutoffs plus the runner's overall deadline.
+
+    The four transport cutoffs are wired straight into the live HTTP client so a
+    stalled connect/read/write/pool phase is bounded at the socket. ``overall``
+    is the runner-owned deadline for the whole attempt; each transport cutoff
+    must fit inside it. Values are seconds.
+    """
+
+    connect: float = 10.0
+    read: float = 90.0
+    write: float = 30.0
+    pool: float = 10.0
+    overall: float = 120.0
+
+    def __post_init__(self) -> None:
+        for name in ("connect", "read", "write", "pool", "overall"):
+            value = getattr(self, name)
+            if not isinstance(value, int | float) or isinstance(value, bool):
+                raise ValueError(f"timeout {name!r} must be a number, got {value!r}")
+            if value <= 0 or value != value or value in (float("inf"), float("-inf")):
+                raise ValueError(f"timeout {name!r} must be finite and positive")
+        for name in ("connect", "read", "write", "pool"):
+            if getattr(self, name) > self.overall:
+                raise ValueError(
+                    f"transport cutoff {name!r}={getattr(self, name)} exceeds the "
+                    f"overall deadline {self.overall}"
+                )
+
+    @classmethod
+    def from_retry(cls, retry: Mapping[str, Any] | None) -> TransportTimeouts:
+        """Build from a resolved-plan ``retry`` mapping (missing keys -> defaults)."""
+
+        data = dict(retry or {})
+        return cls(
+            connect=float(data.get("connect_timeout_seconds", 10.0)),
+            read=float(data.get("read_timeout_seconds", 90.0)),
+            write=float(data.get("write_timeout_seconds", 30.0)),
+            pool=float(data.get("pool_timeout_seconds", 10.0)),
+            overall=float(data.get("overall_timeout_seconds", 120.0)),
+        )
+
+    def to_httpx(self) -> Any:
+        """Build an ``httpx.Timeout`` (lazy import; only on the live SDK path)."""
+
+        import httpx
+
+        return httpx.Timeout(
+            connect=self.connect, read=self.read, write=self.write, pool=self.pool
+        )
+
+
 # Task fields tried, in order, to find the prompt text to send to a live router.
 PROMPT_FIELDS: tuple[str, ...] = ("prompt", "text", "input", "question")
 
@@ -391,6 +488,8 @@ class AzureModelRouterClient:
     token_provider: Callable[[], str] | None = None
     max_output_tokens: int = 512
     temperature: float | None = None
+    timeouts: TransportTimeouts | None = None
+    benchmark_mode: bool = False
 
     def complete(
         self,
@@ -425,6 +524,9 @@ class AzureModelRouterClient:
         target = deployment or str(self.config.deployment)
         messages = _messages_for(task)
         if str(provider or "").strip().lower() in FOUNDRY_PROVIDER_ALIASES:
+            assert_provider_benchmark_safe(
+                provider, run_mode="benchmark" if self.benchmark_mode else "smoke"
+            )
             return self._complete_foundry(target, messages)
         client = self._sdk_client()
         # 5-series/reasoning deployments require `max_completion_tokens` and reject
@@ -475,7 +577,17 @@ class AzureModelRouterClient:
         common = {
             "azure_endpoint": str(self.config.endpoint),
             "api_version": self.config.resolved_api_version,
+            # The runner is the sole retry owner: one reserved trace attempt must
+            # equal exactly one outbound HTTP request, so SDK-level retries are
+            # disabled. Hidden transport retries would break the 1-attempt =
+            # 1-request accounting and the budget reservation contract.
+            "max_retries": 0,
         }
+        timeouts = self.timeouts or TransportTimeouts()
+        try:
+            common["timeout"] = timeouts.to_httpx()
+        except Exception:  # noqa: BLE001 - httpx missing/edge: fall back to overall float
+            common["timeout"] = timeouts.overall
         if self.config.auth_method == "entra":
             provider = self.token_provider or self._entra_token_provider()
             self.sdk_client = AzureOpenAI(azure_ad_token_provider=provider, **common)

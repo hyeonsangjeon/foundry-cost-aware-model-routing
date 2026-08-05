@@ -1,0 +1,52 @@
+# Rate-card v2 — composite Model Router pricing contract (BOLT-03B).
+#
+# ILLUSTRATIVE placeholder rates for OFFLINE pipeline tests only. These are NOT
+# anyone's published prices. Copy this file, pin YOUR tenant's real per-1M-token
+# rates and the Router input-token markup, then reference it from
+# `.foundry.local.yaml` (`benchmark.rate_card`). Live/benchmark mode rejects an
+# absent or incomplete card and never falls back to a default rate.
+#
+# Composite formula (the ONLY pricing path in 03B):
+#   router request cost = router input-token markup
+#                       + underlying-model input cost
+#                       + underlying-model output cost
+#                       + pinned cached/reasoning components
+# Direct-model arms omit the markup.
+
+schema_version: 2
+currency: USD
+unit_basis: per_1m_tokens
+source: illustrative-placeholder (not a quote)
+effective_date: "2026-07-29"
+capture_date: "2026-07-29"
+region: eastus
+sku_meter_basis: global-standard, per 1,000,000 tokens by token kind
+applicability_notes: >
+  Router input-token markup is charged on the request's input tokens IN ADDITION
+  to the resolved underlying model's input/output charges. Cached and reasoning
+  components are priced only where a rate is pinned; a null rate is an explicit
+  "unsupported" marker and fails closed if such tokens appear.
+
+# The Model Router input-token markup (per 1M input tokens). This is the
+# component the legacy 03Z annotation flagged as missing from the old cards.
+router_input_markup: 0.20
+
+# Exact provider-model (version suffix intact) -> pricing_key. Carries its OWN
+# version so an alias-table change is auditable independently of the rates.
+alias_map:
+  version: 1
+  entries:
+    grok-4-1-fast-reasoning: grok-4-1-fast-reasoning
+    grok-4-1-fast-reasoning-2026-05-01: grok-4-1-fast-reasoning
+    gpt-5.6-sol: gpt-5.6-sol
+    gpt-5.6-sol-2026-06-01: gpt-5.6-sol
+    gpt-5.4-nano: gpt-5.4-nano
+    gpt-4o: gpt-4o
+    gpt-4o-2024-11-20: gpt-4o
+
+rates:
+  grok-4-1-fast-reasoning: { input: 0.20, output: 0.50, cached: 0.05, reasoning: 0.50 }
+  gpt-5.6-sol:             { input: 1.25, output: 10.00, cached: 0.125, reasoning: 10.00 }
+  gpt-5.4-nano:            { input: 0.05, output: 0.40, cached: 0.005, reasoning: 0.40 }
+  # gpt-4o exposes no separate reasoning meter: an explicit unsupported marker.
+  gpt-4o:                  { input: 2.50, output: 10.00, cached: 1.25, reasoning: null }

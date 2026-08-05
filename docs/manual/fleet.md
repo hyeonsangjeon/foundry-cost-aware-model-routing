@@ -72,6 +72,16 @@ models:
     부를 때 의미가 있습니다. 멀티프로바이더 라우팅 자체는 내장 기능(table-stakes)이고, 이 저장소의
     가치는 그 위의 검증·앙상블·거버너·감사 축에 있습니다.
 
+!!! warning "`provider: foundry`는 벤치마크에서 scope-out (은퇴 예정 SDK, 2026-08-26)"
+    파트너 표면(`provider: foundry`)은 베타 SDK `azure-ai-inference` 위에서 동작합니다. 이 SDK는
+    **2026-08-26 은퇴가 문서화**돼 있어, BOLT-03B는 이를 **마이그레이션하지 않고 scope-out**했습니다 —
+    골든 패스(Model Router + direct gpt-5.x arm)는 이미 `openai` v1 표면이고, 파트너 arm은 어떤
+    벤치마크 arm에도 들어가지 않으므로 마이그레이션은 측정 결과를 바꾸지 않은 채 범위만 키웁니다.
+    이 scope-out은 **코드로 강제**됩니다: `provider=foundry` arm이 benchmark 모드나 publishable
+    경로에 들어오면 `router.foundry_live.assert_provider_benchmark_safe`가 fail-closed로 막습니다
+    (opt-in 배선 스모크는 계속 허용). 은퇴 전 측정 비용 주장을 실으려면 OpenAI v1 표면으로 먼저
+    이전해야 합니다.
+
 ## 2. 터미널에서 선택 (`/model` 피커)
 
 카탈로그를 보고, 각 아암에 어떤 모델을 넣을지 고릅니다. 선택은 gitignore된

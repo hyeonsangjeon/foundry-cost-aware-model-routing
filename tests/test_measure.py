@@ -31,6 +31,7 @@ from router.measure import (
     format_dry_run_table,
     load_prompt_workload,
     replay_measure,
+    run_candidate,
     run_measure,
     verify_contract,
     workload_fingerprint,
@@ -451,6 +452,81 @@ def test_throttle_exhaustion_is_a_recorded_failure(tmp_path):
     assert result.summary["throttle"]["throttle_exhausted"] == 1
     assert len(result.summary["failures"]) == 3
     assert replay_measure(result.run_dir).ok
+
+
+# --------------------------------------------------------------------------- #
+# §8 acceptance: stub-HTTP wire-request counts (smoke=1, benchmark=1+retries)
+# --------------------------------------------------------------------------- #
+
+
+class _CountingClient:
+    """Counts outbound attempts and replays a fixed HTTP status script."""
+
+    def __init__(self, statuses: list[int]) -> None:
+        self.statuses = statuses
+        self.calls = 0
+
+    def attempt(self, *, deployment, provider, task):
+        idx = min(self.calls, len(self.statuses) - 1)
+        status = self.statuses[idx]
+        self.calls += 1
+        if 200 <= status < 300:
+            return AttemptResult(
+                http_status=status, model=deployment,
+                usage={"input": 100, "cached": 0, "output": 50, "reasoning": 0},
+                latency_ms=1.0, provenance="live",
+            )
+        return AttemptResult(http_status=status, latency_ms=1.0, provenance="live")
+
+
+def _drive(client, *, max_retries: int):
+    task = {"task_id": "t-0001", "prompt": "x", "tokens": {"input": 100, "output": 50}}
+    return run_candidate(
+        client, task, MeasureCandidate("gpt-5.4-nano", "gpt-5.4-nano"),
+        run_id="RUN", exp_id="curated", repeat_idx=1, pricing=_pricing(),
+        retry=RetryPolicy(max_retries=max_retries, base_backoff_ms=1.0),
+        sleeper=lambda _s: None,
+    )
+
+
+@pytest.mark.parametrize("status", [429, 500, 503])
+def test_smoke_sends_exactly_one_wire_request(status: int) -> None:
+    # Smoke = zero runner retries: a single outbound request, even on 429/5xx.
+    client = _CountingClient([status])
+    _drive(client, max_retries=0)
+    assert client.calls == 1
+
+
+@pytest.mark.parametrize("status", [429, 500, 503])
+def test_benchmark_sends_one_plus_configured_retries(status: int) -> None:
+    # Benchmark = 1 + configured runner retries on a persistent 429/5xx.
+    client = _CountingClient([status])
+    _drive(client, max_retries=3)
+    assert client.calls == 4  # 1 initial + 3 retries
+
+
+def test_5xx_then_success_stops_retrying() -> None:
+    client = _CountingClient([503, 200])
+    rows, final = _drive(client, max_retries=3)
+    assert client.calls == 2  # one 5xx, then the success — no further attempts
+    assert final is not None and final.ok
+    assert rows[0]["fail_reason"] == "retry_http_503"
+
+
+def test_4xx_client_error_is_never_retried() -> None:
+    client = _CountingClient([400])
+    _drive(client, max_retries=3)
+    assert client.calls == 1  # a 4xx is fatal; the runner does not retry it
+
+
+def test_timeout_is_not_retried_and_seals_as_unconfirmed() -> None:
+    # A 408 read timeout may leave the request in flight → the runner does not
+    # retry (avoids double charge); it records the attempt as a timeout failure.
+    client = _CountingClient([408])
+    rows, final = _drive(client, max_retries=3)
+    assert client.calls == 1
+    assert final is None
+    assert rows[-1]["fail_reason"] == "timeout"
 
 
 def test_http_error_is_non_retryable_failure(tmp_path):
