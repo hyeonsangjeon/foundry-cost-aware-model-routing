@@ -39,6 +39,8 @@ from .measure import (
     workload_fingerprint,
 )
 from .pricing import PricingTable
+from .pricing_engine import V2PricingEngine
+from .rate_card import RateCardError, RateCardV2
 
 # --------------------------------------------------------------------------- #
 # Constants
@@ -407,6 +409,7 @@ class ResolvedRunPlan:
                 model=str(arm["requested_model"]),
                 deployment=str(arm["deployment"]),
                 provider=str(arm["provider"]),
+                router=str(arm.get("kind")) == "model_router",
             )
             for arm in self.arms
         ]
@@ -579,17 +582,38 @@ def _resolve_pricing(
             raise PlanError(f"rate card not found: {card_path}")
         text = card_path.read_text(encoding="utf-8")
         raw = yaml.safe_load(text) or {}
-        table = PricingTable.from_yaml(card_path)  # validates structure
-        currency = str(raw.get("currency", table.currency)).upper()
+        # A v2 card is identified ONLY by an explicit ``schema_version``; a v1
+        # card's ``version`` is a free revision integer (not a schema version),
+        # so it must never be mistaken for one.
+        raw_schema = raw.get("schema_version")
+        is_v2 = raw_schema is not None and int(raw_schema) >= 2
+        if is_v2:
+            # Authoritative composite card (fail-closed). Validate its structure
+            # via RateCardV2 — a v1 PricingTable would KeyError on the missing
+            # ``default`` and there is deliberately no default rate here.
+            try:
+                card_v2 = RateCardV2.from_yaml(card_path)
+            except RateCardError as exc:
+                raise PlanError(f"invalid rate card {card_path}: {exc}") from exc
+            schema_version = int(raw_schema)
+            currency = str(card_v2.currency).upper()
+            effective = _iso_or_none(card_v2.effective_date) or card_v2.effective_date or None
+            pricing_basis = card_v2.unit_basis or raw.get("pricing_basis") or raw.get("basis")
+        else:
+            table = PricingTable.from_yaml(card_path)  # validates v1 structure
+            schema_version = int(raw.get("version", table.version))
+            currency = str(raw.get("currency", table.currency)).upper()
+            effective = _iso_or_none(raw.get("effective_date") or raw.get("effective"))
+            pricing_basis = raw.get("pricing_basis") or raw.get("basis")
         if currency not in ("USD",):
             raise PlanError(f"unsupported rate-card currency {currency!r}")
         rate_card = {
             "path": str(rate_card_ref),
-            "schema_version": int(raw.get("version", table.version)),
+            "schema_version": schema_version,
             "currency": currency,
             "source": raw.get("source"),
-            "effective_date": _iso_or_none(raw.get("effective_date") or raw.get("effective")),
-            "pricing_basis": raw.get("pricing_basis") or raw.get("basis"),
+            "effective_date": effective,
+            "pricing_basis": pricing_basis,
             "fingerprint": _sha256_text(text),
         }
 
@@ -1010,7 +1034,17 @@ def execute_benchmark(
             "execute_benchmark needs a pinned rate card to price usage; a "
             "ceiling-only smoke reserves spend but derives no cost (see 03B)"
         )
-    pricing = PricingTable.from_yaml(config.resolve_path(card))
+    card_path = config.resolve_path(card)
+    # The benchmark / paid path prices through the authoritative v2 composite
+    # card (fail-closed, router markup); a legacy v1 card still works for older
+    # fixtures. Detect the format exactly as ``_resolve_pricing`` did: only an
+    # explicit ``schema_version`` marks a v2 card.
+    raw_card = yaml.safe_load(card_path.read_text(encoding="utf-8")) or {}
+    raw_schema = raw_card.get("schema_version")
+    if raw_schema is not None and int(raw_schema) >= 2:
+        pricing: Any = V2PricingEngine(RateCardV2.from_yaml(card_path))
+    else:
+        pricing = PricingTable.from_yaml(card_path)
     retry = RetryPolicy(max_retries=int(plan.execution["retry"]["max_retries"]))
 
     extra: dict[str, Any] = {}

@@ -1139,7 +1139,10 @@ def _planned_cockpit(
 
 def _poll_terminal(service: RouterService, run_id: str, *, timeout: float = 10.0) -> dict:
     deadline = time.monotonic() + timeout
-    terminal = {"complete", "partial", "failed", "aborted", "replay_verified", "replay_failed"}
+    # "complete" is transient: _finalize sets it and then synchronously replays
+    # into replay_verified/replay_failed, so it is never a resting state. Only
+    # genuinely resting states are terminal here.
+    terminal = {"partial", "failed", "aborted", "replay_verified", "replay_failed"}
     while time.monotonic() < deadline:
         progress = service.dispatch(
             "GET", _authed(f"/cockpit/progress?run={run_id}")

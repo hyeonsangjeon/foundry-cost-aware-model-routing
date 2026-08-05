@@ -79,6 +79,9 @@ pricing.snapshot.yaml  # 이 런에 쓰인 단가를 그대로 봉인
 429로 재시도되면 **시도마다 1행**을 남기고, 재시도가 소진되면 `fail_reason="throttle_exhausted"`,
 정책상 재시도 자체는 `fail_reason="throttled_429"`로 표시합니다.
 
+v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅된 셀은 금액을 지어내지 않고
+`cost_usd=null` + `pricing.priced=false`(이유 포함)로 **fail-closed** 기록됩니다(§6.1).
+
 ### 3.3 `prereg.md` 최소 내용 (D8)
 
 예상 coverage / 예상 절감률(범위) · **projection 대비 격차의 예상 방향과 이유 한 줄** ·
@@ -143,6 +146,32 @@ pricing.snapshot.yaml  # 이 런에 쓰인 단가를 그대로 봉인
   **round-number placeholder(견적 아님)** 입니다 — 실제 회계는 협상 요율을 드롭인하세요.
 - 모든 게시 수치에는 **pricing snapshot 날짜**를 병기합니다. `measure verify`는 스냅샷이
   90일보다 오래되면 **비치명적 경고(freshness)**를 냅니다.
+
+### 6.1 요율 카드 스키마 — v1(오프라인 실험) vs v2(벤치/유료 측정)
+
+이 저장소는 **두 요율 카드 스키마**를 의도적으로 공존시킵니다. 어떤 경로가 어느 것을
+쓰는지는 고정돼 있습니다.
+
+| 경로 | 스키마 | 과금 방식 | 미확인 백엔드 |
+| --- | --- | --- | --- |
+| 오프라인 실험 01–08 (`replay`·`evals`·`hero`·`compare`·`experiment`) | v1 `PricingTable` (`samples/pricing/*.yaml`) | 표당 단순 in/out 단가, 마크업 없음 | `default` 폴백으로 **fail-open** (합성 실험이라 무방) |
+| 벤치/유료 측정 (`benchmark plan`·`benchmark run --live`·`measure run --live`·라이브 콕핏) | v2 `RateCardV2` (`schema_version: 2`, 예: `samples/pricing/foundry-ext-router.yaml`) | 정확한 alias map + Model Router **input-token 마크업**(라우터 arm) + 하위모델 in/out 합성 | rates에 없으면 **fail-closed**: `cost_usd=null`, `cost_complete=false`, 절감 주장에서 제외 |
+
+- **스키마 판정**: 카드에 최상위 `schema_version` 키가 있으면 v2, 없으면 v1로 해석합니다.
+  v1의 `version:`은 자유 리비전 정수라 `plan_hash`에 영향 없이 그대로 보존됩니다.
+- **fail-closed의 이유**: v1 `default` 폴백을 유료 경로에 남기면 가격 미확인 백엔드(예:
+  Azure Retail에 요율이 없는 Claude 5종)에 임의 단가가 붙어, 03Z에서 폐기한 "출처 없는
+  절감 수치"가 되살아납니다. 그래서 벤치 경로는 **모르는 단가를 채우지 않고** 그 셀을
+  unpriced로 봉인하고, 그 런의 절감 주장을 `savings_claim_allowed=false`로 막습니다.
+- **다섯 표면 동일 공식**: 같은 셀의 합성 비용이 dry-run 추정 · 예약 상한 · trace ·
+  summary · replay에서 **동일**합니다. 회귀 테스트 `tests/test_rate_card_wiring.py`가
+  이 동일성과 fail-closed(라우터 마크업 · Claude unpriced · v1 무변경)를 고정합니다.
+- **tier 처리**: v2 카드는 키마다 **보수적 long-tier 단가 하나**만 저장하고 예약을 그
+  값으로 잡습니다. 실제 tier가 판정되면 settle에서 반영하되, 판정 불가면 long을
+  유지합니다(보수적 예약).
+- 봉인된 스냅샷은 어느 엔진으로 과금했는지 함께 기록합니다(v2는 `pricing_engine:
+  rate_card_v2` + 정규화된 카드). `measure replay`는 그 마커로 v1/v2 엔진을 되살려
+  byte-동일 재계산을 보장합니다.
 
 ---
 

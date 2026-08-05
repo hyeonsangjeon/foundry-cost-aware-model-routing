@@ -65,6 +65,14 @@ models:
   `samples/fleet/foundry-ext-full.fleet.yaml`(가격표는 `samples/pricing/foundry-ext-full.yaml`)입니다.
   `cost-router models list`의 **surface** 열에서 각 모델이 어느 표면을 쓰는지 바로 확인할 수 있습니다.
 
+!!! note "요율 카드 스키마 — 오프라인은 v1, 벤치/유료는 v2(fail-closed)"
+    위 `samples/pricing/foundry-ext-full.yaml`은 오프라인 실험이 쓰는 **v1** 가격표입니다.
+    반면 `benchmark`/유료 측정 경로는 `schema_version: 2`인 **v2 요율 카드**(예:
+    `samples/pricing/foundry-ext-router.yaml`)로 과금합니다 — 라우터 arm에 input-token
+    마크업을 얹는 합성 공식과, 요율이 없는 백엔드를 임의 단가로 채우지 않고
+    unpriced로 봉인하는 **fail-closed** 규칙이 핵심입니다. 두 스키마의 경로 구분은
+    [측정 프로토콜 §6.1](measurement-protocol.md#61-v1-vs-v2)을 보세요.
+
 !!! note "`provider` 태그가 의미 있는 곳"
     Model Router arm은 이 파트너 모델 상당수를 **이미 내부에서 크로스 프로바이더로** 라우팅합니다
     (별도 배포 불필요 — [실험 07](../lab-notebook/07-model-router.md)). 따라서 이 `provider` 태그는
