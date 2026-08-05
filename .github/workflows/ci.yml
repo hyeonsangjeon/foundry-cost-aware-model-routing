@@ -135,3 +135,51 @@ jobs:
       - name: Build docs (strict)
         run: mkdocs build --strict
 
+  onboarding:
+    # BOLT-03E: the fresh-clone journey is a hard gate, offline only. It bootstraps
+    # a clean venv with just the declared deps, proves the reproduction PASSes
+    # within budget, and confirms the served success screen + accessible Star CTA.
+    # No real Azure call and no GitHub Star mutation ever happen here.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Track A — fresh-clone bootstrap + headless verify (offline)
+        # Detects 3.11, builds .venv with only declared deps, runs
+        # `cost-router hero --json` (<=30s), boots the dashboard, discovers the
+        # actual bound port, waits for readiness (<=10s), verifies PASS + the
+        # accessible CTA (<=30s), then tears the process tree down. `--json`
+        # records clone/venv/pip/install telemetry with platform metadata.
+        run: python scripts/quickstart.py --ci --json
+
+      - name: Offline acceptance harness (verify_onboarding)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          python scripts/verify_onboarding.py --offline
+
+      - name: Fake-Foundry E2E — doctor -> plan -> approval -> run -> replay
+        # Track B wiring exercised entirely with fake clients / stub HTTP — the
+        # 12 cockpit scenarios (auth fail, 429 retry, provider terminal, grader
+        # fail, stale plan, budget refusal, unpriced, replay tamper, abort races)
+        # plus doctor pre-flight and measured-replay. Zero Azure.
+        run: pytest -q tests/test_doctor.py tests/test_cockpit.py tests/test_measured_ledger.py
+
+      - name: Guard — no real Azure call and no Star mutation in onboarding
+        # Belt-and-suspenders: the onboarding scripts must never reach an Azure
+        # data-plane host or a GitHub Star API; the repo URL may appear only as a
+        # user-clickable CTA link.
+        run: |
+          if grep -RnE "cognitiveservices\.azure\.com|openai\.azure\.com|/user/starred|PUT .*/starred" \
+              scripts/quickstart.py scripts/verify_onboarding.py src/router/onboarding.py; then
+            echo "onboarding must not contact Azure or the Star API" >&2
+            exit 1
+          fi
+          echo "onboarding is offline and star-neutral"
+

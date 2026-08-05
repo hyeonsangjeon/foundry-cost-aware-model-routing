@@ -1,0 +1,46 @@
+name: release-smoke
+
+# BOLT-03E release smoke: proves an *eligible user* can go from a bare
+# `git clone` of the PUBLIC repo to a PASS + accessible CTA on the offline path.
+# It is deliberately NOT a per-push gate — it clones the published default branch
+# into a throwaway dir and runs the same headless quickstart the PR gate uses.
+#
+# Contract: offline only (Track A), never uses Azure credentials, never mutates a
+# GitHub Star, and FAILS at 600s end-to-end (the release ceiling from §2.1). Until
+# an owner's manual eligible-user release check passes under 600s, the Track B
+# "10-minute" wording in the README stays "target / in progress".
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"  # weekly, Mondays 06:17 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  offline-clone-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12  # hard ceiling; the 600s budget is enforced inline below
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Clone the PUBLIC repo into a throwaway dir and run the offline journey
+        env:
+          REPO_URL: https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing.git
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          echo "cloning $REPO_URL -> $workdir/clone"
+          git clone --depth 1 "$REPO_URL" "$workdir/clone"
+          cd "$workdir/clone"
+          # Fail at the 600s end-to-end release ceiling (§2.1). `timeout` exits 124
+          # on breach, which fails the job — exactly the intended behaviour.
+          timeout --kill-after=30 600 python3 scripts/quickstart.py --ci --json
+
+      - name: Note (offline only)
+        if: always()
+        run: echo "release smoke is Track A / offline — no Azure call, no Star mutation."

@@ -159,9 +159,21 @@ def test_dashboard_serves_offline_html(service: RouterService) -> None:
 
 def test_dashboard_has_no_external_references(service: RouterService) -> None:
     html = service.dispatch("GET", "/").payload
-    # offline + public-scope: no CDN/font/script origins of any kind.
-    for needle in ("http://", "https://", "//cdn", "src=\"//"):
-        assert needle not in html
+    # offline + public-scope: nothing is auto-fetched from an external origin —
+    # no CDN/font/script/stylesheet/image resources. Everything is inline.
+    for needle in ('src="http', 'src="//', "//cdn", "@import", "url(http", "<script src"):
+        assert needle not in html, needle
+    assert 'rel="stylesheet"' not in html
+    # The ONLY external URLs allowed are user-clickable call-to-action anchors
+    # (BOLT-03E: the Star CTA + methodology link). They open on click — they are
+    # never auto-loaded — and every one must point at a canonical destination.
+    allowed_prefixes = (
+        "https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing",
+        "https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing",
+    )
+    for url in re.findall(r"https?://[^\s\"'<>]+", html):
+        assert url.startswith(allowed_prefixes), f"unexpected external URL: {url}"
+        assert not url.startswith("http://"), f"external CTA must be https: {url}"
 
 
 def test_dashboard_inline_script_is_well_formed(service: RouterService, tmp_path) -> None:
