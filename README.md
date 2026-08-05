@@ -37,6 +37,13 @@ pip install -e .          # core dep: pyyaml
 cost-router hero          # before/after + reproducibility self-check
 ```
 
+**Prefer one command?** `python3 scripts/quickstart.py` runs the four steps
+above in a managed `.venv`, reproduces the result, and opens the dashboard on
+the port it *actually* binds (it never assumes 8000). Add `--ci` for a headless
+check that verifies the PASS and the accessible Star call-to-action, prints a
+machine-readable ready line, and tears the server down after itself. Still 0
+Azure — only a fresh live call is ever labelled `measured`.
+
 **After install, the first result lands in well under a second** — the
 `cost-router hero --json` segment was observed at **0.12 s** on both supported
 interpreters (CPython 3.11.15 / 3.12.13); a fresh clone plus install added
@@ -114,6 +121,11 @@ cost-router models list        # your deployed-model catalog + current slate
 cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
 cost-router foundry arena --fleet .foundry-fleet.local.yaml --live
 ```
+
+To install the credentialed extra and print these next steps in order, run
+`python3 scripts/quickstart.py --foundry` (it installs `.[foundry]` and then
+hands off — it makes no Azure call itself; you run `doctor` and the smoke when
+you're ready).
 
 See [**Fleet — register & select your models**](#fleet--register--select-your-models)
 below for the config format, the terminal `/model` picker, dashboard selection,

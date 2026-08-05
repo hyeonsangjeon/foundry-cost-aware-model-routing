@@ -171,6 +171,26 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   }
   .arena-verdict b { color: var(--brand); font-family: var(--mono); }
 
+  /* ---- fresh-clone journey: success screen + Star CTA (BOLT-03E) ---- */
+  .journey {
+    border: 1px solid #cfe6da; background:
+      linear-gradient(180deg, var(--brand-soft), #fff 65%);
+  }
+  .journey .eyebrow { color: var(--brand); }
+  .journey-verdict { font-size: 20px; font-weight: 700; color: var(--brand); margin: 2px 0 4px; }
+  .journey-meta { font-size: 13px; color: var(--ink); margin: 0 0 4px; }
+  .journey-meta code { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .journey-cta { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 6px; }
+  .journey-cta a.cta {
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    padding: 9px 15px; border-radius: 9px; font-weight: 600; font-size: 13px;
+    border: 1px solid var(--line); color: var(--ink); background: #fff;
+  }
+  .journey-cta a.cta:hover { border-color: #b7dfc6; background: #f4fbf6; }
+  .journey-cta a.cta:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .journey-cta a.cta.star { background: var(--brand2); color: #fff; border-color: var(--brand); }
+  .journey-cta a.cta.star:hover { background: #0f7a44; }
+
   /* ---- strategy comparison ---- */
   .strats { display: flex; flex-direction: column; gap: 14px; }
   .strat {
@@ -471,6 +491,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <p class="caveat" id="mixCaveat">Savings depend on workload mix and placeholder pricing &mdash; this is one synthetic run, not a guaranteed number.</p>
   </section>
 
+  <section class="panel journey" id="journeyPanel" hidden aria-live="polite">
+    <div class="eyebrow">Reproduction complete</div>
+    <div class="journey-verdict" id="journeyVerdict">Reproduction passed</div>
+    <p class="journey-meta" id="journeyMeta">&mdash; tasks &middot; replay verified &middot; <code>measured=false</code></p>
+    <div class="journey-cta">
+      <a class="cta" id="ctaTrace" href="#trace-details">Inspect a routing trace</a>
+      <a class="cta" id="ctaMethod"
+         href="https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/measurement-protocol/"
+         target="_blank" rel="noopener noreferrer">View methodology</a>
+      <a class="cta star" id="ctaStar" href="https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing"
+         target="_blank" rel="noopener noreferrer"
+         aria-label="Useful? Star the project on GitHub (opens in a new tab)">&#9733;&nbsp;Useful? Star it on GitHub</a>
+    </div>
+    <p class="caveat">This offline reproduction is a deterministic projection over synthetic data
+      (<code>measured=false</code>) &mdash; only a fresh live call ever earns a measured label. The
+      Star link just opens GitHub; nothing here stars the repo for you.</p>
+  </section>
+
   <section class="panel spotlight" id="spotlightPanel" hidden>
     <div class="eyebrow">The one task that makes it obvious</div>
     <h2 class="sec">Spotlight <span class="spot-meta" id="spotMeta">&mdash;</span></h2>
@@ -757,7 +795,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </div>
   </details>
 
-  <details class="disc">
+  <details class="disc" id="trace-details">
     <summary><span class="chev">&#9656;</span> Per-task routing trace <span class="sumsub">every task, streamed live</span></summary>
     <div class="disc-body">
       <div class="tracewrap">
@@ -1454,13 +1492,27 @@ async function runReplay() {
     $("afterVal").textContent = usd(after);
     $("afterBar").style.width = (100 * after / (before || 1)).toFixed(2) + "%";
     $("progress").textContent = "done \\u00b7 " + s.tasks + " tasks";
+    revealJourney(s);
   } finally {
     running = false;
     btn.disabled = false;
   }
 }
 
-let FLEET = null;
+// Fresh-clone success screen (BOLT-03E): revealed only after the offline replay
+// completes — never before a PASS. Rendered from the sealed snapshot (task count
+// from this run); the honesty label stays measured=false because nothing here is
+// a live call. The Star CTA is a plain link; the app never stars the repo.
+function revealJourney(s) {
+  const panel = $("journeyPanel");
+  if (!panel) return;
+  const tasks = (s && typeof s.tasks === "number") ? s.tasks : null;
+  $("journeyVerdict").textContent = "Reproduction passed";
+  $("journeyMeta").innerHTML = (tasks === null ? "\\u2014" : String(tasks)) +
+    " tasks \\u00b7 replay verified \\u00b7 <code>measured=false</code>";
+  panel.hidden = false;
+}
+
 
 function fleetFill(sel, models, current) {
   sel.innerHTML = "";
