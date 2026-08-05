@@ -86,6 +86,33 @@ def test_endpoint_map_injected_before_dashboard_script(site: Path) -> None:
     assert html.index("window.__ENDPOINTS__") < html.index("const EP =")
 
 
+def test_static_export_keeps_cockpit_dark(site: Path) -> None:
+    """03C: the public/static build ships NO live cockpit surface.
+
+    The cockpit panel ships hidden and initCockpit only lights it when the URL
+    carries ``cockpit=1`` + a token (which only ``dashboard --live`` prints). A
+    static export has no server, so its injected endpoint map carries no cockpit
+    route and no session token — the panel can never wake up.
+    """
+
+    import re
+
+    html = (site / "index.html").read_text(encoding="utf-8")
+    # The panel is present (same UI) but defaults hidden.
+    assert 'id="cockpitPanel"' in html
+    assert re.search(r'id="cockpitPanel"[^>]*\bhidden\b', html)
+    # The gate that keeps it dark without an explicit cockpit=1 + token URL.
+    assert 'q.get("cockpit") !== "1" || !q.get("token")' in html
+    # The injected static endpoint map exposes no cockpit route and no token.
+    start = html.index("window.__ENDPOINTS__")
+    endpoint_map = html[start : html.index("</script>", start)]
+    assert "cockpit" not in endpoint_map.lower()
+    assert "token" not in endpoint_map.lower()
+    # No committed session token value leaks into the static HTML.
+    for leaked in ("cockpit_token", "cockpit=1&token="):
+        assert leaked not in html, f"static export must not carry {leaked}"
+
+
 def test_exported_json_is_valid_and_carries_spotlight(site: Path) -> None:
     for name in ("healthz.json", "policy.json"):
         json.loads((site / name).read_text(encoding="utf-8"))

@@ -4,8 +4,11 @@
 **서로 다른 설정을 각자 해석하면**, 승인한 것과 실행한 것이 어긋날 수
 있습니다. 03A는 그 틈을 없앱니다. 하나의 로컬 설정 파일을 **한 번** 해석해
 `ResolvedRunPlan` 이라는 **불변 객체**로 봉인하고, 위 다섯 경로가 전부 그 동일한 객체를
-읽습니다. 계획에는 결정론적 `plan_hash`가 붙고, 승인은 그 해시에 묶입니다. 콕핏(cockpit)은
-아직 이 계획에 연결돼 있지 않습니다 — plan/`plan_hash` 연결은 03C의 범위입니다(§9).
+읽습니다. 계획에는 결정론적 `plan_hash`가 붙고, 승인은 그 해시에 묶입니다. 콕핏(cockpit)도
+이제 이 계획에 연결됩니다 — `cost-router dashboard --live --config <파일>`은 정본
+`ResolvedRunPlan`을 콕핏의 유일한 진실 원천으로 바인딩해, preview·승인·실행·abort·replay가
+전부 같은 `plan_hash`를 키로 씁니다(03C, §9). 콕핏은 03B의 공유 abort 게이트와 지출 원장을
+재사용하며 별도 취소·예산 경로를 만들지 않습니다.
 
 이 페이지는 `src/router/run_plan.py`가 만드는 정본 계획과 그것을 다루는 CLI를 설명합니다.
 
@@ -93,15 +96,18 @@ arms는 로컬 YAML의 **명시적 `arms:` 목록**에서 해석됩니다. `mode
 목록의 한 항목이라, "앙상블 역할만 읽는" 경로로는 **결코 누락될 수 없습니다**. 계획이
 만드는 후보(candidate)와 봉인된 매니페스트의 후보는 항상 동일한 arms를 담습니다.
 
-## 5. 단일 진실 원천 — 미리보기 = 승인 = 실행 = 매니페스트 = 재생
+## 5. 단일 진실 원천 — 미리보기 = 승인 = 실행 = 매니페스트 = 재생 = 콕핏
 
-같은 `plan_hash`가 다섯 지점을 관통합니다.
+같은 `plan_hash`가 여섯 지점을 관통합니다.
 
 1. **미리보기**: `benchmark plan`이 편집 계획 + 해시를 인쇄.
 2. **승인**: 사람이 그 해시를 `--approve-plan`으로 확인.
 3. **실행**: 실행기가 계획의 후보·요율·예산으로 측정.
 4. **매니페스트**: 봉인된 스냅샷에 동일한 `plan_hash`가 기록됨.
 5. **재생**: `replay`가 매니페스트의 `plan_hash`를 그대로 되읽음.
+6. **콕핏**: `dashboard --live --config`가 같은 계획을 바인딩해 preview·승인·실행·abort·
+   snapshot이 모두 동일한 `plan_hash`에 묶입니다(03C). 브라우저는 계획 내용을 절대
+   공급하지 않고, 서버측 계획을 조종만 합니다.
 
 이 동일성은 스크립트된 오프라인 클라이언트로 검증되므로 CI는 절대 송신하지 않습니다.
 
@@ -110,6 +116,8 @@ arms는 로컬 YAML의 **명시적 `arms:` 목록**에서 해석됩니다. `mode
 이전의 명령별 env/플래그 설정(`foundry live`, `foundry arena`, `measure run`,
 `measure catalog`)은 **여전히 동작하지만 사용 중단**입니다. 이들은 정본 계획이 이제
 소유하는 독립적 해석 의미론을 갖고 있어, 호출하면 stderr로 안내를 냅니다.
+`dashboard --live`도 `--config` 없이 실행하면 같은 이유로 사용 중단 경고를 냅니다 —
+계획을 바인딩하지 않은 콕핏은 레거시 즉석(ad-hoc) 설정 경로로 떨어지기 때문입니다.
 
 ```
 note: `cost-router foundry live` uses the legacy environment/flag config path,

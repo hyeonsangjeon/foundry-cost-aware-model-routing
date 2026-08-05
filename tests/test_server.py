@@ -949,6 +949,61 @@ def test_dashboard_live_forces_localhost_and_token_url(monkeypatch) -> None:
     assert captured["service"].cockpit_token
 
 
+def test_dashboard_live_without_config_warns_deprecated(tmp_path, monkeypatch, capsys) -> None:
+    # 03C: the plan-less cockpit path is deprecated (it kept independent config
+    # semantics the 03A resolver now owns) — it must say so, loudly, and stay live.
+    import argparse
+
+    from router import cli, server
+
+    monkeypatch.setattr(server, "serve", lambda **kw: 0)
+    args = argparse.Namespace(
+        host="127.0.0.1", port=0, policy=None, live=True, config=None, locale=None,
+        env_file=Path("/nonexistent-cockpit-test.env"),
+    )
+    assert cli._cmd_dashboard(args) == 0
+    out = capsys.readouterr().out
+    assert "DEPRECATED" in out and "--config" in out
+
+
+def test_dashboard_live_config_binds_resolved_plan(tmp_path, monkeypatch) -> None:
+    # 03C: `dashboard --live --config <plan>` resolves ONE plan (03A) and binds it
+    # as the cockpit's source of truth — status/preview key on that plan_hash.
+    import argparse
+
+    import yaml
+
+    from router import cli, server
+
+    _write_rate_card(tmp_path)
+    cfg_path = tmp_path / ".foundry.local.yaml"
+    cfg_path.write_text(yaml.safe_dump(_plan_mapping()), encoding="utf-8")
+
+    captured: dict = {}
+
+    def _fake_serve(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(server, "serve", _fake_serve)
+    args = argparse.Namespace(
+        host="127.0.0.1", port=0, policy=None, live=True, config=cfg_path, locale=None,
+        env_file=Path("/nonexistent-cockpit-test.env"),
+    )
+    assert cli._cmd_dashboard(args) == 0
+    svc = captured["service"]
+    token = svc.cockpit_token
+    status = svc.dispatch("GET", f"/cockpit/status?token={token}").payload
+    assert status["plan_bound"] is True
+    assert status["plan_hash"].startswith("sha256:")
+    preview = svc.dispatch("GET", f"/cockpit/preview?token={token}").payload
+    # 3 smoke tasks x 2 repetitions x 2 arms = 12 planned cells, proving the bind
+    # resolved THIS config (and never collapsing retryable attempts to an exact N).
+    assert preview["planned_cells"] == 12
+    assert preview["plan_hash"] == status["plan_hash"]
+    assert preview["base_transport_attempts"] <= preview["max_transport_attempts"]
+
+
 def test_dashboard_cockpit_panel_is_present_but_dark_by_default(
     service: RouterService,
 ) -> None:
@@ -973,3 +1028,216 @@ def test_dashboard_cockpit_has_no_credential_or_external_calls(
     assert "/cockpit/status" in script
     assert "/cockpit/run" in script
     assert "http://" not in script and "https://" not in script
+
+
+def test_dashboard_cockpit_frontend_binds_plan_and_is_injection_safe(
+    service: RouterService,
+) -> None:
+    """03C frontend contract: plan_hash + idempotency run POST, abort control,
+    an esc() sink for workload/API values, and no measured=true claim at start."""
+
+    html = service.dispatch("GET", "/").payload
+    script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
+    # The paid POST carries the current plan_hash + a fresh idempotency key.
+    assert "plan_hash" in script and "idempotency_key" in script
+    # Plan/preview/abort surfaces are wired.
+    assert "/cockpit/preview" in script
+    assert "/cockpit/abort" in script
+    # A visible abort control exists and is wired.
+    assert 'id="ckAbortBtn"' in html
+    assert "abortCockpit" in script
+    # Injection-safe: an esc() helper exists and the cockpit sinks route through it.
+    assert "const esc =" in script
+    assert "esc(t.task_id)" in script
+    # The start button never claims measured=true (only a verified replay does).
+    assert "(measured=true)" not in html and "measured&#61;true)" not in html
+    assert re.search(r'id="ckRunBtn"[^>]*>approve &amp; run<', html)
+
+
+# -- cockpit plan parity (03C: bound ResolvedRunPlan) ------------------------
+
+import time  # noqa: E402
+
+from router.run_plan import LocalRunConfig, resolve_run_plan  # noqa: E402
+
+SMOKE_WORKLOAD = ROOT / "samples" / "workloads" / "validated-smoke.example.jsonl"
+
+
+def _write_rate_card(tmp_path: Path, *, models: str | None = None) -> None:
+    if models is None:
+        models = (
+            "  model-router: {input: 3.0, cached: 1.5, output: 10.0, reasoning: 10.0}\n"
+            "  premium-max: {input: 5.0, cached: 2.5, output: 15.0, reasoning: 15.0}\n"
+        )
+    (tmp_path / "tenant-rates.yaml").write_text(
+        "version: 7\ncurrency: USD\nsource: acme\neffective_date: 2026-08-01\n"
+        "pricing_basis: composite\nmodels:\n"
+        f"{models}"
+        "default: {input: 1.0, cached: 0.5, output: 2.0, reasoning: 2.0}\n",
+        encoding="utf-8",
+    )
+
+
+def _plan_mapping() -> dict:
+    return {
+        "schema_version": 1, "template": False, "run_mode": "benchmark",
+        "foundry": {
+            "auth": "entra", "endpoint_kind": "azure_openai",
+            "azure_openai_endpoint": "https://acme.example.com/", "api_version": "2024-10-21",
+        },
+        "arms": [
+            {"id": "router-cost", "kind": "model_router", "provider": "openai",
+             "requested_model": "model-router", "deployment": "model-router",
+             "expected": {"format": "router", "name": "cost", "version": "2025-01"}},
+            {"id": "direct-premium", "kind": "direct", "provider": "openai",
+             "requested_model": "premium-max", "deployment": "premium-max"},
+        ],
+        "benchmark": {
+            "workload": str(SMOKE_WORKLOAD), "rate_card": "tenant-rates.yaml",
+            "smoke_authorization_ceiling_usd": None, "repetitions": 2,
+            "max_output_tokens": 256, "budget_usd": 50.0, "random_seed": 7,
+            "estimand": {
+                "analysis_unit": "task", "repeat_aggregation": "mean",
+                "denominator_policy": "all-attempted", "failure_policy": "count-as-zero",
+                "cost_per_pass_formula": "total_cost / passes", "paired_statistic": "wilcoxon",
+            },
+            "grader": {"kind": "exec-signals", "version": 1}, "retry": {"max_retries": 1},
+        },
+        "privacy": {"retain_raw_prompts": True, "retain_raw_outputs": True},
+        "artifacts": {"local_root": "results/local"},
+        "display": {"locale": "en"},
+    }
+
+
+def _planned_cockpit(
+    tmp_path: Path, *, budget_usd: float = 50.0, models: str | None = None
+) -> RouterService:
+    _write_rate_card(tmp_path, models=models)
+    mapping = _plan_mapping()
+    mapping["benchmark"]["budget_usd"] = budget_usd
+    config = LocalRunConfig.from_mapping(
+        mapping, base_dir=tmp_path, source=str(tmp_path / ".foundry.local.yaml")
+    )
+    plan = resolve_run_plan(config, env={})
+    return RouterService(
+        cockpit_token=COCKPIT_TOKEN, run_plan=plan, run_config=config,
+        client_factory=_FakeMeasureClient,
+    )
+
+
+def _poll_terminal(service: RouterService, run_id: str, *, timeout: float = 10.0) -> dict:
+    deadline = time.monotonic() + timeout
+    terminal = {"complete", "partial", "failed", "aborted", "replay_verified", "replay_failed"}
+    while time.monotonic() < deadline:
+        progress = service.dispatch(
+            "GET", _authed(f"/cockpit/progress?run={run_id}")
+        ).payload["progress"]
+        if progress and progress.get("state") in terminal:
+            return progress
+        time.sleep(0.02)
+    raise AssertionError(f"run {run_id} did not reach a terminal state within {timeout}s")
+
+
+def test_cockpit_status_publishes_bound_plan_hash(tmp_path: Path) -> None:
+    service = _planned_cockpit(tmp_path)
+    payload = service.dispatch("GET", _authed("/cockpit/status")).payload
+    assert payload["plan_bound"] is True
+    assert payload["plan_hash"] == service._cockpit_controller.plan_hash
+    assert payload["measured"] is False
+
+
+def test_cockpit_plan_and_preview_agree_on_plan_hash(tmp_path: Path) -> None:
+    service = _planned_cockpit(tmp_path)
+    plan_hash = service._cockpit_controller.plan_hash
+    plan = service.dispatch("GET", _authed("/cockpit/plan")).payload
+    preview = service.dispatch("GET", _authed("/cockpit/preview")).payload
+    catalog = service.dispatch("GET", _authed("/cockpit/catalog")).payload
+    # Every surface binds to the ONE server-side plan_hash.
+    assert plan["plan_hash"] == preview["plan_hash"] == catalog["plan_hash"] == plan_hash
+    # Preview shows attempts as a base..max range, never "exactly N".
+    assert preview["base_transport_attempts"] == 1
+    assert preview["max_transport_attempts"] >= preview["base_transport_attempts"]
+    assert "planned_cells" in preview
+
+
+def test_cockpit_catalog_ignores_arbitrary_workload_when_bound(tmp_path: Path) -> None:
+    service = _planned_cockpit(tmp_path)
+    # A bound plan is the sole workload authority: ?workload= cannot redirect it.
+    payload = service.dispatch(
+        "GET", _authed("/cockpit/catalog?workload=/etc/passwd")
+    ).payload
+    assert payload["workload_path"].endswith("validated-smoke.example.jsonl")
+
+
+def test_cockpit_run_refuses_stale_plan_hash(tmp_path: Path) -> None:
+    service = _planned_cockpit(tmp_path)
+    status, payload = _post(
+        service, _authed("/cockpit/run"),
+        {"approve": True, "plan_hash": "sha256:" + "0" * 64, "idempotency_key": "k"},
+    )
+    assert status == 200
+    assert payload["ran"] is False
+    assert payload["measured"] is False
+    assert "plan" in payload["reason"].lower()
+
+
+def test_cockpit_run_requires_idempotency_key(tmp_path: Path) -> None:
+    service = _planned_cockpit(tmp_path)
+    plan_hash = service._cockpit_controller.plan_hash
+    status, payload = _post(
+        service, _authed("/cockpit/run"), {"approve": True, "plan_hash": plan_hash}
+    )
+    assert payload["ran"] is False
+    assert "idempotency" in payload["reason"].lower()
+
+
+def test_cockpit_run_starts_measured_false_then_verifies_after_replay(
+    tmp_path: Path,
+) -> None:
+    service = _planned_cockpit(tmp_path)
+    plan_hash = service._cockpit_controller.plan_hash
+    status, payload = _post(
+        service, _authed("/cockpit/run"),
+        {"approve": True, "plan_hash": plan_hash, "idempotency_key": "click-1"},
+    )
+    assert status == 200
+    assert payload["ran"] is True
+    # The START response never claims measured=true.
+    assert payload["measured"] is False
+    run_id = payload["run_id"]
+    final = _poll_terminal(service, run_id)
+    assert final["state"] == "replay_verified"
+    # measured/verified is only earned from the completed snapshot replay.
+    snap = service.dispatch("GET", _authed(f"/cockpit/snapshot?run={run_id}")).payload
+    assert snap["measured"] is True and snap["ok"] is True
+
+
+def test_cockpit_run_unpriced_backend_fails_closed(tmp_path: Path) -> None:
+    # A rate card that omits premium-max: its backend has no explicit rate.
+    service = _planned_cockpit(
+        tmp_path,
+        models="  model-router: {input: 3.0, cached: 1.5, output: 10.0, reasoning: 10.0}\n",
+    )
+    plan_hash = service._cockpit_controller.plan_hash
+    _status, payload = _post(
+        service, _authed("/cockpit/run"),
+        {"approve": True, "plan_hash": plan_hash, "idempotency_key": "k"},
+    )
+    assert payload["ran"] is False
+    assert "unpriced" in payload["reason"].lower()
+    # The catalog pre-flight fails closed too.
+    cat = service.dispatch("GET", _authed("/cockpit/catalog"))
+    assert cat.status == 400
+
+
+def test_cockpit_abort_unknown_run_is_404(tmp_path: Path) -> None:
+    service = _planned_cockpit(tmp_path)
+    resp = service.dispatch("POST", _authed("/cockpit/abort"), b'{"run_id": "nope"}')
+    assert resp.status == 404
+
+
+def test_cockpit_plan_routes_400_without_a_bound_plan(cockpit: RouterService) -> None:
+    # Token set but no plan bound: the plan-parity routes explain how to bind one.
+    assert cockpit.dispatch("GET", _authed("/cockpit/plan")).status == 400
+    assert cockpit.dispatch("GET", _authed("/cockpit/preview")).status == 400
+    assert cockpit.dispatch("POST", _authed("/cockpit/abort"), b"{}").status == 400

@@ -42,6 +42,7 @@ from .annotations import (
     router_cost_disclosure,
     savings_claim_allowed,
 )
+from .cockpit import CockpitController, CockpitError
 from .dashboard import DASHBOARD_HTML
 from .experiment import (
     Experiment,
@@ -134,6 +135,9 @@ class RouterService:
         pricing: PricingTable | None = None,
         metrics_store: JsonlMetricsStore | None = None,
         cockpit_token: str | None = None,
+        run_plan: Any | None = None,
+        run_config: Any | None = None,
+        client_factory: Any | None = None,
     ) -> None:
         self.policy = policy or load_policy()
         if pricing is not None:
@@ -154,6 +158,23 @@ class RouterService:
         # so every /cockpit/* route 404s and no live surface ships.
         self.cockpit_token = cockpit_token
         self._cockpit_progress: dict[str, dict[str, Any]] = {}
+        # 03C: when a ResolvedRunPlan is bound (dashboard --config), the cockpit
+        # becomes a control surface over that exact plan — preview, approval,
+        # run, abort, and snapshot all key on the single server-side plan_hash.
+        # Without a bound plan the run route stays fail-closed (no ad-hoc config).
+        self._run_plan = run_plan
+        self._run_config = run_config
+        self._client_factory = client_factory
+        self._cockpit_controller: CockpitController | None = None
+        if run_plan is not None and run_config is not None:
+            # The controller loads pricing from the plan's OWN pinned rate card
+            # (never the server's bundled illustrative table), so an unpriced
+            # backend fails closed instead of silently pricing off a default.
+            self._cockpit_controller = CockpitController(
+                run_plan,
+                run_config,
+                client_factory=client_factory,
+            )
 
     # -- endpoint handlers ------------------------------------------------
 
@@ -348,6 +369,10 @@ class RouterService:
         ]
 
     def _cockpit_workload_path(self, path: str) -> Path:
+        # 03C: a bound plan is the sole workload authority — the browser cannot
+        # point the cockpit at an arbitrary filesystem path via ?workload=.
+        if self._cockpit_controller is not None:
+            return self._run_config.resolve_path(self._run_plan.workload_path)
         wl = _query_value(path, "workload")
         if wl:
             return Path(wl)
@@ -358,28 +383,61 @@ class RouterService:
 
         Reuses :meth:`FoundryConfig.status` (already redacted — no secret leaves)
         and the fleet slate, so the browser shows exactly what is wired and what
-        is missing, with zero credential input fields.
+        is missing, with zero credential input fields. When a plan is bound it
+        also publishes the single server-side ``plan_hash`` so preview, approval,
+        and replay can all be checked against the same value.
         """
 
         registry = self._fleet_registry()
         slate = registry.slate()
-        return ServiceResponse(
-            200,
-            {
-                "foundry": FoundryConfig.from_env().status(),
-                "fleet": {
-                    "source": registry.source,
-                    "roles": registry.role_assignments(),
-                    "ensemble": list(slate.ensemble),
-                },
-                "pricing_loaded": self.pricing is not None,
-                "measured": False,
+        payload: dict[str, Any] = {
+            "foundry": FoundryConfig.from_env().status(),
+            "fleet": {
+                "source": registry.source,
+                "roles": registry.role_assignments(),
+                "ensemble": list(slate.ensemble),
             },
-        )
+            "pricing_loaded": self.pricing is not None,
+            "measured": False,
+        }
+        if self._cockpit_controller is not None:
+            payload["plan_bound"] = True
+            payload["plan_hash"] = self._cockpit_controller.plan_hash
+        else:
+            payload["plan_bound"] = False
+        return ServiceResponse(200, payload)
+
+    def cockpit_plan(self) -> ServiceResponse:
+        """The bound plan's parity fields (03C): everything every surface agrees on.
+
+        Keyed by ``plan_hash`` so preview, approval, run, and replay bind to the
+        one server-side plan — the browser never supplies plan content.
+        """
+
+        if self._cockpit_controller is None:
+            return _error(400, "no run plan bound; start with `dashboard --config <file>`")
+        return ServiceResponse(200, self._cockpit_controller.parity())
+
+    def cockpit_preview(self) -> ServiceResponse:
+        """The human-approval preview (03C): planned_cells + base/max attempts.
+
+        Never collapses retry-dependent outbound calls into an exact count.
+        """
+
+        if self._cockpit_controller is None:
+            return _error(400, "no run plan bound; start with `dashboard --config <file>`")
+        return ServiceResponse(200, self._cockpit_controller.preview())
 
     def cockpit_catalog(self, path: str) -> ServiceResponse:
         """Pre-flight catalog (C4/B4): prompts, validation, candidates, cost — no calls."""
 
+        # 03C: a bound plan prices its own workload/candidates and fails closed on
+        # an unpriced resolved backend — never off the generic default.
+        if self._cockpit_controller is not None:
+            try:
+                return ServiceResponse(200, self._cockpit_controller.preflight())
+            except CockpitError as exc:
+                return _error(400, str(exc))
         if self.pricing is None:
             return _error(503, "no pricing table loaded; set FOUNDRY_PRICING_PATH")
         workload_path = self._cockpit_workload_path(path)
@@ -400,14 +458,21 @@ class RouterService:
     def cockpit_run(self, body: bytes) -> ServiceResponse:
         """Run gate (C4): validate every gate; the paid sweep runs only past them.
 
-        Offline/uncredentialed/unapproved requests get an honest ``ran=false``
-        with the reason — this is the tested path. The live branch (credentialed,
-        approved, budgeted) is the operator-gated leaf and never runs in CI.
+        With a bound plan (03C) the gate is plan-hash approval + an idempotency
+        key, enforced by :class:`CockpitController` — a stale approval, a missing
+        key, a budget-reservation refusal, or an unpriced backend all fail closed
+        before any dispatch, and the start response never claims ``measured``.
+
+        Without a bound plan the legacy fleet path returns an honest
+        ``ran=false`` with the reason — the paid leaf is operator-gated and never
+        runs in CI.
         """
 
         parsed = _load_json_object(body)
         if isinstance(parsed, ServiceResponse):
             return parsed
+        if self._cockpit_controller is not None:
+            return self._cockpit_run_planned(parsed)
         approve = bool(parsed.get("approve"))
         budget = parsed.get("budget_usd")
         experiment = str(parsed.get("experiment") or "cockpit")
@@ -426,6 +491,56 @@ class RouterService:
         return self._cockpit_launch(  # pragma: no cover - live path (operator-gated)
             parsed, experiment=experiment, budget=float(budget), config=config
         )
+
+    def _cockpit_run_planned(self, parsed: Mapping[str, Any]) -> ServiceResponse:
+        """03C run gate: plan-hash approval + idempotency, fail-closed before spend."""
+
+        controller = self._cockpit_controller
+        assert controller is not None
+        if not bool(parsed.get("approve")):
+            return ServiceResponse(
+                200,
+                {
+                    "ran": False,
+                    "reason": "not approved — approve the reviewed plan_hash to spend.",
+                    "measured": False,
+                },
+            )
+        plan_hash = parsed.get("plan_hash")
+        idempotency_key = parsed.get("idempotency_key")
+        try:
+            run = controller.approve_and_start(
+                plan_hash=plan_hash if plan_hash is None else str(plan_hash),
+                idempotency_key=(
+                    None if idempotency_key is None else str(idempotency_key)
+                ),
+                inline=False,
+            )
+        except CockpitError as exc:
+            # Stale plan_hash, missing key, active-run lock, budget refusal, or an
+            # unpriced backend: all fail closed with an honest reason, no spend.
+            return ServiceResponse(
+                200, {"ran": False, "reason": str(exc), "measured": False}
+            )
+        response = controller.start_response(run)
+        response["ran"] = True
+        # The start response NEVER claims measured=true; that is only ever earned
+        # after completion + a clean snapshot replay (polled via /cockpit/snapshot).
+        return ServiceResponse(200, response)
+
+    def cockpit_abort(self, body: bytes) -> ServiceResponse:
+        """Abort a live run through the shared 03B durable gate (03C)."""
+
+        if self._cockpit_controller is None:
+            return _error(400, "no run plan bound; abort requires a bound cockpit run")
+        parsed = _load_json_object(body)
+        if isinstance(parsed, ServiceResponse):
+            return parsed
+        run_id = str(parsed.get("run_id") or "")
+        try:
+            return ServiceResponse(200, self._cockpit_controller.abort(run_id))
+        except CockpitError as exc:
+            return _error(404, str(exc))
 
     @staticmethod
     def _cockpit_refusal(gates: Mapping[str, bool]) -> str:
@@ -488,6 +603,10 @@ class RouterService:
         """Latest streamed progress for a run (C5). Empty until a run starts."""
 
         run_id = _query_value(path, "run") or ""
+        if self._cockpit_controller is not None:
+            return ServiceResponse(
+                200, {"run_id": run_id, "progress": self._cockpit_controller.progress(run_id)}
+            )
         return ServiceResponse(
             200, {"run_id": run_id, "progress": self._cockpit_progress.get(run_id)}
         )
@@ -498,6 +617,15 @@ class RouterService:
         run = _query_value(path, "run")
         if not run:
             return _error(400, "pass ?run=<snapshot dir>")
+        # 03C: a bound cockpit replays its own run by id (no arbitrary FS path),
+        # and an unverified replay withholds the cost amount itself (03Z-b).
+        if self._cockpit_controller is not None:
+            try:
+                return ServiceResponse(200, self._cockpit_controller.snapshot(run))
+            except CockpitError as exc:
+                return _error(404, str(exc))
+            except (OSError, ValueError, KeyError) as exc:
+                return _error(400, f"snapshot replay failed: {exc}")
         run_dir = Path(run)
         try:
             report = replay_measure(run_dir)
@@ -598,6 +726,10 @@ class RouterService:
                 return _error(403, "cockpit requires a valid ?token=")
             if method == "GET" and route == "/cockpit/status":
                 return self.cockpit_status()
+            if method == "GET" and route == "/cockpit/plan":
+                return self.cockpit_plan()
+            if method == "GET" and route == "/cockpit/preview":
+                return self.cockpit_preview()
             if method == "GET" and route == "/cockpit/catalog":
                 return self.cockpit_catalog(path)
             if method == "GET" and route == "/cockpit/progress":
@@ -606,6 +738,8 @@ class RouterService:
                 return self.cockpit_snapshot(path)
             if method == "POST" and route == "/cockpit/run":
                 return self.cockpit_run(body)
+            if method == "POST" and route == "/cockpit/abort":
+                return self.cockpit_abort(body)
             return _error(404, f"not found: {route}")
         if route in _KNOWN_ROUTES:
             return _error(405, f"method {method} not allowed for {route}")

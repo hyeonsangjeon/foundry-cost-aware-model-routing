@@ -222,6 +222,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dashboard.add_argument("--policy", type=Path, default=None, help="policy YAML to serve")
     dashboard.add_argument(
+        "--config", type=Path, default=None,
+        help="bind a ResolvedRunPlan (.foundry.local.yaml) as the cockpit's single "
+        "source of truth for preview/approval/run/replay (03A resolver; --live only)",
+    )
+    dashboard.add_argument(
         "--env-file", type=Path, default=Path(".env"),
         help="dotenv to load before reading Foundry config (for --live status/run)",
     )
@@ -660,7 +665,38 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
         )
         host = "127.0.0.1"
     token = secrets.token_urlsafe(24)
-    service = server.RouterService(policy=load_policy(args.policy), cockpit_token=token)
+    # 03C: --config binds one ResolvedRunPlan (03A resolver) as the cockpit's
+    # single source of truth — preview, approval, run, abort, and replay all key
+    # on its plan_hash. Without --config the cockpit falls back to the legacy
+    # ad-hoc config path, which is deprecated (it kept independent config
+    # semantics the resolver now owns).
+    run_plan = run_config = None
+    config_arg = getattr(args, "config", None)
+    if config_arg is not None:
+        run_config, run_plan = _resolve_plan_or_error(
+            args, label="dashboard", require_run_ready=False
+        )
+        if run_plan is None:
+            return 2
+        print(
+            f"cost-router: cockpit bound to plan {run_plan.plan_hash} "
+            f"({run_plan.config_source}).",
+            flush=True,
+        )
+    else:
+        print(
+            "cost-router: DEPRECATED — running the live cockpit without --config "
+            "uses the legacy ad-hoc config path. Bind a resolved plan with "
+            "`--config <.foundry.local.yaml>` so preview/approval/run/replay share "
+            "one plan_hash; the plan-less path will be removed.",
+            flush=True,
+        )
+    service = server.RouterService(
+        policy=load_policy(args.policy),
+        cockpit_token=token,
+        run_plan=run_plan,
+        run_config=run_config,
+    )
     port = args.port or (49152 + secrets.randbelow(16000))
     open_hint = f"/?cockpit=1&token={token}"
     print("cost-router: live cockpit enabled (localhost, token-gated).", flush=True)
