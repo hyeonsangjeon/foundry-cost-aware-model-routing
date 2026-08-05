@@ -1034,6 +1034,7 @@ def run_measure(
     endpoint: str | None = None,
     region: str | None = None,
     pricing_path: str | None = None,
+    plan_hash: str | None = None,
     resume: bool = False,
     sleeper: Callable[[float], None] = sleep,
     clock: Callable[[], str] | None = None,
@@ -1162,6 +1163,7 @@ def run_measure(
     }
     manifest = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
+        "plan_hash": plan_hash,
         "run_id": run_id,
         "exp_id": exp_id,
         "timestamp": started.isoformat(timespec="seconds"),
@@ -1231,6 +1233,7 @@ class ReplayResult:
     cost_mismatches: tuple[dict[str, Any], ...]
     fingerprint_issues: tuple[str, ...]
     recomputed_summary: dict[str, Any]
+    plan_hash: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1240,6 +1243,7 @@ class ReplayResult:
             "fingerprints_ok": self.fingerprints_ok,
             "cost_mismatches": list(self.cost_mismatches),
             "fingerprint_issues": list(self.fingerprint_issues),
+            "plan_hash": self.plan_hash,
         }
 
 
@@ -1301,6 +1305,7 @@ def replay_measure(run_dir: Path | str) -> ReplayResult:
         cost_mismatches=cost_mismatches,
         fingerprint_issues=tuple(fingerprint_issues),
         recomputed_summary=recomputed,
+        plan_hash=manifest.get("plan_hash"),
     )
 
 
