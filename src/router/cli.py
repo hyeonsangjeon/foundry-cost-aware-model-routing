@@ -2590,11 +2590,33 @@ def _benchmark_preview_or_dispatch(args: argparse.Namespace, *, kind: str) -> in
     )
     out_root = Path(plan.execution["artifacts"]["local_root"])
     run_dir = out_root / kind / make_run_id()
+    run_dir.mkdir(parents=True, exist_ok=True)  # pragma: no cover - live path
+    progress_path = run_dir / "progress.json"  # pragma: no cover - live path
+    print(  # pragma: no cover - live path
+        f"{label} --live: dispatching plan_hash {plan.plan_hash} → {run_dir}", flush=True
+    )
+
+    def _live_progress(ev: Mapping[str, Any]) -> None:  # pragma: no cover - live path
+        # Runtime-only progress surface (never fingerprinted; run dir is gitignored):
+        # one flushed stdout line per finished cell for a detached-run log tail, plus
+        # an atomically-rewritten progress.json for structured polling.
+        done, total = ev.get("cells_done"), ev.get("cells_total")
+        print(
+            f"progress: {done}/{total} cells  ${ev.get('running_cost_usd')}  "
+            f"429×{ev.get('throttles')}  fail×{ev.get('failures')}  [{ev.get('event', '')}]",
+            flush=True,
+        )
+        payload = {**dict(ev), "run_dir": str(run_dir), "plan_hash": plan.plan_hash}
+        tmp = progress_path.with_name("progress.json.tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(progress_path)
+
     try:  # pragma: no cover - live path
         result = execute_benchmark(
             config, plan, client=client, run_dir=run_dir, exp_id=kind,
             git_commit=_git_head(),
             region=args.region,
+            progress=_live_progress,
         )
     except (PlanError, RuntimeError, ValueError, KeyError, OSError) as exc:  # pragma: no cover
         print(f"{label} --live: {exc}")

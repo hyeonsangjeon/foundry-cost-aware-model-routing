@@ -23,7 +23,7 @@ import hashlib
 import json
 import os
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -1022,6 +1022,7 @@ def execute_benchmark(
     sleeper: Any = None,
     clock: Any = None,
     resume: bool = False,
+    progress: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> MeasureRunResult:
     """Run the plan through the measured sweep, sealing ``plan_hash`` into the manifest.
 
@@ -1107,5 +1108,6 @@ def execute_benchmark(
         pricing_path=card,
         plan_hash=plan.plan_hash,
         resume=resume,
+        progress=progress,
         **extra,
     )
