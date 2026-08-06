@@ -74,3 +74,4 @@ cost-router experiment run hero --json     # 기계가 읽는 전체 요약
 - [실험 08 · 아레나](08-arena.md) — 문제 **하나**를 네 방법으로 (프로토타입 실행)? 라우터 = 가장 싼 정답이나 순차 에스컬레이션이라 **가장 느림** (비용·정확도는 오프라인 투영, **지연은 새 예시적 투영**)
 - [실험 09 · 실측 라우팅](09-live-routing-proof.md) — 진짜 Foundry에 물리면 라우터가 **실제로** 뭘 고르나? 단일 `model-router` 배포가 **`gpt-5.4`(3건) · `grok-4-1-fast-reasoning`(2건)**으로 실제 분기 (**저장소 최초 `measured = true`**, 키리스 Entra)
 - [실험 10 · 실측 원장](10-measured-ledger.md) — 측정된 그 지출을 나중에 아무도 못 고치게? 라이브 런을 **변조 감지(해시 체인) + 비용 재생(봉인된 요율표)** canonical 원장으로 봉인, 한 줄로 `PASS` 재검증 — **1바이트만 고쳐도 실패**, 오프라인 원장은 불변
+- [실험 11 · 라우팅 모드 유료 실측](11-router-modes-void.md) — 세 모드는 정말 비용·품질을 가르나? 저장소 최초 **유료 4-arm 비교**($3.47/$20)가 **내가 미리 커밋한 사전등록에 의해 무효(VOID)** — quality 커버리지 79.2%<90%. 예상 뒤집힘(quality>premium) + Grok 100%(Claude 아님) + reasoning이 output 삼킴. **음성 결과가 규율로 지켜진 자산**
