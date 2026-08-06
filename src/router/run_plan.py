@@ -30,10 +30,12 @@ from typing import Any
 
 import yaml
 
+from .benchmark_grader import ExecSignalsGrader
 from .measure import (
     MeasureCandidate,
     MeasureRunResult,
     RetryPolicy,
+    evaluate_prereg,
     load_prompt_workload,
     run_measure,
     workload_fingerprint,
@@ -1052,6 +1054,32 @@ def execute_benchmark(
     else:
         pricing = PricingTable.from_yaml(card_path)
     retry = RetryPolicy(max_retries=int(plan.execution["retry"]["max_retries"]))
+
+    # Auto-wire the exec-signals grading bridge for a benchmark sweep so the
+    # (paid) run captures each arm's code and grades it in memory (spec §10).
+    # Tests still inject a fake grader; a smoke run stays ungraded. The grader
+    # no-ops on cells with no captured content, so this never egresses here.
+    if grader is None and plan.run_mode == "benchmark":
+        grader_kind = str((plan.execution.get("grader") or {}).get("kind") or "")
+        if grader_kind == "exec-signals":
+            benchmark_root = config.resolve_path(plan.workload_path).parent
+            if (benchmark_root / "harness" / "grade.py").is_file():
+                grader = ExecSignalsGrader(benchmark_root)
+
+    # Record the prereg the plan pins (its {path, blob, commit} are already bound
+    # into plan_hash) into the sealed manifest, unless a decision was injected.
+    if prereg is None:
+        prereg_block = plan.execution.get("preregistration") or {}
+        prereg_ref = prereg_block.get("path")
+        if prereg_ref:
+            prereg = evaluate_prereg(
+                config.resolve_path(prereg_ref),
+                run_started_at=(
+                    now
+                    if isinstance(now, datetime.datetime)
+                    else datetime.datetime.now(datetime.UTC)
+                ),
+            )
 
     extra: dict[str, Any] = {}
     if sleeper is not None:

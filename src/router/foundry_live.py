@@ -428,6 +428,7 @@ class RouterOutcome:
     model: str
     usage: dict[str, float]
     provenance: str = "live"
+    content: str | None = None
 
     def cost_usd(
         self, pricing: PricingTable, *, model_aliases: Mapping[str, str] | None = None
@@ -544,6 +545,7 @@ class AzureModelRouterClient:
             model=_response_model(response) or target,
             usage=_usage_from_response(response),
             provenance="live",
+            content=_response_text(response),
         )
 
     def _complete_foundry(
@@ -561,6 +563,7 @@ class AzureModelRouterClient:
             model=_response_model(response) or deployment,
             usage=_usage_from_response(response),
             provenance="live",
+            content=_response_text(response),
         )
 
     def _sdk_client(self) -> Any:
@@ -904,6 +907,33 @@ def _response_model(response: Any) -> str | None:
     if model is None and isinstance(response, Mapping):
         model = response.get("model")
     return str(model) if model else None
+
+
+def _response_text(response: Any) -> str | None:
+    """Extract the assistant message text from a chat-completions response.
+
+    Reads ``choices[0].message.content`` across the SDK object shape and the
+    plain-mapping shape (used by fakes/recorded fixtures). Returns ``None`` when
+    no textual content is present so the caller records the cell as ungraded
+    rather than grading empty output.
+    """
+
+    choices = getattr(response, "choices", None)
+    if choices is None and isinstance(response, Mapping):
+        choices = response.get("choices")
+    if not choices:
+        return None
+    first = choices[0]
+    message = getattr(first, "message", None)
+    if message is None and isinstance(first, Mapping):
+        message = first.get("message")
+    content = getattr(message, "content", None)
+    if content is None and isinstance(message, Mapping):
+        content = message.get("content")
+    if content is None:
+        return None
+    text = str(content)
+    return text if text.strip() else None
 
 
 def _usage_field(usage: Any, name: str) -> float:

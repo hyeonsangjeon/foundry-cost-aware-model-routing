@@ -277,8 +277,10 @@ def test_summary_ungraded_without_grader(tmp_path):
 
 
 def test_summary_graded_with_grader(tmp_path):
-    # grade nano as fail, gpt-5.4 as pass → coverage 0.5
-    def grader(task_id, task, model, usage):
+    # grade nano as fail, gpt-5.4 as pass → coverage 0.5. A legacy usage grader
+    # (bool return, content-unaware) still works via the 5-arg content-aware
+    # signature: the extra ``content`` arg is simply ignored.
+    def grader(task_id, task, model, usage, content=None):
         return model == "gpt-5.4"
 
     result = _run(tmp_path, ScriptedClient(), grader=grader)
@@ -287,6 +289,10 @@ def test_summary_graded_with_grader(tmp_path):
     assert cov["basis"] == "graded"
     assert cov["coverage"] == pytest.approx(0.5)
     assert result.summary["labels"]["accuracy"] == "graded"
+    # A bool grader sets no output hash, so the content-grading blocks stay off
+    # and the run's summary is byte-identical to the pre-bridge shape.
+    assert "grading" not in result.summary
+    assert "quality" not in result.summary
 
 
 # --------------------------------------------------------------------------- #
