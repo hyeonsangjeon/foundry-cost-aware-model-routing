@@ -37,7 +37,12 @@ from router.pricing import PricingTable
 from router.run_plan import LocalRunConfig, execute_benchmark, resolve_run_plan
 
 BENCH = Path("benchmarks/original-coding")
-APPROVED_PLAN_HASH = "sha256:9474b9801e9cdf9edfb84ac8ac048eb2726d849ec42b840c5ff51f0db474acb6"
+# 03D-2 re-run plan hash. Supersedes the void run's
+# sha256:9474b9801e9cdf9edfb84ac8ac048eb2726d849ec42b840c5ff51f0db474acb6, whose
+# rate card pinned grok-4-1-fast cached: null and used max_output_tokens=2048.
+# The re-run pins Grok cached=input (0.2) and max_output_tokens=8192, and binds a
+# new prereg (prereg-03d2-router-modes.md) — all three change the plan hash.
+APPROVED_PLAN_HASH = "sha256:d640dc07a0a2dd62871b7fddba552f34c64c0c54affe7a7fcbe475ec91d2921e"
 
 
 def _fixture(task_id: str, kind: str) -> str:
