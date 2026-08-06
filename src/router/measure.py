@@ -1356,6 +1356,31 @@ def run_measure(
     throttles = 0
     failures = 0
     raw_records: list[dict[str, Any]] = []
+    # Diagnostic-only mid-run tallies (per-arm content coverage + pass counts) so a
+    # detached run can be watched for a coverage collapse. These are computed from
+    # the same terminal rows that seal into traces, but they are carried ONLY on the
+    # ephemeral progress event — never written to traces/summary/manifest and never
+    # part of plan_hash. They inform an abort decision; they do not adjudicate.
+    arm_progress: dict[str, dict[str, int]] = {
+        m: {"attempted": 0, "content": 0, "passed": 0} for m in candidate_models
+    }
+    content_done = 0
+    passed_done = 0
+    if prior_rows:  # resume: seed from each cell's terminal row
+        _terminal: dict[Any, dict[str, Any]] = {}
+        for _r in prior_rows:
+            _terminal[_cell_key(_r)] = _r
+        for _r in _terminal.values():
+            _seed = arm_progress.get(str(_r.get("candidate_model")))
+            if _seed is None:
+                continue
+            _seed["attempted"] += 1
+            if _r.get("output_sha256"):
+                _seed["content"] += 1
+                content_done += 1
+            if _r.get("pass") is True:
+                _seed["passed"] += 1
+                passed_done += 1
 
     def _emit(**extra: Any) -> None:
         if progress is None:
@@ -1368,6 +1393,10 @@ def run_measure(
                 "budget_usd": budget_usd,
                 "throttles": throttles,
                 "failures": failures,
+                "graded_content": content_done,
+                "passed": passed_done,
+                "coverage": round(content_done / cells_done, 6) if cells_done else 0.0,
+                "arms": {m: dict(st) for m, st in arm_progress.items()},
                 **extra,
             }
         )
@@ -1428,6 +1457,15 @@ def run_measure(
                 )
                 if cell_failed:
                     failures += 1
+                arm_stat = arm_progress.get(candidate.model)
+                if arm_stat is not None:
+                    arm_stat["attempted"] += 1
+                    if last.get("output_sha256"):
+                        arm_stat["content"] += 1
+                        content_done += 1
+                    if last.get("pass") is True:
+                        arm_stat["passed"] += 1
+                        passed_done += 1
                 _emit(
                     event="cell_done",
                     task_id=task_id,

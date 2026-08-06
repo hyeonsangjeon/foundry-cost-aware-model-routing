@@ -220,5 +220,29 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 4. operator 승인 후 `measure run <exp> --live --budget-usd <cap> --yes` 실행.
 5. `measure replay`로 byte-동일 재생, `measure verify`로 계약 대조 후 스냅샷을 커밋.
 
+## 10. 라이브 진행률 지표는 진단용이다 (판정 아님)
+
+detached 라이브 런은 `progress.json`과 stdout 한 줄로 진척을 노출한다. 셀
+수·누적 비용·429·실패에 더해 **누적 grading coverage(게이트 기준선 표시)** 와
+**arm별 pass 현황**을 함께 싣는다. 예:
+
+```
+progress: 142/288 cells  $1.83  429×0  fail×2  cov 96.5% [gate 90%]  [cell_done]
+         cost 34/36 · balanced 34/35 · quality 33/36 · premium 36/36
+```
+
+목적은 오직 하나 — **조기 중단(abort) 판단**이다. 지난 void 런에서 quality
+coverage가 79%로 무너지는 것을 30분 시점에 알았다면 abort할 수 있었다.
+
+!!! danger "중간 지표로 실험을 바꾸면 prereg 위반"
+    이 값들은 **진단용이지 판정이 아니다.** coverage 게이트(90%)와 품질 게이트
+    (min_pass 0.60 / max_drop 10pp)는 **봉인된 스냅샷에 대해서만** `measure verify`
+    로 판정한다. 중간 값을 보고 워크로드·arm·게이트·denominator를 바꾸면
+    사전등록 위반이며 결과가 무효가 된다. 진행 중 허용되는 유일한 개입은
+    **abort(전체 중단 + partial 스냅샷)** 뿐이다.
+
+`progress.json`은 gitignored 런 디렉터리에만 쓰이고 지문 대상(§4)이 아니므로
+스냅샷 바이트나 `plan_hash`에 영향을 주지 않는다 — replay는 여전히 byte-동일이다.
+
 관련 문서: [라이브 실측 브릿지](foundry-live.md) · [감사 원장](ledger.md) ·
 [실험 09 · 실측 라우팅](../lab-notebook/09-live-routing-proof.md) · [정직함 규약](../honesty.md)
