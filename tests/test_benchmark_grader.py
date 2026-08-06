@@ -418,3 +418,26 @@ def test_execute_benchmark_autobuilds_grader_and_seals_plan_hash(tmp_path):
     assert result.summary["grading"]["basis"] == "exec-signals"
     assert result.summary["grading"]["planned_cells"] == 24
     assert result.summary["labels"]["quality_graded"] is True
+
+
+def test_execute_benchmark_streams_progress_without_touching_plan_hash(tmp_path):
+    # The live CLI wires a progress callback (stdout + progress.json) so a
+    # detached paid sweep is observable mid-run; execute_benchmark must forward
+    # one event per finished cell and never let it perturb the sealed plan_hash.
+    cfg = LocalRunConfig.from_mapping(
+        _benchmark_config(tmp_path), base_dir=tmp_path, source=str(tmp_path / "c.yaml")
+    )
+    plan = resolve_run_plan(cfg, env={})
+    client = FixtureClient({c.deployment: "reference" for c in plan.candidates()})
+    events: list[dict[str, Any]] = []
+    result = execute_benchmark(
+        cfg, plan, client=client, run_dir=tmp_path / "RUN", exp_id="benchmark",
+        now=datetime(2026, 8, 6, tzinfo=UTC),
+        clock=(lambda: "2026-08-06T00:00:00.000+00:00"),
+        sleeper=lambda _s: None,
+        progress=events.append,
+    )
+    # One event per planned cell, cells_done monotone 1..N, plan_hash sealed intact.
+    assert [e["cells_done"] for e in events] == list(range(1, 25))
+    assert all(e["cells_total"] == 24 for e in events)
+    assert result.manifest["plan_hash"] == plan.plan_hash
