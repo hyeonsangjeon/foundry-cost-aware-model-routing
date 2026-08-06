@@ -141,6 +141,7 @@ class AttemptResult:
     latency_ms: float = 0.0
     error: str | None = None
     provenance: str = "live"
+    content: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -230,12 +231,18 @@ class AzureMeasureClient:
             usage=dict(outcome.usage),
             latency_ms=latency,
             provenance=outcome.provenance,
+            content=getattr(outcome, "content", None),
         )
 
 
 # A grader scores one successful outcome as pass/fail. Without one, spend is
-# measured but correctness is honestly *ungraded* (coverage is null).
-Grader = Callable[[str, Mapping[str, Any], str, Mapping[str, float]], bool]
+# measured but correctness is honestly *ungraded* (coverage is null). The last
+# argument is the captured output (the generated code); a content grader returns
+# a ``GradeVerdict`` (tri-state + output hash), a legacy usage grader returns a
+# plain ``bool``. ``run_candidate`` normalizes either shape.
+Grader = Callable[
+    [str, Mapping[str, Any], str, Mapping[str, float], "str | None"], "Any"
+]
 
 
 # --------------------------------------------------------------------------- #
@@ -520,6 +527,8 @@ def _trace_row(
     measured: bool,
     ts: str,
     extra: Mapping[str, Any] | None = None,
+    output_sha256: str | None = None,
+    grade_error: str | None = None,
 ) -> dict[str, Any]:
     """Build one canonical trace row (§3.2). Field order is fixed for readability.
 
@@ -553,9 +562,34 @@ def _trace_row(
         "labels": {"measured": bool(measured)},
         "ts": ts,
     }
+    # Grading evidence is present only when a content grader ran, so an ungraded
+    # run's rows stay byte-identical (and out of the public grading surface).
+    if output_sha256 is not None:
+        row["output_sha256"] = output_sha256
+    if grade_error is not None:
+        row["grade_error"] = grade_error
     if extra:
         row.update(extra)
     return row
+
+
+def _normalize_verdict(verdict: Any) -> tuple[bool | None, str | None, str | None]:
+    """Reduce a grader result to ``(passed, output_sha256, grade_error)``.
+
+    Accepts a content grader's :class:`~router.benchmark_grader.GradeVerdict`
+    (duck-typed: any object exposing ``passed``/``output_sha256``/``detail``) or
+    a legacy usage grader's plain ``bool``/``None``. A tri-state ``passed=None``
+    with output present carries its ``detail`` as ``grade_error`` so an ungraded
+    captured cell is visible (and counts against coverage), never dropped.
+    """
+
+    if verdict is None or isinstance(verdict, bool):
+        return (None if verdict is None else bool(verdict)), None, None
+    passed = getattr(verdict, "passed", None)
+    output_sha256 = getattr(verdict, "output_sha256", None)
+    detail = getattr(verdict, "detail", "") or None
+    grade_error = detail if passed is None else None
+    return passed, output_sha256, grade_error
 
 
 def run_candidate(
@@ -594,8 +628,11 @@ def run_candidate(
             usage = dict(result.usage or {})
             priced = engine.price(candidate, resolved_model=result.model, usage=usage)
             passed: bool | None = None
+            output_sha256: str | None = None
+            grade_error: str | None = None
             if grader is not None:
-                passed = bool(grader(task_id, task, candidate.model, usage))
+                verdict = grader(task_id, task, candidate.model, usage, result.content)
+                passed, output_sha256, grade_error = _normalize_verdict(verdict)
             rows.append(
                 _trace_row(
                     run_id=run_id, exp_id=exp_id, task_id=task_id, repeat_idx=repeat_idx,
@@ -605,6 +642,7 @@ def run_candidate(
                     passed=passed, score=None, fail_reason=None,
                     measured=result.provenance == "live", ts=now(),
                     extra=priced.trace_fields(),
+                    output_sha256=output_sha256, grade_error=grade_error,
                 )
             )
             return rows, result
@@ -661,6 +699,7 @@ def compute_summary(
     task_ids: Sequence[str],
     candidate_models: Sequence[str],
     partial: bool,
+    planned_cells: int | None = None,
 ) -> dict[str, Any]:
     """Aggregate raw traces into the canonical ``summary.json`` (pure function).
 
@@ -889,7 +928,95 @@ def compute_summary(
         summary["cost"]["cost_complete"] = unpriced_calls == 0
         if unpriced_calls:
             summary["cost"]["savings_claim_allowed"] = False
+
+    grading_block, quality_block = _grading_blocks(
+        traces,
+        candidate_models=candidate_models,
+        n=n,
+        planned_cells=planned_cells,
+        arm_known_cost={m: v["total_usd"] for m, v in candidate_out.items()},
+    )
+    if grading_block is not None:
+        summary["grading"] = grading_block
+        summary["quality"] = quality_block
+        summary["labels"]["quality_graded"] = quality_block["quality_graded"]
     return summary
+
+
+def _grading_blocks(
+    traces: Sequence[Mapping[str, Any]],
+    *,
+    candidate_models: Sequence[str],
+    n: int,
+    planned_cells: int | None,
+    arm_known_cost: Mapping[str, float],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Derive the ``grading`` + ``quality`` summary blocks from traces.
+
+    Pure function of the trace rows so replay reproduces it byte-identically and
+    any tampered ``pass`` value changes the summary (tamper-evident). Emits
+    ``None, None`` unless at least one content-graded cell exists (a row carrying
+    ``output_sha256``), keeping ungraded and legacy usage-grader runs untouched.
+
+    Coverage is graded-cells / planned-cells (§10): a cell whose grader could not
+    run (``pass is None`` with output captured) counts as a grade error and drags
+    coverage down — it is never silently dropped. Task-level quality uses
+    majority-pass-of-``n`` (needs > n/2 passing repeats); cost-per-pass divides an
+    arm's known (priced) spend by its passed tasks.
+    """
+
+    def _ok(row: Mapping[str, Any]) -> bool:
+        return 200 <= int(row.get("http_status", 0)) < 300 and row.get("fail_reason") is None
+
+    content_rows = [r for r in traces if _ok(r) and r.get("output_sha256")]
+    if not content_rows:
+        return None, None
+
+    graded_cells = sum(1 for r in content_rows if r.get("pass") is not None)
+    grade_errors = sum(1 for r in content_rows if r.get("pass") is None)
+    arms = len(candidate_models) or 1
+    planned = planned_cells if planned_cells else len(content_rows)
+    denom = n * arms
+    if denom:
+        planned_tasks = planned // denom
+    else:
+        planned_tasks = len({str(r.get("task_id")) for r in content_rows})
+
+    by_model_task: dict[tuple[str, str], list[Any]] = {}
+    for r in content_rows:
+        key = (str(r.get("candidate_model")), str(r.get("task_id")))
+        by_model_task.setdefault(key, []).append(r.get("pass"))
+
+    quality_by_candidate: dict[str, Any] = {}
+    for model in sorted(set(candidate_models)):
+        tasks = {t for (m, t) in by_model_task if m == model}
+        passed_tasks = 0
+        for task_id in tasks:
+            passes = by_model_task[(model, task_id)]
+            if sum(1 for p in passes if p is True) * 2 > n:
+                passed_tasks += 1
+        known = round(float(arm_known_cost.get(model, 0.0)), 6)
+        quality_by_candidate[model] = {
+            "tasks_planned": planned_tasks,
+            "tasks_passed": passed_tasks,
+            "pass_rate": round(passed_tasks / planned_tasks, 6) if planned_tasks else 0.0,
+            "known_cost_usd": known,
+            "cost_per_pass_usd": round(known / passed_tasks, 6) if passed_tasks else None,
+        }
+
+    grading = {
+        "basis": "exec-signals",
+        "planned_cells": planned,
+        "content_graded": len(content_rows),
+        "graded_cells": graded_cells,
+        "grade_errors": grade_errors,
+        "coverage": round(graded_cells / planned, 6) if planned else 0.0,
+    }
+    quality = {
+        "quality_graded": graded_cells > 0,
+        "by_candidate": quality_by_candidate,
+    }
+    return grading, quality
 
 
 def _zero_tokens() -> dict[str, float]:
@@ -1228,6 +1355,7 @@ def run_measure(
     cells_done = len(already)
     throttles = 0
     failures = 0
+    raw_records: list[dict[str, Any]] = []
 
     def _emit(**extra: Any) -> None:
         if progress is None:
@@ -1265,7 +1393,7 @@ def run_measure(
                         stopped_reason = halt_reason
                         _emit(event="halt", stopped_reason=stopped_reason)
                         break
-                new_rows, _ = run_candidate(
+                new_rows, final_result = run_candidate(
                     client, task, candidate,
                     run_id=run_id, exp_id=exp_id, repeat_idx=repeat_idx, pricing=engine,
                     retry=retry, grader=grader, sleeper=sleeper, clock=clock,
@@ -1273,6 +1401,22 @@ def run_measure(
                 if hooks is not None and hooks.after_cell is not None:
                     hooks.after_cell(cell_id, new_rows)
                 rows.extend(new_rows)
+                # Retain the raw model output for later grader reruns (spec §9
+                # L682). Kept only when a content grader hashed it, so ungraded /
+                # offline runs never grow a raw_outputs/ directory.
+                ok_row = new_rows[-1] if new_rows else {}
+                out_sha = ok_row.get("output_sha256")
+                if grader is not None and out_sha and final_result is not None:
+                    raw_records.append(
+                        {
+                            "task_id": task_id,
+                            "repeat_idx": repeat_idx,
+                            "model": candidate.model,
+                            "output_sha256": out_sha,
+                            "pass": ok_row.get("pass"),
+                            "content": final_result.content or "",
+                        }
+                    )
                 running_cost = round(
                     running_cost + sum(float(r.get("cost_usd") or 0.0) for r in new_rows), 6
                 )
@@ -1302,6 +1446,7 @@ def run_measure(
         exp_id=exp_id, run_id=run_id, n=n,
         task_ids=[str(r.get("task_id")) for r in rows],
         candidate_models=candidate_models, partial=partial,
+        planned_cells=cells_total,
     )
 
     # Write payload files first, then fingerprint them into the manifest.
@@ -1345,7 +1490,14 @@ def run_measure(
             "bypassed": bool(prereg.bypassed) if prereg else True,
             "note": prereg.note if prereg else "no prereg supplied",
         },
-        "labels": {"measured": summary["labels"]["measured"]},
+        "labels": {
+            "measured": summary["labels"]["measured"],
+            **(
+                {"quality_graded": summary["labels"]["quality_graded"]}
+                if "quality_graded" in summary["labels"]
+                else {}
+            ),
+        },
         "fingerprints": _fingerprints(files),
     }
     (run_path / "traces.jsonl").write_text(traces_text, encoding="utf-8")
@@ -1353,11 +1505,30 @@ def run_measure(
     (run_path / "pricing.snapshot.yaml").write_text(pricing_text, encoding="utf-8")
     (run_path / "prereg.md").write_text(prereg_text, encoding="utf-8")
     (run_path / "manifest.json").write_text(_dumps(manifest), encoding="utf-8")
+    _write_raw_outputs(run_path, raw_records)
 
     return MeasureRunResult(
         run_dir=run_path, run_id=run_id, exp_id=exp_id, summary=summary,
         manifest=manifest, partial=partial, stopped_reason=stopped_reason,
     )
+
+
+def _write_raw_outputs(run_path: Path, raw_records: Sequence[Mapping[str, Any]]) -> None:
+    """Persist captured model outputs for grader reruns, always gitignored.
+
+    Raw prompts/outputs must never reach a public bundle or a commit (spec §9
+    L682): only ``output_sha256`` and the grading verdict travel in traces. A
+    ``.gitignore`` of ``*`` inside the directory guarantees the raw bytes stay
+    local even if a run directory is created outside the ignored results tree.
+    """
+
+    if not raw_records:
+        return
+    raw_dir = run_path / "raw_outputs"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    (raw_dir / ".gitignore").write_text("*\n", encoding="utf-8")
+    lines = [json.dumps(rec, sort_keys=True, ensure_ascii=False) for rec in raw_records]
+    (raw_dir / "outputs.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _prereg_text(prereg: PreregDecision | None) -> str:
@@ -1432,6 +1603,7 @@ def replay_measure(run_dir: Path | str) -> ReplayResult:
         task_ids=[str(r.get("task_id")) for r in traces],
         candidate_models=stored_summary.get("candidates", []),
         partial=stored_partial,
+        planned_cells=stored_summary.get("grading", {}).get("planned_cells"),
     )
     recomputed_text = _dumps(recomputed)
     summary_matches = recomputed_text == stored_summary_text
@@ -1508,6 +1680,8 @@ def build_publish_bundle(run_dir: Path | str) -> dict[str, Any]:
         "result": {
             "cost": summary.get("cost"),
             "coverage": summary.get("coverage"),
+            "grading": summary.get("grading"),
+            "quality": summary.get("quality"),
             "tokens": summary.get("tokens"),
             "cache": summary.get("cache"),
             "latency_ms": summary.get("latency_ms"),
@@ -1533,6 +1707,59 @@ def publish_bundle_json(run_dir: Path | str) -> str:
     """Stable, byte-reproducible JSON for a publish bundle."""
 
     return _dumps(build_publish_bundle(run_dir))
+
+
+def regrade_from_raw(
+    run_dir: Path | str, benchmark_root: Path | str, *, timeout: int = 15
+) -> dict[str, Any]:
+    """Re-grade retained raw outputs and compare to the sealed verdicts.
+
+    Publishability evidence (spec §9 L682): the private ``raw_outputs`` are the
+    only thing that lets a reviewer rerun the grader. Re-grading them and
+    checking the fresh verdict equals the ``pass`` sealed in the snapshot proves
+    (a) the retention is complete and (b) the recorded grades were not fabricated
+    — any edited ``pass`` shows up as a mismatch. Credential-free and offline.
+    """
+
+    from .benchmark_grader import ExecSignalsGrader
+
+    path = Path(run_dir)
+    raw_path = path / "raw_outputs" / "outputs.jsonl"
+    if not raw_path.is_file():
+        return {"available": False, "checked": 0, "matches": 0, "mismatches": [], "ok": True}
+
+    grader = ExecSignalsGrader(benchmark_root, timeout=timeout)
+    records = [
+        json.loads(line)
+        for line in raw_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    matches = 0
+    mismatches: list[dict[str, Any]] = []
+    for rec in records:
+        task_id = str(rec.get("task_id"))
+        verdict = grader(
+            task_id, {"task_id": task_id}, str(rec.get("model", "")), {}, rec.get("content")
+        )
+        sealed = rec.get("pass")
+        if verdict.passed == sealed and verdict.output_sha256 == rec.get("output_sha256"):
+            matches += 1
+        else:
+            mismatches.append(
+                {
+                    "task_id": task_id,
+                    "repeat_idx": rec.get("repeat_idx"),
+                    "sealed": sealed,
+                    "regraded": verdict.passed,
+                }
+            )
+    return {
+        "available": True,
+        "checked": len(records),
+        "matches": matches,
+        "mismatches": mismatches,
+        "ok": not mismatches,
+    }
 
 
 # --------------------------------------------------------------------------- #

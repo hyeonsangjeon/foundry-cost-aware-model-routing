@@ -328,6 +328,31 @@ def test_plan_hash_is_deterministic(tmp_path: Path) -> None:
     assert plan_a.plan_hash == plan_b.plan_hash
 
 
+def test_router_arm_routing_mode_survives_resolution(tmp_path: Path) -> None:
+    # A router arm's approved routing mode is expected evidence: it must reach
+    # the resolved plan so the doctor deployment probe can verify it, and it must
+    # feed plan_hash so the approved mode is frozen at prereg time.
+    mapping = _benchmark_config(tmp_path)
+    mapping["arms"][0]["expected"]["routing_mode"] = "Cost"
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    router_arm = next(a for a in plan.execution["arms"] if a["kind"] == "model_router")
+    assert router_arm["expected"]["routing_mode"] == "Cost"
+
+    before = plan.plan_hash
+    changed_map = _benchmark_config(tmp_path)
+    changed_map["arms"][0]["expected"]["routing_mode"] = "Quality"
+    _, changed = _resolve(tmp_path, changed_map, require_run_ready=True)
+    assert changed.plan_hash != before
+
+
+def test_direct_arm_has_no_routing_mode_key(tmp_path: Path) -> None:
+    # Direct arms have no routing mode; the key must not be synthesised.
+    mapping = _benchmark_config(tmp_path)
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    direct_arm = next(a for a in plan.execution["arms"] if a["kind"] == "direct")
+    assert "routing_mode" not in (direct_arm.get("expected") or {})
+
+
 @pytest.mark.parametrize(
     "mutate",
     [

@@ -12,14 +12,18 @@ import json
 import os
 import sys
 import textwrap
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from . import __version__
 from .annotations import router_amount_text, router_cost_disclosure, savings_claim_allowed
 from .baseline import single_call_summary
 from .doctor import (
+    ROUTING_MODE_API_VERSION,
     DoctorInputs,
     az_cli_available,
+    evaluate_deployment_modes,
     run_doctor,
 )
 from .experiment import (
@@ -45,6 +49,7 @@ from .foundry_arena import (
     run_live_arena,
 )
 from .foundry_live import (
+    DEFAULT_API_VERSION,
     AzureModelRouterClient,
     FoundryConfig,
     RecordedRouterClient,
@@ -2294,8 +2299,10 @@ def _build_doctor_parser(subparsers: argparse._SubParsersAction) -> None:
     _add_plan_args(doctor)
     doctor.add_argument(
         "--check-identity", action="store_true",
-        help="attempt Entra token acquisition (the ONLY egress; never an inference "
-             "prompt). Off by default so doctor is fully offline.",
+        help="run read-only live probes: Entra token acquisition, a data-plane "
+             "models GET (RBAC), and management-plane deployment GETs (routing "
+             "mode / model). These are the ONLY egress and NEVER an inference "
+             "prompt. Off by default so doctor is fully offline.",
     )
     doctor.set_defaults(func=_cmd_doctor)
 
@@ -2383,11 +2390,21 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     deps_present = _foundry_extra_present()
     inputs = _doctor_inputs_from_plan(plan, deps_present=deps_present)
 
-    token_probe = None
+    # All live probes are read-only and NEVER send an inference prompt: a token
+    # acquisition, a data-plane models GET (RBAC), and management-plane deployment
+    # GETs (routing mode / model). They are gated behind --check-identity so the
+    # default doctor path (and CI) stays fully offline.
+    token_probe = rbac_probe = deployment_probe = None
+    routing_evidence: list[str] = []
     if getattr(args, "check_identity", False):
         token_probe = _doctor_token_probe(plan)
+        rbac_probe = _doctor_rbac_probe(plan)
+        deployment_probe = _doctor_deployment_probe(plan, evidence_out=routing_evidence)
 
-    report = run_doctor(inputs, token_probe=token_probe)
+    report = run_doctor(
+        inputs, token_probe=token_probe, rbac_probe=rbac_probe,
+        deployment_probe=deployment_probe,
+    )
 
     if args.json:
         payload = {
@@ -2395,6 +2412,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
             "token_acquired": report.token_acquired,
             "data_plane_rbac_verified": report.data_plane_rbac_verified,
             "deployment_config_verified": report.deployment_config_verified,
+            "routing_mode_evidence": routing_evidence,
             "checks": [
                 {"name": c.name, "status": c.status, "detail": c.detail,
                  "next_step": c.next_step}
@@ -2404,6 +2422,11 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
     else:
         print(report.to_text())
+        if routing_evidence:
+            print("\nrouting-mode evidence (management-plane "
+                  f"{ROUTING_MODE_API_VERSION}):")
+            for line in routing_evidence:
+                print(f"  {line}")
     return 0 if report.ready else 1
 
 
@@ -2425,6 +2448,91 @@ def _doctor_token_probe(plan):
         scope = "https://cognitiveservices.azure.com/.default"
         token = DefaultAzureCredential().get_token(scope)
         return token.token
+
+    return probe
+
+
+def _doctor_rbac_probe(plan):
+    """Prove data-plane RBAC with a read-only models GET (never an inference call).
+
+    A 200 confirms the identity holds the data-plane role; 401/403 confirms it is
+    absent; anything else (or a transport failure) is ``None`` — unknown, not OK.
+    """
+
+    endpoint = (plan.execution.get("endpoint") or {}).get("data_plane")
+    api_version = (plan.execution.get("endpoint") or {}).get(
+        "api_version", DEFAULT_API_VERSION
+    )
+
+    def probe() -> bool | None:
+        if not endpoint:
+            return None
+        import httpx
+        from azure.identity import DefaultAzureCredential
+
+        token = DefaultAzureCredential().get_token(
+            "https://cognitiveservices.azure.com/.default"
+        ).token
+        url = f"{endpoint.rstrip('/')}/openai/models?api-version={api_version}"
+        try:
+            resp = httpx.get(
+                url, headers={"Authorization": f"Bearer {token}"}, timeout=30.0
+            )
+        except httpx.HTTPError:
+            return None
+        if resp.status_code == 200:
+            return True
+        if resp.status_code in (401, 403):
+            return False
+        return None
+
+    return probe
+
+
+def _doctor_deployment_probe(plan, *, evidence_out: list[str] | None = None):
+    """Verify each arm's routing mode / model against the live management plane.
+
+    Reads every arm's deployment with :data:`ROUTING_MODE_API_VERSION` (the only
+    api-version that surfaces ``routing.mode``) and compares to the arm's approved
+    ``expected`` evidence. Read-only; never an inference call. Returns ``True`` on
+    a full match, ``False`` on a mismatch, ``None`` when any deployment (or the
+    management resource id) is unreadable.
+    """
+
+    evidence = plan.execution.get("deployment_evidence") or {}
+    resource_id = evidence.get("management_resource_id")
+    arms = list(plan.execution.get("arms") or [])
+
+    def probe() -> bool | None:
+        if not resource_id or not arms:
+            return None
+        import httpx
+        from azure.identity import DefaultAzureCredential
+
+        token = DefaultAzureCredential().get_token(
+            "https://management.azure.com/.default"
+        ).token
+        live: dict[str, Mapping[str, Any] | None] = {}
+        for arm in arms:
+            dep = arm.get("deployment")
+            if not dep:
+                continue
+            url = (
+                f"https://management.azure.com{resource_id}/deployments/{dep}"
+                f"?api-version={ROUTING_MODE_API_VERSION}"
+            )
+            try:
+                resp = httpx.get(
+                    url, headers={"Authorization": f"Bearer {token}"}, timeout=30.0
+                )
+            except httpx.HTTPError:
+                live[dep] = None
+                continue
+            live[dep] = resp.json().get("properties", {}) if resp.status_code == 200 else None
+        ok, lines = evaluate_deployment_modes(arms, live)
+        if evidence_out is not None:
+            evidence_out.extend(lines)
+        return ok
 
     return probe
 

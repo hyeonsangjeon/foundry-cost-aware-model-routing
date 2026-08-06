@@ -10,6 +10,8 @@ from router.doctor import (
     UNKNOWN,
     DeploymentEvidence,
     DoctorInputs,
+    evaluate_deployment_modes,
+    live_routing_mode,
     run_doctor,
     verify_deployment_evidence,
 )
@@ -306,6 +308,76 @@ def test_deployment_evidence_subset_matters():
     a = _evidence(subset=("gpt-4o", "grok"))
     b = _evidence(subset=("gpt-4o",))
     assert a.matches(b) is False
+
+
+# --- live routing-mode readback (03D STEP 1) --------------------------------
+# The management-plane GET only exposes properties.routing.mode on the newer
+# api-version; an ABSENT routing block is the Model Router's default (Balanced).
+
+_ARMS = [
+    {"id": "router-cost", "deployment": "model-router-cost",
+     "kind": "model_router", "expected": {"routing_mode": "Cost"}},
+    {"id": "router-balanced", "deployment": "model-router",
+     "kind": "model_router", "expected": {"routing_mode": "Balanced"}},
+    {"id": "router-quality", "deployment": "model-router-quality",
+     "kind": "model_router", "expected": {"routing_mode": "Quality"}},
+    {"id": "direct-premium", "deployment": "gpt-5.6-sol",
+     "kind": "direct", "expected": {"name": "gpt-5.6-sol", "version": "2026-07-09"}},
+]
+
+_LIVE_OK = {
+    "model-router-cost": {"routing": {"mode": "Cost"}},
+    "model-router": {},  # absent block => Balanced default
+    "model-router-quality": {"routing": {"mode": "Quality"}},
+    "gpt-5.6-sol": {"model": {"name": "gpt-5.6-sol", "version": "2026-07-09"}},
+}
+
+
+def test_live_routing_mode_absent_block_is_balanced():
+    assert live_routing_mode({}) == "Balanced"
+    assert live_routing_mode({"routing": {}}) == "Balanced"
+    assert live_routing_mode({"routing": {"mode": "Quality"}}) == "Quality"
+
+
+def test_evaluate_deployment_modes_all_match():
+    ok, lines = evaluate_deployment_modes(_ARMS, _LIVE_OK)
+    assert ok is True
+    assert len(lines) == 4
+    assert all("OK" in line for line in lines)
+
+
+def test_evaluate_deployment_modes_mode_mismatch_is_false():
+    live = {**_LIVE_OK, "model-router-quality": {"routing": {"mode": "Cost"}}}
+    ok, lines = evaluate_deployment_modes(_ARMS, live)
+    assert ok is False
+    assert any("MISMATCH" in line for line in lines)
+
+
+def test_evaluate_deployment_modes_absent_block_matches_balanced():
+    # The balanced arm expects "Balanced" and the live deployment omits routing.
+    ok, _ = evaluate_deployment_modes([_ARMS[1]], {"model-router": {}})
+    assert ok is True
+
+
+def test_evaluate_deployment_modes_direct_model_mismatch_is_false():
+    live = {**_LIVE_OK,
+            "gpt-5.6-sol": {"model": {"name": "gpt-5.6-sol", "version": "2099-01-01"}}}
+    ok, lines = evaluate_deployment_modes(_ARMS, live)
+    assert ok is False
+    assert any("direct-premium" in line and "MISMATCH" in line for line in lines)
+
+
+def test_evaluate_deployment_modes_unreadable_is_unknown_not_false():
+    live = {**_LIVE_OK, "gpt-5.6-sol": None}
+    ok, lines = evaluate_deployment_modes(_ARMS, live)
+    assert ok is None  # unknown, never silently OK
+    assert any("unreadable" in line for line in lines)
+
+
+def test_evaluate_deployment_modes_missing_deployment_is_unknown():
+    # A deployment absent from the live map is unreadable, not a match.
+    ok, _ = evaluate_deployment_modes(_ARMS, {})
+    assert ok is None
 
 
 if __name__ == "__main__":
