@@ -240,7 +240,15 @@ rates:
 
   # in  Grok4 Fast Inp glbl Tokens  id=f6b60e45-54c5-5949-84f2-5794386b912a  start=2025-11-01
   # out Grok4 Fast Outp glbl Tokens  id=4e093105-0e90-5016-91eb-05568933108d
-  grok-4-1-fast: { input: 0.2, output: 0.5, cached: null, reasoning: 0.5 }
+  # cached: NO Grok cache-discount meter exists in Azure Retail. A lookup on
+  #   2026-08-06 with $filter contains(meterName,'Grok') AND contains(meterName,
+  #   'Cach') returned 0 rows across ALL regions/services (only Inp/Outp meters
+  #   exist for Grok). Absence of a discount SKU means cached input tokens bill at
+  #   the standard input meter, so cached = input (0.2) — sourced from "no discount
+  #   SKU = no discount", NOT a guessed rate. (03D live run: 100% of grok-4-1-fast
+  #   cells returned cached input tokens; with cached:null the composite-cost
+  #   cached-token fail-closed guard withheld cost on all 125 cells.)
+  grok-4-1-fast: { input: 0.2, output: 0.5, cached: 0.2, reasoning: 0.5 }
 
   # in  V3.1 Inp glbl Tokens  id=c953f4b5-f673-5147-8d85-46565608c071  start=2025-09-01
   # out V3.1 Outp glbl Tokens  id=8e8fbea0-42ba-5ad1-a0bd-cf4f24dff932
