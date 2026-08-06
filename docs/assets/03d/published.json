@@ -1,0 +1,323 @@
+{
+  "candidates": [
+    "gpt-5.6-sol",
+    "model-router",
+    "model-router-cost",
+    "model-router-quality"
+  ],
+  "captured_at": "2026-08-06T07:53:44+00:00",
+  "dashboard": {
+    "arm_order": [
+      "router-cost",
+      "router-balanced",
+      "direct-premium",
+      "router-quality"
+    ],
+    "note": "Derived by scripts/build_03d_dashboard.py from the sealed run. Contains aggregates only — no prompts, responses, endpoints or tenant ids."
+  },
+  "deployments": [
+    "gpt-5.6-sol",
+    "model-router",
+    "model-router-cost",
+    "model-router-quality"
+  ],
+  "exp_id": "run",
+  "git_commit": "6abfe2b89569fa0a62783cb983314c68b350c302",
+  "labels": {
+    "accuracy": "graded",
+    "cost_basis": "composite-rate-card-v2",
+    "measured": true,
+    "partial": false,
+    "quality_graded": true,
+    "spend_source": "provider-usage"
+  },
+  "n": 3,
+  "partial": false,
+  "provenance": {
+    "endpoint": "https://***.cognitiveservices.azure.com",
+    "measured": true,
+    "pricing": {
+      "basis": "composite-rate-card-v2",
+      "note": "tenant rate card masked — absolute unit prices not published",
+      "version": 2
+    },
+    "region": null,
+    "replay_ok": true,
+    "summary_matches": true
+  },
+  "result": {
+    "backends": {
+      "gpt-5.6-sol": {
+        "gpt-5.6-sol": 72
+      },
+      "model-router": {
+        "gpt-5.4": 9,
+        "gpt-5.5": 3,
+        "grok-4-1-fast-reasoning": 57
+      },
+      "model-router-cost": {
+        "grok-4-1-fast-reasoning": 68
+      },
+      "model-router-quality": {
+        "gpt-5": 39,
+        "gpt-5.5": 29
+      }
+    },
+    "cache": {
+      "cached_fraction": 0.42657,
+      "cached_tokens": 24631.0,
+      "input_tokens": 57742.0
+    },
+    "cost": {
+      "best_model": "model-router-cost",
+      "best_total_usd": 0.064867,
+      "by_candidate": {
+        "gpt-5.6-sol": {
+          "avg_usd_per_call": 0.018619,
+          "calls": 72,
+          "cost_complete": true,
+          "latency_p50_ms": 4177.8,
+          "latency_p95_ms": 26613.6,
+          "tokens": {
+            "cached": 0.0,
+            "input": 15465.0,
+            "output": 9183.0,
+            "reasoning": 17170.0
+          },
+          "total_usd": 1.340535,
+          "unpriced_calls": 0
+        },
+        "model-router": {
+          "avg_usd_per_call": 0.004427,
+          "calls": 69,
+          "cost_complete": true,
+          "latency_p50_ms": 12429.3,
+          "latency_p95_ms": 59779.6,
+          "tokens": {
+            "cached": 11446.0,
+            "input": 14076.0,
+            "output": 4268.0,
+            "reasoning": 91232.0
+          },
+          "total_usd": 0.305492,
+          "unpriced_calls": 0
+        },
+        "model-router-cost": {
+          "avg_usd_per_call": 0.000954,
+          "calls": 68,
+          "cost_complete": true,
+          "latency_p50_ms": 16160.9,
+          "latency_p95_ms": 54548.8,
+          "tokens": {
+            "cached": 13185.0,
+            "input": 13667.0,
+            "output": 0.0,
+            "reasoning": 120448.0
+          },
+          "total_usd": 0.064867,
+          "unpriced_calls": 0
+        },
+        "model-router-quality": {
+          "avg_usd_per_call": 0.022921,
+          "calls": 68,
+          "cost_complete": true,
+          "latency_p50_ms": 12009.9,
+          "latency_p95_ms": 38918.8,
+          "tokens": {
+            "cached": 0.0,
+            "input": 14534.0,
+            "output": 13539.0,
+            "reasoning": 63337.0
+          },
+          "total_usd": 1.558659,
+          "unpriced_calls": 0
+        }
+      },
+      "cost_complete": true,
+      "naive_model": "model-router-quality",
+      "naive_total_usd": 1.558659,
+      "savings_pct": 95.8,
+      "total_usd": 3.269553,
+      "unpriced_calls": 0
+    },
+    "coverage": {
+      "accepted": 274,
+      "basis": "graded",
+      "coverage": 0.98917,
+      "graded": 277
+    },
+    "coverage_by_arm": {
+      "gpt-5.6-sol": {
+        "coverage": 1.0,
+        "graded": 72,
+        "planned": 72
+      },
+      "model-router": {
+        "coverage": 0.9583333333333334,
+        "graded": 69,
+        "planned": 72
+      },
+      "model-router-cost": {
+        "coverage": 0.9444444444444444,
+        "graded": 68,
+        "planned": 72
+      },
+      "model-router-quality": {
+        "coverage": 0.9444444444444444,
+        "graded": 68,
+        "planned": 72
+      }
+    },
+    "failures": 11,
+    "failures_detail": [
+      {
+        "arm": "router-cost",
+        "deployment": "model-router-cost",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 3,
+        "task_id": "weekday-label"
+      },
+      {
+        "arm": "router-cost",
+        "deployment": "model-router-cost",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 1,
+        "task_id": "toll-schedule"
+      },
+      {
+        "arm": "router-balanced",
+        "deployment": "model-router",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 1,
+        "task_id": "toll-schedule"
+      },
+      {
+        "arm": "router-cost",
+        "deployment": "model-router-cost",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 2,
+        "task_id": "toll-schedule"
+      },
+      {
+        "arm": "router-balanced",
+        "deployment": "model-router",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 2,
+        "task_id": "toll-schedule"
+      },
+      {
+        "arm": "router-cost",
+        "deployment": "model-router-cost",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 3,
+        "task_id": "toll-schedule"
+      },
+      {
+        "arm": "router-balanced",
+        "deployment": "model-router",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 3,
+        "task_id": "toll-schedule"
+      },
+      {
+        "arm": "router-quality",
+        "deployment": "model-router-quality",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 3,
+        "task_id": "toll-schedule"
+      },
+      {
+        "arm": "router-quality",
+        "deployment": "model-router-quality",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 1,
+        "task_id": "dedupe-stable"
+      },
+      {
+        "arm": "router-quality",
+        "deployment": "model-router-quality",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 2,
+        "task_id": "dedupe-stable"
+      },
+      {
+        "arm": "router-quality",
+        "deployment": "model-router-quality",
+        "fail_reason": "timeout",
+        "http_status": 408,
+        "repeat_idx": 3,
+        "task_id": "dedupe-stable"
+      }
+    ],
+    "grading": {
+      "basis": "exec-signals",
+      "content_graded": 277,
+      "coverage": 0.961806,
+      "grade_errors": 0,
+      "graded_cells": 277,
+      "planned_cells": 288
+    },
+    "latency_ms": {
+      "p50": 11147.9,
+      "p95": 53794.7
+    },
+    "quality": {
+      "by_candidate": {
+        "gpt-5.6-sol": {
+          "cost_per_pass_usd": 0.055856,
+          "known_cost_usd": 1.340535,
+          "pass_rate": 1.0,
+          "tasks_passed": 24,
+          "tasks_planned": 24
+        },
+        "model-router": {
+          "cost_per_pass_usd": 0.013282,
+          "known_cost_usd": 0.305492,
+          "pass_rate": 0.958333,
+          "tasks_passed": 23,
+          "tasks_planned": 24
+        },
+        "model-router-cost": {
+          "cost_per_pass_usd": 0.00282,
+          "known_cost_usd": 0.064867,
+          "pass_rate": 0.958333,
+          "tasks_passed": 23,
+          "tasks_planned": 24
+        },
+        "model-router-quality": {
+          "cost_per_pass_usd": 0.067768,
+          "known_cost_usd": 1.558659,
+          "pass_rate": 0.958333,
+          "tasks_passed": 23,
+          "tasks_planned": 24
+        }
+      },
+      "quality_graded": true
+    },
+    "throttle": {
+      "backoff_ms_total": 0.0,
+      "http_429": 0,
+      "retries": 0,
+      "throttle_exhausted": 0
+    },
+    "tokens": {
+      "cached": 24631.0,
+      "input": 57742.0,
+      "output": 26990.0,
+      "reasoning": 292187.0
+    }
+  },
+  "run_id": "20260806T075344Z",
+  "schema": "cost-router/measured-publish/v1",
+  "workload_fingerprint": "sha256:391d2f705e8b52c3826d20d80ef2c37b3c1e8a6eb69e8bd41bb2685ce46c0656"
+}

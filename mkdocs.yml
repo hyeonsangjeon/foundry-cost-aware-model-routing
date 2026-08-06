@@ -52,6 +52,7 @@ nav:
       - "문제 하나, 네 가지 방법": manual/head-to-head.md
       - 메트릭 & Foundry: manual/metrics.md
       - 라이브 실측 브릿지: manual/foundry-live.md
+      - "라우팅 모드 실측 결과 · 03D Results": manual/03d-results.md
       - "측정 프로토콜 · Measurement Protocol": manual/measurement-protocol.md
       - "워크로드 인벤토리 · 실측 가능성": manual/workload-inventory.md
       - "커스터마이징 · 내 워크로드로": manual/customize.md
