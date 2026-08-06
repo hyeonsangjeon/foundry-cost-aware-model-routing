@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -332,19 +333,73 @@ def test_regrade_from_raw_absent_when_no_raw(tmp_path):
 # plan_hash invariance — the bridge is a runner change, not a config change
 # --------------------------------------------------------------------------- #
 
+LOCAL_CONFIG = Path(".foundry.local.yaml")
 
+
+@pytest.mark.skipif(
+    not LOCAL_CONFIG.is_file(),
+    reason="operator local config (.foundry.local.yaml is gitignored) — local-only guard",
+)
 def test_committed_plan_hash_unchanged_by_bridge():
-    cfg = LocalRunConfig.from_yaml(".foundry.local.yaml")
+    # Local-only operator guard: the approved hash binds the operator's local
+    # config (with its prereg blob), which is gitignored, so this runs only where
+    # that config exists (the operator's checkout), never in CI.
+    cfg = LocalRunConfig.from_yaml(str(LOCAL_CONFIG))
     plan = resolve_run_plan(cfg, env={})
     assert plan.plan_hash == APPROVED_PLAN_HASH
     assert plan.planned_cells == 288
 
 
+def _benchmark_config(base_dir: Path) -> dict[str, Any]:
+    # A self-contained benchmark config built from tracked files (real workload +
+    # committed v2 rate card), so the auto-grader wiring is exercised everywhere,
+    # including CI where the operator's local config is absent. One direct arm,
+    # n=1 → 24 graded cells.
+    root = Path(__file__).resolve().parent.parent
+    return {
+        "schema_version": 1,
+        "template": False,
+        "run_mode": "benchmark",
+        "foundry": {
+            "auth": "entra",
+            "endpoint_kind": "azure_openai",
+            "azure_openai_endpoint": "https://acme-res.example.com/",
+            "api_version": "2024-10-21",
+        },
+        "arms": [
+            {"id": "direct-premium", "kind": "direct", "provider": "openai",
+             "requested_model": "gpt-5.6-sol", "deployment": "gpt-5.6-sol"},
+        ],
+        "benchmark": {
+            "workload": str(root / "benchmarks/original-coding/tasks.jsonl"),
+            "rate_card": str(root / "samples/pricing/foundry-ext-router.yaml"),
+            "smoke_authorization_ceiling_usd": None,
+            "repetitions": 1,
+            "max_output_tokens": 2048,
+            "budget_usd": 20.0,
+            "random_seed": 20260729,
+            "estimand": {
+                "analysis_unit": "task", "repeat_aggregation": "mean",
+                "denominator_policy": "all-attempted", "failure_policy": "count-as-zero",
+                "cost_per_pass_formula": "total_cost / passes", "paired_statistic": "wilcoxon",
+            },
+            "grader": {"kind": "exec-signals", "version": 1},
+            "retry": {"max_retries": 4},
+        },
+        "privacy": {"retain_raw_prompts": True, "retain_raw_outputs": True},
+        "artifacts": {"local_root": "results/local"},
+        "display": {"locale": "en"},
+    }
+
+
 def test_execute_benchmark_autobuilds_grader_and_seals_plan_hash(tmp_path):
-    cfg = LocalRunConfig.from_yaml(".foundry.local.yaml")
+    cfg = LocalRunConfig.from_mapping(
+        _benchmark_config(tmp_path), base_dir=tmp_path, source=str(tmp_path / "c.yaml")
+    )
     plan = resolve_run_plan(cfg, env={})
-    # Drive the real run_plan → execute_benchmark path (grader auto-built) with a
-    # scripted client that returns reference code for every arm's deployment.
+    # Drive the real run_plan → execute_benchmark path with NO grader injected:
+    # the benchmark run_mode + exec-signals kind + present harness must make
+    # execute_benchmark auto-build the grader so the paid path grades.
     client = FixtureClient({c.deployment: "reference" for c in plan.candidates()})
     result = execute_benchmark(
         cfg, plan, client=client, run_dir=tmp_path / "RUN", exp_id="benchmark",
@@ -352,8 +407,9 @@ def test_execute_benchmark_autobuilds_grader_and_seals_plan_hash(tmp_path):
         clock=(lambda: "2026-08-06T00:00:00.000+00:00"),
         sleeper=lambda _s: None,
     )
-    # The approved plan_hash is sealed into the manifest unchanged, and the run
-    # graded (auto-wired ExecSignalsGrader), proving the paid path will grade.
-    assert result.manifest["plan_hash"] == APPROVED_PLAN_HASH
+    # Whatever plan_hash resolves is sealed into the manifest unchanged (the
+    # bridge never touches the plan), and the run graded (auto-wired grader).
+    assert result.manifest["plan_hash"] == plan.plan_hash
     assert result.summary["grading"]["basis"] == "exec-signals"
+    assert result.summary["grading"]["planned_cells"] == 24
     assert result.summary["labels"]["quality_graded"] is True
