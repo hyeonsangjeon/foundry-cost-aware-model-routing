@@ -34,12 +34,16 @@
 95.8%로 유지하면서 direct-premium 대비 **95.2% 저렴**하다(풀정밀도 계산). 통과율 격차는 **4.17%p**
 이내이고, 그 격차마저 아래에서 보듯 전부 타임아웃 때문이다.
 
-| Arm (배포) | 모드 | 총비용 | 통과율 | cost-per-pass | 커버리지 | cost_complete |
-| --- | --- | ---: | ---: | ---: | ---: | :---: |
-| `router-cost` (`model-router-cost`) | Cost | $0.06 | 95.8% (23/24) | $0.0028 | 94.4% | ✓ |
-| `router-balanced` (`model-router`) | Balanced | $0.31 | 95.8% (23/24) | $0.0133 | 95.8% | ✓ |
-| `direct-premium` (`gpt-5.6-sol`) | — | $1.34 | 100.0% (24/24) | $0.0559 | 100.0% | ✓ |
-| `router-quality` (`model-router-quality`) | Quality | $1.56 | 95.8% (23/24) | $0.0678 | 94.4% | ✓ |
+| Arm | 모드 | 총비용 | 통과율 | $/pass | 커버리지 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `router-cost` | Cost | $0.06 | 95.8% (23/24) | $0.0028 | 94.4% |
+| `router-balanced` | Balanced | $0.31 | 95.8% (23/24) | $0.0133 | 95.8% |
+| `direct-premium` | — | $1.34 | 100.0% (24/24) | $0.0559 | 100.0% |
+| `router-quality` | Quality | $1.56 | 95.8% (23/24) | $0.0678 | 94.4% |
+
+*배포 매핑 — `router-cost`→`model-router-cost` · `router-balanced`→`model-router` ·
+`direct-premium`→`gpt-5.6-sol` · `router-quality`→`model-router-quality`. 모든 arm은
+`cost_complete=true`(unpriced 0%)로, 모든 셀이 pinned 요율로 가격화됐다.*
 
 !!! note "두 개의 절감 기준선 — 섞지 말 것"
     - **헤드라인 95.2%** = `router-cost`($0.06) 대 **`direct-premium`**($1.34). 실무에서 흔한

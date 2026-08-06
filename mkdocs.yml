@@ -6,7 +6,8 @@ repo_url: https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing
 repo_name: foundry-cost-aware-model-routing
 edit_uri: edit/main/docs/
 copyright: >-
-  모든 수치는 합성 데이터에 대한 오프라인 투영입니다 (labels.measured = false). 측정된 절감이 아닙니다.
+  실험 01–08은 합성 오프라인 투영(measured=false), 09·10·12는 실측(measured=true,
+  evidence_tier=directional). 각 페이지의 라벨을 확인하세요.
 
 theme:
   name: material
