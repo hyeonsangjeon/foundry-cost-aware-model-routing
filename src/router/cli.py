@@ -2545,6 +2545,14 @@ def _cmd_benchmark_run(args: argparse.Namespace) -> int:
     return _benchmark_preview_or_dispatch(args, kind="run")
 
 
+# Diagnostic-only coverage threshold shown next to the live progress line. It mirrors
+# the preregistration's grading-coverage floor (a required arm below this => void run,
+# prereg-03d2), but the live display is DIAGNOSTIC: it exists so a detached run can be
+# watched for a coverage collapse and aborted early. It never adjudicates the run and
+# is not part of any config or plan_hash.
+_DIAG_COVERAGE_GATE = 0.90
+
+
 def _benchmark_preview_or_dispatch(args: argparse.Namespace, *, kind: str) -> int:
     label = f"benchmark {kind}"
     live = bool(getattr(args, "live", False))
@@ -2599,14 +2607,42 @@ def _benchmark_preview_or_dispatch(args: argparse.Namespace, *, kind: str) -> in
     def _live_progress(ev: Mapping[str, Any]) -> None:  # pragma: no cover - live path
         # Runtime-only progress surface (never fingerprinted; run dir is gitignored):
         # one flushed stdout line per finished cell for a detached-run log tail, plus
-        # an atomically-rewritten progress.json for structured polling.
+        # an atomically-rewritten progress.json for structured polling. The coverage
+        # and per-arm pass figures are DIAGNOSTIC (abort aid), not an adjudication.
         done, total = ev.get("cells_done"), ev.get("cells_total")
+        cov = ev.get("coverage")
+        cov_txt = (
+            f"cov {cov * 100:.1f}% [gate {_DIAG_COVERAGE_GATE * 100:.0f}%]"
+            if isinstance(cov, (int, float))
+            else "cov —"
+        )
+        arms = ev.get("arms") or {}
+        arm_bits = []
+        for arm in plan.arms:  # plan order; short label (router-cost -> cost)
+            arm_id = str(arm.get("id", ""))
+            short = arm_id.split("-", 1)[1] if "-" in arm_id else arm_id
+            st = arms.get(str(arm.get("requested_model"))) or {}
+            attempted = int(st.get("attempted", 0))
+            arm_bits.append(
+                f"{short} {int(st.get('passed', 0))}/{attempted}" if attempted else f"{short} —"
+            )
+        arm_txt = " · ".join(arm_bits)
         print(
             f"progress: {done}/{total} cells  ${ev.get('running_cost_usd')}  "
-            f"429×{ev.get('throttles')}  fail×{ev.get('failures')}  [{ev.get('event', '')}]",
+            f"429×{ev.get('throttles')}  fail×{ev.get('failures')}  {cov_txt}  "
+            f"[{ev.get('event', '')}]\n         {arm_txt}",
             flush=True,
         )
-        payload = {**dict(ev), "run_dir": str(run_dir), "plan_hash": plan.plan_hash}
+        payload = {
+            **dict(ev),
+            "coverage_gate": _DIAG_COVERAGE_GATE,
+            "coverage_note": (
+                "diagnostic-only: mid-run coverage/pass are an abort aid, not a "
+                "verdict; changing workload/arms/gates on these values violates prereg"
+            ),
+            "run_dir": str(run_dir),
+            "plan_hash": plan.plan_hash,
+        }
         tmp = progress_path.with_name("progress.json.tmp")
         tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         tmp.replace(progress_path)

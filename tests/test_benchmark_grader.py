@@ -441,3 +441,73 @@ def test_execute_benchmark_streams_progress_without_touching_plan_hash(tmp_path)
     assert [e["cells_done"] for e in events] == list(range(1, 25))
     assert all(e["cells_total"] == 24 for e in events)
     assert result.manifest["plan_hash"] == plan.plan_hash
+    # Diagnostic per-arm/coverage tallies ride the ephemeral event only (they are
+    # not sealed) — every reference cell is graded content and passes.
+    final = events[-1]
+    assert final["graded_content"] == 24
+    assert final["passed"] == 24
+    assert final["coverage"] == pytest.approx(1.0)
+    assert final["arms"]["gpt-5.6-sol"] == {"attempted": 24, "content": 24, "passed": 24}
+    assert all(e["coverage"] == pytest.approx(1.0) for e in events)
+
+
+def test_progress_reports_per_arm_coverage_and_pass_for_mixed_fixtures(tmp_path):
+    # Diagnostic mid-run tallies must reflect reality: a reference arm all-pass,
+    # a wrong arm all-fail (still content-graded, a real penalty), and a silent
+    # arm with no captured body (drags coverage, never a phantom pass).
+    events: list[dict[str, Any]] = []
+    result = run_measure(
+        _small_workload(),
+        [MeasureCandidate(d, d) for d in ("good", "bad", "silent")],
+        client=FixtureClient({"good": "reference", "bad": "wrong", "silent": "none"}),
+        pricing=PricingTable.from_yaml("samples/pricing/foundry-5series.yaml"),
+        exp_id="bench", run_dir=tmp_path / "RUN", run_id="RUN", n=1,
+        retry=RetryPolicy(max_retries=1, base_backoff_ms=1.0),
+        sleeper=lambda _s: None,
+        clock=(lambda: "2026-08-06T00:00:00.000+00:00"),
+        now=datetime(2026, 8, 6, tzinfo=UTC),
+        grader=ExecSignalsGrader(BENCH),
+        progress=events.append,
+    )
+    final = events[-1]
+    assert final["arms"]["good"] == {"attempted": 3, "content": 3, "passed": 3}
+    assert final["arms"]["bad"] == {"attempted": 3, "content": 3, "passed": 0}
+    assert final["arms"]["silent"] == {"attempted": 3, "content": 0, "passed": 0}
+    # 6 of 9 cells produced gradable content → coverage 2/3; only "good" passed.
+    assert final["graded_content"] == 6
+    assert final["coverage"] == pytest.approx(6 / 9)
+    assert final["passed"] == 3
+    # The diagnostic tally agrees with the sealed summary — no drift.
+    assert result.summary["grading"]["coverage"] == pytest.approx(6 / 9)
+
+
+def test_progress_seeds_prior_arm_tallies_on_resume(tmp_path):
+    # On resume, already-finished cells emit no cell_done event, so their presence
+    # in the per-arm tally can only come from seeding the prior traces — otherwise
+    # a detached run's coverage would appear to collapse after a restart.
+    common = dict(
+        pricing=PricingTable.from_yaml("samples/pricing/foundry-5series.yaml"),
+        exp_id="bench", run_dir=tmp_path / "RUN", run_id="RUN", n=1,
+        retry=RetryPolicy(max_retries=1, base_backoff_ms=1.0),
+        sleeper=lambda _s: None,
+        clock=(lambda: "2026-08-06T00:00:00.000+00:00"),
+        now=datetime(2026, 8, 6, tzinfo=UTC),
+        grader=ExecSignalsGrader(BENCH),
+    )
+    run_measure(  # first sweep seals the "good" arm (3 reference cells)
+        _small_workload(), [MeasureCandidate("good", "good")],
+        client=FixtureClient({"good": "reference"}), **common,
+    )
+    events: list[dict[str, Any]] = []
+    run_measure(  # resume with an extra "bad" arm — "good" is skipped
+        _small_workload(),
+        [MeasureCandidate("good", "good"), MeasureCandidate("bad", "bad")],
+        client=FixtureClient({"good": "reference", "bad": "wrong"}),
+        resume=True, progress=events.append, **common,
+    )
+    assert [e["candidate"] for e in events] == ["bad", "bad", "bad"]  # good not re-run
+    final = events[-1]
+    assert final["arms"]["good"] == {"attempted": 3, "content": 3, "passed": 3}
+    assert final["arms"]["bad"] == {"attempted": 3, "content": 3, "passed": 0}
+    assert final["graded_content"] == 6  # 3 seeded + 3 freshly graded
+    assert final["passed"] == 3
