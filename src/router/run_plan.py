@@ -552,12 +552,18 @@ def _normalise_expected(expected: Any) -> Any:
     if expected is None:
         return None
     if isinstance(expected, Mapping):
-        return {
+        normalised = {
             "format": expected.get("format"),
             "name": expected.get("name"),
             "version": expected.get("version"),
             "payload_hash_or_etag": expected.get("payload_hash_or_etag"),
         }
+        # A router arm's approved routing mode is expected evidence: keep it so
+        # it is frozen into the plan (and plan_hash) and the doctor deployment
+        # probe can verify the live deployment against the approved mode.
+        if "routing_mode" in expected:
+            normalised["routing_mode"] = expected.get("routing_mode")
+        return normalised
     return expected
 
 

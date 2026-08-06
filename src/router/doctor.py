@@ -32,6 +32,13 @@ SKIP = "skip"
 MIN_PYTHON = (3, 11)
 DEPLOYMENT_PROPAGATION_WINDOW_S = 300  # Azure's documented mode/subset propagation
 
+# The management-plane api-version new enough to surface ``properties.routing.mode``
+# on a Model Router deployment. Older versions (e.g. 2024-10-01, or even the
+# 2026-05-15-preview used at deploy time) omit the field, so the routing mode
+# could not be read back. Verified 2026-08: cost/quality deployments expose
+# ``routing.mode``; the balanced deployment has no routing block (= the default).
+ROUTING_MODE_API_VERSION = "2026-07-15-preview"
+
 
 @dataclass(frozen=True)
 class Check:
@@ -434,6 +441,72 @@ def run_doctor(
 
 def az_cli_available() -> bool:
     return shutil.which("az") is not None
+
+
+ROUTER_DEFAULT_MODE = "Balanced"
+
+
+def live_routing_mode(properties: Mapping[str, Any]) -> str:
+    """The deployment's routing mode from a management-plane ``properties`` block.
+
+    An **absent** ``routing`` block means the deployment runs the Model Router's
+    default mode (Balanced); a present block carries an explicit ``mode``.
+    """
+
+    routing = properties.get("routing")
+    if isinstance(routing, Mapping) and routing.get("mode"):
+        return str(routing["mode"])
+    return ROUTER_DEFAULT_MODE
+
+
+def evaluate_deployment_modes(
+    arms: Sequence[Mapping[str, Any]],
+    live: Mapping[str, Mapping[str, Any] | None],
+) -> tuple[bool | None, list[str]]:
+    """Compare each arm's *approved* evidence to live control-plane ``properties``.
+
+    ``live`` maps a deployment name to its ``properties`` block (already fetched
+    with an api-version new enough to expose ``routing.mode`` — see
+    :data:`ROUTING_MODE_API_VERSION`), or ``None`` when that deployment could not
+    be read. Router arms (``kind == "model_router"``) verify the routing **mode**
+    (absent block = Balanced); every other arm verifies the model **name +
+    version**. Returns ``(ok, lines)`` where ``ok`` is ``True`` when all arms
+    match, ``False`` on a definite mismatch, and ``None`` when any deployment was
+    unreadable (unknown, never silently OK).
+    """
+
+    lines: list[str] = []
+    unreadable = False
+    mismatch = False
+    for arm in arms:
+        dep = arm.get("deployment")
+        expected = arm.get("expected") or {}
+        props = live.get(dep) if dep is not None else None
+        if not isinstance(props, Mapping):
+            unreadable = True
+            lines.append(f"{arm.get('id')} ({dep}): unreadable")
+            continue
+        model = props.get("model") or {}
+        if arm.get("kind") == "model_router":
+            want = str(expected.get("routing_mode") or ROUTER_DEFAULT_MODE)
+            got = live_routing_mode(props)
+            ok = want == got
+            lines.append(
+                f"{arm.get('id')} ({dep}): mode expected={want} live={got} "
+                f"{'OK' if ok else 'MISMATCH'}"
+            )
+        else:
+            want = f"{expected.get('name')}/{expected.get('version')}"
+            got = f"{model.get('name')}/{model.get('version')}"
+            ok = want == got
+            lines.append(
+                f"{arm.get('id')} ({dep}): model expected={want} live={got} "
+                f"{'OK' if ok else 'MISMATCH'}"
+            )
+        mismatch = mismatch or not ok
+    if unreadable:
+        return None, lines
+    return (not mismatch), lines
 
 
 def verify_deployment_evidence(
