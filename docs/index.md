@@ -5,10 +5,20 @@
 한국어 매뉴얼과 실험노트에 오신 것을 환영합니다. 이 사이트는 오프라인·결정론적으로 동작하는
 비용 인지 라우팅 실험을 **설치하고, 돌리고, 눈으로 확인하고, 재현**하는 방법을 정리합니다.
 
-!!! warning "정직함이 먼저입니다"
-    이 저장소의 모든 숫자는 **합성 데이터에 대한 오프라인 투영**입니다
-    (`labels.measured = false`). 측정된 절감이 아니며, 모델 이름은 모두 일반 자리표시자입니다.
-    실제 절감은 여러분의 워크로드 구성과 요율에 따라 달라집니다.
+!!! warning "정직함이 먼저입니다 — 두 트랙"
+    이 저장소는 두 종류의 숫자를 **라벨로 구분**합니다.
+    **투영 트랙(실험 01–08)** 은 합성 데이터에 대한 오프라인 투영이며
+    (`labels.measured = false`), 모델 이름은 모두 일반 자리표시자입니다.
+    **실측 트랙(실험 09·10·12)** 은 실제 Azure Foundry 호출로 측정되고
+    (`measured = true`) 실제 배포명을 쓰지만, `evidence_tier = directional`
+    (24과제·단일 테넌트·1회 측정)이라 통계적 신뢰가 아닌 **방향성 신호**입니다.
+    각 페이지의 라벨을 확인하세요 — 실제 절감은 여러분의 워크로드 구성과 요율에 따라 달라집니다.
+
+!!! success "실측 결과 (measured=true · directional)"
+    실제 Azure Foundry 실측에서 `router-cost` arm이 `direct-premium` 대비
+    **95.2% 저렴**했고, 통과율 격차는 **4.17%p** 이내였습니다 — 24과제·단일 테넌트·1회의
+    방향성(publishable) 결과입니다.
+    → [라우팅 모드 실측 결과 대시보드](manual/03d-results.md)
 
 !!! abstract "내장 Model Router 위에 얹히는 층 — 차별점 넷"
     **모델 선택**은 Azure AI Foundry **내장 Model Router**가 이미 잘 합니다(배포 하나·크로스
@@ -84,6 +94,14 @@ cost-router dashboard --live  # 127.0.0.1 + 임의 포트 + 세션 토큰 URL �
 ## 무엇을 보게 되나요
 
 <div class="grid cards" markdown>
+
+-   :material-check-decagram: **실측 결과 · router-cost 95.2% 절감**
+
+    ---
+
+    실제 Azure Foundry 실측(`measured=true` · directional): `router-cost`가
+    `direct-premium` 대비 **95.2% 저렴**, 통과율 격차 4.17%p 이내.
+    → [라우팅 모드 실측 결과](manual/03d-results.md)
 
 -   :material-rocket-launch: **히어로 실행 모드**
 

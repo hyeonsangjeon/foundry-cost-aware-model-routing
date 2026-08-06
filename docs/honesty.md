@@ -9,12 +9,15 @@
 | --- | --- | --- |
 | 오프라인 before/after | 합성 데이터에 대한 투영 | `measured = false` |
 | 실험 스포트라이트/절감률 | 합성 데이터에 대한 투영 | `measured = false` |
+| 실측 실험 09·10·12 (커밋됨) | 실제 Foundry 호출 · `evidence_tier = directional` | `measured = true` |
 | 여러분 테넌트의 라이브 eval | 실제 측정 (범위: 측정한 워크로드) | `measured = true` |
 
-**모든 번들 수치는 오프라인 투영입니다.** 측정된 절감은 여러분의 워크로드와 요율로 직접
-돌려야만 얻어집니다. 그 라이브 실측 경로는 [라이브 실측 브릿지](manual/foundry-live.md)가
-구현합니다 — 실제 Azure Model Router의 토큰 usage로 비용을 계산하고, 라이브 호출에만
-`measured = true`를 부여합니다.
+**오프라인 `hero`/투영 번들 수치는 합성 데이터 위의 투영입니다** (`measured = false`). 반면
+**실측 실험 09·10·12는 실제 Azure Foundry 호출로 측정된 `measured = true` 결과**이며,
+`evidence_tier = directional`(24과제·단일 테넌트·1회 측정)이라 방향성 신호로만 읽어야 합니다.
+그 라이브 실측 경로는 [라이브 실측 브릿지](manual/foundry-live.md)가 구현합니다 — 실제 Azure
+Model Router의 토큰 usage로 비용을 계산하고, 라이브 호출에만 `measured = true`를 부여합니다.
+여러분의 워크로드에서 측정된 절감을 확인하려면 이 경로를 여러분 테넌트에서 직접 돌리세요.
 
 ## 주장 권한 라벨
 
@@ -22,12 +25,15 @@
 - **Tier 2 — 이 프로젝트의 추론/운영 정책.** 예: 시드 pass-rate/`$/resolved` 사전값,
   에스컬레이션 임계값, "값 X 이상에서만 앙상블" 규칙.
 
-## 자리표시자 모델과 가격
+## 자리표시자 모델과 가격 (투영 트랙)
 
-- 모델 이름(`mini-fast`, `swift-coder`, `balanced-pro`, `deep-reasoner`, `premium-max`)은
-  모두 일반 자리표시자이며 특정 제품이 아닙니다.
+- **투영 트랙(실험 01–08):** 모델 이름(`mini-fast`, `swift-coder`, `balanced-pro`,
+  `deep-reasoner`, `premium-max`)은 모두 일반 자리표시자이며 특정 제품이 아닙니다.
 - `samples/pricing/illustrative.yaml`의 요율은 **더미 값**이며 누구의 공개 가격도 아닙니다.
   측정된 숫자를 원하면 이를 복사해 `your-tenant.yaml`(gitignored)에 실제 요율을 넣으세요.
+- **실측 트랙(실험 09·10·12):** 실제 Azure 배포명과 여러분 테넌트의 실제 요율(gitignored)을
+  사용합니다 — 자리표시자가 아닙니다. 공개 아티팩트에는 집계·해시만 남기고 엔드포인트·테넌트
+  식별자는 마스킹합니다.
 
 ## 청구 기준
 
