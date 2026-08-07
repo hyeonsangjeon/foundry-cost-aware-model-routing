@@ -2,10 +2,10 @@
 
 !!! abstract "한 줄 요약"
     [실험 11](11-router-modes-void.md)은 저장소 최초의 유료 4-arm 실측 비교를 시도했지만 내가
-    결과를 보기 **전에** 커밋해 둔 사전등록이 스스로 정한 커버리지 게이트를 한 arm이 넘지 못해
-    **무효(VOID)** 로 판정됐습니다(quality 커버리지 79.2% < 90%). 이 실험은 그 음성 결과가
+    결과를 보기 **전에** 커밋해 둔 사전등록이 스스로 정한 채점 커버리지 게이트를 한 arm이 넘지 못해
+    **무효(VOID)** 로 판정됐습니다(quality 채점 커버리지 79.2% < 90%). 이 실험은 그 음성 결과가
     **정확히 짚어 준 두 가지 원인**(Fix A · Fix B)만 고쳐 **같은 게이트·같은 estimand로 재런**한
-    것입니다. 결과: **네 arm 전부 게이트를 통과 — publishable.** 커버리지가 79.2%에서
+    것입니다. 결과: **네 arm 전부 게이트를 통과 — publishable.** 채점 커버리지가 79.2%에서
     **96.18%** 로 복구됐고, **사전등록이 미리 적어 둔 비용 순서 예상(`cost < balanced < premium
     ≤ quality`)이 실측과 맞았습니다.** 지출 **$3.27 / $20**, replay 바이트 단위 동일, unpriced
     **0%**. 실험 11의 "규율이 무효를 강제했다"와 이 실험의 "규율 아래 유효 결과가 나왔다"는
@@ -25,7 +25,7 @@
 | 고친 것 | 실험 11에서 왜 문제였나 | 이 재런의 효과 |
 | --- | --- | --- |
 | **Fix A — `grok-4-1-fast.cached: 0.2`** (요율표) | Grok이 cached input을 돌려줬는데 Azure Retail에 cached meter가 없어 fail-closed로 비용 withhold → unpriced 43.4% | **unpriced 0%.** cost·balanced arm이 cost-complete로 가격화됨 |
-| **Fix B — `max_output_tokens` 2048 → 8192** (config) | reasoning 모델이 예산을 추론에 다 써 코드 미출력 → quality 커버리지 79.2% | **커버리지 96.18% 복구.** 전 arm 90% 게이트 통과 |
+| **Fix B — `max_output_tokens` 2048 → 8192** (config) | reasoning 모델이 예산을 추론에 다 써 코드 미출력 → quality 채점 커버리지 79.2% | **채점 커버리지 96.18% 복구.** 전 arm 90% 게이트 통과 |
 
 두 수정 모두 config/요율표를 바꿔 **`plan_hash`가 바뀌므로**, [새 사전등록
 (`prereg-03d2-router-modes.md`)](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/prereg-03d2-router-modes.md)
@@ -42,7 +42,7 @@ max_drop 10pp, 예산 $20)은 **완화 없이 그대로**입니다.
 | `router-quality` | Quality | 94.4% (68/72) | 95.8% (23/24) | $1.558659 | ✅ | $0.06777 |
 
 - **총지출 $3.269553 / $20** · 288/288 완주(partial=false) · 429 스로틀 **0** · 타임아웃 11(HTTP408) ·
-  집계 커버리지 **96.18%(277/288)** · unpriced **0%** · replay **바이트 단위 동일**(`cost_mismatches: []`).
+  집계 채점 커버리지 **96.18%(277/288)** · unpriced **0%** · replay **바이트 단위 동일**(`cost_mismatches: []`).
 - **비용 순서: `cost($0.065) < balanced($0.305) < premium($1.341) < quality($1.559)`.**
 
 ## 품질 게이트 판정 — **네 arm 전부 PASS → publishable**
@@ -54,7 +54,7 @@ max_drop 10pp, 예산 $20)은 **완화 없이 그대로**입니다.
 | premium 대비 통과율 하락 | ≤ 10 %p | 라우터 0.958 vs premium 1.000 = **4.17 %p** → **PASS** |
 | 예산 | ≤ $20 | $3.27 → **PASS** |
 
-실험 11에서 비교를 무효로 만든 **커버리지 게이트가 이번엔 전 arm에서 통과**했고, 나머지 게이트도
+실험 11에서 비교를 무효로 만든 **채점 커버리지 게이트가 이번엔 전 arm에서 통과**했고, 나머지 게이트도
 충족돼 이 런은 **savings 비교로 publishable**합니다.
 
 ## 사전등록 예상이 **맞았다** — 예상을 먼저 적고, 결과를 뒤에 적는다

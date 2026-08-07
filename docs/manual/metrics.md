@@ -16,7 +16,7 @@ CLI·HTTP 서비스·대시보드가 모두 이 **공용 클래스**를 공유�
 | 이름 | 역할 |
 | --- | --- |
 | `fanout_stats(traces)` | compare(앙상블) 트레이스에서 **앙상블 팬아웃 세금**을 회수 (`fanout_usd` · `winner_usd` · `ensemble_tax_usd` · `tax_ratio`) |
-| `ExperimentMetrics` | 실행 하나의 정규화 스냅샷(불변 dataclass) — 비용·커버리지·팬아웃 세금 + `run_id` |
+| `ExperimentMetrics` | 실행 하나의 정규화 스냅샷(불변 dataclass) — 비용·통과율(`coverage` 필드)·팬아웃 세금 + `run_id` |
 | `ExperimentMetrics.to_metric_records()` | Azure Monitor / OTel 메트릭 데이터 포인트 리스트로 렌더 |
 | `extract_experiment_metrics(result)` | `ExperimentResult` → `ExperimentMetrics` (순수·결정론적) |
 | `JsonlMetricsStore` | append-only JSONL 히스토리 저장소 (`record` · `history` · `latest_per_experiment`) |

@@ -132,6 +132,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-docs.txt
 
+      - name: Terminology gate (통과율 vs 채점 커버리지)
+        run: python scripts/check_terminology.py
+
       - name: Build docs (strict)
         run: mkdocs build --strict
 
