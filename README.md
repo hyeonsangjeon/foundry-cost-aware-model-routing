@@ -48,15 +48,15 @@ Azure — only a fresh live call is ever labelled `measured`.
 `cost-router hero --json` segment was observed at **0.12 s** on both supported
 interpreters (CPython 3.11.15 / 3.12.13); a fresh clone plus install added
 roughly **6–9 s** on the same machine. Environment metadata and the full segment
-table → [install guide](docs/manual/install.md).
+table → [install guide](docs/ko/manual/install.md).
 
 ### Where to go next
 
-- **Methodology** — [measurement protocol](docs/manual/measurement-protocol.md)
+- **Methodology** — [measurement protocol](docs/ko/manual/measurement-protocol.md)
   (what may be called `measured`, sample-size tiers, snapshot/replay contract)
-  and [core concepts](docs/manual/concept.md).
+  and [core concepts](docs/ko/manual/concept.md).
 - **Benchmark evidence** — the [ten experiments](#the-experiment-arc--honest-by-construction)
-  below, and the [experiment atlas](docs/manual/experiment-atlas.md) for how each
+  below, and the [experiment atlas](docs/ko/manual/experiment-atlas.md) for how each
   one is built.
 - **Full manual (한국어)** —
   <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
@@ -146,8 +146,8 @@ gate) → live progress → snapshot replay — then seal and re-verify the spen
 `cost-router ledger measured-replay`. This is the clone → `.env` → one-button path;
 the public page linked above is an **interactive offline demo** — a read-only
 replay of an already-measured run, not a live paid dashboard. Full recipe: the
-[cockpit & customization guide](docs/manual/customize.md) and the
-[end-to-end Foundry setup](docs/manual/foundry-setup.md).
+[cockpit & customization guide](docs/ko/manual/customize.md) and the
+[end-to-end Foundry setup](docs/ko/manual/foundry-setup.md).
 
 ## The experiment arc — honest by construction
 

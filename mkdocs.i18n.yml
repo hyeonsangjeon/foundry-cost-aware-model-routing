@@ -1,0 +1,35 @@
+# =============================================================================
+# NON-DEPLOYED flip-target config (03F).  DO NOT wire into CI or the Pages
+# deploy.  The production build uses mkdocs.yml (default language ko, English
+# not built).  This file documents the *future* atomic cutover configuration:
+# English becomes the default served at the site root, Korean moves to /ko/.
+#
+# It intentionally will NOT build cleanly yet — docs/en/ is an empty skeleton,
+# so the English tree has no pages until translation phases (F2+) fill it.
+# Once every public nav destination has an EN/KO pair, we swap mkdocs.yml for
+# these plugin settings in one commit (the atomic flip).
+#
+# INHERIT reuses mkdocs.yml verbatim (nav, theme, extensions, copyright); only
+# the i18n language table is overridden below.
+# =============================================================================
+INHERIT: mkdocs.yml
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: folder
+      fallback_to_default: false
+      languages:
+        # Flip target: English default at root, Korean under /ko/.
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: ko
+          name: 한국어
+          build: true
+  - redirects:
+      # At flip: register every URL that changes here (e.g. the two current
+      # flat EN pages -> their /… canonical, and any KO page whose root URL
+      # moves under /ko/).  Empty until the flip PR fills the inventory.
+      redirect_maps: {}

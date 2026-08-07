@@ -135,6 +135,9 @@ jobs:
       - name: Build docs (strict)
         run: mkdocs build --strict
 
+      - name: Check i18n site contract
+        run: python scripts/check_i18n_site.py site
+
   onboarding:
     # BOLT-03E: the fresh-clone journey is a hard gate, offline only. It bootstraps
     # a clean venv with just the declared deps, proves the reproduction PASSes
