@@ -28,7 +28,6 @@ theme:
         icon: material/weather-sunny
         name: 라이트 모드로 전환
   features:
-    - navigation.instant
     - navigation.tracking
     - navigation.top
     - navigation.footer
@@ -82,6 +81,29 @@ nav:
       - 실험 아틀라스: manual/experiment-atlas.md
       - "문제 하나, 네 가지 방법": manual/head-to-head.md
   - 정직함 규약: honesty.md
+
+# i18n scaffold (03F F1): folder structure, default language ko served at the
+# site root. English (en) is declared but not built yet (build: false) — the
+# default-to-en flip happens later, once presentation-path pages are translated
+# (see the non-deployed mkdocs.i18n.yml for the flip target). This keeps every
+# public URL unchanged and never emits an /en/ or /ko/ path. Plugins are listed
+# explicitly (no implicit search default) so the pipeline is deterministic.
+plugins:
+  - search
+  - i18n:
+      docs_structure: folder
+      fallback_to_default: false
+      languages:
+        - locale: ko
+          default: true
+          name: 한국어
+          build: true
+        - locale: en
+          name: English
+          build: false
+  - redirects:
+      # Redirect inventory skeleton — filled per URL as pages migrate at flip.
+      redirect_maps: {}
 
 markdown_extensions:
   - admonition

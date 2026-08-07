@@ -36,8 +36,8 @@ def test_checker_scans_a_meaningful_number_of_surfaces():
     assert len(blocks) > 500
     paths = {block.path for block in blocks}
     assert "README.md" in paths
-    assert "docs/index.md" in paths
-    assert "docs/lab-notebook/07-model-router.md" in paths
+    assert "docs/ko/index.md" in paths
+    assert "docs/ko/lab-notebook/07-model-router.md" in paths
     assert "src/router/dashboard.py" in paths
     assert "experiments/single-call.yaml" in paths
 
@@ -94,6 +94,6 @@ def test_preserved_slugs_and_deployment_names_are_not_flagged():
 def test_real_product_experiments_are_not_flagged():
     """Experiments 09/10 measure the real product and carry no synthetic figure."""
     for name in ("09-live-routing-proof.md", "10-measured-ledger.md"):
-        path = REPO_ROOT / "docs" / "lab-notebook" / name
+        path = REPO_ROOT / "docs" / "ko" / "lab-notebook" / name
         blocks = naming._iter_markdown_blocks(name, path.read_text(encoding="utf-8"))
         assert naming.find_violations(blocks) == []

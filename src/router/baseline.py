@@ -229,7 +229,7 @@ def single_call_summary(
 
 # Backward-compatible aliases. ``single_call`` is the canonical name for the
 # single-call routing arm; ``model_router`` is retained so existing imports and
-# recorded artifacts keep resolving. See docs/lab-notebook/07-model-router.md
+# recorded artifacts keep resolving. See docs/ko/lab-notebook/07-model-router.md
 # for the framing (single-call routing is what the built-in Model Router does;
 # this repo adds the observe-then-escalate layer on top).
 model_router_pick = single_call_pick
