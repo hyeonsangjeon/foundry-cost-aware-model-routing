@@ -47,8 +47,8 @@ nav:
       - 핵심 개념: manual/concept.md
   - 결과:
       - "라우팅 모드 실측 결과 (03D)": manual/03d-results.md
-      - "실험 12 · 라우팅 모드 유료 실측 재런 (publishable)": lab-notebook/12-router-modes-measured.md
-      - "실험 11 · 라우팅 모드 유료 실측 (prereg VOID)": lab-notebook/11-router-modes-void.md
+      - "[실측] 실험 12 · 라우팅 모드 유료 실측 재런 (publishable)": lab-notebook/12-router-modes-measured.md
+      - "[실측] 실험 11 · 라우팅 모드 유료 실측 (prereg VOID)": lab-notebook/11-router-modes-void.md
   - 실험노트:
       - 소개와 방법론: lab-notebook/index.md
       - "스토리 아크 · 한눈에 보기": lab-notebook/story-arc.md
