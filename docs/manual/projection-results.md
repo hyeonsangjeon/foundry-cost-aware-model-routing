@@ -1,4 +1,4 @@
-# 투영 결과 요약 · Projection Results
+# 오프라인 실험 결과 · 합성 데이터
 
 > **`measured=false` 오프라인 투영.** 이 페이지는 **투영 트랙(실험 01–08)** 의 대표 수치를
 > 한곳에 모은 **정본(single source of truth)** 입니다. 모든 값은 합성 워크로드에 대한
