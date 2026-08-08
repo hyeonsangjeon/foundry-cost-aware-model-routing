@@ -45,10 +45,11 @@ nav:
       - 홈: index.md
       - 30초 설치: manual/install.md
       - 핵심 개념: manual/concept.md
+      - "용어집 · 통과율 vs 채점 커버리지": manual/glossary.md
   - 결과:
       - "라우팅 모드 실측 결과 (03D)": manual/03d-results.md
       - "[실측] 실험 12 · 라우팅 모드 유료 실측 재런 (publishable)": lab-notebook/12-router-modes-measured.md
-      - "[실측] 실험 11 · 라우팅 모드 유료 실측 (prereg VOID)": lab-notebook/11-router-modes-void.md
+      - "[투영] 결과 요약 · 투영 트랙(01–08)": manual/projection-results.md
   - 실험노트:
       - 소개와 방법론: lab-notebook/index.md
       - "스토리 아크 · 한눈에 보기": lab-notebook/story-arc.md
@@ -64,24 +65,26 @@ nav:
       - "[실측] 실험 09 · 실측 라우팅 (measured=true)": lab-notebook/09-live-routing-proof.md
       - "[실측] 실험 10 · 실측 원장 (canonical audit)": lab-notebook/10-measured-ledger.md
       - "[실측] 실험 11 · 라우팅 모드 유료 실측 (prereg VOID)": lab-notebook/11-router-modes-void.md
-      - "[실측] 실험 12 · 라우팅 모드 유료 실측 재런 (publishable)": lab-notebook/12-router-modes-measured.md
       - 개발 로그: lab-notebook/devlog.md
   - 레퍼런스:
-      - "용어집 · 통과율 vs 채점 커버리지": manual/glossary.md
-      - CLI 레퍼런스: manual/cli.md
-      - 실험 설정(YAML): manual/experiments.md
-      - 대시보드: manual/dashboard.md
-      - 메트릭 & Foundry: manual/metrics.md
-      - "플릿 등록 & 모델 선택": manual/fleet.md
-      - 감사 원장: manual/ledger.md
-      - 측정 프로토콜: manual/measurement-protocol.md
-      - 정본 실행 계획: manual/run-plan.md
-      - "Foundry 실전 구성 · 실험별 세팅": manual/foundry-setup.md
-      - "커스터마이징 · 내 워크로드로": manual/customize.md
-      - "워크로드 인벤토리 · 실측 가능성": manual/workload-inventory.md
-      - 라이브 실측 브릿지: manual/foundry-live.md
-      - 실험 아틀라스: manual/experiment-atlas.md
-      - "문제 하나, 네 가지 방법": manual/head-to-head.md
+      - 명령 레퍼런스:
+          - CLI 레퍼런스: manual/cli.md
+          - 실험 설정(YAML): manual/experiments.md
+      - 실측 운영 절차:
+          - "Foundry 실전 구성 · 실험별 세팅": manual/foundry-setup.md
+          - "플릿 등록 & 모델 선택": manual/fleet.md
+          - "커스터마이징 · 내 워크로드로": manual/customize.md
+          - 정본 실행 계획: manual/run-plan.md
+          - 측정 프로토콜: manual/measurement-protocol.md
+          - 감사 원장: manual/ledger.md
+          - 라이브 실측 브릿지: manual/foundry-live.md
+      - 화면 · 스키마:
+          - 대시보드: manual/dashboard.md
+          - 메트릭 & Foundry: manual/metrics.md
+      - 해설:
+          - 실험 아틀라스: manual/experiment-atlas.md
+          - "워크로드 인벤토리 · 실측 가능성": manual/workload-inventory.md
+          - "문제 하나, 네 가지 방법": manual/head-to-head.md
   - 정직함 규약: honesty.md
 
 markdown_extensions:
