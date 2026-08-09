@@ -32,7 +32,7 @@
 
 핵심 대비는 **가장 싼 라우터 모드 대 direct-premium 기준선**이다: `router-cost`는 과제 통과율을
 95.8%로 유지하면서 direct-premium 대비 **95.2% 저렴**하다(풀정밀도 계산). 통과율 격차는 **4.17%p**
-이내이고, 그 격차마저 아래에서 보듯 전부 타임아웃 때문이다.
+이내이고 그 격차마저 아래에서 보듯 전부 타임아웃 때문이다.
 
 | Arm | 모드 | 총비용 | 통과율 | $/pass | 채점 커버리지 |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -69,7 +69,7 @@
 
 가장 반직관적인 발견: **`router-quality`($1.56) 모드는 `direct-premium`($1.34)에 완전히
 지배당한다** — 더 비싼데 통과율은 오히려 낮다(95.8% < 100.0%). 라우터의 "품질" 모드가 프리미엄
-백엔드로 올라가면서 붙는 마크업이, 직접 프리미엄 호출을 이기지 못한다. 품질을 원하면 라우터의
+백엔드로 올라가면서 붙는 마크업이 직접 프리미엄 호출을 이기지 못한다. 품질을 원하면 라우터의
 quality 모드보다 **direct-premium을 직접 부르는 편이 싸고 정확하다** — 이 워크로드에서는.
 
 반대로 `router-cost`는 다른 라우터 arm과 같은 통과율(95.8%)을 **1/20 이하 비용**으로 낸다. 이
@@ -133,11 +133,11 @@ quality 모드보다 **direct-premium을 직접 부르는 편이 싸고 정확�
   replay `summary_matches=true`, `cost_mismatches=[]`(byte-identical) · `partial=false`.
 - **품질 게이트 판정**(prereg 고정 기준): 채점 커버리지 ≥ 90% **PASS** · min_pass ≥ 0.60 **PASS** ·
   premium 대비 drop ≤ 10%p (실측 4.17%p) **PASS** · 예산 **PASS** → **publishable**.
-- **prereg 예상 적중**: 갱신 예상은 `cost < balanced < premium ≤ quality`(비용 순서)였고,
+- **prereg 예상 적중**: 갱신 예상은 `cost < balanced < premium ≤ quality`(비용 순서)였고
   실측도 `$0.06 < $0.31 < $1.34 < $1.56`로 **맞았다**. 즉 quality 모드가 premium보다 비싸다는
   예상이 확인됐다.
 
 같은 런의 서술형 기록은 실험노트에 있다 —
 [실험 12 · 라우팅 모드 유료 실측 재런](../lab-notebook/12-router-modes-measured.md). 직전
-[실험 11 · prereg VOID](../lab-notebook/11-router-modes-void.md)와 나란히 읽으면, 무엇을
+[실험 11 · prereg VOID](../lab-notebook/11-router-modes-void.md)와 나란히 읽으면 무엇을
 고쳤고(요율 커버리지·출력 상한) 무엇이 달라졌는지 보인다.
