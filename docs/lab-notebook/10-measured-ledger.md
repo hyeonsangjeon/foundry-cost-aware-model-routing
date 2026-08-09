@@ -1,4 +1,4 @@
-# 실험 10 · 실측 기록을 봉인하고 검증하기 (`measured = true`)
+# 실험 10 · 측정 기록을 봉인하고 재검증하기 (`measured = true`)
 
 !!! abstract "한 줄 요약"
     [실험 09](09-live-routing-proof.md)가 라우터가 **무엇을** 골랐는지 실측으로 증명했다면, 이
