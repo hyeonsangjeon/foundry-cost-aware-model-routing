@@ -2,8 +2,8 @@
 
 이 폴더는 **실측(`measured = true`) 가능한 워크로드** — 즉 프롬프트와 기계 검증
 규칙을 갖춘 태스크 집합 — 이 들어가는 곳입니다. 스키마·바꿔 끼우는 법은
-[커스터마이징 가이드](../../docs/manual/customize.md)를, 현재 무엇이 실측 가능한지는
-[워크로드 인벤토리](../../docs/manual/workload-inventory.md)를 보세요.
+[커스터마이징 가이드](../../docs/ko/manual/customize.md)를, 현재 무엇이 실측 가능한지는
+[워크로드 인벤토리](../../docs/ko/manual/workload-inventory.md)를 보세요.
 
 ## 태스크 스키마 (한 줄 = 한 태스크, JSONL)
 

@@ -39,7 +39,7 @@ EXPERIMENTS_DIRNAME = "experiments"
 # Backward-compatible experiment name aliases: old name -> canonical stem.
 # ``model-router`` was renamed to ``single-call`` so the single-call routing arm
 # is never read as a claim about Azure AI Foundry's Model Router (see
-# docs/lab-notebook/07-model-router.md); the old name still resolves.
+# docs/ko/lab-notebook/07-model-router.md); the old name still resolves.
 EXPERIMENT_ALIASES: dict[str, str] = {"model-router": "single-call"}
 
 

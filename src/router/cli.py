@@ -164,7 +164,7 @@ def _warn_legacy_config(command: str) -> None:
         f"note: `cost-router {command}` uses the legacy environment/flag config path, "
         "deprecated by BOLT-03A in favor of the canonical run plan "
         "(`cost-router config init` then `cost-router benchmark plan --config "
-        ".foundry.local.yaml`). See docs/manual/run-plan.md.",
+        ".foundry.local.yaml`). See docs/ko/manual/run-plan.md.",
         file=sys.stderr,
     )
 

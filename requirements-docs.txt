@@ -1,4 +1,11 @@
 # Docs site toolchain (github.io). Isolated from the runtime package deps.
 # Build locally:  mkdocs build --strict
 # Serve locally:  mkdocs serve
+#
+# Pinned lower bounds are the versions the i18n scaffold (03F F1) was built and
+# proven byte-identical against: mkdocs-material 9.7.6, mkdocs-static-i18n 1.3.1,
+# mkdocs-redirects 1.2.3. Keep these three in lockstep — the language-switcher
+# and folder URL contract depend on static-i18n >= 1.3.
 mkdocs-material>=9.5
+mkdocs-static-i18n>=1.3
+mkdocs-redirects>=1.2
