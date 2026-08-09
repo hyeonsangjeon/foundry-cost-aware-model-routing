@@ -137,7 +137,7 @@ cost-router experiment run hero
 
 The naive arm puts the *most expensive* candidate on every task (100% coverage, $2.23). Ordered
 escalation keeps that 100% coverage but tries cheap-clean-first, landing 25.5% cheaper.
-→ [Lab-notebook 01](../lab-notebook/01-hero.md)
+→ [Lab-notebook 01](../lab-notebook/01-hero.md) · canonical figures: [offline experiment results](projection-results.md)
 
 ### `curated` — five tasks you can read
 
@@ -251,7 +251,7 @@ for nearly the same cost.
 That figure is a projection of the generic *shape*, not a score for any shipped product. The real
 Foundry Model Router's pick-skill is proprietary — that gap is exactly what the **measured** live
 bridge captures next.
-→ [Lab-notebook 07](../lab-notebook/07-model-router.md)
+→ [Lab-notebook 07](../lab-notebook/07-model-router.md) · canonical figures: [offline experiment results](projection-results.md)
 
 ---
 

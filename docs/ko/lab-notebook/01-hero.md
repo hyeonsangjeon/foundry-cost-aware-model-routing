@@ -42,6 +42,8 @@ before / after  (offline projection over synthetic data; labels.measured=false)
 | 절감액 | $0.57 |
 | 절감률 | 25.5% |
 
+> 정본: 이 실험의 대표 수치는 [오프라인 실험 결과](../manual/projection-results.md)에 모여 있습니다 — 재런하면 그 페이지가 기준입니다.
+
 ## 스포트라이트 — 대표 태스크
 
 `spotlight: auto`가 고른, 나이브/라우팅 비율이 가장 큰 수용 태스크입니다.
