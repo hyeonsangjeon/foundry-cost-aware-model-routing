@@ -1,4 +1,4 @@
-# Story arc (EN summary) — ten experiments, one thesis
+# Story arc (EN summary) — one thesis
 
 !!! abstract "One-sentence thesis"
     **Observe, escalate only when you must — and stay honest about coverage.**
@@ -29,7 +29,7 @@ four axes this notebook meters offline:
 (**52%**) vs observe-then-escalate mix (**100%**) at ~the same cost. *Selection is
 the built-in router's job; verify / escalate / govern / audit is this repo's.*
 
-## The ten experiments at a glance
+## The core arc at a glance (01–10)
 
 | # | Question | Result | What it proves |
 | --- | --- | --- | --- |
@@ -46,8 +46,11 @@ the built-in router's job; verify / escalate / govern / audit is this repo's.*
 
 All offline numbers are deterministic projections over synthetic data
 (`measured = false`); rounded to cents here — the ledger and `--json` keep full
-precision for re-verification. Only experiments 09–10 carry `measured = true`
-(a live call sealed into the ledger).
+precision for re-verification. The canonical source for these projection numbers is
+[offline experiment results](../manual/projection-results.md). Within this summary,
+experiments 09–10 carry `measured = true` (a live call sealed into the ledger); the
+repo's measured track also includes the paid router-mode runs 11–12 (see the
+[full index](index.md)).
 
 ## Read it in three acts
 

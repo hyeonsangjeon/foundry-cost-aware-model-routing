@@ -2,7 +2,7 @@
 
 저장소의 실험 01–08은 **합성 텔레메트리에 대한 오프라인 투영**(`labels.measured = false`)입니다.
 이 페이지가 규정하는 `cost-router measure` 러너(`src/router/measure.py`)는 그 투영을 **실측**으로
-바꾸는 절차입니다 — 진짜 프롬프트를 실제 Azure 배포에 보내고, **실제로 청구된 토큰 usage**를
+바꾸는 절차입니다 — 진짜 프롬프트를 실제 Azure 배포에 보내고 **실제로 청구된 토큰 usage**를
 읽어 그 usage × 단가로 비용을 계산한 뒤, **지문이 찍힌 결정론적 스냅샷**으로 봉인합니다.
 
 !!! danger "정직함 경계 — 일부러 엄격하게"
@@ -76,7 +76,7 @@ pricing.snapshot.yaml  # 이 런에 쓰인 단가를 그대로 봉인
 `tokens:{input,cached,output,reasoning}, latency_ms, http_status, retries,`
 `backoff_ms_total, cost_usd, pass|fail, score, fail_reason(nullable), labels:{measured}, ts`
 
-429로 재시도되면 **시도마다 1행**을 남기고, 재시도가 소진되면 `fail_reason="throttle_exhausted"`,
+429로 재시도되면 **시도마다 1행**을 남기고 재시도가 소진되면 `fail_reason="throttle_exhausted"`,
 정책상 재시도 자체는 `fail_reason="throttled_429"`로 표시합니다.
 
 v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅된 셀은 금액을 지어내지 않고
@@ -108,14 +108,15 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 
 !!! note "인용 보존 규칙"
     위 URL과 **확인일(2026-07-29)** 은 이 임계값을 Microsoft에 귀속시키는 모든 자리에서
-    함께 보존합니다. 원문이 나중에 바뀌더라도 **확인일은 그대로 두고**, 이 저장소가 유지하는
+    함께 보존합니다. 원문이 나중에 바뀌더라도 **확인일은 그대로 두고** 이 저장소가 유지하는
     증거 정책과 현재 벤더 가이드를 구분해서 적습니다.
 
 ---
 
 ## 4. 결정론과 지문
 
-- **n = 3**(기본): 셀(task × candidate)마다 3회 반복해 분산을 보고합니다.
+- **n = 3**(기본): 한 셀은 (task × arm × 표본 n)이며, 각 (task × arm) 조합을 n=3회 반복 측정해
+  분산을 보고합니다.
 - **결정론적 재생(§3.4)**: `measure replay`가 `traces.jsonl` + `pricing.snapshot.yaml`만으로
   `summary.json`을 **byte-동일**하게 재계산합니다(자격 불필요). CI는 이 재생만 검사합니다.
 - **지문**: 모든 스냅샷 파일의 정확한 바이트를 SHA-256으로 해시해 `manifest.fingerprints`에
@@ -133,7 +134,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 - **all-calls 과금 (D2)**: 팬아웃(앙상블) 전략은 **진 후보까지 전부 합산**해 과금합니다
   (`billing = sum-all-fanout`). "승자만 세는" 착시를 만들지 않습니다 — 이것이 앙상블 세금의
   실측 근거입니다.
-- **예산 가드**: 누적 실측 비용이 `--budget-usd`에 도달하면 즉시 중단하고, 부분 결과를 정상
+- **예산 가드**: 누적 실측 비용이 `--budget-usd`에 도달하면 즉시 중단하고 부분 결과를 정상
   스냅샷으로 저장한 뒤 `manifest.partial = true` · `stopped_reason`을 남깁니다. `--resume <run-id>`로
   끝난 셀을 건너뛰고 이어서 완주합니다.
 
@@ -142,7 +143,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 ## 6. 단가 출처와 freshness
 
 - 단가는 **공개 모델·공개 단가**만 씁니다. 번들 `samples/pricing/foundry-ext-full.yaml`의
-  OpenAI 계열은 공개 Azure list price를 따르고, 파트너 행은 계산을 투명히 하기 위한
+  OpenAI 계열은 공개 Azure list price를 따르고 파트너 행은 계산을 투명히 하기 위한
   **round-number placeholder(견적 아님)** 입니다 — 실제 회계는 협상 요율을 드롭인하세요.
 - 모든 게시 수치에는 **pricing snapshot 날짜**를 병기합니다. `measure verify`는 스냅샷이
   90일보다 오래되면 **비치명적 경고(freshness)**를 냅니다.
@@ -162,7 +163,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 - **fail-closed의 이유**: v1 `default` 폴백을 유료 경로에 남기면 가격 미확인 백엔드(예:
   Azure Retail에 요율이 없는 Claude 5종)에 임의 단가가 붙어, 03Z에서 폐기한 "출처 없는
   절감 수치"가 되살아납니다. 그래서 벤치 경로는 **모르는 단가를 채우지 않고** 그 셀을
-  unpriced로 봉인하고, 그 런의 절감 주장을 `savings_claim_allowed=false`로 막습니다.
+  unpriced로 봉인하고 그 런의 절감 주장을 `savings_claim_allowed=false`로 막습니다.
 - **다섯 표면 동일 공식**: 같은 셀의 합성 비용이 dry-run 추정 · 예약 상한 · trace ·
   summary · replay에서 **동일**합니다. 회귀 테스트 `tests/test_rate_card_wiring.py`가
   이 동일성과 fail-closed(라우터 마크업 · Claude unpriced · v1 무변경)를 고정합니다.
