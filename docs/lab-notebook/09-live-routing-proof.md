@@ -1,4 +1,4 @@
-# 실험 09 · 실측 라우팅 — Foundry Model Router가 **실제로** 고른 모델들 (`measured = true`)
+# 실험 09 · 진짜 라우터가 실제로 고른 모델 (`measured = true`)
 
 !!! abstract "한 줄 요약"
     실험 01–08은 모두 **합성 텔레메트리에 대한 오프라인 투영**(`measured = false`, 자리표시자
