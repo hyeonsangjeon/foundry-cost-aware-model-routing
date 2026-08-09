@@ -1,0 +1,36 @@
+# =============================================================================
+# NON-DEPLOYED flip target — documentation only. DO NOT wire into CI or Pages.
+# =============================================================================
+# This file records the end-state the i18n rollout is aiming at (03F Phase F4):
+# English becomes the DEFAULT language served at the root URL, and Korean moves
+# under /ko/. It is intentionally NOT referenced by any workflow (.github/
+# workflows/{ci,docs}.yml both build the deployed `mkdocs.yml`), so flipping the
+# public default is a single, reviewable, atomic PR — not an accident.
+#
+# It will NOT build cleanly today: `fallback_to_default: false` plus an empty
+# `docs/en/` means every page is "missing in en" and `--strict` aborts. That is
+# by design — the flip only becomes valid once F2/F3 have populated docs/en with
+# translations. Until then this config is a spec, not a buildable target.
+#
+# Everything except the plugin block is inherited from mkdocs.yml.
+INHERIT: mkdocs.yml
+
+# `plugins` is a list, so INHERIT replaces it wholesale (no deep-merge). We must
+# restate the full block; only the language `default`/`build` flags change vs the
+# deployed config: en default:true/build:true, ko default:false/build:true.
+plugins:
+  - search
+  - i18n:
+      docs_structure: folder
+      fallback_to_default: false
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+        - locale: ko
+          name: 한국어
+          default: false
+          build: true
+  - redirects:
+      redirect_maps: {}

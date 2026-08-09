@@ -28,7 +28,6 @@ theme:
         icon: material/weather-sunny
         name: 라이트 모드로 전환
   features:
-    - navigation.instant
     - navigation.tracking
     - navigation.top
     - navigation.footer
@@ -86,6 +85,26 @@ nav:
           - "워크로드 인벤토리 · 실측 가능성": manual/workload-inventory.md
           - "문제 하나, 네 가지 방법": manual/head-to-head.md
   - 정직함 규약: honesty.md
+
+# Explicit plugin block — no reliance on the implicit `search` default.
+# mkdocs-static-i18n stands up the ko/en folder structure. Production build stays
+# a Korean site: ko is the default and renders at the root URL, en is declared but
+# `build: false` (no `/en/` output) until the F4 translation flip.
+plugins:
+  - search
+  - i18n:
+      docs_structure: folder
+      fallback_to_default: false
+      languages:
+        - locale: ko
+          name: 한국어
+          default: true
+          build: true
+        - locale: en
+          name: English
+          build: false
+  - redirects:
+      redirect_maps: {}
 
 markdown_extensions:
   - admonition

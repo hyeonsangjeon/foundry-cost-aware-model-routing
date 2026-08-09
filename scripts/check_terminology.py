@@ -13,7 +13,7 @@ This checker freezes the reconciliation:
     채점 커버리지 (grading coverage) = 채점된 셀의 비율        (cells graded / planned)
 
 They coincide offline (no timeouts) but diverge in measured runs, which is why
-95.8% ≠ 94.4% on 03D. The single source of truth is ``docs/manual/glossary.md``.
+95.8% ≠ 94.4% on 03D. The single source of truth is ``docs/ko/manual/glossary.md``.
 
 Rules enforced:
 
@@ -38,7 +38,7 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DOCS = REPO_ROOT / "docs"
+DOCS = REPO_ROOT / "docs" / "ko"
 GLOSSARY = DOCS / "manual" / "glossary.md"
 
 # Pages where a reader sees the grading figure next to the task pass rate. On

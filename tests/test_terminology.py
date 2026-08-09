@@ -4,7 +4,7 @@ The word "커버리지" (coverage) used to name three different quantities, whic
 "통과율 95.8%" next to "커버리지 94.4%" on the 03D page while the home page defined
 the two as identical. These tests freeze the reconciliation into two distinct
 terms — 통과율 (pass rate) vs 채점 커버리지 (grading coverage) — anchored by the
-canonical glossary at ``docs/manual/glossary.md``.
+canonical glossary at ``docs/ko/manual/glossary.md``.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def test_repository_terminology_is_consistent():
 
 def test_glossary_defines_both_canonical_terms():
     assert terminology.check_glossary() == []
-    text = (REPO_ROOT / "docs" / "manual" / "glossary.md").read_text(encoding="utf-8")
+    text = (REPO_ROOT / "docs" / "ko" / "manual" / "glossary.md").read_text(encoding="utf-8")
     for term in terminology.REQUIRED_GLOSSARY_TERMS:
         assert term in text
 

@@ -46,6 +46,9 @@ jobs:
       - name: Build (strict)
         run: mkdocs build --strict --site-dir _site
 
+      - name: i18n site contract (no /en//ko/, ko at root, links resolve)
+        run: python scripts/check_i18n_site.py _site
+
       - name: Build interactive dashboard demo
         run: python scripts/build_static_site.py _site/demo
 

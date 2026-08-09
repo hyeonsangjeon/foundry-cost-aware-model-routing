@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Readable, self-contained problem statements for the curated head-to-head arena tasks (t-0001, t-0003, t-0004, t-0005, t-0006). These are AUTHORED SYNTHETIC coding problems written to match each task's existing class/difficulty/token profile in mixed-coding-workload.sample.jsonl. They are NOT sourced from any real user or named public benchmark, and the per-model pass/fail signals in routing-signals.sample.json are illustrative projections (measured = false), not graded evaluations of these statements. Getting honest pass/fail on real public problems requires running them through the live measured bridge; see docs/manual/head-to-head.md.",
+  "note": "Readable, self-contained problem statements for the curated head-to-head arena tasks (t-0001, t-0003, t-0004, t-0005, t-0006). These are AUTHORED SYNTHETIC coding problems written to match each task's existing class/difficulty/token profile in mixed-coding-workload.sample.jsonl. They are NOT sourced from any real user or named public benchmark, and the per-model pass/fail signals in routing-signals.sample.json are illustrative projections (measured = false), not graded evaluations of these statements. Getting honest pass/fail on real public problems requires running them through the live measured bridge; see docs/ko/manual/head-to-head.md.",
   "labels": {
     "measured": false,
     "problem_basis": "authored-synthetic"
