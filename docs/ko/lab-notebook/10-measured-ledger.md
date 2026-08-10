@@ -12,14 +12,14 @@
 
 ## 이 실험은 무엇인가 — 측정을 넘어 **감사 가능**으로
 
-- **상황(왜):** 실험 09는 저장소 최초의 `measured = true`였지만, 측정 기록은 무결성도 재생도
+- **상황(왜):** 실험 09는 저장소 최초의 `measured = true`였지만 측정 기록은 무결성도 재생도
   없는 **평면 append-only JSONL**로만 남았습니다. 오프라인 실험(01–08)은 이미
   [재현성 계약](index.md#_2)으로 지켜지는데, 정작 **실측 기록**은 오프라인 투영이 받는 감사
   수준 — *"이 수치가 변조되지 않았고, 기록된 토큰에서 정말 유도되는가"* — 을 못 받았습니다.
 - **작업(무엇을):** 측정 아레나 런을 **canonical 해시 체인 원장**
   ([`MeasuredJsonlLedger`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/src/router/ledger/measured.py))
   으로 봉인합니다. 각 행은 정규 페이로드에 대한 `record_hash`로 밀봉되고 `previous_hash`로
-  앞 행에 사슬처럼 엮이며, **자신을 채점한 요율표(`pricing_snapshot`)를 통째로 내장**합니다.
+  앞 행에 사슬처럼 엮이며 **자신을 채점한 요율표(`pricing_snapshot`)를 통째로 내장**합니다.
   검증은 `cost-router ledger measured-replay` 한 줄이면 됩니다.
 - **실험(무엇을 검증):** (1) 측정 런의 **변조가 감지**되는가, (2) 기록된 **usage × 봉인된 요율**로
   비용이 **결정론적으로 재생**되는가, (3) 이 전부가 **엄격한 오프라인 원장을 건드리지 않고**
@@ -44,7 +44,7 @@
 
 두 감사는 **의도적으로 분리**됩니다: [오프라인 원장](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/src/router/ledger/record.py)은
 오직 `measured = false` 투영만, 이 측정 원장은 오직 `measured = true` 실측 usage만 담습니다.
-공유 코드는 **순수 해시 프리미티브**(`stable_hash` / `canonical_json`)뿐이라, 해시는 두 감사에서
+공유 코드는 **순수 해시 프리미티브**(`stable_hash` / `canonical_json`)뿐이라 해시는 두 감사에서
 바이트 단위로 동일하면서도 서로의 정직 라벨을 흐리지 않습니다.
 
 ## 엔드투엔드 흐름 — 라이브 콜에서 재검증까지
@@ -114,7 +114,7 @@ replayed: 5
 status: PASS
 ```
 
-`replayed == records`는 **다섯 행 전부**에서 사슬이 온전하고, 기록된 모든 호출 비용이
+`replayed == records`는 **다섯 행 전부**에서 사슬이 온전하고 기록된 모든 호출 비용이
 봉인된 요율표로 다시 유도돼 정확히 일치했다는 뜻입니다. 마지막 두 줄은 라우터 팔이 pricing
 annotation의 적용을 받는다는 표시입니다 — 이 원장에 라우터 행이 있는데 annotation을 못 읽으면
 검증은 **`status: FAIL`로 닫힙니다**(fail-closed).
