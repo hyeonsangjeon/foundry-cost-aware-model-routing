@@ -22,6 +22,11 @@
     새 재현성 계약 `min_escalation_gain`이 고정합니다. 모든 수치는 합성 데이터에 대한 오프라인
     투영이며 `measured = false`입니다 — 어떤 상용 제품의 점수가 아닙니다.
 
+<figure markdown="span">
+  ![단일 호출 레인과 관찰-후-에스컬레이션 레인의 커버리지를 나란히 비교하는 애니메이션](../assets/gif/model-router.gif)
+  <figcaption>한 번 고르기 vs 결과 보고 올리기 — 앞서 한 티어를 정해두는 레인과, 값싼 실패를 관찰해 필요할 때만 올리는 레인의 커버리지 대비.</figcaption>
+</figure>
+
 실제 Foundry **Model Router**의 선택 실력은 **측정된 값**이라, 자격 증명 뒤의 게이트된
 어댑터(측정 브리지)로 그 결정을 이 arm에 그대로 끼워 넣을 수 있게 열어 두었습니다.
 
