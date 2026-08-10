@@ -28,12 +28,12 @@ status: PASS
 ## 측정 원장 — 같은 무결성을 실측 실행에도
 
 오프라인 원장은 계약상 `measured = false`입니다. 실제 라이브 호출(4-way 아레나 등)은
-**분리된 측정 원장**(`src/router/ledger/measured.py`, `MeasuredArenaLedger`)에 쌓이며,
+**분리된 측정 원장**(`src/router/ledger/measured.py`, `MeasuredArenaLedger`)에 쌓이며
 오프라인 원장을 **전혀 건드리지 않고** 같은 두 가지 보장을 받습니다:
 
 - **변조 감지** — 각 줄은 정규 페이로드의 `record_hash`로 봉인되고 `previous_hash`로 앞줄과
   연결됩니다(오프라인 원장과 동일한 해시 프리미티브 → 바이트 단위로 동일한 해시).
-- **결정론적 비용 재생** — 각 줄은 채점에 쓴 `pricing_snapshot`을 품어, 검증이 **기록된
+- **결정론적 비용 재생** — 각 줄은 채점에 쓴 `pricing_snapshot`을 품어 검증이 **기록된
   usage × 그 요율표**로 모든 호출 비용을 다시 계산해 일치를 확인합니다. 측정된 usage는 고정
   증거, 비용은 그 순수 함수 — 오프라인 원장이 "저장된 입력으로 결정을 재생"하는 것과 같은 정신.
 
@@ -61,14 +61,14 @@ annotation을 못 읽거나 해시가 어긋나면 검증은 **`status: FAIL`로
 ## 봉인된 기록을 고치지 않고 정정하기 — pricing annotation
 
 봉인된 원장은 **불변**입니다. 그런데 나중에 *"이 금액을 계산한 요율 근거 자체가 불완전했다"*
-는 사실이 드러나면 어떻게 할까요? 바이트를 고치면 해시가 깨지고, 무엇보다 **증거를 조작**하는
+는 사실이 드러나면 어떻게 할까요? 바이트를 고치면 해시가 깨지고 무엇보다 **증거를 조작**하는
 셈입니다. 그래서 이 저장소는 원본을 그대로 두고 **versioned annotation**을 덧붙입니다.
 
 실제 사례가 하나 있습니다.
 [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
 
 - **무엇이 틀렸나** — Azure Model Router 과금은 **합성**입니다: 라우터 input 토큰 마크업 +
-  고른 하위 모델의 input·output. 커밋된 요율 카드에는 마크업 항목이 **없어서**, 라우팅된
+  고른 하위 모델의 input·output. 커밋된 요율 카드에는 마크업 항목이 **없어서** 라우팅된
   호출의 금액에는 청구 항목 하나가 빠져 있습니다. 근사치가 아니라 **불완전**입니다.
 - **무엇은 멀쩡한가** — 토큰 usage, 라우터가 고른 모델, 지연, 인증, 그리고 해시 체인 무결성.
   단일 배포를 직접 부르는 arm(`cheapest`·`premium`·`ensemble`)은 마크업 대상이 아니므로
@@ -77,7 +77,7 @@ annotation을 못 읽거나 해시가 어긋나면 검증은 **`status: FAIL`로
   고정돼 있지 않습니다. 추정으로 역산하면 그건 **역사적 비용을 지어내는 것**이라, 원금액을
   히스토리 출력으로 남기고 비용·절감 주장에서만 제외합니다.
 
-annotation은 대상 아티팩트를 **경로 + `sha256` + 바이트 크기**로 지목하고, 원장에 대해서는
+annotation은 대상 아티팩트를 **경로 + `sha256` + 바이트 크기**로 지목하고 원장에 대해서는
 **레코드 해시 5개와 체인 헤드**까지 함께 적어 둡니다. 로더가 매 호출마다 파일을 다시 읽고
 다시 해싱하므로 아티팩트가 바뀌었거나 annotation이 변조되면 즉시 어긋납니다.
 
@@ -136,9 +136,9 @@ annotation은 대상 아티팩트를 **경로 + `sha256` + 바이트 크기**로
 | measured / live 제공자 | `measured`·`live` | ❌ | 후보를 실제 실행한 실측(이 저장소 범위 밖) |
 
 `SignalSource`는 단지 `(workload, policy) -> SignalBundle` 콜러블입니다. `SignalBundle`은
-신호와 그 **출처(`kind`)**를 함께 묶어, 원장으로 흐르는 라벨이 신호와 절대 어긋나지 않게 합니다.
+신호와 그 **출처(`kind`)**를 함께 묶어 원장으로 흐르는 라벨이 신호와 절대 어긋나지 않게 합니다.
 모든 실행 진입점(`run_replay` · `run_bundled_replay` · `run_route_once` · `run_evals`)이
-`signal_source=`를 받아, 흐름 코드를 건드리지 않고 출처를 갈아끼울 수 있습니다.
+`signal_source=`를 받아 흐름 코드를 건드리지 않고 출처를 갈아끼울 수 있습니다.
 
 ```python
 from router import run_bundled_replay, synth_signal_source
@@ -154,7 +154,7 @@ report = run_bundled_replay(signal_source=my_measured_source)
 `OFFLINE_SIGNAL_KINDS = {synth, fixture}` 밖의 `kind`(measured·live)는 레코드가 만들어지기
 **전에** `assert_offline_ledger_kind`가 막습니다 — 실측 신호를 `--ledger`와 함께 주입하면
 경계 특화 오류가 나고 **아무 것도 기록되지 않습니다**. 실측 지출은 별도의 측정 감사 경로로
-가야 하며, 그래야 오프라인 투영이 오염되지 않습니다.
+가야 하며 그래야 오프라인 투영이 오염되지 않습니다.
 
 ## 왜 원장인가
 

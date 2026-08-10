@@ -3,7 +3,7 @@
 !!! abstract "한 줄 요약"
     [실험 09](09-live-routing-proof.md)가 라우터가 **무엇을** 골랐는지 실측으로 증명했다면, 이
     실험은 그 **측정 런을 되돌릴 수 없게 봉인**합니다 — 실제 라이브 아레나 런을 **변조 감지
-    (해시 체인) + 결정론적 비용 재생(봉인된 요율표)**을 갖춘 canonical 감사 원장으로 굳혀,
+    (해시 체인) + 결정론적 비용 재생(봉인된 요율표)**을 갖춘 canonical 감사 원장으로 굳혀
     자격 증명도 네트워크도 없이 **누구나 독립적으로 재검증**하게 만듭니다. 커밋된 5행 원장
     [`samples/ledger/arena-measured.ledger.jsonl`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/ledger/arena-measured.ledger.jsonl)은
     한 줄 명령으로 `status: PASS`를 재현하고, **1바이트만 고쳐도 검증이 깨집니다.** 엄격한
@@ -19,7 +19,7 @@
 - **작업(무엇을):** 측정 아레나 런을 **canonical 해시 체인 원장**
   ([`MeasuredJsonlLedger`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/src/router/ledger/measured.py))
   으로 봉인합니다. 각 행은 정규 페이로드에 대한 `record_hash`로 밀봉되고 `previous_hash`로
-  앞 행에 사슬처럼 엮이며, **자신을 채점한 요율표(`pricing_snapshot`)를 통째로 내장**합니다.
+  앞 행에 사슬처럼 엮이며 **자신을 채점한 요율표(`pricing_snapshot`)를 통째로 내장**합니다.
   검증은 `cost-router ledger measured-replay` 한 줄이면 됩니다.
 - **실험(무엇을 검증):** (1) 측정 런의 **변조가 감지**되는가, (2) 기록된 **usage × 봉인된 요율**로
   비용이 **결정론적으로 재생**되는가, (3) 이 전부가 **엄격한 오프라인 원장을 건드리지 않고**
@@ -30,7 +30,7 @@
     ([`samples/responses/foundry-arena-measured.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/responses/foundry-arena-measured.json))
     를 canonical 원장 형태로 **재봉인**한 것입니다 — 검증을 보이기 위해 새 Azure 호출을 하지
     않습니다(비용 0). 봉인 로직은 라이브 경로(`foundry arena --live --ledger`)가 쓰는 것과
-    **동일**하며, `captured_at`을 캡처 타임스탬프에 고정해 **바이트 단위로 재현**됩니다. 새
+    **동일**하며 `captured_at`을 캡처 타임스탬프에 고정해 **바이트 단위로 재현**됩니다. 새
     라이브 원장을 만드는 명령은 [재현 방법](#_8)에 있습니다.
 
 ## 두 가지 무결성 보장 — 왜 이게 "감사"인가
@@ -114,7 +114,7 @@ replayed: 5
 status: PASS
 ```
 
-`replayed == records`는 **다섯 행 전부**에서 사슬이 온전하고, 기록된 모든 호출 비용이
+`replayed == records`는 **다섯 행 전부**에서 사슬이 온전하고 기록된 모든 호출 비용이
 봉인된 요율표로 다시 유도돼 정확히 일치했다는 뜻입니다. 마지막 두 줄은 라우터 팔이 pricing
 annotation의 적용을 받는다는 표시입니다 — 이 원장에 라우터 행이 있는데 annotation을 못 읽으면
 검증은 **`status: FAIL`로 닫힙니다**(fail-closed).
@@ -146,7 +146,7 @@ annotation의 적용을 받는다는 표시입니다 — 이 원장에 라우터
     status: FAIL
     ```
 
-    **핵심:** 해시 체인은 *어떤 바이트가* 바뀌었는지 잡고, 비용 재생은 *비용이 usage와
+    **핵심:** 해시 체인은 *어떤 바이트가* 바뀌었는지 잡고 비용 재생은 *비용이 usage와
     일관되는지* 잡습니다. 위조가 성립하려면 **두 검사를 동시에** 속여야 하는데, 봉인된 요율표가
     고정돼 있는 한 불가능합니다.
 
@@ -155,20 +155,20 @@ annotation의 적용을 받는다는 표시입니다 — 이 원장에 라우터
 !!! warning "측정된 것 · 아닌 것"
     - **측정됨(진짜):** 라우터가 고른 **모델**과 호출별 **토큰 usage** — 실험 09/아레나에서
       실제 키리스 Entra 호출로 청구된 값(`provenance = live`, `spend_source = provider-usage`).
-    - **비용의 요율은 예시값(list price).** 토큰은 실측이지만, 요율은 공개 리스트 가격
+    - **비용의 요율은 예시값(list price).** 토큰은 실측이지만 요율은 공개 리스트 가격
       ([`foundry-5series.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/pricing/foundry-5series.yaml))
       입니다 — 여러분 테넌트의 **실제 청구액이 아닙니다**(`cost_basis = list-price`). 실제
       요율 YAML을 봉인하면 그 값으로 재생됩니다.
     - **`router` 팔 금액은 그 위에 더해 불완전.** 그 요율 카드에는 **라우터 input 마크업
-      항목이 없어서**, 라우팅된 호출의 금액에는 청구 항목이 하나 빠져 있습니다. 근사가 아니라
+      항목이 없어서** 라우팅된 호출의 금액에는 청구 항목이 하나 빠져 있습니다. 근사가 아니라
       **불완전**이므로 비용·절감 주장에서 제외합니다(위 헤드라인 표의 § 참조). 단일 배포를
       직접 부르는 `cheapest`·`premium`·`ensemble`은 **영향 없습니다**.
     - **재검증은 이 결함과 무관하게 유효.** `measured-replay`는 *"봉인된 요율표로 그 금액이
       재생되는가"* 를 확인합니다 — 요율표 자체가 불완전하다는 사실은 원장을 손대는 대신
-      annotation으로 덧붙였고, 그래서 기존 해시가 전부 그대로 검증됩니다.
+      annotation으로 덧붙였고 그래서 기존 해시가 전부 그대로 검증됩니다.
     - **정확도는 미채점.** 그래더를 붙이지 않았으므로 각 답의 정오는 이 원장에 없습니다
       (실험 09와 동일 경계).
-    - **오프라인 원장은 불변.** measured 행은 이 canonical 측정 원장에만 들어가고, 엄격한
+    - **오프라인 원장은 불변.** measured 행은 이 canonical 측정 원장에만 들어가고 엄격한
       오프라인 원장(`measured = false`)에는 **결코** 새어 들어가지 않습니다.
 
 ## 실측 스냅샷 헤드라인 (이 원장이 봉인한 값)
@@ -191,7 +191,7 @@ annotation의 적용을 받는다는 표시입니다 — 이 원장에 라우터
     빠진** 값입니다. 원장 바이트·레코드 해시·체인 해시는 **원본 그대로 보존**하고(그래서
     `measured-replay`가 여전히 `PASS`), 이 사실은 별도 versioned annotation
     [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
-    으로 덧붙였습니다. `measured-replay`·리포트·대시보드가 이 annotation을 **로드·강제**하며,
+    으로 덧붙였습니다. `measured-replay`·리포트·대시보드가 이 annotation을 **로드·강제**하며
     없거나 어긋나면 라우터 비용 표시가 **fail-closed**로 닫힙니다.
     당시 적용 가능한 마크업 요율이 저장소 어디에도 **고정돼 있지 않아 리프라이스하지
     않았습니다** — 추정으로 금액을 지어내는 대신 원금액을 히스토리로 남기고 주장에서
