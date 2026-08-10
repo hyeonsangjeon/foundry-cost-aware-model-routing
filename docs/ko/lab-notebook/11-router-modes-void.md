@@ -32,6 +32,11 @@
   [`prereg-03d-router-modes.md`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/prereg-03d-router-modes.md)
   에 커밋했습니다. **타임스탬프가 증빙**입니다 — 결과에 맞춰 나중에 고칠 수 없습니다.
 
+<figure markdown="span">
+  ![비용 대 통과율 산점도(실험 12 publishable 재런): direct-premium이 router-quality보다 왼쪽 위(더 싸고 통과율 높음)에 있어 router-quality가 지배당함을 보인다. router-cost는 같은 통과율에서 가장 왼쪽](../assets/03d/cost-vs-quality-scatter.svg)
+  <figcaption>대비용 — 이 산점도는 <strong>실험 12(publishable 재런)</strong>의 비용 대 통과율이다. 실험 11은 채점 커버리지 게이트에서 VOID라 발행 가능한 자기 차트가 없어, 두 원인을 고친 뒤 나온 12의 결과를 대비로 싣는다. 바로 아래는 11의 무효 처리된 실측 표다.</figcaption>
+</figure>
+
 ## 결과 — arm별 채점 커버리지 · 통과율 · 비용
 
 | arm | 라우팅 모드 | 채점 커버리지 | 태스크 통과율 | unpriced 비율 | 실측 비용 |

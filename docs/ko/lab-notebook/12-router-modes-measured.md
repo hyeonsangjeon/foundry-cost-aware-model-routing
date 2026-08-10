@@ -34,6 +34,11 @@ max_drop 10pp, 예산 $20)은 **완화 없이 그대로**입니다.
 
 ## 결과 — arm별 커버리지 · 통과율 · 비용 · cost-per-pass
 
+<figure markdown="span">
+  ![arm별 총비용 가로 막대: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56. 각 막대에 통과율과 cost-per-pass 주석](../assets/03d/arm-cost-comparison.svg)
+  <figcaption>arm별 총비용 — router-cost가 가장 싸고 router-quality가 가장 비싸다. 각 막대에 통과율과 통과당 비용(cost-per-pass)을 함께 표기했다. 아래 표와 같은 실측 값이다.</figcaption>
+</figure>
+
 | arm | 라우팅 모드 | 채점 커버리지 | 태스크 통과율 | 실측 비용 | cost_complete | cost-per-pass |
 | --- | --- | --- | --- | --- | --- | --- |
 | `router-cost` | Cost | 94.4% (68/72) | 95.8% (23/24) | **$0.064867** | ✅ | **$0.00282** |
@@ -46,6 +51,11 @@ max_drop 10pp, 예산 $20)은 **완화 없이 그대로**입니다.
 - **비용 순서: `cost($0.065) < balanced($0.305) < premium($1.341) < quality($1.559)`.**
 
 ## 품질 게이트 판정 — **네 arm 전부 PASS → publishable**
+
+<figure markdown="span">
+  ![비용 대 통과율 산점도: direct-premium이 router-quality보다 왼쪽 위(더 싸고 통과율 높음)에 있어 router-quality가 지배당함을 보인다. router-cost는 같은 통과율에서 가장 왼쪽](../assets/03d/cost-vs-quality-scatter.svg)
+  <figcaption>비용 대 통과율 산점도 — 왼쪽 위일수록 싸고 정확하다. router-cost가 가장 낮은 비용에서 같은 통과율대를 지키고, router-quality는 direct-premium에 지배된다(더 비싼데 통과율이 더 높지 않다).</figcaption>
+</figure>
 
 | 게이트 | 기준 | 결과 |
 | --- | --- | --- |
@@ -71,6 +81,11 @@ max_drop 10pp, 예산 $20)은 **완화 없이 그대로**입니다.
     선택 위에 얹혀** direct 호출을 넘어섭니다.
 
 ## 재현된 발견 — **Cost 모드 100% Grok, 두 런 연속**
+
+<figure markdown="span">
+  ![arm별 실제 라우팅된 백엔드 스택 막대: router-cost는 100% grok-4-1-fast-reasoning, router-quality는 gpt-5과 gpt-5.5로 분할되고 grok 없음, direct-premium은 100% gpt-5.6-sol](../assets/03d/backend-distribution.svg)
+  <figcaption>arm별 실제 라우팅된 백엔드 분포 — Cost 모드는 전 셀을 Grok으로, Quality 모드는 gpt 계열로 분할되고 Grok이 없다. 아래 표를 그림으로 옮긴 것이다.</figcaption>
+</figure>
 
 | arm | 실제 라우팅된 백엔드 (top) |
 | --- | --- |
