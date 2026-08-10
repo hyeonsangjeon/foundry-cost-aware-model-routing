@@ -10,7 +10,7 @@
     - **카탈로그**: 실제로 배포해 둔 모델 목록. 각 항목은 가격표·리포트에 쓰는 논리
       `name`, 라이브 클라이언트가 호출하는 Azure `deployment` 이름, 그리고 자유 형식 `tier`.
     - **역할 배정(slate)**: 어느 카탈로그 모델이 어느 아암을 맡는지. `name`과 `deployment`는
-      보통 같지만, 하나의 논리 모델이 다르게 명명된 배포를 가리킬 수 있도록 **의도적으로
+      보통 같지만 하나의 논리 모델이 다르게 명명된 배포를 가리킬 수 있도록 **의도적으로
       분리**돼 있습니다.
 
 ## 1. 플릿 설정 파일
@@ -37,7 +37,7 @@ roles:
 3. 번들 샘플 `samples/fleet/foundry-5series.fleet.yaml`
 4. 코드 내 기본값(파일이 전혀 없어도 항상 동작 — 오프라인 결정론 보존)
 
-`deployment`를 여러분 리소스가 실제로 가진 이름으로 바꾸고, `name`을 가격표 YAML의 행과
+`deployment`를 여러분 리소스가 실제로 가진 이름으로 바꾸고 `name`을 가격표 YAML의 행과
 맞추면 됩니다.
 
 ### 1-1. `provider` — 어느 호출 표면으로 부를지 (멀티프로바이더)
@@ -77,13 +77,13 @@ models:
     Model Router arm은 이 파트너 모델 상당수를 **이미 내부에서 크로스 프로바이더로** 라우팅합니다
     (별도 배포 불필요 — [실험 07](../lab-notebook/07-model-router.md)). 따라서 이 `provider` 태그는
     라우터를 거치지 않고 **직접 호출**하는 arm — cheapest·premium·ensemble 팬아웃 — 이 파트너 표면을
-    부를 때 의미가 있습니다. 멀티프로바이더 라우팅 자체는 내장 기능(table-stakes)이고, 이 저장소의
+    부를 때 의미가 있습니다. 멀티프로바이더 라우팅 자체는 내장 기능(table-stakes)이고 이 저장소의
     가치는 그 위의 검증·앙상블·거버너·감사 축에 있습니다.
 
 !!! warning "`provider: foundry`는 벤치마크에서 scope-out (은퇴 예정 SDK, 2026-08-26)"
     파트너 표면(`provider: foundry`)은 베타 SDK `azure-ai-inference` 위에서 동작합니다. 이 SDK는
-    **2026-08-26 은퇴가 문서화**돼 있어, BOLT-03B는 이를 **마이그레이션하지 않고 scope-out**했습니다 —
-    골든 패스(Model Router + direct gpt-5.x arm)는 이미 `openai` v1 표면이고, 파트너 arm은 어떤
+    **2026-08-26 은퇴가 문서화**돼 있어 BOLT-03B는 이를 **마이그레이션하지 않고 scope-out**했습니다 —
+    골든 패스(Model Router + direct gpt-5.x arm)는 이미 `openai` v1 표면이고 파트너 arm은 어떤
     벤치마크 arm에도 들어가지 않으므로 마이그레이션은 측정 결과를 바꾸지 않은 채 범위만 키웁니다.
     이 scope-out은 **코드로 강제**됩니다: `provider=foundry` arm이 benchmark 모드나 publishable
     경로에 들어오면 `router.foundry_live.assert_provider_benchmark_safe`가 fail-closed로 막습니다
@@ -92,7 +92,7 @@ models:
 
 ## 2. 터미널에서 선택 (`/model` 피커)
 
-카탈로그를 보고, 각 아암에 어떤 모델을 넣을지 고릅니다. 선택은 gitignore된
+카탈로그를 보고 각 아암에 어떤 모델을 넣을지 고릅니다. 선택은 gitignore된
 `.foundry-fleet.local.yaml`에 저장돼 실제 배포 이름이 커밋되지 않습니다.
 
 ```bash
@@ -119,20 +119,20 @@ cost-router foundry arena --fleet .foundry-fleet.local.yaml --live
 
 `cost-router serve`(또는 `cost-router hero --serve`)로 대시보드를 띄우면 **"Fleet & live
 routing"** 패널이 같은 카탈로그를 보여줍니다 — router/cheapest/premium 드롭다운과 ensemble
-체크박스. **Run selection**을 누르면 커밋된 **실측 스냅샷**을 재생하고, 여러분 선택을 라이브로
+체크박스. **Run selection**을 누르면 커밋된 **실측 스냅샷**을 재생하고 여러분 선택을 라이브로
 측정할 정확한 터미널 명령을 출력합니다.
 
 !!! danger "정직함 경계 — 웹 경로는 절대 유료 호출을 하지 않습니다"
     대시보드의 `Run selection`은 새 Azure 호출을 하지 않습니다. 커밋된 measured 스냅샷을
     **정직하게 `measured = false` · `provenance = recorded`로 재라벨**해 재생합니다 (포착된
     측정치이지 새 측정이 아님). 따라서 웹에서 다른 slate를 골라도 오프라인 숫자는 바뀌지
-    않습니다 — 이는 포착된 **레퍼런스 플릿**을 반영하기 때문이며, 응답의 `note`와
+    않습니다 — 이는 포착된 **레퍼런스 플릿**을 반영하기 때문이며 응답의 `note`와
     `recorded_fleet`에 명시됩니다. **여러분의 선택을 실제로 측정**하려면 패널이 출력한 터미널
     명령(`... --live`)을 쓰세요.
 
 ## 4. 배포가 하나뿐이라면
 
-헤드투헤드는 보통 여러 배포에 걸쳐 있지만, 배포가 하나뿐이어도 **라이브 경로 전체**(키리스
+헤드투헤드는 보통 여러 배포에 걸쳐 있지만 배포가 하나뿐이어도 **라이브 경로 전체**(키리스
 Microsoft Entra ID → 실제 호출 → 실제 토큰 usage → 가격 계산 → 해시체인 원장)를 끝까지
 증명할 수 있습니다. 모든 아암을 그 하나로 향하게 하면 아암들이 동점이 되는데, 그게 바로
 요점입니다 — 스프레드가 아니라 진짜 *measured* 스모크 테스트입니다.

@@ -40,7 +40,7 @@ KB(그라운딩) 설정, system prompt, 팬아웃·앙상블 메커니즘, 그�
 이 데모의 Azure 자원은 역할이 뚜렷한 **두 플레인**으로 나뉩니다 — 이제 둘 다 **하나의 Foundry
 리소스**(`aoai-foundry-iq-demo-ext`, eastus)에 통합돼 있습니다. 섞지 않는 게 이해의 핵심입니다.
 (초기엔 라우팅용 5-시리즈 리소스가 따로 있었고 [§4·§5의 실측 스냅샷](#4-fanout)이 거기서
-캡처됐습니다 — 그 히스토리는 그대로 두고, 지금부터의 셋업은 demo-ext 단일 리소스를 씁니다.)
+캡처됐습니다 — 그 히스토리는 그대로 두고 지금부터의 셋업은 demo-ext 단일 리소스를 씁니다.)
 
 | 플레인 | 리소스 | 배포/자원 | 하는 일 |
 | --- | --- | --- | --- |
@@ -111,7 +111,7 @@ done
 ```
 
 파트너/OSS 7종은 **같은 리소스·같은 Entra 신원**에 올라가지만 와이어 경로만 Azure AI Model
-Inference(`*.services.ai.azure.com/models`)이고, `--model-format`은 각 퍼블리셔가 다릅니다
+Inference(`*.services.ai.azure.com/models`)이고 `--model-format`은 각 퍼블리셔가 다릅니다
 (OpenAI 아님). 아래 배포명·모델·버전을 그대로 만들되 `--model-format`은
 `az cognitiveservices account list-models`로 확인해 채웁니다:
 
@@ -172,7 +172,7 @@ cost-router foundry status          # credentialed: yes / auth method: Microsoft
 ```
 
 !!! tip "값은 하나도 커밋되지 않습니다"
-    `.env`는 gitignored이고, `status`는 엔드포인트를 호스트까지만·키를 마스킹해서 보여줍니다.
+    `.env`는 gitignored이고 `status`는 엔드포인트를 호스트까지만·키를 마스킹해서 보여줍니다.
     키리스 경로에는 애초에 저장할 키가 없습니다.
 
 ---
@@ -181,7 +181,7 @@ cost-router foundry status          # credentialed: yes / auth method: Microsoft
 
 실험에 **근거 문서**(사내 위키, 리포 문서 등)를 붙이려면 벡터 인덱스를 만들어 그라운딩합니다.
 라우팅·그라운딩이 이제 **같은 리소스**(`aoai-foundry-iq-demo-ext`)에 있으므로 임베딩
-(`text-embedding-3-large`)도 여기서 바로 쓰고, 검색만 Azure AI Search를 붙입니다.
+(`text-embedding-3-large`)도 여기서 바로 쓰고 검색만 Azure AI Search를 붙입니다.
 
 ```bash
 GRG=rg-foundry-iq-demo-ext
@@ -220,7 +220,7 @@ kNN 검색으로 top-k 청크를 뽑아 **system prompt의 컨텍스트 블록**
 ## 3. system prompt 생성 {#3-system-prompt}
 
 system prompt는 실험의 **역할·출력계약**을 고정합니다. 코드에서는 `ArenaTask.system`(선택)로
-태스크마다 주입하며, 없으면 순수 user 프롬프트만 보냅니다. 실험별 권장 system prompt:
+태스크마다 주입하며 없으면 순수 user 프롬프트만 보냅니다. 실험별 권장 system prompt:
 
 | 실험 | system prompt (요지) |
 | --- | --- |
@@ -292,7 +292,7 @@ task = ArenaTask(
     빠져 있습니다** — 근사가 아니라 불완전입니다. 원본 아티팩트·해시는 손대지 않고 versioned
     annotation
     [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
-    으로 표시했고, CLI·리포트·대시보드·리플레이가 이를 강제합니다(없으면 fail-closed).
+    으로 표시했고 CLI·리포트·대시보드·리플레이가 이를 강제합니다(없으면 fail-closed).
     당시 마크업 요율이 저장소에 고정돼 있지 않아 **리프라이스하지 않았습니다** — 추정 대신
     원금액을 히스토리로 남기고 비용·절감 주장에서 제외합니다. 단일 배포를 직접 부르는
     `cheapest`·`premium`·`ensemble`은 마크업 대상이 아니라 **영향 없습니다**.
@@ -303,7 +303,7 @@ task = ArenaTask(
     (grok·gpt-5.4)로 보냅니다. 이건 응답의 `model` 필드로 확인되는 **모델 선택**에 대한
     관찰입니다:
 
-    - `t-0006`(유닛테스트): 라우터가 `grok-4-1-fast-reasoning`을 골랐고, premium arm은
+    - `t-0006`(유닛테스트): 라우터가 `grok-4-1-fast-reasoning`을 골랐고 premium arm은
       `gpt-5.4`를 직접 호출 — 서로 다른 백엔드
     - `t-0004`(설계 플랜): 라우터가 `gpt-5.4`를 **추론 켠 채로** 골라 reasoning 토큰 158개
       소모 — premium arm(추론 OFF)은 0개
@@ -384,7 +384,7 @@ cost-router foundry live --live \
 - **모델**: 단일 티어에 동시 부하를 주어 429/스로틀을 관찰.
 - **KB**: 없음. **system**: 간결·idempotent(§3).
 - **주의**: 실제 429를 강제하면 비용·쿼터에 영향. 데모에서는 **동시성·재시도 백오프**를 코드로
-  시연하고, 벽(fail-wall)은 낮은 `--sku-capacity` 배포에서 관찰하는 걸 권장합니다.
+  시연하고 벽(fail-wall)은 낮은 `--sku-capacity` 배포에서 관찰하는 걸 권장합니다.
 - **실측 상태**: ⚙️ 지연/성공률은 실측 가능(부하 주입식). 기본은 안전하게 투영 유지.
 - 관련: [실험 07 · 라우팅 레이어](../lab-notebook/07-model-router.md)
 
@@ -413,7 +413,7 @@ call  = fleet.call("gpt-5.4-nano", ArenaTask("t-1", "…"))   # 아무 배포나
 # call.model / call.usage / call.latency_ms / call.provenance == "live"
 ```
 
-- **하나의 트랜스포트**(`FoundryFleet`)가 키리스 SDK 클라이언트를 한 번만 만들고, 어떤 배포든
+- **하나의 트랜스포트**(`FoundryFleet`)가 키리스 SDK 클라이언트를 한 번만 만들고 어떤 배포든
   이름으로 호출하며 usage·지연을 함께 잽니다.
 - **전략은 순수 함수**입니다: `cheapest_arm/premium_arm/ensemble_arm/router_arm(fleet, task,
   slate, pricing) -> ArmResult`. 전역 상태·숨은 부작용이 없어 가짜 클라이언트만 주입하면
@@ -457,7 +457,7 @@ ledger.flush()                   # append-only JSONL
       앞줄과 연결됩니다. 한 바이트만 바뀌어도 체인이 깨집니다.
     - **결정론적 비용 재생** — 각 줄은 채점에 쓴 `pricing_snapshot`(요율표)을 품고 있어,
       검증이 **기록된 토큰 usage × 그 요율표**로 모든 호출 비용을 다시 계산해 일치를 확인합니다.
-      측정된 usage는 고정된 증거이고, 비용은 그 순수 함수입니다.
+      측정된 usage는 고정된 증거이고 비용은 그 순수 함수입니다.
 
 ```bash
 # 측정 원장 검증: 해시 체인 + 비용 재생
@@ -493,7 +493,7 @@ cost-router foundry live --live \
 ```
 
 !!! danger "정직함 경계 요약"
-    - **비용·지연 = 실측**(실제 usage×요율, 실제 wall-clock). 요율은 공개 리스트가 기본이며,
+    - **비용·지연 = 실측**(실제 usage×요율, 실제 wall-clock). 요율은 공개 리스트가 기본이며
       정확한 테넌트 지출은 `--pricing`으로 테넌트 요율을 주입하세요.
     - **정확도 = 미채점**(`accuracy: ungraded`). 답의 정오는 그래더를 주입해야 측정됩니다.
     - **`measured = true`는 방금 일어난 라이브 호출에만** 부여됩니다.
