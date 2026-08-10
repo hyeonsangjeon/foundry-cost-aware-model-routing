@@ -3,13 +3,13 @@
 저장소의 나머지 전부는 **합성 텔레메트리에 대한 오프라인 투영**(`measured = false`)입니다.
 이 페이지가 설명하는 `src/router/foundry_live.py`는 그 투영을 **실측**으로 바꾸는 **단
 하나의 격리된 이음새**입니다 — 실제 Azure AI Foundry **Model Router** 배포에 진짜 프롬프트를
-보내고, 라우터가 고른 실제 모델과 **실제로 청구된 토큰 usage**를 읽어 그 usage로 비용을
+보내고 라우터가 고른 실제 모델과 **실제로 청구된 토큰 usage**를 읽어 그 usage로 비용을
 계산합니다.
 
 !!! danger "정직함 경계 — 일부러 엄격하게"
-    - **지출은 측정할 수 있지만, 품질은 (이 저장소로는) 측정할 수 없습니다.** 라이브 호출은
+    - **지출은 측정할 수 있지만 품질은 (이 저장소로는) 측정할 수 없습니다.** 라이브 호출은
       실제 토큰을 돌려주므로 `total_cost_usd`는 진짜 측정된 지출입니다. 각 답이 *좋았는지*는
-      여러분이 주입하는 **grader**가 있어야만 측정되며, 없으면 커버리지는 오프라인 신호
+      여러분이 주입하는 **grader**가 있어야만 측정되며 없으면 커버리지는 오프라인 신호
       투영으로 떨어지고 `coverage_measured = false`로 라벨됩니다.
     - **`measured = true`는 방금 일어난 라이브 호출에만 부여됩니다.** 녹화된 usage 스냅샷을
       재생하면 동일한 스코어링 경로를 타지만 `provenance = recorded` · `measured = false`로
@@ -27,7 +27,7 @@
 ## 1. Foundry 설정 처리
 
 라이브 브릿지가 읽는 환경 변수입니다. 각 항목은 Foundry 전용 이름과 일반 Azure OpenAI
-이름을 모두 받으며, 하나라도 없으면 전부 오프라인으로 남습니다.
+이름을 모두 받으며 하나라도 없으면 전부 오프라인으로 남습니다.
 
 | 변수 | 역할 | 대체 이름 |
 | --- | --- | --- |
@@ -53,7 +53,7 @@ status`·`live` 명령은 실행 시 **이 `.env`를 자동으로 로드**한 �
   오프라인·결정론입니다.
 - 이미 셸에 **export된 실제 환경 변수가 항상 우선**합니다(`.env`가 덮어쓰지 않음). CI 설정과
   명시적 export가 조용히 교체되는 일은 없습니다.
-- `KEY=VALUE` 줄만 읽습니다. 빈 줄·`#` 주석·앞의 `export`는 무시하고, 값의 양끝 따옴표는
+- `KEY=VALUE` 줄만 읽습니다. 빈 줄·`#` 주석·앞의 `export`는 무시하고 값의 양끝 따옴표는
   벗깁니다. 셸 확장·명령 실행은 전혀 없습니다(값은 문자 그대로).
 
 다른 파일을 쓰려면 `--env-file <경로>`를 주세요(기본 `.env`). 무엇이 배선됐는지는 **시크릿을
@@ -78,8 +78,8 @@ Azure AI Foundry — live measured Model Router bridge
 ```
 
 !!! warning "시크릿은 절대 평문으로 나오지 않습니다"
-    `status()`는 엔드포인트를 **스킴+호스트**로 줄이고, API 키와 연결 문자열을 **마지막 4자**로
-    마스킹합니다. 배포 이름·API 버전(시크릿 아님)만 그대로 보여, 로그·화면에 붙여도
+    `status()`는 엔드포인트를 **스킴+호스트**로 줄이고 API 키와 연결 문자열을 **마지막 4자**로
+    마스킹합니다. 배포 이름·API 버전(시크릿 아님)만 그대로 보여 로그·화면에 붙여도
     안전합니다. `--json`으로 기계가 읽을 수도 있습니다.
 
 ### 1-bis. Microsoft Entra ID(keyless) 인증 {#1-bis-microsoft-entra-idkeyless}
@@ -111,7 +111,7 @@ cost-router foundry status              # auth method : Microsoft Entra ID (keyl
 
 - **역할**: 데이터플레인 호출에는 `Cognitive Services OpenAI User`가 필요합니다(관리자
   역할인 *Contributor*로는 추론 호출이 안 됩니다).
-- **스코프**: 기본 토큰 스코프는 `https://cognitiveservices.azure.com/.default`이며,
+- **스코프**: 기본 토큰 스코프는 `https://cognitiveservices.azure.com/.default`이며
   `AZURE_AI_FOUNDRY_TOKEN_SCOPE`로 재정의할 수 있습니다.
 - **강제**: 키와 Entra가 모두 가능한 환경에서 키리스를 강제하려면 `AZURE_AI_FOUNDRY_AUTH=entra`.
 - **결정론 유지**: `azure-identity`는 라이브 호출 시에만 지연 임포트됩니다 — 기본 오프라인
@@ -119,7 +119,7 @@ cost-router foundry status              # auth method : Microsoft Entra ID (keyl
 
 !!! note "시크릿을 다루지 않습니다"
     Entra 경로에는 `.env`에 넣을 키 자체가 없습니다. 토큰은 라이브 호출 순간 여러분의
-    신원에서 발급되고 메모리에만 존재하며, 이 저장소는 어떤 자격증명도 저장하지 않습니다.
+    신원에서 발급되고 메모리에만 존재하며 이 저장소는 어떤 자격증명도 저장하지 않습니다.
 
 ## 2. 실측 스코어링 경로
 
@@ -146,7 +146,7 @@ summary = measured_router_summary(
 #                      coverage_measured, coverage_basis}
 ```
 
-- **비용**은 `outcome.usage`를 `pricing`으로 계산합니다. usage는 실측이지만, `model-router`
+- **비용**은 `outcome.usage`를 `pricing`으로 계산합니다. usage는 실측이지만 `model-router`
   배포로 간 호출의 금액은 **라우터 input 마크업이 빠져 불완전**합니다(아래 `†` 참조).
 - **커버리지**는 `grader`가 있으면 측정(`coverage_basis = "graded"`), 없으면 그 모델의
   오프라인 신호 투영(`"offline-projection"`)입니다. 포착된 **실제 모델**은 오프라인 신호에
@@ -161,7 +161,7 @@ summary = measured_router_summary(
 이 스냅샷(`samples/responses/model-router-usage.sample.json`)은 **진짜 Azure Model Router
 호출에서 포착한 실제 출력**입니다 — 라우터가 실제로 고른 모델(`gpt-5.4` · `grok-4-1-fast-reasoning`)과
 진짜 청구 토큰이 들어 있습니다. 재생이므로 `provenance = recorded` · `measured = false`로
-정직하게 라벨되고, 실제 모델은 오프라인 신호에 대응 행이 없어 커버리지는 **미채점**입니다:
+정직하게 라벨되고 실제 모델은 오프라인 신호에 대응 행이 없어 커버리지는 **미채점**입니다:
 
 ```bash
 cost-router foundry live
@@ -184,10 +184,10 @@ Azure Model Router — measured usage  (recorded snapshot (…/model-router-usag
     Model Router 과금은 합성입니다: **라우터 input 토큰 마크업** + 고른 하위 모델의
     input·output. 요율 카드에 마크업 항목이 없어 라우팅된 호출의 금액에는 **청구 항목 하나가
     빠져 있습니다** — 근사가 아니라 불완전입니다. 금액은 히스토리로 표시하되 비용·절감
-    주장에는 쓰지 않으며, CLI가 이 각주를 **직접 강제**합니다: versioned annotation
+    주장에는 쓰지 않으며 CLI가 이 각주를 **직접 강제**합니다: versioned annotation
     [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
     을 못 읽거나 해시가 어긋나면 더 엄격한 문구로 **fail-closed** 됩니다. 토큰 usage·모델
-    선택·지연·인증은 이 결함과 무관하게 유효하고, 단일 배포를 직접 부르는 arm은 영향받지
+    선택·지연·인증은 이 결함과 무관하게 유효하고 단일 배포를 직접 부르는 arm은 영향받지
     않습니다.
 
 ### 녹화 스냅샷을 실제 Azure로 다시 포착 — `--capture`
@@ -252,7 +252,7 @@ cost-router foundry live --workload samples/telemetry/curated-arena-live.sample.
     번들 텔레메트리(`mixed-coding-workload…`)는 `task_id`·`tokens`만 있고 **프롬프트 텍스트가
     없어** 실제 엔드포인트로 보낼 수 없습니다. `curated-arena-live…`는 아레나 5건에 **저작한
     합성 프롬프트**(표시·전송용, `measured = false`인 입력)를 붙여 라이브 전송이 가능하게 한
-    것입니다. 프롬프트는 저작-합성이지만, 그걸 **실제로 보내 받은 usage·비용은 measured=true**
+    것입니다. 프롬프트는 저작-합성이지만 그걸 **실제로 보내 받은 usage·비용은 measured=true**
     입니다 — 입력의 출처(저작)와 측정의 출처(라이브)는 별개입니다. 정확도(pass/fail)까지
     측정하려면 `grader`를 주입하세요(없으면 커버리지는 오프라인 신호 투영으로 라벨).
 
@@ -266,7 +266,7 @@ cost-router foundry live --live --workload my-prompts.jsonl --pricing samples/pr
 
 ## 4. 히스토리컬 대시보드로 연결
 
-`--store`를 주면 실측 실행이 기존 메트릭 히스토리에 한 줄로 기록되어, 웹앱의 **Historical
+`--store`를 주면 실측 실행이 기존 메트릭 히스토리에 한 줄로 기록되어 웹앱의 **Historical
 dashboard** 패널과 `metrics history`가 그대로 읽습니다:
 
 ```bash
@@ -276,12 +276,12 @@ cost-router metrics history --store runs.jsonl
 #                                    ↑ 라우터 파생 금액 — pricing incomplete (위 † 참조)
 ```
 
-행에는 `measured` 플래그와 `provenance`·`spend_source` 차원이 실려, 라이브 실측 실행과
+행에는 `measured` 플래그와 `provenance`·`spend_source` 차원이 실려 라이브 실측 실행과
 오프라인 투영이 같은 대시보드에서 정직하게 구분됩니다.
 
 ## 5. 실제 Azure 클라이언트
 
-`AzureModelRouterClient`는 표준 chat-completions 표면으로 배포를 호출하고, 응답의 `model`(라우터가
+`AzureModelRouterClient`는 표준 chat-completions 표면으로 배포를 호출하고 응답의 `model`(라우터가
 고른 하위 모델)과 `usage`(청구된 토큰)를 읽습니다. SDK는 `_sdk_client()`에서 지연 임포트되므로
 이 모듈을 임포트해도 SDK가 필요하지 않습니다. 라이브 엑스트라를 설치하려면:
 
