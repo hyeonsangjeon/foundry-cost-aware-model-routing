@@ -16,7 +16,7 @@
   강력하지만 늘 따라붙는 질문이 있었습니다: *"그래서 진짜 Foundry에 물리면 라우터가 **실제로**
   어떤 모델을 고르나?"*
 - **작업(무엇을):** 이 작업 전용으로 **키리스(Entra 전용) AIServices 리소스**를 새로
-  프로비저닝하고, 실제 **`model-router`** 배포 하나와 **GPT‑5.4 계열 후보**(`gpt-5.4-nano` ·
+  프로비저닝하고 실제 **`model-router`** 배포 하나와 **GPT‑5.4 계열 후보**(`gpt-5.4-nano` ·
   `gpt-5.4-mini` · `gpt-5.4`)를 올린 뒤, [라이브 브릿지](../manual/foundry-live.md)로 큐레이션
   5개 프롬프트를 **실제로 호출**했습니다.
 - **실험(무엇을 검증):** (1) 단일 `model-router` 배포가 태스크별로 **서로 다른 실제 모델**로
@@ -33,7 +33,7 @@
 ## 어떻게 한 건가 — 단일 배포, 라우터가 내부에서 분기
 
 핵심은 **호출하는 배포는 하나(`model-router`)뿐**이라는 점입니다. 우리가 특정 모델을 고르지
-않습니다 — Model Router가 프롬프트를 보고 **내부에서** 적합한 백엔드 모델로 라우팅하고, 그
+않습니다 — Model Router가 프롬프트를 보고 **내부에서** 적합한 백엔드 모델로 라우팅하고 그
 선택을 **응답의 `model` 필드**로 되돌려줍니다.
 
 ```text
@@ -147,7 +147,7 @@ cost-router foundry live --live \
 
 요약의 `labels.measured = true` · `model_counts`(라우터가 실제 고른 모델별 건수) ·
 `total_tokens`를 확인하세요. `total_cost_usd`도 함께 나오지만 라우터 파생 금액은 위에 적은
-이유로 **불완전**하며, 요약의 `router_cost_disclosure` 블록이 그 사실을 명시합니다. 임의
+이유로 **불완전**하며 요약의 `router_cost_disclosure` 블록이 그 사실을 명시합니다. 임의
 프롬프트도 같은 방식입니다 — `--workload my-prompts.jsonl`. 채점까지 실측하려면 `grader`를
 주입하세요([foundry-live 매뉴얼](../manual/foundry-live.md)).
 
@@ -156,7 +156,7 @@ cost-router foundry live --live \
 실험 08의 "문제 하나 × 네 방법"을 전부 **실제 Foundry 호출**로 돌리는 명령이 새로
 생겼습니다. `cheapest`·`premium`·`ensemble`·`router` 네 팔을 실제로 호출해 **usage와 지연을
 실측**합니다(정확도는 미채점 — 그래더 주입 시 측정 가능). 단일 모델 팔의 금액은 요율 카드가
-그대로 적용되지만, **`router` 팔의 금액은 라우터 마크업이 빠져 불완전**하므로 리포트는 라우터
+그대로 적용되지만 **`router` 팔의 금액은 라우터 마크업이 빠져 불완전**하므로 리포트는 라우터
 절감 수치를 아예 내보내지 않습니다.
 
 ```bash
