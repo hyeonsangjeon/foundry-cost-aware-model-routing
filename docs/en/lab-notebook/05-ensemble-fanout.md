@@ -4,7 +4,7 @@
     Cost-aware routing fans out to every candidate (compare mode) **only on high-value tasks** and bills only the winner. But the trace's `cost_usd` records **only the winner**, so the money the fan-out *actually* spent (the sum of all candidates) stays hidden. This experiment surfaces that hidden cost — it spends **$0.50** fanning out across 6 tasks and keeps only the **$0.13** winner. The remaining **$0.36 (3.74×)** is the **ensemble tax** (the cost of running the losing models). All numbers are `measured = false`.
 
 <figure markdown="span">
-  ![Ensemble loop animation — a parallel fan-out to five candidates, then the cheapest passing candidate is adopted](../assets/gif/ensemble.gif)
+  ![Ensemble loop animation — a parallel fan-out to five candidates, then the cheapest passing candidate is adopted](/foundry-cost-aware-model-routing/assets/gif/ensemble.gif)
   <figcaption>Ensemble loop — the workload fans out in parallel to five candidates and the compare node keeps the cheapest passing one. The fan-out tax paid for the losing calls piles up alongside.</figcaption>
 </figure>
 

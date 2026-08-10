@@ -10,7 +10,7 @@
     **`single-call`** is the general form of a *single-call* routing layer that picks a model **once** per prompt (not an ensemble). This experiment plots that shape as a **fifth point** `single_call` on the frontier — it picks one model up front by difficulty and, with **no escalation**, reaches only **52%** coverage on 100 synthetic tasks. The observe-then-escalate `cost-aware mix` fills coverage to **100%** at comparable cost (**$1.66 vs $1.59**) — and the new reproducibility contract `min_escalation_gain` pins that **+48%p** gap. All numbers are offline projections over synthetic data and `measured = false` — not a score for any commercial product.
 
 <figure markdown="span">
-  ![Animation comparing the coverage of a single-call lane and an observe-then-escalate lane side by side](../assets/gif/model-router.gif)
+  ![Animation comparing the coverage of a single-call lane and an observe-then-escalate lane side by side](/foundry-cost-aware-model-routing/assets/gif/model-router.gif)
   <figcaption>One pick vs observe-then-escalate — a lane that fixes one tier up front against a lane that observes cheap failures and raises only when needed, contrasted on coverage.</figcaption>
 </figure>
 

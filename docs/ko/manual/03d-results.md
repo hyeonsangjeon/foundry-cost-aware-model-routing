@@ -28,7 +28,7 @@
 
 ## 1 · Arm 비교 — 비용 · 통과율 · cost-per-pass
 
-![arm별 총비용 가로 막대: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56. 각 막대에 통과율과 cost-per-pass 주석](../assets/03d/arm-cost-comparison.svg)
+![arm별 총비용 가로 막대: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56. 각 막대에 통과율과 cost-per-pass 주석](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.svg)
 
 핵심 대비는 **가장 싼 라우터 모드 대 direct-premium 기준선**이다: `router-cost`는 과제 통과율을
 95.8%로 유지하면서 direct-premium 대비 **95.2% 저렴**하다(풀정밀도 계산). 통과율 격차는 **4.17%p**
@@ -65,7 +65,7 @@
 
 ## 2 · 비용 × 품질 — quality 모드는 direct-premium에 지배당한다
 
-![비용 대 통과율 산점도: direct-premium이 router-quality보다 왼쪽 위(더 싸고 통과율 높음)에 있어 router-quality가 지배당함을 보인다. router-cost는 같은 통과율에서 가장 왼쪽](../assets/03d/cost-vs-quality-scatter.svg)
+![비용 대 통과율 산점도: direct-premium이 router-quality보다 왼쪽 위(더 싸고 통과율 높음)에 있어 router-quality가 지배당함을 보인다. router-cost는 같은 통과율에서 가장 왼쪽](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
 
 가장 반직관적인 발견: **`router-quality`($1.56) 모드는 `direct-premium`($1.34)에 완전히
 지배당한다** — 더 비싼데 통과율은 오히려 낮다(95.8% < 100.0%). 라우터의 "품질" 모드가 프리미엄
@@ -79,7 +79,7 @@ quality 모드보다 **direct-premium을 직접 부르는 편이 싸고 정확�
 
 ## 3 · 백엔드 분포 — Cost 모드 100% Grok, 두 런 연속 재현
 
-![arm별 실제 라우팅된 백엔드 스택 막대: router-cost는 100% grok-4-1-fast-reasoning, router-quality는 gpt-5과 gpt-5.5로 분할되고 grok 없음, direct-premium은 100% gpt-5.6-sol](../assets/03d/backend-distribution.svg)
+![arm별 실제 라우팅된 백엔드 스택 막대: router-cost는 100% grok-4-1-fast-reasoning, router-quality는 gpt-5과 gpt-5.5로 분할되고 grok 없음, direct-premium은 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.svg)
 
 `router-cost`는 graded 셀 전부(100%)를 `grok-4-1-fast-reasoning`으로 보냈다. 이 **Cost 모드
 100% Grok** 쏠림은 직전 void 런과 이번 publishable 런 **두 번 연속 재현**됐다 — 라우터 정책이
@@ -124,7 +124,7 @@ quality 모드보다 **direct-premium을 직접 부르는 편이 싸고 정확�
 ## 6 · 재현과 출처
 
 - **데이터 소스**: 봉인 스냅샷을 `measure publish` 경로로 마스킹 추출한
-  [`docs/assets/03d/published.json`](../assets/03d/published.json). **집계·arm별 수치·백엔드
+  [`docs/assets/03d/published.json`](/foundry-cost-aware-model-routing/assets/03d/published.json). **집계·arm별 수치·백엔드
   분포만** 담는다 — 프롬프트·응답 원문, 엔드포인트, 테넌트 식별자는 포함하지 않는다(엔드포인트는
   `***.cognitiveservices.azure.com`로 마스킹, 원문은 `output_sha256`만).
 - **차트**: 위 세 SVG는 `published.json`에서 `scripts/build_03d_dashboard.py`로 **정적 생성**된다.

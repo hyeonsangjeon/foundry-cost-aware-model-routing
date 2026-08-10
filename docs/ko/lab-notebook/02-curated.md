@@ -6,7 +6,7 @@
     모든 수치는 `measured = false`.
 
 <figure markdown="span">
-  ![큐레이티드 루프 애니메이션 — 5개 손라벨 태스크에 에스컬레이션 사다리를 적용하는 모습](../assets/gif/curated.gif)
+  ![큐레이티드 루프 애니메이션 — 5개 손라벨 태스크에 에스컬레이션 사다리를 적용하는 모습](/foundry-cost-aware-model-routing/assets/gif/curated.gif)
   <figcaption>큐레이티드 루프 — 손으로 라벨링한 5개 태스크에 같은 에스컬레이션 사다리를 적용해, 값싼 후보부터 깨끗이 통과하면 채택한다.</figcaption>
 </figure>
 

@@ -257,4 +257,4 @@ heart of this experiment.
 **Related docs:** [experiment 09 · measured routing](09-live-routing-proof.md) (what it picked) ·
 [experiment 08 · arena](08-arena.md) (the offline lens) ·
 [live measurement bridge](../manual/foundry-live.md) ·
-[Foundry hands-on configuration](../manual/foundry-setup.md) · [dev log](devlog.md)
+[Foundry hands-on configuration](../manual/foundry-setup.md) · [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)

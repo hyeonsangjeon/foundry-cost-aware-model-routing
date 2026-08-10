@@ -10,7 +10,7 @@
     wall-clock**입니다(실험 08의 예시적 투영과 대비).
 
 <figure markdown="span">
-  ![Azure AI Foundry 라우터 아키텍처 — 키리스 Entra 인증으로 라우터가 백엔드를 고르는 구조](../assets/azure-architecture.svg)
+  ![Azure AI Foundry 라우터 아키텍처 — 키리스 Entra 인증으로 라우터가 백엔드를 고르는 구조](/foundry-cost-aware-model-routing/assets/azure-architecture.svg)
   <figcaption>라우터는 자기 로스터에서 백엔드를 고르고, 실제 쓴 모델을 `response.model`로 돌려준다 — 우리가 배포한 적 없는 백엔드로도 라우팅된다.</figcaption>
 </figure>
 

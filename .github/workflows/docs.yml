@@ -46,11 +46,14 @@ jobs:
       - name: Build (strict)
         run: mkdocs build --strict --site-dir _site
 
-      - name: i18n site contract (no /en//ko/, ko at root, links resolve)
-        run: python scripts/check_i18n_site.py _site
+      - name: Build interactive dashboard demo (en at /demo/)
+        run: python scripts/build_static_site.py _site/demo en
 
-      - name: Build interactive dashboard demo
-        run: python scripts/build_static_site.py _site/demo
+      - name: Build interactive dashboard demo (ko at /ko/demo/)
+        run: python scripts/build_static_site.py _site/ko/demo ko
+
+      - name: i18n site contract (en at root, ko under /ko/, pairs/redirects/hreflang/demos)
+        run: python scripts/check_i18n_site.py _site
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

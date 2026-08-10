@@ -4,7 +4,7 @@
     Experiment 05 surfaced the ensemble tax — "run everything" costs **[3.74×](../manual/projection-results.md)** the winner. This experiment shows that tax is a **dial**: raise the budget gate's `compare_min_value` by one notch and the number of tasks that fan out drops, so **coverage (100%) and savings (47%) stay put while only the tax** collapses `$0.36 → $0.00`. Using the **same** workload · signals · policy · pricing as experiment 05, only with the dial turned off, experiment 06 (`adaptive`) pins that extreme (zero tax) with a reproducibility contract. All numbers are `measured = false`.
 
 <figure markdown="span">
-  ![Adaptive loop animation — a dial rises and folds the parallel fan-out into one](../assets/gif/adaptive.gif)
+  ![Adaptive loop animation — a dial rises and folds the parallel fan-out into one](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
   <figcaption>Adaptive loop — raise the dial above every task's value and the parallel fan-out folds to one, draining the fan-out tax to zero while the savings stay put.</figcaption>
 </figure>
 

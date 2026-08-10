@@ -41,7 +41,7 @@
   **The timestamp is the proof** — it can't be edited later to fit the results.
 
 <figure markdown="span">
-  ![Cost vs pass-rate scatter (experiment 12 publishable re-run): direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](../assets/03d/cost-vs-quality-scatter.svg)
+  ![Cost vs pass-rate scatter (experiment 12 publishable re-run): direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
   <figcaption>For contrast — this scatter is <strong>experiment 12's (the publishable re-run)</strong> cost vs pass rate. Experiment 11 is VOID at the grading-coverage gate and has no publishable chart of its own, so we show experiment 12's result — produced after fixing the two causes — as a contrast. Directly below is experiment 11's voided measured table.</figcaption>
 </figure>
 

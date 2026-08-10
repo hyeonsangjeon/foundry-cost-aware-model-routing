@@ -12,7 +12,7 @@
     contrast to the illustrative projection of experiment 08).
 
 <figure markdown="span">
-  ![Azure AI Foundry router architecture — with keyless Entra authentication, the router selects a backend](../assets/azure-architecture.svg)
+  ![Azure AI Foundry router architecture — with keyless Entra authentication, the router selects a backend](/foundry-cost-aware-model-routing/assets/azure-architecture.svg)
   <figcaption>The router picks a backend from its own roster and returns the model it actually used in `response.model` — it even routes to backends we never deployed.</figcaption>
 </figure>
 
@@ -217,4 +217,4 @@ Measurement snapshot (captured):
 
 **Related docs:** [Foundry hands-on configuration · per-experiment setup](../manual/foundry-setup.md) ·
 [live measurement bridge](../manual/foundry-live.md) · [experiment 08 · arena](08-arena.md)
-(the offline lens) · [dev log](devlog.md)
+(the offline lens) · [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)

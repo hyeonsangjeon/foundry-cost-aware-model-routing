@@ -154,4 +154,4 @@ cost-router foundry live --live \
 
 Cost is computed from real billed usage and becomes `measured = true`, and the result is recorded on the historical dashboard. **Boundary:** the prompts are authored-synthetic, but the **usage and cost** you get by sending them are measured. To measure accuracy (pass/fail) as well, you must inject a `grader`; without one, coverage is labeled as an offline-signal projection. For details, see the [live measured bridge](../manual/foundry-live.md).
 
-For the full manual, see [one problem, four ways](../manual/head-to-head.md), and for the development context, the 2026-07-20 entry in the [development log](devlog.md).
+For the full manual, see [one problem, four ways](../manual/head-to-head.md), and for the development context, the 2026-07-20 entry in the [development log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).

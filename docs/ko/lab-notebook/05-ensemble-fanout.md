@@ -9,7 +9,7 @@
     `measured = false`.
 
 <figure markdown="span">
-  ![앙상블 루프 애니메이션 — 다섯 후보로 병렬 팬아웃한 뒤 가장 싼 통과 후보를 채택하는 모습](../assets/gif/ensemble.gif)
+  ![앙상블 루프 애니메이션 — 다섯 후보로 병렬 팬아웃한 뒤 가장 싼 통과 후보를 채택하는 모습](/foundry-cost-aware-model-routing/assets/gif/ensemble.gif)
   <figcaption>앙상블 루프 — 워크로드가 다섯 후보로 병렬 팬아웃하고, 비교 노드가 가장 싼 통과 후보를 남긴다. 진 호출에 치르는 팬아웃 세금이 함께 쌓인다.</figcaption>
 </figure>
 

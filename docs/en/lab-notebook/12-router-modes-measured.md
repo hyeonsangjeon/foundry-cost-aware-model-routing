@@ -38,7 +38,7 @@ was re-committed and re-approved **before seeing the results** — the failure c
 ## Result — coverage · pass rate · cost · cost-per-pass per arm
 
 <figure markdown="span">
-  ![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](../assets/03d/arm-cost-comparison.svg)
+  ![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.svg)
   <figcaption>Total cost per arm — router-cost is cheapest and router-quality is most expensive. Each bar also shows pass rate and cost per pass. These are the same measured values as the table below.</figcaption>
 </figure>
 
@@ -57,7 +57,7 @@ was re-committed and re-approved **before seeing the results** — the failure c
 ## Quality-gate verdict — **all four arms PASS → publishable**
 
 <figure markdown="span">
-  ![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](../assets/03d/cost-vs-quality-scatter.svg)
+  ![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
   <figcaption>Cost vs pass-rate scatter — the further upper-left, the cheaper and more accurate. router-cost holds the same pass-rate band at the lowest cost, while router-quality is dominated by direct-premium (more expensive without a higher pass rate).</figcaption>
 </figure>
 
@@ -91,7 +91,7 @@ balanced ($0.305) < premium ($1.341) < quality ($1.559)`.
 ## A reproduced finding — **Cost mode 100% Grok, two runs in a row**
 
 <figure markdown="span">
-  ![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](../assets/03d/backend-distribution.svg)
+  ![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.svg)
   <figcaption>The backends actually routed per arm — Cost mode sends every cell to Grok, Quality mode splits across the gpt family with no Grok. This renders the table below as a figure.</figcaption>
 </figure>
 
