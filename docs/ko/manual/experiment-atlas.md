@@ -1,39 +1,39 @@
-# Experiment Atlas — how each experiment is built
+# 실험 아틀라스 — 각 실험은 어떻게 구성되는가
 
-> **English visual manual.** The dashboard's **Experiments — click for the metrics** strip has six
-> tabs — `adaptive`, `curated`, `ensemble`, `hero`, `limits`, `single-call`. Each one re-runs the
-> *same* router over a workload and prints cost · coverage · fan-out tax under a reproducibility
-> contract. This page opens the hood: **which models** each uses, **what it processes**, **which
-> selection mechanism** (ordered escalation, fan-out, or single-call), and the **honest headline**.
-> It ends with a complete **Azure follow-along** so you can stand the real thing up yourself.
+> **시각 매뉴얼.** 대시보드의 **Experiments — click for the metrics** 스트립에는 여섯 개의 탭 —
+> `adaptive`, `curated`, `ensemble`, `hero`, `limits`, `single-call` — 이 있습니다. 각 탭은 *같은*
+> 라우터를 워크로드에 다시 돌려, 재현성 계약 아래에서 비용 · 커버리지 · 팬아웃 세금을 찍어 냅니다.
+> 이 페이지는 그 내부를 엽니다: 각 실험이 **어떤 모델**을 쓰고, **무엇을 처리하며**, **어떤 선택
+> 메커니즘**(순차 에스컬레이션, 팬아웃, 싱글콜)을 쓰는지, 그리고 **정직한 헤드라인**은 무엇인지.
+> 끝은 **실측 트랙**(라이브 Foundry 브리지, 실험 09–12)으로 맺으며, 실제 환경을 직접 세울 수
+> 있도록 전체 Azure 셋업 가이드로 링크를 겁니다.
 
-!!! tip "The diagrams animate"
-    The mechanism and architecture SVGs below are animated (they loop in your browser like a GIF) —
-    watch the router walk the ladder, fan out, and pick a backend. Every number is an **offline
-    deterministic projection** (`labels.measured=false`) *except* the live Foundry bridge in the
-    final section, which is `measured=true`.
+!!! tip "다이어그램은 움직입니다"
+    아래 메커니즘·아키텍처 SVG는 애니메이션입니다(브라우저에서 GIF처럼 반복됩니다) — 라우터가
+    사다리를 걷고, 팬아웃하고, 백엔드를 고르는 과정을 지켜보세요. 마지막 섹션의 라이브 Foundry
+    브리지(`measured=true`)를 *제외한* 모든 숫자는 **오프라인 결정론적 투영**(`labels.measured=false`)입니다.
 
-## At a glance
+## 한눈에 보기
 
-![Six experiments at a glance: hero and curated use ordered escalation, ensemble fans out, adaptive turns fan-out off, limits shows the honest floor, single-call compares one up-front pick to the mix](../assets/experiments-overview.svg)
+![여섯 실험 한눈에: hero와 curated는 순차 에스컬레이션, ensemble은 팬아웃, adaptive는 팬아웃을 끄고, limits는 정직한 바닥을 보이며, single-call은 하나의 선제 선택을 믹스와 대비한다](../assets/experiments-overview.svg)
 
-Same models, same pricing, same policy everywhere. Each experiment flips exactly **one dial** — the
-workload, the fan-out gate, or the comparison arm — so you can read one idea at a time.
+어디서나 같은 모델, 같은 가격, 같은 정책. 각 실험은 정확히 **다이얼 하나** — 워크로드, 팬아웃
+게이트, 비교 arm — 만 바꿔, 한 번에 한 아이디어씩 읽게 합니다.
 
 ---
 
-## The shared machinery
+## 공통 기계 장치
 
-### 1 · The model ladder
+### 1 · 모델 사다리
 
-Every experiment draws from one universe of candidate models. The routing **policy**
-([`src/policy/seed_policy.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/src/policy/seed_policy.yaml))
-maps each **task class** to an *ordered* list of candidates, cheapest first, each carrying two
-priors: a **pass-rate** and a **`$/resolved`** (total dollars per resolved task).
+모든 실험은 하나의 후보 모델 우주에서 뽑아 씁니다. 라우팅 **정책**
+([`src/policy/seed_policy.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/src/policy/seed_policy.yaml))은
+각 **태스크 클래스**를 싼 것부터 순서대로 나열한 후보 목록에 매핑하며, 각 후보는 두 개의 사전값 —
+**통과율(pass-rate)**과 **`$/resolved`**(해결 태스크당 총 달러) — 을 담습니다.
 
-![The model ladder: five candidate models ordered cheapest to priciest by dollars per resolved task](../assets/models-ladder.svg)
+![모델 사다리: 해결 태스크당 달러 기준으로 가장 싼 것부터 가장 비싼 것까지 정렬된 다섯 후보 모델](../assets/models-ladder.svg)
 
-| Task class | Ordered candidates (cheapest → priciest, `$/resolved`) |
+| 태스크 클래스 | 정렬된 후보 (싼 것 → 비싼 것, `$/resolved`) |
 | --- | --- |
 | `plan` | swift-coder `0.40` · balanced-pro `1.10` · deep-reasoner `2.80` |
 | `generate` | mini-fast `0.12` · swift-coder `0.35` · balanced-pro `1.05` |
@@ -41,15 +41,15 @@ priors: a **pass-rate** and a **`$/resolved`** (total dollars per resolved task)
 | `validate` | mini-fast `0.14` · balanced-pro `0.95` · deep-reasoner `2.50` |
 | `repo_patch` | swift-coder `0.55` · balanced-pro `1.40` · deep-reasoner `3.10` · premium-max `5.20` |
 
-!!! note "The model names are generic stand-ins"
-    `mini-fast … premium-max` are illustrative placeholders, not vendor products, and the priors are
-    seeded (not measured). You replace them with values derived from your own routing telemetry. The
-    **live** section at the bottom shows the real models the Azure Model Router actually selected
-    (`gpt-5.4`, `grok-4-1-fast-reasoning`).
+!!! note "모델 이름은 일반적인 대역입니다"
+    `mini-fast … premium-max`는 벤더 제품이 아니라 예시용 자리표시자이며, 사전값도 (측정이 아니라)
+    시드된 값입니다. 여러분은 자신의 라우팅 텔레메트리에서 유도한 값으로 이들을 대체합니다. 맨 아래
+    **라이브** 섹션은 Azure Model Router가 실제로 고른 진짜 모델(`gpt-5.4`,
+    `grok-4-1-fast-reasoning`)을 보여 줍니다.
 
-### 2 · Four decision layers
+### 2 · 네 개의 결정 레이어
 
-Under the hood, one task flows through four layers (detailed in [Core concepts](concept.md)):
+내부에서 하나의 태스크는 네 레이어를 흐릅니다([핵심 개념](concept.md)에 상세):
 
 ```text
 1. CLASSIFY  task → {plan, generate, test, validate, repo_patch}
@@ -58,360 +58,289 @@ Under the hood, one task flows through four layers (detailed in [Core concepts](
 4. GOVERN    a cost governor decides — before spending — whether a task is worth fanning out
 ```
 
-Only **layer 3 (SELECT)** changes shape between experiments. There are exactly **three shapes**.
+실험마다 모양이 바뀌는 것은 **레이어 3(SELECT)**뿐입니다. 모양은 정확히 **세 가지**입니다.
 
-### 3 · The three selection mechanisms
+### 3 · 세 가지 선택 메커니즘
 
-=== "Ordered escalation"
+=== "순차 에스컬레이션"
 
-    Walk candidates cheap → pricey. Accept the **first clean result** (self-verifiable signals:
-    *applies · compiles · tests pass · lint/type pass*). Escalate **only** on a failed check. You are
-    billed for the **accepted** model — the failed cheap attempts are observed, not charged as
-    winners. This is where most of the savings come from.
+    후보를 싼 것 → 비싼 것 순으로 걷습니다. **첫 번째 깨끗한 결과**(자기 검증 가능한 신호:
+    *적용됨 · 컴파일됨 · 테스트 통과 · 린트/타입 통과*)를 받아들입니다. 실패한 검사에서 **만**
+    에스컬레이션합니다. 청구는 **받아들인** 모델 기준 — 실패한 싼 시도는 관찰될 뿐 승자로 청구되지
+    않습니다. 절감의 대부분이 여기서 나옵니다.
 
-    ![Cost-aware single route: try the cheapest candidate first, escalate only on a failed check, bill only the accepted model](../assets/mechanism-ordered.svg)
+    ![비용 인지 단일 경로: 가장 싼 후보를 먼저 시도하고, 실패한 검사에서만 에스컬레이션하며, 받아들인 모델만 청구](../assets/mechanism-ordered.svg)
 
-    *Used by · `hero` · `curated` · `limits` · `adaptive`*  ·  code: `ordered_select()`
+    *사용 · `hero` · `curated` · `limits` · `adaptive`*  ·  코드: `ordered_select()`
 
-=== "Fan-out (ensemble)"
+=== "팬아웃 (앙상블)"
 
-    Run **every** candidate in parallel (`compare` mode), score each by its execution signals, and
-    keep the highest — ties break to the **cheapest passing** model. Coverage is high, but you pay to
-    run the losers too: **the ensemble tax**.
+    **모든** 후보를 병렬로 돌리고(`compare` 모드), 실행 신호로 각각 채점한 뒤 최고를 남깁니다 —
+    동점은 **가장 싼 통과** 모델로 갈립니다. 커버리지는 높지만 진 후보를 돌린 값도 냅니다:
+    **앙상블 세금**.
 
-    ![Ensemble fan-out: run every candidate in parallel, keep the cheapest passing result, and pay the ensemble tax for the losing calls](../assets/mechanism-fanout.svg)
+    ![앙상블 팬아웃: 모든 후보를 병렬로 돌리고, 가장 싼 통과 결과를 남기며, 진 호출에 앙상블 세금을 낸다](../assets/mechanism-fanout.svg)
 
-    *Used by · `ensemble`*  ·  code: `compare_select()`
+    *사용 · `ensemble`*  ·  코드: `compare_select()`
 
-=== "Single-call"
+=== "싱글콜"
 
-    Bucket each prompt by predicted difficulty and commit to **one** model up front — no fan-out, no
-    escalation. It cannot correct a wrong up-front pick, so coverage drops. This is the *shape* of a
-    productized router; the real one's pick-skill is proprietary and **measured** (see the last
-    section).
+    각 프롬프트를 예측 난이도로 버킷팅하고 **하나의** 모델에 선제적으로 커밋합니다 — 팬아웃도,
+    에스컬레이션도 없습니다. 잘못된 선제 선택을 교정할 수 없어 커버리지가 떨어집니다. 이것은
+    제품화된 라우터의 *모양*입니다; 진짜 라우터의 선택 실력은 독점이며 **측정**됩니다(마지막 섹션
+    참조).
 
-    ![Single-call routing: pick one model per prompt up front by difficulty tier, with no escalation](../assets/mechanism-single-call.svg)
+    ![싱글콜 라우팅: 난이도 티어로 프롬프트마다 하나의 모델을 선제 선택하고, 에스컬레이션 없음](../assets/mechanism-single-call.svg)
 
-    *Used by · `single-call`*  ·  code: `single_call_pick()`
+    *사용 · `single-call`*  ·  코드: `single_call_pick()`
 
 ---
 
-## The six experiments
+## 여섯 실험
 
-Every card lists **what it processes**, **which models**, **which mechanism**, the **dial** it turns,
-the **headline** (re-derived live by the command shown), and a link to the full lab-notebook entry.
+각 카드는 **무엇을 처리하는지**, **어떤 모델**인지, **어떤 메커니즘**인지, 돌리는 **다이얼**,
+(아래 명령으로 라이브 재유도되는) **헤드라인**, 그리고 전체 lab-notebook 항목 링크를 담습니다.
 
-!!! info "How the six map to the four differentiators (atop the built-in router's selection)"
-    Azure AI Foundry's **built-in Model Router** already handles *selection* — one deploy, cross-
-    provider (Grok · DeepSeek · Llama · gpt-oss with no separate deploy; Claude the exception). So
-    "routes many providers" is **table-stakes**, not the differentiator. These experiments quantify
-    the **layer on top** — the repo's four differentiators: **① verification-based adoption**
-    (`hero`, `curated`, `limits`) · **② the ensemble axis / fan-out tax** (`ensemble`) ·
-    **③ the cost governor** (`adaptive`) · **④ the audit trace** (the measured bridge + ledger
-    below). The **single-call** card is the **⭐ centerpiece**: the head-to-head that shows *why
-    this layer exists next to the built-in router* — one up-front pick, no escalation, versus
-    observe-and-escalate. The synthetic coverage numbers are in that card.
+!!! info "여섯 실험이 네 차별점에 어떻게 매핑되는가 (내장 라우터의 선택 위에서)"
+    Azure AI Foundry의 **내장 Model Router**는 이미 *선택*을 처리합니다 — 한 번 배포로, 크로스
+    프로바이더(Grok · DeepSeek · Llama · gpt-oss는 별도 배포 없이; Claude는 예외). 그래서 "여러
+    프로바이더를 라우팅한다"는 것은 차별점이 아니라 **기본기**입니다. 이 실험들은 그 **위에 얹는
+    레이어** — 저장소의 네 차별점 — 를 정량화합니다: **① 검증 기반 채택**(`hero`, `curated`,
+    `limits`) · **② 앙상블 축 / 팬아웃 세금**(`ensemble`) · **③ 비용 거버너**(`adaptive`) ·
+    **④ 감사 추적**(측정 브리지 + 아래 원장). **single-call** 카드는 **⭐ 핵심**입니다: *왜 이
+    레이어가 내장 라우터 곁에 존재하는지*를 보이는 정면 대결 — 하나의 선제 선택, 에스컬레이션
+    없음 대 관찰-후-에스컬레이션. 합성 커버리지 숫자가 그 카드에 있습니다.
 
-Each card **opens with a looping animation** that traces its real mechanism — flow dots, the
-escalation ladder, or the fan-out — while the offline (`measured=false`) numbers count up live.
-They are generated deterministically from the numbers above by
+각 카드는 **반복 애니메이션으로 시작**해 자신의 실제 메커니즘 — 흐름 점, 에스컬레이션 사다리,
+팬아웃 — 을 그리며, 그동안 오프라인(`measured=false`) 숫자가 라이브로 세어 올라갑니다. 이들은 위
+숫자에서
 [`scripts/build_experiment_gifs.py`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/scripts/build_experiment_gifs.py)
-(Pillow + ffmpeg).
+(Pillow + ffmpeg)로 결정론적으로 생성됩니다.
 
-### `hero` — same coverage, lower cost
+### `hero` — 같은 커버리지, 더 낮은 비용
 
-![Animated hero loop: a naive lane sends every task to premium-max ($2.23) while the cost-aware lane tries mini-fast first, escalates once on a failed check, and keeps swift-coder — landing 25.5% cheaper at the same 100% coverage](../assets/gif/hero.gif)
+![hero 루프 애니메이션: 나이브 레인은 모든 태스크를 premium-max($2.23)로 보내는 반면, 비용 인지 레인은 mini-fast를 먼저 시도하고 실패한 검사에서 한 번 에스컬레이션해 swift-coder를 남긴다 — 같은 100% 커버리지에서 25.5% 더 싸게 안착](../assets/gif/hero.gif)
 
 | | |
 | --- | --- |
-| **Processes** | 100 synthetic tasks (deterministic offline signals, `synth: true`) |
-| **Models** | full ladder per class (mini-fast … premium-max) |
-| **Mechanism** | **Ordered escalation** |
-| **Dial** | none — the flagship default |
-| **Headline** | **100% coverage · −25.5%** vs premium-on-every-task ($2.23 → $1.66) |
-| **Contract** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100` |
+| **처리 대상** | 100개 합성 태스크 (결정론적 오프라인 신호, `synth: true`) |
+| **모델** | 클래스별 전체 사다리 (mini-fast … premium-max) |
+| **메커니즘** | **순차 에스컬레이션** |
+| **다이얼** | 없음 — 플래그십 기본값 |
+| **헤드라인** | **100% 커버리지 · −25.5%** vs 모든-태스크-프리미엄 ($2.23 → $1.66) |
+| **계약** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100` |
 
 ```bash
 cost-router experiment run hero
 ```
 
-The naive arm puts the *most expensive* candidate on every task (100% coverage, $2.23). Ordered
-escalation keeps that 100% coverage but tries cheap-clean-first, landing 25.5% cheaper.
-→ [Lab-notebook 01](../lab-notebook/01-hero.md) · canonical figures: [offline experiment results](projection-results.md)
+나이브 arm은 *가장 비싼* 후보를 모든 태스크에 올립니다(100% 커버리지, $2.23). 순차 에스컬레이션은
+그 100% 커버리지를 유지하되 싼-것-깨끗이-먼저로 시도해 25.5% 더 싸게 안착합니다.
+→ [Lab-notebook 01](../lab-notebook/01-hero.md) · 정본 수치: [오프라인 실험 결과](projection-results.md)
 
-### `curated` — five tasks you can read
+### `curated` — 읽을 수 있는 다섯 태스크
 
-![Animated curated loop: the same escalation ladder over five hand-labelled tasks, cheap-clean-first, landing 56.7% under premium-on-every-task](../assets/gif/curated.gif)
+![curated 루프 애니메이션: 손수 라벨링한 다섯 태스크 위에서 같은 에스컬레이션 사다리를 싼-것-깨끗이-먼저로 걸어, 모든-태스크-프리미엄보다 56.7% 아래로 안착](../assets/gif/curated.gif)
 
 | | |
 | --- | --- |
-| **Processes** | 5 hand-written offline signals (`samples/responses/routing-signals.sample.json`) |
-| **Models** | full ladder per class |
-| **Mechanism** | **Ordered escalation** |
-| **Dial** | none — smallest "does it work?" check |
-| **Headline** | **100% coverage · −56.7%** ($0.13 → $0.06) |
-| **Contract** | `min_coverage 1.0`, `min_delta_pct 0.30`, `min_tasks 3` |
+| **처리 대상** | 손으로 쓴 오프라인 신호 5개 (`samples/responses/routing-signals.sample.json`) |
+| **모델** | 클래스별 전체 사다리 |
+| **메커니즘** | **순차 에스컬레이션** |
+| **다이얼** | 없음 — 가장 작은 "되긴 되나?" 확인 |
+| **헤드라인** | **100% 커버리지 · −56.7%** ($0.13 → $0.06) |
+| **계약** | `min_coverage 1.0`, `min_delta_pct 0.30`, `min_tasks 3` |
 
 ```bash
 cost-router experiment run curated
 ```
 
-Tiny enough to follow every routing decision by eye end-to-end.
+모든 라우팅 결정을 눈으로 끝까지 따라갈 만큼 작습니다.
 → [Lab-notebook 02](../lab-notebook/02-curated.md)
 
-### `ensemble` — best-of-N, at a real cost
+### `ensemble` — best-of-N, 진짜 비용을 치르고
 
-![Animated ensemble loop: the workload fans out to all five candidates in parallel, a compare node keeps the cheapest passing winner (swift-coder), and a meter fills to the ~3.7x fan-out tax paid for the losing calls](../assets/gif/ensemble.gif)
+![ensemble 루프 애니메이션: 워크로드가 다섯 후보로 병렬 팬아웃하고, 비교 노드가 가장 싼 통과 승자(swift-coder)를 남기며, 진 호출에 치른 ~3.7배 팬아웃 세금까지 계량기가 채워진다](../assets/gif/ensemble.gif)
 
 | | |
 | --- | --- |
-| **Processes** | 6 high-value tasks (`samples/responses/ensemble-fanout-signals.sample.json`) |
-| **Models** | full ladder per class, **all** run per task |
-| **Mechanism** | **Fan-out (compare)** |
-| **Dial** | fan-out **on** for every task |
-| **Headline** | **−47%** vs naive ($0.25 → $0.13) · but a **≈3.7× fan-out tax** (winners ≈ $0.13, all calls ≈ $0.50) |
-| **Contract** | `min_coverage 1.0`, `min_delta_pct 0.40`, `min_tasks 6` |
+| **처리 대상** | 고가치 태스크 6개 (`samples/responses/ensemble-fanout-signals.sample.json`) |
+| **모델** | 클래스별 전체 사다리, 태스크마다 **전부** 실행 |
+| **메커니즘** | **팬아웃 (compare)** |
+| **다이얼** | 모든 태스크에 팬아웃 **켜짐** |
+| **헤드라인** | **−47%** vs 나이브 ($0.25 → $0.13) · 다만 **≈3.7× 팬아웃 세금** (승자 ≈ $0.13, 전체 호출 ≈ $0.50) |
+| **계약** | `min_coverage 1.0`, `min_delta_pct 0.40`, `min_tasks 6` |
 
 ```bash
 cost-router experiment run ensemble
 ```
 
-Because several models pass each high-value task, best-of-N settles on the **cheapest passing**
-model — still 47% under naive — but fanning out means paying for the losing calls too.
+여러 모델이 각 고가치 태스크를 통과하므로 best-of-N은 **가장 싼 통과** 모델로 안착합니다 — 여전히
+나이브보다 47% 아래 — 하지만 팬아웃은 진 호출의 값도 치른다는 뜻입니다.
 → [Lab-notebook 05](../lab-notebook/05-ensemble-fanout.md)
 
-### `adaptive` — the fan-out dial, turned off
+### `adaptive` — 팬아웃 다이얼, 꺼 버리기
 
-![Animated adaptive loop: a dial raises compare_min_value above every task value, collapsing the five parallel fan-out lines to one and draining the fan-out tax from 3.7x to 0.00x while the 47% savings stay put](../assets/gif/adaptive.gif)
+![adaptive 루프 애니메이션: 다이얼이 compare_min_value를 모든 태스크 가치 위로 올려, 병렬 팬아웃 다섯 줄을 하나로 붕괴시키고 팬아웃 세금을 3.7배에서 0.00배로 빼내되 47% 절감은 그대로 둔다](../assets/gif/adaptive.gif)
 
 | | |
 | --- | --- |
-| **Processes** | the **same** 6 high-value tasks as `ensemble` |
-| **Models** | full ladder per class |
-| **Mechanism** | **Ordered escalation** (fan-out gated off) |
-| **Dial** | `budget.compare_min_value: 1.1` — above every task's value (max 1.0) → **never fans out** |
-| **Headline** | **identical −47% at 100% coverage**, but **fan-out tax → 0.00×** |
-| **Contract** | `min_coverage 1.0`, `min_delta_pct 0.40`, `max_tax_ratio 0.01`, `min_tasks 6` |
+| **처리 대상** | `ensemble`과 **같은** 고가치 태스크 6개 |
+| **모델** | 클래스별 전체 사다리 |
+| **메커니즘** | **순차 에스컬레이션** (팬아웃 게이트로 차단) |
+| **다이얼** | `budget.compare_min_value: 1.1` — 모든 태스크 가치(최대 1.0) 위 → **절대 팬아웃 안 함** |
+| **헤드라인** | **100% 커버리지에서 동일한 −47%**, 다만 **팬아웃 세금 → 0.00×** |
+| **계약** | `min_coverage 1.0`, `min_delta_pct 0.40`, `max_tax_ratio 0.01`, `min_tasks 6` |
 
 ```bash
 cost-router experiment run adaptive
 ```
 
-Same workload, same savings, same coverage as `ensemble` — but the ensemble tax collapses to ~$0.
-On this deterministic projection, single-route escalation already reaches the same cheapest-passing
-winner fan-out finds, so the tax is pure. (In a real system best-of-N can lift *quality* — measure
-that before paying the tax.)
+`ensemble`과 같은 워크로드, 같은 절감, 같은 커버리지 — 그런데 앙상블 세금은 ~$0으로 붕괴합니다.
+이 결정론적 투영에서는 단일 경로 에스컬레이션이 이미 팬아웃이 찾는 가장 싼 통과 승자에 도달하므로,
+세금은 순수합니다. (실제 시스템에서 best-of-N은 *품질*을 끌어올릴 수 있습니다 — 세금을 내기 전에
+그것을 측정하세요.)
 → [Lab-notebook 06](../lab-notebook/06-fanout-dial.md)
 
-### `limits` — there is no free lunch
+### `limits` — 공짜 점심은 없다
 
-![Animated limits loop: every cheap tier fails in turn (mini-fast, swift-coder, balanced-pro, deep-reasoner all red) so escalation climbs all the way to premium-max on every task — 0.0% savings, honest spend](../assets/gif/limits.gif)
+![limits 루프 애니메이션: 싼 티어가 차례로 모두 실패해(mini-fast, swift-coder, balanced-pro, deep-reasoner 전부 빨강) 에스컬레이션이 모든 태스크에서 premium-max까지 끝까지 오른다 — 0.0% 절감, 정직한 지출](../assets/gif/limits.gif)
 
 | | |
 | --- | --- |
-| **Processes** | 6 genuinely hard tasks where **only the priciest candidate passes** (`hard-tasks-signals.sample.json`) |
-| **Models** | full ladder per class |
-| **Mechanism** | **Ordered escalation** (climbs to the top every time) |
-| **Dial** | none |
-| **Headline** | **0.0% savings at 100% coverage** — routing == naive here |
-| **Contract** | two-sided: `min_coverage 1.0`, `min_delta_pct 0.0`, **`max_delta_pct 0.0`** |
+| **처리 대상** | **가장 비싼 후보만 통과하는** 진짜 어려운 태스크 6개 (`hard-tasks-signals.sample.json`) |
+| **모델** | 클래스별 전체 사다리 |
+| **메커니즘** | **순차 에스컬레이션** (매번 꼭대기까지 오름) |
+| **다이얼** | 없음 |
+| **헤드라인** | **100% 커버리지에서 0.0% 절감** — 여기서는 라우팅 == 나이브 |
+| **계약** | 양쪽: `min_coverage 1.0`, `min_delta_pct 0.0`, **`max_delta_pct 0.0`** |
 
 ```bash
 cost-router experiment run limits
 ```
 
-The deliberate counter-weight to `hero`. Routing tries the cheap models, watches them fail, and
-correctly escalates to the top model on every task. It does not invent savings — and the
-**`max_delta_pct 0.0`** ceiling makes CI fail loudly if a future change ever fakes a "cheaper" number
-on hard work.
+`hero`에 대한 의도적 counter-weight입니다. 라우팅은 싼 모델을 시도하고, 실패를 지켜보며, 모든
+태스크에서 꼭대기 모델로 올바르게 에스컬레이션합니다. 절감을 지어내지 않습니다 — 그리고
+**`max_delta_pct 0.0`** 상한은 훗날 어떤 변경이 어려운 작업에서 "더 싸다"는 숫자를 위조하면 CI가
+요란하게 실패하게 합니다.
 → [Lab-notebook 04](../lab-notebook/04-no-free-lunch.md)
 
-### `single-call` — one pick vs observe-and-escalate { #model-router-one-pick-vs-observe-and-escalate }
+### `single-call` — 하나의 선택 대 관찰-후-에스컬레이션 { #model-router-one-pick-vs-observe-and-escalate }
 
-![Animated single-call loop: a single-call lane picks one tier up front and stalls at 52% coverage, while the escalation lane observes cheap failures and raises only when needed to reach 100% coverage at the same cost band (+48 percentage points)](../assets/gif/model-router.gif)
+![single-call 루프 애니메이션: 싱글콜 레인이 하나의 티어를 선제 선택하고 52% 커버리지에서 멈추는 반면, 에스컬레이션 레인은 싼 실패를 관찰하고 필요할 때만 올려 같은 비용 대역에서 100% 커버리지(+48퍼센트포인트)에 도달한다](../assets/gif/model-router.gif)
 
 | | |
 | --- | --- |
-| **Role** | ⭐ **Centerpiece** — the direct contrast that justifies the layer atop the built-in router |
-| **Processes** | 100 synthetic tasks |
-| **Models** | full ladder per class |
-| **Mechanism** | **Single-call** arm compared against the escalating **mix** |
-| **Dial** | surfaces a `single_call` strategy arm alongside the mix |
-| **Headline** | single-call **52%** coverage vs mix **100%** — an **escalation gain of +48%p** at comparable cost |
-| **Contract** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100`, **`min_escalation_gain 0.30`** |
+| **역할** | ⭐ **핵심** — 내장 라우터 위 레이어를 정당화하는 직접 대비 |
+| **처리 대상** | 100개 합성 태스크 |
+| **모델** | 클래스별 전체 사다리 |
+| **메커니즘** | **싱글콜** arm을 에스컬레이팅 **믹스**와 비교 |
+| **다이얼** | `single_call` 전략 arm을 믹스와 나란히 노출 |
+| **헤드라인** | 싱글콜 **52%** 커버리지 vs 믹스 **100%** — 비슷한 비용에서 **+48%p 에스컬레이션 이득** |
+| **계약** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100`, **`min_escalation_gain 0.30`** |
 
 ```bash
 cost-router experiment run single-call
 ```
 
-A single-call router commits before it sees any check, so a wrong pick can't be corrected and
-coverage of this synthetic arm drops to 52%. The observe-then-escalate mix reclaims full coverage
-for nearly the same cost.
+싱글콜 라우터는 어떤 검사도 보기 전에 커밋하므로 잘못된 선택을 교정할 수 없고, 이 합성 arm의
+커버리지는 52%로 떨어집니다. 관찰-후-에스컬레이션 믹스는 거의 같은 비용으로 전체 커버리지를
+되찾습니다.
 
-That figure is a projection of the generic *shape*, not a score for any shipped product. The real
-Foundry Model Router's pick-skill is proprietary — that gap is exactly what the **measured** live
-bridge captures next.
-→ [Lab-notebook 07](../lab-notebook/07-model-router.md) · canonical figures: [offline experiment results](projection-results.md)
+그 수치는 일반적인 *모양*의 투영이지, 출시된 어떤 제품의 점수가 아닙니다. 진짜 Foundry Model
+Router의 선택 실력은 독점이며 — 그 간극이야말로 다음 **측정** 라이브 브리지가 포착하는 것입니다.
+→ [Lab-notebook 07](../lab-notebook/07-model-router.md) · 정본 수치: [오프라인 실험 결과](projection-results.md)
 
 ---
 
-## The cost × coverage frontier
+## 비용 × 커버리지 프론티어
 
-Put the single-call arms next to the routing strategies and the trade-off is visible at a glance
-(this is the dashboard's frontier scatter):
+싱글콜 arm을 라우팅 전략들과 나란히 놓으면 트레이드오프가 한눈에 보입니다(이것이 대시보드의 프론티어
+산점도입니다):
 
-![Cost versus coverage scatter of five strategies](../assets/frontier.svg)
+![다섯 전략의 비용 대 커버리지 산점도](../assets/frontier.svg)
 
-| Strategy | Selection | Cost | Coverage |
+| 전략 | 선택 | 비용 | 커버리지 |
 | --- | --- | ---: | ---: |
-| `all-mini` | cheapest candidate on every task | **$0.19** | 22.0% |
-| `single-call` | single difficulty-tiered pick | $1.59 | 52.0% |
-| **`cost-aware mix`** | **cheapest-clean-first, escalate on fail** | **$1.66** | **100.0%** |
-| `all-premium` (naive) | priciest candidate on every task | $2.23 | 100.0% |
-| `ensemble-all` | fan out to every model, every task | $4.23 | 100.0% |
+| `all-mini` | 모든 태스크에 가장 싼 후보 | **$0.19** | 22.0% |
+| `single-call` | 난이도 티어 단일 선택 | $1.59 | 52.0% |
+| **`cost-aware mix`** | **싼-것-깨끗이-먼저, 실패 시 에스컬레이션** | **$1.66** | **100.0%** |
+| `all-premium` (naive) | 모든 태스크에 가장 비싼 후보 | $2.23 | 100.0% |
+| `ensemble-all` | 모든 모델을 모든 태스크에 팬아웃 | $4.23 | 100.0% |
 
-The **cost-aware mix** sits in the *both-win zone*: 100% coverage at roughly the cheapest cost that
-still buys full coverage — well under `all-premium`, and a fraction of `ensemble-all`.
-
----
-
-## From offline projection to measured routing (Azure setup)
-
-Everything above is an **offline projection**. To turn *model selection* into a real **measured**
-result, deploy an Azure AI Foundry **Model Router** and let it route real prompts. You call **one**
-deployment (`model="model-router"`); the router picks a backend **from its own managed roster** and
-returns which one in `response.model`.
-
-![Azure AI Foundry Model Router architecture with keyless Entra auth](../assets/azure-architecture.svg)
-
-!!! success "This is exactly how experiment 09 was proven"
-    Through this one `model-router` deployment, curated prompts split live to **`gpt-5.4` (×3)** and
-    **`grok-4-1-fast-reasoning` (×2)** — with distinct response-id fingerprints (`gpt-5.4` →
-    `chatcmpl-…`, grok → a pure UUID) as backend provenance. Notably, **grok was never deployed by
-    us** — the account holds only `model-router` + `gpt-5.4 / -mini / -nano`, proving the router
-    routes to *its own* roster. Full evidence: [Lab-notebook 09 · live routing proof](../lab-notebook/09-live-routing-proof.md).
-
-### Follow along — keyless (Microsoft Entra) end to end
-
-Uses **Microsoft Entra ID only** (no API keys are ever created or stored). Replace the `<PLACEHOLDERS>`.
-We used region **`eastus2`** (it carries the full GPT-5 lineup + `model-router`) for that experiment-09
-proof. The **go-forward** resource is `aoai-foundry-iq-demo-ext` in **`eastus`** — same keyless method,
-with `gpt-5.6-sol` as the frontier plus a full multi-provider fleet ([manual · Foundry setup](foundry-setup.md)).
-
-```bash
-# 0) Sign in and pin the subscription (device code for headless/sandbox shells)
-az login --tenant <TENANT_ID> --use-device-code
-az account set --subscription <SUBSCRIPTION_ID>
-
-# 1) A dedicated resource group
-az group create --name <RG> --location eastus2
-
-# 2) An Azure AI Foundry (AIServices) account with a custom domain
-az cognitiveservices account create \
-  --name <ACCOUNT> --resource-group <RG> \
-  --kind AIServices --sku S0 --location eastus2 \
-  --custom-domain <ACCOUNT> --yes
-
-# 2b) Turn OFF local (key) auth — Entra tokens only, no keys anywhere
-az resource update \
-  --ids "$(az cognitiveservices account show -n <ACCOUNT> -g <RG> --query id -o tsv)" \
-  --set properties.disableLocalAuth=true
-
-# 3) Grant YOUR identity the data-plane role (inference needs this exact role,
-#    not Contributor). Once per resource.
-az role assignment create \
-  --assignee "$(az ad signed-in-user show --query id -o tsv)" \
-  --role "Cognitive Services OpenAI User" \
-  --scope "$(az cognitiveservices account show -n <ACCOUNT> -g <RG> --query id -o tsv)"
-
-# 4) Deploy the Model Router (one call in → router picks the backend)
-az cognitiveservices account deployment create \
-  -n <ACCOUNT> -g <RG> \
-  --deployment-name model-router \
-  --model-name model-router --model-version 2025-11-18 \
-  --model-format OpenAI \
-  --sku-name GlobalStandard --sku-capacity 10
-
-# 4b) (Optional) Deploy the GPT-5.4 family for direct calls / your own ladder.
-#     The router does NOT need these — it owns its roster — but they are handy
-#     for side-by-side direct comparisons.
-for spec in "gpt-5.4:2026-03-05" "gpt-5.4-mini:2026-03-17" "gpt-5.4-nano:2026-03-17"; do
-  az cognitiveservices account deployment create \
-    -n <ACCOUNT> -g <RG> \
-    --deployment-name "${spec%%:*}" \
-    --model-name "${spec%%:*}" --model-version "${spec##*:}" \
-    --model-format OpenAI \
-    --sku-name GlobalStandard --sku-capacity 10
-done
-```
-
-!!! tip "Check what your region actually offers"
-    Model names, versions, and `model-router` availability vary by region. List them first and adjust
-    the versions above:
-    ```bash
-    az cognitiveservices account list-models -n <ACCOUNT> -g <RG> \
-      --query "[?contains(name,'router') || starts_with(name,'gpt-5')].{name:name, version:version, format:format}" -o table
-    ```
-
-### Wire the repo to it
-
-Copy `.env.sample` → `.env` (gitignored) and set **only** the endpoint + deployment; leave the API
-key empty so the bridge auto-selects Entra:
-
-```bash
-AZURE_AI_FOUNDRY_ENDPOINT=https://<ACCOUNT>.cognitiveservices.azure.com/
-AZURE_AI_FOUNDRY_MODEL_ROUTER=model-router
-AZURE_AI_FOUNDRY_AUTH=entra        # optional — auto-selected when no key is present
-```
-
-Install the live extra, then verify the wiring **without exposing any secret**:
-
-```bash
-pip install "foundry-cost-router[foundry]"   # openai + azure-identity
-cost-router foundry status
-#   router configured : yes
-#   credentialed      : yes
-#   auth method       : Microsoft Entra ID (keyless)
-```
-
-### Run one measured routing pass
-
-The bundled telemetry has no prompt text, so a curated prompt workload ships for live sending. With
-credentials in place, this one command makes every curated task a real Model Router call
-(`measured = true`):
-
-```bash
-cost-router foundry live --live \
-  --workload samples/telemetry/curated-arena-live.sample.jsonl \
-  --pricing  samples/pricing/your-tenant.yaml \
-  --store    runs.jsonl
-#   provenance : live
-#   measured   : yes
-```
-
-No credentials yet? Replay the recorded snapshot to walk the exact same scoring path, deterministic
-and offline (`measured = false`):
-
-```bash
-cost-router foundry live --workload samples/telemetry/curated-arena-live.sample.jsonl
-```
-
-The full bridge reference (env-var table, scoring path, honesty labels) lives in
-[Live measured bridge](foundry-live.md).
+**cost-aware mix**는 *둘 다 이기는 구간*에 있습니다: 100% 커버리지를, 전체 커버리지를 사는 가장 싼
+비용쯤에서 — `all-premium`보다 한참 아래, `ensemble-all`의 몇 분의 일로.
 
 ---
 
-## What is measured, and what is not
+## 오프라인 투영에서 실측 라우팅으로
 
-| Claim | Live bridge | Offline experiments |
+위의 모든 것은 **오프라인 투영**입니다. *모델 선택*을 진짜 **실측** 결과로 바꾸려면, Azure AI
+Foundry **Model Router**를 배포하고 실제 프롬프트를 라우팅하게 하세요. **하나의**
+배포(`model="model-router"`)를 호출하면, 라우터가 **자기 관리 로스터에서** 백엔드를 골라
+`response.model`로 어느 것인지 돌려줍니다.
+
+![키리스 Entra 인증을 쓴 Azure AI Foundry Model Router 아키텍처](../assets/azure-architecture.svg)
+
+!!! success "이것이 바로 실험 09가 증명된 방식입니다"
+    이 하나의 `model-router` 배포를 통해, 큐레이션된 프롬프트가 라이브로 **`gpt-5.4` (×3)**와
+    **`grok-4-1-fast-reasoning` (×2)**로 갈렸습니다 — 서로 다른 response-id 지문(`gpt-5.4` →
+    `chatcmpl-…`, grok → 순수 UUID)이 백엔드 출처를 증명합니다. 특히 **grok은 우리가 배포한 적이
+    없습니다** — 계정에는 `model-router` + `gpt-5.4 / -mini / -nano`만 있어, 라우터가 *자기*
+    로스터로 라우팅함을 증명합니다. 전체 증거: [Lab-notebook 09 · 라이브 라우팅 증명](../lab-notebook/09-live-routing-proof.md).
+
+키리스 Entra 전 과정 워크스루 — 하나의 `model-router` 배포, API 키 없음, 저장소 배선, 그리고 단일
+실측 패스 — 는 [Foundry 셋업](foundry-setup.md)의 복붙 가이드에 있습니다. 저장소가 배선되면
+`cost-router foundry live --live`가 모든 큐레이션 태스크를 진짜 `measured=true` 호출로 바꿉니다.
+거기서부터 **실측 트랙**이 네 개의 lab-notebook 항목으로 이어집니다; 아틀라스는 이를 한눈에
+나열하고 상세는 링크로 뺍니다.
+
+### `09` · 라이브 라우팅 증명 — `measured=true`
+
+위 아키텍처가 곧 실험 09입니다: 키리스로 호출된 하나의 `model-router` 배포가 큐레이션 프롬프트를
+실제로 `gpt-5.4` (×3)와 `grok-4-1-fast-reasoning` (×2)로 가릅니다. `grok`은 계정에 배포된 적이
+없으므로, 이는 라우터가 **자기** 로스터에서 고른다는 직접 증거입니다.
+→ [Lab-notebook 09](../lab-notebook/09-live-routing-proof.md)
+
+### `10` · 감사 원장
+
+그 실측 런을 나중에 몰래 편집할 수 없도록 봉인합니다: 정본이며 해시 체인으로 엮인 원장으로,
+**변조 감지 가능**하고 봉인된 요율표에 대해 **비용 재현 가능**하며, 한 줄로 `PASS` 재검증됩니다 —
+한 바이트만 뒤집어도 실패합니다. 이것이 위 차별점이 약속한 **④ 감사 추적**입니다.
+→ [Lab-notebook 10](../lab-notebook/10-measured-ledger.md)
+
+### `11` · 유료 라우터-모드 런 (VOID)
+
+첫 유료 4-arm 비교(**$3.47 / $20**)는 사전에 커밋한 사전등록에 따라 **VOID**입니다 — 채점
+커버리지가 **79.2%**로 **90%** arm별 바닥 아래로 떨어졌습니다. 규율로 자산으로 남긴 음성 결과:
+예상이 뒤집혔습니다(Claude가 아니라 Grok이 100%; 추론 토큰이 출력을 삼킴).
+
+![비용 대 통과율 산점도: direct-premium이 router-quality보다 왼쪽 위(더 싸고 통과율 높음)에 있어 router-quality가 지배당함을 보인다. router-cost는 같은 통과율에서 가장 왼쪽](../assets/03d/cost-vs-quality-scatter.svg)
+*이 산점도는 실험 **12**의 publishable 결과입니다 — 실험 11 자신의 유료 런은 VOID라 자기 차트가 없습니다.*
+→ [Lab-notebook 11](../lab-notebook/11-router-modes-void.md)
+
+### `12` · 유료 라우터-모드 재런 (publishable)
+
+실험 11이 짚은 두 원인만 고쳐 **같은** 사전등록 게이트에 다시 돌립니다: 채점 커버리지가
+**79.2% → 96.18%**로 회복되고 **네 arm 모두 PASS → publishable**(**$3.27 / $20**, 바이트 동일
+재현)입니다. 아래 세 개의 03D 차트가 이 런의 증거입니다.
+
+![arm별 총비용 가로 막대: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56. 각 막대에 통과율과 cost-per-pass 주석](../assets/03d/arm-cost-comparison.svg)
+![arm별 실제 라우팅된 백엔드 스택 막대: router-cost는 100% grok-4-1-fast-reasoning, router-quality는 gpt-5과 gpt-5.5로 분할되고 grok 없음, direct-premium은 100% gpt-5.6-sol](../assets/03d/backend-distribution.svg)
+→ [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · 전체 차트: [03D 실측 결과](03d-results.md)
+
+---
+
+## 무엇이 측정되고, 무엇이 아닌가
+
+| 주장 | 라이브 브리지 | 오프라인 실험 |
 | --- | --- | --- |
-| **Model selection** (which backend) | ✅ measured — real `response.model` | projected |
-| **Token usage** (billed input/output/reasoning) | ✅ measured — provider usage | synthetic |
-| **Wall-clock latency** | ✅ measured | not modeled |
-| **Keyless auth** | ✅ real Entra bearer token | n/a |
-| **Accuracy / coverage** | ⚠️ projected unless you inject a `grader` (`coverage_measured=false`) | projected |
-| **Cost *rate*** (USD per token) | ⚠️ illustrative rate × real tokens — **not** your Azure bill | illustrative |
+| **모델 선택** (어느 백엔드) | ✅ 측정 — 실제 `response.model` | 투영 |
+| **토큰 사용량** (청구된 입력/출력/추론) | ✅ 측정 — 프로바이더 사용량 | 합성 |
+| **wall-clock 지연** | ✅ 측정 | 미모델링 |
+| **키리스 인증** | ✅ 진짜 Entra 베어러 토큰 | 해당 없음 |
+| **정확도 / 커버리지** | ⚠️ `grader`를 주입하지 않으면 투영 (`coverage_measured=false`) | 투영 |
+| **비용 *요율*** (토큰당 USD) | ⚠️ 예시 요율 × 실제 토큰 — 여러분의 Azure 청구서가 **아님** | 예시 |
 
-Every offline number on this page is `labels.measured=false`. Only the live bridge's *selection,
-usage, latency, and auth* are `measured=true`. See the [Honesty compact](../honesty.md) for the full
-boundary.
+이 페이지의 모든 오프라인 숫자는 `labels.measured=false`입니다. 라이브 브리지의 *선택, 사용량,
+지연, 인증*만 `measured=true`입니다. 전체 경계는 [정직함 규약](../honesty.md)을 보세요.
