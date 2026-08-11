@@ -1,13 +1,13 @@
 # 실험 09 · Foundry 라우터가 실제로 고른 모델 (`measured = true`)
 
 !!! abstract "한 줄 요약"
-    실험 01–08은 모두 **합성 텔레메트리에 대한 오프라인 투영**(`measured = false`, 자리표시자
-    모델)이었습니다. 이 실험은 그 경계를 넘습니다 — 실제 **Azure AI Foundry Model Router**
-    배포에 큐레이션 5개 프롬프트를 **정말로 보내고**, 라우터가 고른 **실제 모델**과 **실제로
-    청구된 토큰 usage**를 읽었습니다(**키 없이 Microsoft Entra ID** 인증). 결과: 단 하나의
-    `model-router` 배포가 태스크에 따라 **`gpt-5.4`(3건)와 `grok-4-1-fast-reasoning`(2건)**으로
-    실제 분기했습니다. 이 저장소 최초의 `measured = true` 실험이며, **지연도 여기서는 진짜
-    wall-clock**입니다(실험 08의 예시적 투영과 대비).
+    실험 01–08은 합성 텔레메트리와 자리표시자 모델을 쓴 오프라인 투영이었습니다
+    (`measured = false`). 이 실험은 **키 없이 Microsoft Entra ID**로 실제
+    **Azure AI Foundry Model Router** 배포에 큐레이션 5개 프롬프트를 보냈습니다. 응답에서
+    프롬프트를 처리한 모델, 청구된 토큰 usage, wall-clock 지연을 읽었습니다. 단일
+    `model-router` 배포는 **`gpt-5.4`(3건)와 `grok-4-1-fast-reasoning`(2건)**을 골랐습니다.
+    저장소 최초의 `measured = true` 실험이며 실험 08과 달리 **지연도 여기서는 진짜
+    wall-clock**입니다.
 
 <figure markdown="span">
   ![Azure AI Foundry 라우터 아키텍처 — 키리스 Entra 인증으로 라우터가 백엔드를 고르는 구조](/foundry-cost-aware-model-routing/assets/azure-architecture.svg)
@@ -18,7 +18,7 @@
 
 - **상황(왜):** 저장소의 여덟 실험은 전부 정직하게 `measured = false`였습니다 — 네트워크도
   자격 증명도 없이, `mini-fast`·`premium-max` 같은 **자리표시자** 모델에 대한 결정론적 투영.
-  강력하지만 늘 따라붙는 질문이 있었습니다: *"그래서 진짜 Foundry에 물리면 라우터가 **실제로**
+  이전 실험은 다음 질문에 답하지 못했습니다: *"그래서 진짜 Foundry에 물리면 라우터가 **실제로**
   어떤 모델을 고르나?"*
 - **작업(무엇을):** 이 작업 전용으로 **키리스(Entra 전용) AIServices 리소스**를 새로
   프로비저닝하고 실제 **`model-router`** 배포 하나와 **GPT‑5.4 계열 후보**(`gpt-5.4-nano` ·
@@ -87,17 +87,17 @@
 provider-usage`. 라우팅 분포는 두 번의 독립 실행에서 **동일**했고(태스크→모델 매핑 안정),
 토큰·비용·지연만 호출마다 변동했습니다 — 라이브 측정의 본질.
 
-## 진짜라는 증거 — 응답 ID 형식이 모델마다 다르다
+## 응답 ID 형식이 모델마다 다르다
 
-두 백엔드는 **서로 다른 형식의 응답 ID**를 돌려줍니다 — 목업으로는 만들 수 없는, 서로 다른
-실제 백엔드가 서빙했다는 강력한 지문입니다:
+두 백엔드는 **서로 다른 형식의 응답 ID**를 돌려줬습니다. 이 차이로 응답이 서로 다른 백엔드
+구현에서 왔음을 확인했습니다.
 
 | 서빙 모델 | 응답 ID 형식 | 예 |
 | --- | --- | --- |
 | `gpt-5.4-2026-03-05` | OpenAI 표준 `chatcmpl-…` | `chatcmpl-E3cromf…` |
 | `grok-4-1-fast-reasoning` | 순수 UUID | `cca8d752-05f4-40…` |
 
-그리고 실제 답변 텍스트도 나왔습니다(`finish_reason = stop`, 잘림 없음):
+답변 텍스트도 `finish_reason = stop`으로 잘림 없이 돌아왔습니다.
 
 - **t-0001 · grok** — `import re`로 `slugify()`를 실제 구현한 파이썬 코드 블록.
 - **t-0006 · grok** — `unittest`로 `merge_intervals` 테스트를 실제 작성.

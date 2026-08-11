@@ -1,31 +1,29 @@
 # Experiment 10 · Sealing and re-verifying the measurement record (`measured = true`)
 
 !!! abstract "One-line summary"
-    If [experiment 09](09-live-routing-proof.md) proved by measurement **what** the router
-    picked, this experiment **seals that measurement run so it cannot be undone** — it
-    freezes a real live-arena run into a canonical audit ledger with **tamper detection
-    (a hash chain) + deterministic cost replay (a sealed rate card)**, so that **anyone can
-    independently re-verify** it with no credentials and no network. The committed 5-row
-    ledger
+    [Experiment 09](09-live-routing-proof.md) recorded the model and usage returned by
+    real calls. This experiment writes that existing run to a canonical ledger. A hash
+    chain detects changed bytes, and a sealed rate card lets verification recalculate
+    every cost from the recorded usage. The committed 5-row ledger
     [`samples/ledger/arena-measured.ledger.jsonl`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/ledger/arena-measured.ledger.jsonl)
-    reproduces `status: PASS` with a one-line command, and **changing even a single byte
-    breaks verification.** The strict offline ledger (`measured = false`) is **left entirely
-    untouched** — the two audits are kept separate so neither blurs the other's honesty
-    label.
+    returns `status: PASS` with one command and no credentials or network. **Changing
+    even a single byte breaks verification.** The strict offline ledger
+    (`measured = false`) remains **entirely untouched**, so the two honesty labels stay
+    separate.
 
 ## What this experiment is — beyond measured, to **auditable**
 
 - **Situation (why):** experiment 09 was the repository's first `measured = true`, but the
-  measurement record was left as a **flat append-only JSONL** with no integrity and no
-  replay. The offline experiments (01–08) are already protected by the
-  [reproducibility contract](index.md#shared-methodology), yet the **measured record**
-  itself did not get the level of audit an offline projection gets — *"has this number not
+  measurement record was a **flat append-only JSONL**. It had no hash chain and no
+  cost replay. The offline experiments (01–08) already have the
+  [reproducibility contract](index.md#shared-methodology), but the measured record
+  could not answer *"has this number not
   been tampered with, and does it really derive from the recorded tokens?"*
 - **Task (what):** seal the measured arena run into a **canonical hash-chain ledger**
   ([`MeasuredJsonlLedger`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/src/router/ledger/measured.py)).
-  Each row is sealed with a `record_hash` over its canonical payload, chained to the
-  previous row with `previous_hash`, and **embeds the entire rate card that graded it
-  (`pricing_snapshot`)**. Verification is a single line: `cost-router ledger
+  Each row stores a `record_hash` over its canonical payload, links to the prior row
+  with `previous_hash`, and embeds the rate card used for its cost
+  (`pricing_snapshot`). Verification is a single line: `cost-router ledger
   measured-replay`.
 - **Experiment (what it verifies):** (1) is **tampering with a measured run detected**,
   (2) does cost **replay deterministically** from the recorded **usage × the sealed
@@ -42,9 +40,9 @@
     `captured_at` is pinned to the capture timestamp. The command to build a new live ledger
     is in [How to reproduce](#how-to-reproduce).
 
-## Two integrity guarantees — why this is an "audit"
+## Two checks every row must pass
 
-Every row of the measurement ledger has to pass **two independent checks** to be valid:
+Every row must pass **two independent checks**:
 
 | Guarantee | What it stops | Mechanism |
 | --- | --- | --- |
@@ -160,9 +158,9 @@ but the annotation can't be read, verification **closes to `status: FAIL`** (fai
     status: FAIL
     ```
 
-    **The key:** the hash chain catches *which bytes* changed, and cost replay catches *whether
-    the cost is consistent with usage*. For a forgery to hold, you'd have to fool **both checks
-    at once**, which is impossible as long as the sealed rate card is fixed.
+    The hash chain catches *which bytes* changed. Cost replay checks *whether the cost
+    matches the recorded usage*. A forged value fails at least one check while the
+    sealed rate card is fixed.
 
 ## The honesty boundary — what is measured and what is not
 
@@ -196,7 +194,7 @@ The four-arm totals of the arena snapshot the ledger froze (measured usage × li
 | arm | strategy | total | mean latency‡ |
 | --- | --- | ---: | ---: |
 | `cheapest` | always the smallest tier | `$0.001191`† | 9.08 s |
-| `premium` | always a single frontier call | `$0.015368`† | 4.11 s |
+| `premium` | always one premium call | `$0.015368`† | 4.11 s |
 | **`router`** | **a single `model-router` deployment** | **`$0.020806`**§ | 12.18 s |
 | `ensemble` | fan out to 3, then pick the best | `$0.022046`† | 8.33 s |
 

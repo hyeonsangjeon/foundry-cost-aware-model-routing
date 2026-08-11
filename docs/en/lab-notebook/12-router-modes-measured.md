@@ -1,17 +1,17 @@
 # Experiment 12 · Comparing the router's three modes · run 2 (measurement succeeded)
 
 !!! abstract "One-line summary"
-    [Experiment 11](11-router-modes-void.md) attempted the repository's first paid 4-arm
-    measured comparison, but a preregistration I committed **before** seeing the results set a
-    grading-coverage gate that one arm failed to clear, so it was ruled **VOID** (quality
-    grading coverage 79.2% < 90%). This experiment fixed **only the two causes** that negative
-    result pinpointed (Fix A · Fix B) and **re-ran with the same gate and the same estimand**.
-    The result: **all four arms cleared the gate — publishable.** Grading coverage recovered
-    from 79.2% to **96.18%**, and **the cost order the preregistration wrote down in advance
-    (`cost < balanced < premium ≤ quality`) matched the measurement.** Spend **$3.27 / $20**,
-    replay byte-for-byte identical, unpriced **0%**. Experiment 11's "discipline forced a void"
-    and this experiment's "a valid result came out under discipline" should be read side by
-    side — the point is that **the same gate was applied twice, without loosening.**
+    [Experiment 11](11-router-modes-void.md) was **VOID** because quality grading
+    coverage was 79.2% < 90%. This run changed **only the two causes** identified
+    there (Fix A · Fix B), then repeated the same 4-arm comparison with the same gate
+    and estimand. Grading coverage rose from 79.2% to **96.18%**, so **all four arms
+    cleared the gate — publishable.**
+    The measured cost order matched the preregistered order
+    (`cost < balanced < premium ≤ quality`). Spend was **$3.27 / $20**, replay was
+    byte-for-byte identical, and unpriced was **0%**. Experiment 11 recorded
+    "discipline forced a void". This experiment recorded
+    "a valid result came out under discipline". Both use **the same gate twice,
+    without loosening.**
 
 !!! warning "This page also records a real paid run — spend the operator approved"
     Just like experiment 11, this re-run is **a real Azure inference run executed after passing
@@ -61,8 +61,8 @@ in Balanced mode) · `router-quality` (Model Router in Quality mode) · `direct-
 ## Quality-gate verdict — **all four arms PASS → publishable**
 
 <figure markdown="span">
-  ![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
-  <figcaption>Cost vs pass-rate scatter — the further upper-left, the cheaper and more accurate. router-cost holds the same pass-rate band at the lowest cost, while router-quality is dominated by direct-premium (more expensive without a higher pass rate).</figcaption>
+  ![Cost vs pass-rate scatter: direct-premium costs less and has a higher pass rate than router-quality; router-cost has the lowest cost at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
+  <figcaption>Cost vs pass-rate scatter — router-cost has the lowest cost at the same pass-rate band. router-quality costs more and has a lower pass rate than direct-premium.</figcaption>
 </figure>
 
 | gate | criterion | result |
@@ -106,26 +106,26 @@ balanced ($0.305) < premium ($1.341) < quality ($1.559)`.
 | `router-quality` | `gpt-5` 57% · `gpt-5.5` 43% (Grok 0) |
 | `direct-premium` | `gpt-5.6-sol` 100% |
 
-Cost mode sending **every cell to Grok** was **reproduced back to back** across experiment 11
-(void) and this re-run. The preregistration wrote in advance that it "expects the same routing
-behavior," and the measurement confirmed it.
+Cost mode sent **every cell to Grok** in both experiment 11 (void) and this re-run.
+The preregistration said it "expects the same routing
+behavior", and the second measurement produced that behavior again.
 
-## The 11 timeout cells — **counted doubly conservatively** (working only against the router)
+## The 11 timeout cells — counted in coverage and pass rate
 
 When the 8192 cap (Fix B) was on, reasoning cells took longer to generate, and 11 cells exceeded
 the **fixed timeouts (read 90s / overall 120s)** — **all in router arms** (cost 4 · balanced 3 ·
 quality 4), with direct-premium at 0 (its longest was 33.5s). By task: `toll-schedule` 7 ·
 `dedupe-stable` 3 · `weekday-label` 1.
 
-These cells are counted **doubly conservatively**:
+Each timeout affects two metrics:
 
 - **Excluded from coverage** — with no body, `output_sha256 = None` → dropped from the
   grading-coverage numerator.
 - **And simultaneously failed on pass rate** — counted as `pass = False`, docking pass rate too.
 
-That is, the router arms' **4.17 pp pass-rate drop is entirely due to timeouts, not code
-quality** — and even so, we did not reinterpret the gate favorably; we judged it publishable
-**with the penalty applied as-is.**
+The router arms' **4.17 pp pass-rate drop is entirely due to timeouts, not code
+quality**. The gate was not changed to remove that penalty; the run passed with the
+timeouts counted as written.
 
 !!! danger "What this run does not claim (limits — read these together)"
     - **Statistical confidence**: 24 tasks = `evidence_tier` **directional**. Confirming it
@@ -141,13 +141,12 @@ quality** — and even so, we did not reinterpret the gate favorably; we judged 
 
 ## Next — a Fix C candidate (what this run newly surfaced)
 
-The only blemish in this re-run is the **11 timeout cells** above. The longest successful-cell
-latency was 81.8s (Grok reasoning) and p99 was 74.8s, yet **all 11 cells hit the read_timeout 90s
-wall exactly** (they never reached overall 120s). So `read_timeout` is the **only binding
-constraint**, and the [Fix C proposal](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md)
-suggests read 90→180s / overall 120→240s. This too is a config change, so **`plan_hash` changes
-and a new preregistration + re-approval are required** — whether to apply it is the operator's
-call (a proposal only).
+The remaining issue is the **11 timeout cells** above. The longest successful-cell
+latency was 81.8s (Grok reasoning), p99 was 74.8s, and **all 11 cells reached
+`read_timeout` 90s** without reaching overall 120s. The [Fix C proposal](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md)
+suggests read 90→180s / overall 120→240s. This is a config change, so **`plan_hash`
+changes and a new preregistration + re-approval are required**. The operator decides
+whether to apply it; this page records the proposal only.
 
 ---
 

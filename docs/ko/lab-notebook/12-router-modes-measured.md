@@ -1,15 +1,14 @@
 # 실험 12 · 라우터 세 모드 비교 · 2차 (측정 성공)
 
 !!! abstract "한 줄 요약"
-    [실험 11](11-router-modes-void.md)은 저장소 최초의 유료 4-arm 실측 비교를 시도했지만 내가
-    결과를 보기 **전에** 커밋해 둔 사전등록이 스스로 정한 채점 커버리지 게이트를 한 arm이 넘지 못해
-    **무효(VOID)** 로 판정됐습니다(quality 채점 커버리지 79.2% < 90%). 이 실험은 그 음성 결과가
-    **정확히 짚어 준 두 가지 원인**(Fix A · Fix B)만 고쳐 **같은 게이트·같은 estimand로 재런**한
-    것입니다. 결과: **네 arm 전부 게이트를 통과 — publishable.** 채점 커버리지가 79.2%에서
-    **96.18%** 로 복구됐고, **사전등록이 미리 적어 둔 비용 순서 예상(`cost < balanced < premium
-    ≤ quality`)이 실측과 맞았습니다.** 지출 **$3.27 / $20**, replay 바이트 단위 동일, unpriced
-    **0%**. 실험 11의 "규율이 무효를 강제했다"와 이 실험의 "규율 아래 유효 결과가 나왔다"는
-    나란히 읽혀야 합니다 — **같은 게이트를 두 번, 완화 없이** 적용한 것이 요점입니다.
+    [실험 11](11-router-modes-void.md)은 quality 채점 커버리지가 79.2% < 90%라
+    **무효(VOID)**였습니다. 이번 런은 거기서 확인한 원인 두 가지(Fix A · Fix B)만 바꾸고 같은
+    4-arm 비교를 같은 게이트와 estimand로 다시 돌렸습니다. 채점 커버리지가 79.2%에서
+    **96.18%**로 올라 **네 arm 전부 게이트를 통과 — publishable**했습니다. 실측 비용 순서는
+    사전등록의 예상(`cost < balanced < premium
+    ≤ quality`)과 같았습니다. 지출은 **$3.27 / $20**, replay는
+    바이트 단위 동일, unpriced는 **0%**였습니다. 실험 11의 "규율이 무효를 강제했다"와 이 실험의
+    "규율 아래 유효 결과가 나왔다"는 **같은 게이트를 두 번, 완화 없이** 적용한 기록입니다.
 
 !!! warning "이 페이지도 실제 유료 런을 기록한다 — operator가 승인한 지출"
     실험 11과 동일하게, 이 재런은 **명시적 승인 게이트를 통과한 뒤 실행된 실제 Azure 추론 런**
@@ -57,8 +56,8 @@ Router의 Balanced 모드) · `router-quality`(Model Router의 Quality 모드) �
 ## 품질 게이트 판정 — **네 arm 전부 PASS → publishable**
 
 <figure markdown="span">
-  ![비용 대 통과율 산점도: direct-premium이 router-quality보다 왼쪽 위(더 싸고 통과율 높음)에 있어 router-quality가 지배당함을 보인다. router-cost는 같은 통과율에서 가장 왼쪽](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
-  <figcaption>비용 대 통과율 산점도 — 왼쪽 위일수록 싸고 정확하다. router-cost가 가장 낮은 비용에서 같은 통과율대를 지키고, router-quality는 direct-premium에 지배된다(더 비싼데 통과율이 더 높지 않다).</figcaption>
+  ![비용 대 통과율 산점도: direct-premium은 router-quality보다 비용이 낮고 통과율이 높다. router-cost는 같은 통과율에서 비용이 가장 낮다](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
+  <figcaption>비용 대 통과율 산점도 — router-cost는 같은 통과율대에서 비용이 가장 낮다. router-quality는 direct-premium보다 비용이 높고 통과율이 낮다.</figcaption>
 </figure>
 
 | 게이트 | 기준 | 결과 |
@@ -98,22 +97,22 @@ Router의 Balanced 모드) · `router-quality`(Model Router의 Quality 모드) �
 | `router-quality` | `gpt-5` 57% · `gpt-5.5` 43% (Grok 0건) |
 | `direct-premium` | `gpt-5.6-sol` 100% |
 
-Cost 모드가 **모든 셀을 Grok으로** 보낸 것은 실험 11(void)과 이 재런에서 **연속 재현**됐습니다.
-사전등록이 미리 "같은 라우팅 행동을 예상한다"고 적었고 실측이 확인했습니다.
+Cost 모드는 실험 11(void)과 이 재런 모두에서 **모든 셀을 Grok으로** 보냈습니다. 사전등록은
+"같은 라우팅 행동을 예상한다"고 적었고 두 번째 실측에서도 같은 동작이 나왔습니다.
 
-## 타임아웃 11셀 — **이중 보수 처리** (라우터에만 불리하게 작용)
+## 타임아웃 11셀 — 커버리지와 통과율에 모두 반영
 
 8192 cap(Fix B)이 켜지자 reasoning 셀의 생성이 길어져 **고정 타임아웃(read 90s / overall 120s)**을
 넘긴 셀이 11개 나왔습니다 — **전부 라우터 arm**(cost 4 · balanced 3 · quality 4), direct-premium은
 최장 33.5s로 0건. 태스크별로는 `toll-schedule` 7 · `dedupe-stable` 3 · `weekday-label` 1.
 
-이 셀들은 **두 겹으로 보수적으로** 계상됩니다:
+각 타임아웃은 두 지표에 반영됩니다:
 
 - **커버리지에서 제외** — 본문이 없어 `output_sha256 = None` → 채점 커버리지 분자에서 빠짐.
 - **동시에 통과율에서 fail** — `pass = False`로 계상되어 통과율도 깎임.
 
-즉 라우터 arm의 **4.17 %p 통과율 하락은 전부 타임아웃 때문이지 코드 품질이 아닙니다** — 그럼에도
-게이트를 유리하게 재해석하지 않고 감점을 **그대로 반영한 채** publishable로 판정했습니다.
+라우터 arm의 **4.17 %p 통과율 하락은 전부 타임아웃 때문이지 코드 품질이 아닙니다**. 이 감점을
+없애도록 게이트를 바꾸지 않았고 타임아웃을 그대로 센 상태에서 publishable로 판정했습니다.
 
 !!! danger "이 런으로 주장하지 않는 것 (한계 — 반드시 함께 읽을 것)"
     - **통계적 신뢰**: 24개 태스크 = `evidence_tier` **directional(방향성)**. 통계적으로 확정하려면
@@ -127,12 +126,11 @@ Cost 모드가 **모든 셀을 Grok으로** 보낸 것은 실험 11(void)과 이
 
 ## 다음 — Fix C 후보 (이번 런이 새로 드러낸 것)
 
-이 재런의 유일한 흠은 위 **타임아웃 11셀**입니다. 성공 셀 최장 지연은 81.8s(Grok reasoning),
-p99 74.8s인데 **11셀 전부 read_timeout 90s 벽에 정확히 걸렸습니다**(overall 120s엔 도달 안 함).
-따라서 `read_timeout`이 **유일한 구속 변수**이며
+남은 문제는 위 **타임아웃 11셀**입니다. 성공 셀 최장 지연은 81.8s(Grok reasoning), p99
+74.8s였고 **11셀 전부 `read_timeout` 90s에 도달했으며** overall 120s에는 도달하지 않았습니다.
 [Fix C 제안서](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md)
-는 read 90→180s / overall 120→240s를 제안합니다. 이 역시 config 변경이라 **`plan_hash`가 바뀌고
-새 사전등록 + 재승인이 필요**합니다 — 적용 여부는 operator가 정합니다(제안까지만).
+는 read 90→180s / overall 120→240s를 제안합니다. config가 바뀌므로 **`plan_hash`가 바뀌고 새
+사전등록 + 재승인이 필요**합니다. 적용 여부는 operator가 정하며 이 페이지는 제안만 기록합니다.
 
 ---
 

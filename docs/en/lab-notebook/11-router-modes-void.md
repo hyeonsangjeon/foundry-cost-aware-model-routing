@@ -1,18 +1,14 @@
 # Experiment 11 · Comparing the router's three modes · run 1 (measurement failed)
 
 !!! abstract "One-line summary"
-    If [experiment 09](09-live-routing-proof.md) proved the router's **choice** and
-    [experiment 10](10-measured-ledger.md) proved the **sealing and audit** of that spend,
-    this experiment attempts the repository's first **paid 4-arm measured comparison** — it
-    wires the router's three modes (Cost · Balanced · Quality) and a premium direct arm
-    (`gpt-5.6-sol`) onto the same 24 coding tasks and measures **pass rate against cost**.
-    The result: **the run is VOID.** A preregistration I committed **before** seeing the
-    results set a grading-coverage gate, and one arm failed to clear it (quality grading
-    coverage **79.2% < 90%**). The value of this experiment is not a clean savings number but
-    that **the preregistration actually stopped after-the-fact narrative-fitting** — and that
-    along the way **a prediction was overturned** (quality cost more than premium) and **three
-    unexpected findings** came out. A valid negative result is an asset to **record**, not
-    discard.
+    This first **paid 4-arm measured comparison** ran the router's Cost · Balanced ·
+    Quality modes and a direct `gpt-5.6-sol` arm on the same 24 coding tasks. The
+    preregistration, committed **before** the results, required every arm to clear the
+    grading-coverage gate. Quality reached **79.2% < 90%**, so **the run is VOID** and
+    cannot support a savings comparison. The run still recorded that quality cost more
+    than premium, Cost mode used Grok, and reasoning consumed the output budget.
+    [Experiment 09](09-live-routing-proof.md) records router choice, and
+    [experiment 10](10-measured-ledger.md) records how measured usage is sealed.
 
 !!! warning "This page records a real paid run — the only approved spend"
     Unlike experiments 01–10, which were offline projections or re-seals of already-captured
@@ -42,7 +38,7 @@
   **The timestamp is the proof** — it can't be edited later to fit the results.
 
 <figure markdown="span">
-  ![Cost vs pass-rate scatter (experiment 12 publishable re-run): direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
+  ![Cost vs pass-rate scatter (experiment 12 publishable re-run): direct-premium costs less and has a higher pass rate than router-quality; router-cost has the lowest cost at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
   <figcaption>For contrast — this scatter is <strong>experiment 12's (the publishable re-run)</strong> cost vs pass rate. Experiment 11 is VOID at the grading-coverage gate and has no publishable chart of its own, so we show experiment 12's result — produced after fixing the two causes — as a contrast. Directly below is experiment 11's voided measured table.</figcaption>
 </figure>
 
@@ -59,19 +55,18 @@
   **0** · 7 timeouts (HTTP408, handled per the retry policy) · replay **byte-for-byte
   identical** (`cost_mismatches: []`).
 - **Aggregate grading coverage is 90.6% (261/288), which just clears 90%**, but the gate is
-  *per-arm* — with `router-quality` collapsing to **79.2%**, the whole comparison is voided.
+  *per-arm*. `router-quality` reached **79.2%**, so the whole comparison is voided.
 
-## The preregistered prediction was overturned — **recorded as-is, not edited**
+## The preregistered prediction was wrong — **recorded as-is, not edited**
 
-The predicted direction written into the preregistration was `cost ≤ balanced ≤ quality ≤
-premium` (spend), with quality expected to have the highest pass rate. The measurement
-**overturned this on two counts**:
+The preregistration predicted `cost ≤ balanced ≤ quality ≤
+premium` for spend and
+expected quality to have the highest pass rate. The measurement differed in two ways:
 
-- **Cost inversion:** `quality ($1.791) > premium ($1.417)`. Quality mode's premium sub-model
-  choice was **more expensive** than direct premium, and it wasn't offset by a quality edge.
-- **Pass-rate inversion:** quality was the **lowest** (0.792). The arm expected to be most
-  accurate came in last — though this number is itself an artifact of finding (2) below and
-  should not be read at face value.
+- **Cost:** `quality ($1.791) > premium ($1.417)`. Quality mode's premium sub-model
+  choice was **more expensive** than direct premium, with no measured quality advantage.
+- **Pass rate:** quality was the **lowest** (0.792). Finding (2) below explains why,
+  so this number should not be read as a direct quality ranking.
 
 !!! quote "Why we don't retro-edit predictions"
     Erase a wrong prediction and rewrite it to fit the results, and any run can be made to look
@@ -89,7 +84,7 @@ actually went was **`grok-4-1-fast-reasoning`** — **125 of 288 cells (43.4%)**
 particular **Cost mode was 100% Grok**. Cells routed to Claude: **0**. The predicted risk did
 not appear, and an unpredicted backend became the cause of unpriced cells.
 
-### (2) Reasoning swallowed the output whole
+### (2) Reasoning used the output budget before code appeared
 
 `max_output_tokens = 2048`, and in **20 cells** the OpenAI-family reasoning models (`gpt-5` ·
 `gpt-5.5` · `gpt-5.6-sol`) **spent that entire budget on reasoning tokens and produced not one
@@ -98,10 +93,10 @@ these 20 clustered in the quality arm, dragging quality grading coverage down to
 direct cause that voided the run**. (Grok, by contrast, used up to 5,400 reasoning tokens and
 still produced a gradable body — output accounting differed by provider.)
 
-### (3) The Grok unpriced cells weren't a "missing rate" — they were **fail-closed working correctly**
+### (3) The "missing rate" diagnosis was wrong; fail-closed withheld Grok cost
 
-This is the most important correction. Seeing the router go to Grok while cost was withheld, I
-first suspected "the card is missing a Grok rate," but investigation showed that was the **wrong
+Seeing the router go to Grok while cost was withheld, I first suspected
+"the card is missing a Grok rate," but investigation showed that was the **wrong
 diagnosis**:
 
 - The Grok base rate (`input $0.2 / output $0.5 /1M`) is **already in the card** and matches
@@ -113,9 +108,9 @@ diagnosis**:
   cached rate" and **withheld the cost instead of guessing** — this is not a bug but the
   [03Z-b honesty contract](10-measured-ledger.md) working as designed.
 
-## Why VOID is an asset
+## Why the VOID result is still useful
 
-This run **failed cleanly** — that is the point:
+This run failed its preregistered gate but left usable evidence:
 
 - **The preregistration voided itself.** The gate I committed (any arm's grading coverage <90%
   → void) fired on, of all things, the quality arm that looked most "expensive" on the surface.
@@ -124,8 +119,8 @@ This run **failed cleanly** — that is the point:
 - **Integrity is perfect.** 288/288 completed, within budget ($3.47/$20), replay byte-for-byte
   identical, zero tamper mismatches. The data is trustworthy — it's just that **this
   configuration** can't support a savings claim.
-- **The negative result + three findings become design input for the next experiment.** This
-  run told us exactly what to fix to make a valid comparison.
+- **The negative result and three findings identify the next changes.** They show what
+  must be fixed before a valid comparison can run.
 
 !!! danger "What this run does not claim"
     - **Savings rate**: `router-quality` grading coverage failed to clear the gate, so **the
