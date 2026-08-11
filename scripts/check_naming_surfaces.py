@@ -47,7 +47,7 @@ MARKDOWN_GLOBS = (
 )
 
 # Reader-facing strings embedded in the product UI.
-HTML_SOURCES = ("src/router/dashboard.py",)
+HTML_SOURCES = ("src/router/dashboard.py", "src/router/demo_i18n.py")
 
 # Experiment metadata fields a reader sees (titles, summaries, labels).
 EXPERIMENT_GLOB = "experiments/*.yaml"

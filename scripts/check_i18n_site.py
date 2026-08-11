@@ -87,6 +87,22 @@ HANGUL_RE = re.compile(r"[\uac00-\ud7a3]")
 EXTERNAL_PREFIXES = ("http://", "https://", "//", "mailto:", "tel:",
                      "javascript:", "data:")
 
+# -- static-demo language consistency ---------------------------------------
+# Reader-prose surfaces of each static demo that must be single-language. The
+# other machine JSON payloads (healthz/policy/replay/regression/fanout-sweep/
+# compare) and the sealed ``published.json`` snapshot are pure numbers and
+# identifiers with no reader prose, so they are language-neutral by construction
+# and are not scanned.
+DEMO_PROSE_JSON = ("experiments.json", "metrics-history.json")
+# The EN<->KO switch affordance legitimately shows the *other* locale's label in
+# its own script (``한국어`` on the English demo, ``English`` on the Korean one),
+# so the switch anchor is removed before the per-locale language assertions.
+DEMO_SWITCH_RE = re.compile(r'<a\b[^>]*\brel\s*=\s*"alternate"[^>]*>.*?</a>',
+                            re.IGNORECASE | re.DOTALL)
+SCRIPT_STYLE_RE = re.compile(r"<(script|style)\b[^>]*>.*?</\1>",
+                             re.IGNORECASE | re.DOTALL)
+HEAD_RE = re.compile(r"<head\b[^>]*>.*?</head>", re.IGNORECASE | re.DOTALL)
+
 
 def _base_path() -> str:
     """Return the URL base path from mkdocs ``site_url`` (e.g. ``/repo/``)."""
@@ -490,6 +506,81 @@ def check_demos(site: Path) -> list[str]:
     return out
 
 
+def _demo_visible_text(html: str) -> str:
+    """Reader-visible prose of a demo page: drop ``<head>``, ``<script>``,
+    ``<style>``, the EN<->KO switch anchor, then every tag, and collapse
+    whitespace. Shared code, identifiers and numbers live in stripped scripts or
+    are ASCII, so what remains is the translatable body copy."""
+    html = HEAD_RE.sub(" ", html)
+    html = DEMO_SWITCH_RE.sub(" ", html)
+    html = SCRIPT_STYLE_RE.sub(" ", html)
+    html = TAG_RE.sub(" ", html)
+    return re.sub(r"\s+", " ", html).strip()
+
+
+def check_demo_languages(site: Path) -> list[str]:
+    """Each static demo must render in exactly one language.
+
+    Three assertions per surface, across both delivery paths (the demo
+    ``index.html`` and the runtime-fetched reader-prose JSON):
+      * the English demo carries no Korean (the switch label is excluded);
+      * the Korean demo actually carries Korean (not English copied into it);
+      * the English and Korean demos differ (real per-locale branching, not the
+        same body written to both paths).
+
+    Code, identifiers, model names and CLI commands are ASCII, so they never
+    trip the Hangul assertions and stay shared across locales by design. This is
+    the check the earlier structural ``check_demos`` could not make: it verified
+    markers (lang attr, switch link, canonical, JSON presence) but never the
+    body language, so a locale-neutral body passed silently.
+    """
+    out: list[str] = []
+    en_dir, ko_dir = site / "demo", site / "ko" / "demo"
+    en_index, ko_index = en_dir / "index.html", ko_dir / "index.html"
+    if not en_index.is_file() or not ko_index.is_file():
+        # check_demos already reports a missing demo; nothing more to assert.
+        return out
+
+    en_html = en_index.read_text(encoding="utf-8", errors="ignore")
+    ko_html = ko_index.read_text(encoding="utf-8", errors="ignore")
+
+    # (1) English demo index.html carries no Korean (switch label excluded).
+    en_hits = HANGUL_RE.findall(DEMO_SWITCH_RE.sub(" ", en_html))
+    if en_hits:
+        out.append("demo-lang: English demo 'demo/index.html' leaks "
+                   + str(len(en_hits)) + " Korean character(s) in its body")
+
+    # (2) Korean demo index.html actually carries Korean.
+    if not HANGUL_RE.search(DEMO_SWITCH_RE.sub(" ", ko_html)):
+        out.append("demo-lang: Korean demo 'ko/demo/index.html' has no Korean "
+                   "text (English copied into the Korean locale?)")
+
+    # (3) The two demo bodies must differ — identical visible prose means the
+    #     locale branch never ran (the same screen was served to both paths).
+    if _demo_visible_text(en_html) == _demo_visible_text(ko_html):
+        out.append("demo-lang: 'demo/' and 'ko/demo/' render identical body "
+                   "text (locale branching absent — same screen)")
+
+    # (4) Runtime-fetched reader-prose JSON obeys the same contract.
+    for name in DEMO_PROSE_JSON:
+        en_json, ko_json = en_dir / name, ko_dir / name
+        if not en_json.is_file() or not ko_json.is_file():
+            out.append("demo-lang: reader JSON '" + name + "' missing in a demo")
+            continue
+        en_txt = en_json.read_text(encoding="utf-8", errors="ignore")
+        ko_txt = ko_json.read_text(encoding="utf-8", errors="ignore")
+        en_j = HANGUL_RE.findall(en_txt)
+        if en_j:
+            out.append("demo-lang: English demo '" + name + "' leaks "
+                       + str(len(en_j)) + " Korean character(s)")
+        if not HANGUL_RE.search(ko_txt):
+            out.append("demo-lang: Korean demo '" + name + "' has no Korean text")
+        if en_txt == ko_txt:
+            out.append("demo-lang: '" + name + "' is identical across locales "
+                       "(reader prose not branched)")
+    return out
+
+
 CHECKS = [
     ("url-contract", check_url_contract),
     ("lang", check_lang_attributes),
@@ -502,6 +593,7 @@ CHECKS = [
     ("search", check_search),
     ("hangul-leak", check_hangul_leak),
     ("demos", check_demos),
+    ("demo-languages", check_demo_languages),
 ]
 
 

@@ -14,11 +14,13 @@ Everything is generated deterministically from the bundled synthetic workload �
 no network, no secrets, generic placeholder models only. Numbers are identical
 to ``make replay`` / the live service by construction (same pipeline call).
 
-Both locales serve the same English technical cockpit — the machine JSON and
-the rendered dashboard are locale-neutral by design. Only the ``<html lang>``,
-the reciprocal ``canonical``/``hreflang`` metadata, and a visible EN<->KO switch
-link differ between ``/demo/`` (en) and ``/ko/demo/`` (ko), so a Korean reader
-who follows the demo link from ``/ko/`` stays inside the Korean locale context.
+Each locale renders in its own language. ``render_dashboard(locale)`` resolves
+the per-locale prose from ``router.demo_i18n`` and injects the matching
+measured-tab payload, and the experiment/metrics JSON is localized per locale,
+so ``/demo/`` (en) is fully English and ``/ko/demo/`` (ko) fully Korean. The
+``<html lang>``, reciprocal ``canonical``/``hreflang`` metadata, and a visible
+EN<->KO switch link differ too, so a Korean reader who follows the demo link
+from ``/ko/`` stays inside the Korean locale context.
 
 Usage: python scripts/build_static_site.py [output_dir] [locale]
        (defaults: cost-router-dashboard en)
@@ -27,12 +29,14 @@ Usage: python scripts/build_static_site.py [output_dir] [locale]
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from router.dashboard import DASHBOARD_HTML  # noqa: E402
+from router.dashboard import render_dashboard  # noqa: E402
+from router.demo_i18n import localize_experiments  # noqa: E402
 from router.server import RouterService  # noqa: E402
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -119,9 +123,22 @@ def build(output_dir: Path, locale: str = "en") -> None:
         "regression.json": _payload(service, "/regression"),
         "fanout-sweep.json": _payload(service, "/fanout-sweep"),
         "compare.json": _payload(service, "/compare"),
-        "experiments.json": _payload(service, "/experiments"),
-        "metrics-history.json": _payload(service, "/metrics/history"),
+        "experiments.json": localize_experiments(_payload(service, "/experiments"), locale),
+        "metrics-history.json": localize_experiments(
+            _payload(service, "/metrics/history"), locale
+        ),
     }
+    # R4 for data: the English demo must never leak Korean through client-side
+    # rendered JSON (experiment cards, history titles). A missing per-locale
+    # translation fails the build rather than shipping mixed language.
+    if locale == "en":
+        hangul = re.compile(r"[\uac00-\ud7a3]")
+        for name in ("experiments.json", "metrics-history.json"):
+            if hangul.search(json.dumps(files[name], ensure_ascii=False)):
+                raise SystemExit(
+                    f"en demo {name} still contains Korean — add the missing "
+                    "EXPERIMENT_I18N entry in router.demo_i18n"
+                )
     for name, payload in files.items():
         (output_dir / name).write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -138,9 +155,10 @@ def build(output_dir: Path, locale: str = "en") -> None:
 
     # Inject the static endpoint map immediately before the dashboard script so
     # window.__ENDPOINTS__ is set before the main module reads it.
-    if DASHBOARD_HTML.count("<script>") < 1:
+    dashboard_html = render_dashboard(locale)
+    if dashboard_html.count("<script>") < 1:
         raise SystemExit("dashboard HTML has no <script> block to hook")
-    localized = _localize(DASHBOARD_HTML, locale)
+    localized = _localize(dashboard_html, locale)
     index_html = localized.replace("<script>", _ENDPOINT_INJECTION + "<script>", 1)
     (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
