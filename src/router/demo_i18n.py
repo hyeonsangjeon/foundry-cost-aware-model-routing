@@ -14,6 +14,7 @@ both sides, and a non-shared key must actually differ — so adding a string
 with only one locale filled, or forgetting to translate one, fails the build
 instead of silently leaking the wrong language into a demo."""
 from __future__ import annotations
+
 import re
 
 _HANGUL = re.compile(r"[\uac00-\ud7a3]")

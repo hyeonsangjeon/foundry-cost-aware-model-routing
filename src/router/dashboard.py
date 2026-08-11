@@ -2189,8 +2189,9 @@ loadPolicy().then(() => {
 </html>
 """
 
-from .demo_i18n import measured_payload, render_demo_prose  # noqa: E402
 import json as _json  # noqa: E402
+
+from .demo_i18n import measured_payload, render_demo_prose  # noqa: E402
 
 
 def render_dashboard(locale: str = "en") -> str:
