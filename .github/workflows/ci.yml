@@ -131,6 +131,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-docs.txt
+          pip install -e .
 
       - name: Terminology gate (통과율 vs 채점 커버리지)
         run: python scripts/check_terminology.py
@@ -138,7 +139,12 @@ jobs:
       - name: Build docs (strict)
         run: mkdocs build --strict
 
-      - name: i18n site contract (no /en//ko/, ko at root, links resolve)
+      - name: Build interactive dashboard demos (en at /demo/, ko at /ko/demo/)
+        run: |
+          python scripts/build_static_site.py site/demo en
+          python scripts/build_static_site.py site/ko/demo ko
+
+      - name: i18n site contract (en at root, ko under /ko/, pairs/redirects/hreflang/demos)
         run: python scripts/check_i18n_site.py site
 
   onboarding:

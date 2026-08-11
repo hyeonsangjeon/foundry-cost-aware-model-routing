@@ -15,7 +15,7 @@
 
 ## At a glance
 
-![Six experiments at a glance: hero and curated use ordered escalation, ensemble fans out, adaptive turns fan-out off, limits shows the honest floor, single-call compares one up-front pick to the mix](../assets/experiments-overview.svg)
+![Six experiments at a glance: hero and curated use ordered escalation, ensemble fans out, adaptive turns fan-out off, limits shows the honest floor, single-call compares one up-front pick to the mix](/foundry-cost-aware-model-routing/assets/experiments-overview.svg)
 
 Same models, same pricing, same policy everywhere. Each experiment flips exactly **one dial** — the
 workload, the fan-out gate, or the comparison arm — so you can read one idea at a time.
@@ -31,7 +31,7 @@ Every experiment draws from one universe of candidate models. The routing **poli
 maps each **task class** to an *ordered* list of candidates, cheapest first, each carrying two
 priors: a **pass-rate** and a **`$/resolved`** (total dollars per resolved task).
 
-![The model ladder: five candidate models ordered cheapest to priciest by dollars per resolved task](../assets/models-ladder.svg)
+![The model ladder: five candidate models ordered cheapest to priciest by dollars per resolved task](/foundry-cost-aware-model-routing/assets/models-ladder.svg)
 
 | Task class | Ordered candidates (cheapest → priciest, `$/resolved`) |
 | --- | --- |
@@ -69,7 +69,7 @@ Only **layer 3 (SELECT)** changes shape between experiments. There are exactly *
     billed for the **accepted** model — the failed cheap attempts are observed, not charged as
     winners. This is where most of the savings come from.
 
-    ![Cost-aware single route: try the cheapest candidate first, escalate only on a failed check, bill only the accepted model](../assets/mechanism-ordered.svg)
+    ![Cost-aware single route: try the cheapest candidate first, escalate only on a failed check, bill only the accepted model](/foundry-cost-aware-model-routing/assets/mechanism-ordered.svg)
 
     *Used by · `hero` · `curated` · `limits` · `adaptive`*  ·  code: `ordered_select()`
 
@@ -79,7 +79,7 @@ Only **layer 3 (SELECT)** changes shape between experiments. There are exactly *
     keep the highest — ties break to the **cheapest passing** model. Coverage is high, but you pay to
     run the losers too: **the ensemble tax**.
 
-    ![Ensemble fan-out: run every candidate in parallel, keep the cheapest passing result, and pay the ensemble tax for the losing calls](../assets/mechanism-fanout.svg)
+    ![Ensemble fan-out: run every candidate in parallel, keep the cheapest passing result, and pay the ensemble tax for the losing calls](/foundry-cost-aware-model-routing/assets/mechanism-fanout.svg)
 
     *Used by · `ensemble`*  ·  code: `compare_select()`
 
@@ -90,7 +90,7 @@ Only **layer 3 (SELECT)** changes shape between experiments. There are exactly *
     productized router; the real one's pick-skill is proprietary and **measured** (see the last
     section).
 
-    ![Single-call routing: pick one model per prompt up front by difficulty tier, with no escalation](../assets/mechanism-single-call.svg)
+    ![Single-call routing: pick one model per prompt up front by difficulty tier, with no escalation](/foundry-cost-aware-model-routing/assets/mechanism-single-call.svg)
 
     *Used by · `single-call`*  ·  code: `single_call_pick()`
 
@@ -120,7 +120,7 @@ They are generated deterministically from the numbers above by
 
 ### `hero` — same coverage, lower cost
 
-![Animated hero loop: a naive lane sends every task to premium-max ($2.23) while the cost-aware lane tries mini-fast first, escalates once on a failed check, and keeps swift-coder — landing 25.5% cheaper at the same 100% coverage](../assets/gif/hero.gif)
+![Animated hero loop: a naive lane sends every task to premium-max ($2.23) while the cost-aware lane tries mini-fast first, escalates once on a failed check, and keeps swift-coder — landing 25.5% cheaper at the same 100% coverage](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
 
 | | |
 | --- | --- |
@@ -141,7 +141,7 @@ escalation keeps that 100% coverage but tries cheap-clean-first, landing 25.5% c
 
 ### `curated` — five tasks you can read
 
-![Animated curated loop: the same escalation ladder over five hand-labelled tasks, cheap-clean-first, landing 56.7% under premium-on-every-task](../assets/gif/curated.gif)
+![Animated curated loop: the same escalation ladder over five hand-labelled tasks, cheap-clean-first, landing 56.7% under premium-on-every-task](/foundry-cost-aware-model-routing/assets/gif/curated.gif)
 
 | | |
 | --- | --- |
@@ -161,7 +161,7 @@ Tiny enough to follow every routing decision by eye end-to-end.
 
 ### `ensemble` — best-of-N, at a real cost
 
-![Animated ensemble loop: the workload fans out to all five candidates in parallel, a compare node keeps the cheapest passing winner (swift-coder), and a meter fills to the ~3.7x fan-out tax paid for the losing calls](../assets/gif/ensemble.gif)
+![Animated ensemble loop: the workload fans out to all five candidates in parallel, a compare node keeps the cheapest passing winner (swift-coder), and a meter fills to the ~3.7x fan-out tax paid for the losing calls](/foundry-cost-aware-model-routing/assets/gif/ensemble.gif)
 
 | | |
 | --- | --- |
@@ -182,7 +182,7 @@ model — still 47% under naive — but fanning out means paying for the losing 
 
 ### `adaptive` — the fan-out dial, turned off
 
-![Animated adaptive loop: a dial raises compare_min_value above every task value, collapsing the five parallel fan-out lines to one and draining the fan-out tax from 3.7x to 0.00x while the 47% savings stay put](../assets/gif/adaptive.gif)
+![Animated adaptive loop: a dial raises compare_min_value above every task value, collapsing the five parallel fan-out lines to one and draining the fan-out tax from 3.7x to 0.00x while the 47% savings stay put](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
 
 | | |
 | --- | --- |
@@ -205,7 +205,7 @@ that before paying the tax.)
 
 ### `limits` — there is no free lunch
 
-![Animated limits loop: every cheap tier fails in turn (mini-fast, swift-coder, balanced-pro, deep-reasoner all red) so escalation climbs all the way to premium-max on every task — 0.0% savings, honest spend](../assets/gif/limits.gif)
+![Animated limits loop: every cheap tier fails in turn (mini-fast, swift-coder, balanced-pro, deep-reasoner all red) so escalation climbs all the way to premium-max on every task — 0.0% savings, honest spend](/foundry-cost-aware-model-routing/assets/gif/limits.gif)
 
 | | |
 | --- | --- |
@@ -228,7 +228,7 @@ on hard work.
 
 ### `single-call` — one pick vs observe-and-escalate { #model-router-one-pick-vs-observe-and-escalate }
 
-![Animated single-call loop: a single-call lane picks one tier up front and stalls at 52% coverage, while the escalation lane observes cheap failures and raises only when needed to reach 100% coverage at the same cost band (+48 percentage points)](../assets/gif/model-router.gif)
+![Animated single-call loop: a single-call lane picks one tier up front and stalls at 52% coverage, while the escalation lane observes cheap failures and raises only when needed to reach 100% coverage at the same cost band (+48 percentage points)](/foundry-cost-aware-model-routing/assets/gif/model-router.gif)
 
 | | |
 | --- | --- |
@@ -260,7 +260,7 @@ bridge captures next.
 Put the single-call arms next to the routing strategies and the trade-off is visible at a glance
 (this is the dashboard's frontier scatter):
 
-![Cost versus coverage scatter of five strategies](../assets/frontier.svg)
+![Cost versus coverage scatter of five strategies](/foundry-cost-aware-model-routing/assets/frontier.svg)
 
 | Strategy | Selection | Cost | Coverage |
 | --- | --- | ---: | ---: |
@@ -282,7 +282,7 @@ result, deploy an Azure AI Foundry **Model Router** and let it route real prompt
 deployment (`model="model-router"`); the router picks a backend **from its own managed roster** and
 returns which one in `response.model`.
 
-![Azure AI Foundry Model Router architecture with keyless Entra auth](../assets/azure-architecture.svg)
+![Azure AI Foundry Model Router architecture with keyless Entra auth](/foundry-cost-aware-model-routing/assets/azure-architecture.svg)
 
 !!! success "This is exactly how experiment 09 was proven"
     Through this one `model-router` deployment, curated prompts split live to **`gpt-5.4` (×3)** and
@@ -319,7 +319,7 @@ in advance — grading coverage came in at **79.2%**, below the **90%** per-arm 
 kept as an asset by discipline: the predictions were overturned (Grok at 100%, not Claude; reasoning
 tokens swallowing the output).
 
-![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](../assets/03d/cost-vs-quality-scatter.svg)
+![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
 *This scatter is experiment **12**'s publishable result — experiment 11's own paid run is VOID, so it has no chart of its own.*
 → [Lab-notebook 11](../lab-notebook/11-router-modes-void.md)
 
@@ -329,8 +329,8 @@ Fix only the two causes experiment 11 identified, then re-run against the **same
 grading coverage recovers **79.2% → 96.18%** and **all four arms PASS → publishable** (**$3.27 / $20**,
 byte-identical replay). The three 03D charts below are this run's evidence.
 
-![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](../assets/03d/arm-cost-comparison.svg)
-![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](../assets/03d/backend-distribution.svg)
+![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.svg)
+![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.svg)
 → [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · full charts: [03D measured results](03d-results.md)
 
 ---

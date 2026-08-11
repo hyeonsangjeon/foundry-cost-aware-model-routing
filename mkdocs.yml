@@ -1,17 +1,17 @@
-site_name: Foundry 비용 인지 모델 라우팅
-site_description: 태스크마다 '통과하는 가장 싼 모델'로 라우팅하고, 오프라인으로 증명하는 실험 — 한국어 매뉴얼과 실험노트.
+site_name: Foundry cost-aware model routing
+site_description: Route each task to the cheapest model that passes, and prove it offline — English manual and lab notebook.
 site_author: Hyeonsang Jeon
 site_url: https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/
 repo_url: https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing
 repo_name: foundry-cost-aware-model-routing
 edit_uri: edit/main/docs/
 copyright: >-
-  실험 01–08은 합성 오프라인 투영(measured=false), 09·10·12는 실측(measured=true,
-  evidence_tier=directional). 각 페이지의 라벨을 확인하세요.
+  Experiments 01–08 are synthetic offline projections (measured=false); 09, 10, 12
+  are measured (measured=true, evidence_tier=directional). Check each page's labels.
 
 theme:
   name: material
-  language: ko
+  language: en
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -19,14 +19,14 @@ theme:
       accent: teal
       toggle:
         icon: material/weather-night
-        name: 다크 모드로 전환
+        name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: green
       accent: teal
       toggle:
         icon: material/weather-sunny
-        name: 라이트 모드로 전환
+        name: Switch to light mode
   features:
     - navigation.tracking
     - navigation.top
@@ -40,71 +40,123 @@ theme:
     repo: fontawesome/brands/github
 
 nav:
-  - 시작하기:
-      - 홈: index.md
-      - 30초 설치: manual/install.md
-      - 핵심 개념: manual/concept.md
-      - "용어집 · 통과율 vs 채점 커버리지": manual/glossary.md
-  - 결과:
-      - "라우팅 모드 실측 결과 (03D)": manual/03d-results.md
-      - "[실측] 실험 12 · 라우터 세 모드 비교 · 2차 (측정 성공)": lab-notebook/12-router-modes-measured.md
-      - "오프라인 실험 결과 · 합성 데이터": manual/projection-results.md
-  - 실험노트:
-      - 소개와 방법론: lab-notebook/index.md
-      - "스토리 아크 · 한눈에 보기": lab-notebook/story-arc.md
-      - "스토리 아크 · 영문 요약": lab-notebook/story-arc-en.md
-      - "[투영] 실험 01 · 싼 모델로 먼저, 실패할 때만 올리기": lab-notebook/01-hero.md
-      - "[투영] 실험 02 · 라우터가 어떤 모델을 왜 골랐나": lab-notebook/02-curated.md
-      - "[투영] 실험 03 · 가장 싼 모델만 쓰면 무엇을 잃나": lab-notebook/03-coverage-cliff.md
-      - "[투영] 실험 04 · 어려운 문제만 있으면 절감이 없다": lab-notebook/04-no-free-lunch.md
-      - "[투영] 실험 05 · 여러 모델을 동시에 부르면 비용이 몇 배": lab-notebook/05-ensemble-fanout.md
-      - "[투영] 실험 06 · 언제 여러 모델을 부를 값어치가 있나": lab-notebook/06-fanout-dial.md
-      - "[투영] 실험 07 · 한 번 고르기 vs 결과 보고 올리기 ⭐": lab-notebook/07-model-router.md
-      - "[투영] 실험 08 · 같은 문제를 네 가지 라우팅으로": lab-notebook/08-arena.md
-      - "[실측] 실험 09 · Foundry 라우터가 실제로 고른 모델": lab-notebook/09-live-routing-proof.md
-      - "[실측] 실험 10 · 측정 기록을 봉인하고 재검증하기": lab-notebook/10-measured-ledger.md
-      - "[실측] 실험 11 · 라우터 세 모드 비교 · 1차 (측정 실패)": lab-notebook/11-router-modes-void.md
-      - 개발 로그: lab-notebook/devlog.md
-  - 레퍼런스:
-      - 명령 레퍼런스:
-          - CLI 레퍼런스: manual/cli.md
-          - 실험 설정(YAML): manual/experiments.md
-      - 실측 운영 절차:
-          - "Foundry 실전 구성 · 실험별 세팅": manual/foundry-setup.md
-          - "플릿 등록 & 모델 선택": manual/fleet.md
-          - "커스터마이징 · 내 워크로드로": manual/customize.md
-          - 정본 실행 계획: manual/run-plan.md
-          - 측정 프로토콜: manual/measurement-protocol.md
-          - 감사 원장: manual/ledger.md
-          - 라이브 실측 브릿지: manual/foundry-live.md
-      - 화면 · 스키마:
-          - 대시보드: manual/dashboard.md
-          - 메트릭 & Foundry: manual/metrics.md
-      - 해설:
-          - 실험 아틀라스: manual/experiment-atlas.md
-          - "워크로드 인벤토리 · 실측 가능성": manual/workload-inventory.md
-          - "문제 하나, 네 가지 방법": manual/head-to-head.md
-  - 정직함 규약: honesty.md
+  - Getting started:
+      - Home: index.md
+      - 30-second install: manual/install.md
+      - Core concepts: manual/concept.md
+      - "Glossary · pass rate vs grading coverage": manual/glossary.md
+  - Results:
+      - "Routing-mode measured results (03D)": manual/03d-results.md
+      - "[measured] Experiment 12 · router three modes · run 2 (measurement succeeded)": lab-notebook/12-router-modes-measured.md
+      - "Offline experiment results · synthetic data": manual/projection-results.md
+  - Lab notebook:
+      - Introduction and methodology: lab-notebook/index.md
+      - "Story arc · at a glance": lab-notebook/story-arc.md
+      - "[projection] Experiment 01 · cheapest first, escalate only on failure": lab-notebook/01-hero.md
+      - "[projection] Experiment 02 · which model the router chose, and why": lab-notebook/02-curated.md
+      - "[projection] Experiment 03 · what you lose using only the cheapest model": lab-notebook/03-coverage-cliff.md
+      - "[projection] Experiment 04 · when every task is hard, there is no saving": lab-notebook/04-no-free-lunch.md
+      - "[projection] Experiment 05 · calling several models at once multiplies the cost": lab-notebook/05-ensemble-fanout.md
+      - "[projection] Experiment 06 · when it is worth calling several models": lab-notebook/06-fanout-dial.md
+      - "[projection] Experiment 07 · one pick vs observe-then-escalate ⭐": lab-notebook/07-model-router.md
+      - "[projection] Experiment 08 · one problem, four routing strategies": lab-notebook/08-arena.md
+      - "[measured] Experiment 09 · the model the Foundry router actually picked": lab-notebook/09-live-routing-proof.md
+      - "[measured] Experiment 10 · sealing and re-verifying the measurement record": lab-notebook/10-measured-ledger.md
+      - "[measured] Experiment 11 · router three modes · run 1 (measurement failed)": lab-notebook/11-router-modes-void.md
+  - Reference:
+      - Command reference:
+          - CLI reference: manual/cli.md
+          - Experiment configuration (YAML): manual/experiments.md
+      - Measured operations:
+          - "Foundry hands-on setup · per-experiment": manual/foundry-setup.md
+          - "Fleet registration & model selection": manual/fleet.md
+          - "Customization · bring your own workload": manual/customize.md
+          - Resolved run plan: manual/run-plan.md
+          - Measurement protocol: manual/measurement-protocol.md
+          - Audit ledger: manual/ledger.md
+          - The live measured bridge: manual/foundry-live.md
+      - Screens · schema:
+          - Dashboard: manual/dashboard.md
+          - Metrics & Foundry: manual/metrics.md
+      - Explainers:
+          - Experiment atlas: manual/experiment-atlas.md
+          - "Workload inventory · what can be measured": manual/workload-inventory.md
+          - "One problem, four ways": manual/head-to-head.md
+  - Honesty Charter: honesty.md
 
 # Explicit plugin block — no reliance on the implicit `search` default.
-# mkdocs-static-i18n stands up the ko/en folder structure. Production build stays
-# a Korean site: ko is the default and renders at the root URL, en is declared but
-# `build: false` (no `/en/` output) until the F4 translation flip.
+# mkdocs-static-i18n stands up the en/ko folder structure. Production serves English
+# at the root URL (default) and Korean under /ko/. Each locale carries its own nav,
+# so the Korean-only development log appears in the Korean nav only.
 plugins:
   - search
   - i18n:
       docs_structure: folder
       fallback_to_default: false
       languages:
-        - locale: ko
-          name: 한국어
-          default: true
-          build: true
         - locale: en
           name: English
-          build: false
+          default: true
+          build: true
+        - locale: ko
+          name: 한국어
+          default: false
+          build: true
+          site_name: Foundry 비용 인지 모델 라우팅
+          site_description: 태스크마다 '통과하는 가장 싼 모델'로 라우팅하고, 오프라인으로 증명하는 실험 — 한국어 매뉴얼과 실험노트.
+          copyright: >-
+            실험 01–08은 합성 오프라인 투영(measured=false), 09·10·12는 실측(measured=true,
+            evidence_tier=directional). 각 페이지의 라벨을 확인하세요.
+          theme:
+            language: ko
+          nav:
+            - 시작하기:
+                - 홈: index.md
+                - 30초 설치: manual/install.md
+                - 핵심 개념: manual/concept.md
+                - "용어집 · 통과율 vs 채점 커버리지": manual/glossary.md
+            - 결과:
+                - "라우팅 모드 실측 결과 (03D)": manual/03d-results.md
+                - "[실측] 실험 12 · 라우터 세 모드 비교 · 2차 (측정 성공)": lab-notebook/12-router-modes-measured.md
+                - "오프라인 실험 결과 · 합성 데이터": manual/projection-results.md
+            - 실험노트:
+                - 소개와 방법론: lab-notebook/index.md
+                - "스토리 아크 · 한눈에 보기": lab-notebook/story-arc.md
+                - "[투영] 실험 01 · 싼 모델로 먼저, 실패할 때만 올리기": lab-notebook/01-hero.md
+                - "[투영] 실험 02 · 라우터가 어떤 모델을 왜 골랐나": lab-notebook/02-curated.md
+                - "[투영] 실험 03 · 가장 싼 모델만 쓰면 무엇을 잃나": lab-notebook/03-coverage-cliff.md
+                - "[투영] 실험 04 · 어려운 문제만 있으면 절감이 없다": lab-notebook/04-no-free-lunch.md
+                - "[투영] 실험 05 · 여러 모델을 동시에 부르면 비용이 몇 배": lab-notebook/05-ensemble-fanout.md
+                - "[투영] 실험 06 · 언제 여러 모델을 부를 값어치가 있나": lab-notebook/06-fanout-dial.md
+                - "[투영] 실험 07 · 한 번 고르기 vs 결과 보고 올리기 ⭐": lab-notebook/07-model-router.md
+                - "[투영] 실험 08 · 같은 문제를 네 가지 라우팅으로": lab-notebook/08-arena.md
+                - "[실측] 실험 09 · Foundry 라우터가 실제로 고른 모델": lab-notebook/09-live-routing-proof.md
+                - "[실측] 실험 10 · 측정 기록을 봉인하고 재검증하기": lab-notebook/10-measured-ledger.md
+                - "[실측] 실험 11 · 라우터 세 모드 비교 · 1차 (측정 실패)": lab-notebook/11-router-modes-void.md
+                - 개발 로그: lab-notebook/devlog.md
+            - 레퍼런스:
+                - 명령 레퍼런스:
+                    - CLI 레퍼런스: manual/cli.md
+                    - 실험 설정(YAML): manual/experiments.md
+                - 실측 운영 절차:
+                    - "Foundry 실전 구성 · 실험별 세팅": manual/foundry-setup.md
+                    - "플릿 등록 & 모델 선택": manual/fleet.md
+                    - "커스터마이징 · 내 워크로드로": manual/customize.md
+                    - 정본 실행 계획: manual/run-plan.md
+                    - 측정 프로토콜: manual/measurement-protocol.md
+                    - 감사 원장: manual/ledger.md
+                    - 라이브 실측 브릿지: manual/foundry-live.md
+                - 화면 · 스키마:
+                    - 대시보드: manual/dashboard.md
+                    - 메트릭 & Foundry: manual/metrics.md
+                - 해설:
+                    - 실험 아틀라스: manual/experiment-atlas.md
+                    - "워크로드 인벤토리 · 실측 가능성": manual/workload-inventory.md
+                    - "문제 하나, 네 가지 방법": manual/head-to-head.md
+            - 정직함 규약: honesty.md
   - redirects:
-      redirect_maps: {}
+      redirect_maps:
+        lab-notebook/story-arc-en.md: https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc/
 
 markdown_extensions:
   - admonition

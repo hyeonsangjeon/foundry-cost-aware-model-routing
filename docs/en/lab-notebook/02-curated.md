@@ -4,7 +4,7 @@
     Route **5 tasks** carrying hand-written offline signals and you can read the routing decisions from start to finish, watching each one by eye. **56.7% lower** cost than naive. All numbers are `measured = false`.
 
 <figure markdown="span">
-  ![Curated loop animation — the same escalation ladder applied to five hand-labelled tasks](../assets/gif/curated.gif)
+  ![Curated loop animation — the same escalation ladder applied to five hand-labelled tasks](/foundry-cost-aware-model-routing/assets/gif/curated.gif)
   <figcaption>Curated loop — the same escalation ladder runs over five hand-labelled tasks, adopting a cheap candidate as soon as it passes cleanly.</figcaption>
 </figure>
 

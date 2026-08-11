@@ -21,10 +21,11 @@ The files live in the `experiments/` directory.
 
 ```yaml title="experiments/hero.yaml"
 name: hero
-title: "같은 커버리지, 더 낮은 비용 — 30초 히어로 실행"
+title: "Same coverage, lower cost — the 30-second hero run"
 summary: >-
-  합성 워크로드 100건을 '통과하는 가장 싼 모델 먼저, 실패할 때만 상위 모델로'
-  라우팅해 모든 태스크에 프리미엄 모델을 쓰는 나이브 방식과 비교합니다.
+  Route 100 synthetic-workload items 'cheapest passing model first, escalate
+  only on failure' and compare against the naive approach of sending every task
+  to a premium model.
 
 dataset:
   workload: samples/telemetry/mixed-coding-workload.sample.jsonl

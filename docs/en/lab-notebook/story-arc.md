@@ -13,7 +13,7 @@ This page is a **map for reading the core arc (01–07)** of the repository's
 the previous one left open, and together they defend the single sentence above.
 [Experiment 08 (arena)](08-arena.md) is the **epilogue that narrows that story to a
 single task**. The derivation and reproduction steps for individual numbers live on
-each experiment page; "when, and what was done" lives in the [dev log](devlog.md).
+each experiment page; "when, and what was done" lives in the [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).
 
 !!! info "What are these experiments evidence of — four axes on top of 'selection'"
     Azure AI Foundry's **built-in Model Router** already solves the *selection*
@@ -196,7 +196,7 @@ strategy loses on one axis or another —
 
 - **5 minutes (executive):** this page's thesis + the journey table → [experiment 01](01-hero.md).
 - **15 minutes (practitioner):** the three acts above → check the five strategies on the [dashboard frontier](../manual/dashboard.md) → one guardrail of interest ([03](03-coverage-cliff.md) / [05](05-ensemble-fanout.md) / [07](07-model-router.md)).
-- **Everything:** [introduction and methodology](index.md) → 01–07 in order → narrow to one task in [experiment 08 · arena](08-arena.md) → [dev log](devlog.md).
+- **Everything:** [introduction and methodology](index.md) → 01–07 in order → narrow to one task in [experiment 08 · arena](08-arena.md) → [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).
 
 ## Reproduce everything
 

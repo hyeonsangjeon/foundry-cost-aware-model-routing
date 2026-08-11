@@ -1,49 +1,95 @@
 #!/usr/bin/env python3
-"""Post-build checker for the mkdocs-static-i18n site (03F Phase F1).
+"""Post-build checker for the bilingual mkdocs-static-i18n site (03F Phase F4).
 
-Runs against a freshly built site directory and enforces the URL contract the
-i18n scaffold promises today, then reports "soft" checks that only become
-meaningful once English translations land and the default language flips (F4).
+Runs against a freshly built ``_site`` after the production flip: English is the
+default locale served at the site root, Korean is served under ``/ko/``. The
+checker enforces the §12 CI-acceptance contract that ``mkdocs build --strict``
+alone cannot prove — locale pairing, redirects, anchors, language alternates,
+locale-scoped search, unintended-Hangul leakage, and both static demos.
 
-Hard checks (any failure exits non-zero — these gate CI):
-  * URL contract — no ``/en/`` or ``/ko/`` language-prefixed pages exist. The
-    Korean default renders at the site root; English is ``build: false`` so it
-    must emit no output at all.
-  * Language coverage — every ``docs/ko/**/*.md`` source page has a built HTML
-    page at its expected ROOT url (no language prefix).
-  * Internal links — every local ``<a href>`` in the built HTML resolves to a
-    file or directory that exists inside the site.
+Any failure exits non-zero and gates the docs workflow.
 
-Soft checks (reported, never fail — TODO(flip) skeletons filled in at F4):
-  * anchors — in-page ``#fragment`` link targets exist on their own page.
-  * edit-links — the theme "edit this page" URL points at the real source path
-    (no edit affordance is rendered today, so this is informational).
-  * language-alternates — hreflang alternates are emitted per page (cross-
-    language en<->ko validation only matters once en builds).
-  * redirects — the redirect map is populated (empty until pages move at flip).
+Contract enforced (all hard):
+  * URL contract — ``index.html`` (en root) and ``ko/index.html`` exist; no
+    ``en/`` language directory is emitted.
+  * Language attribute — root pages declare ``<html lang="en">``; ``/ko/`` pages
+    declare ``<html lang="ko">``.
+  * Locale pairing — every public content page has an EN/KO counterpart, except
+    the two declared exceptions: ``lab-notebook/devlog`` (Korean-only archive,
+    kept in the Korean nav per the operator's decision) and the
+    ``lab-notebook/story-arc-en`` redirect stub (English-only, legacy URL).
+  * Redirects — every legacy URL in the inventory (``story-arc-en``) resolves to
+    its canonical target.
+  * Internal links — every local ``<a href>`` resolves inside the site.
+  * Anchors — every same-page ``#fragment`` link resolves to a real id.
+  * Canonical / hreflang — each content page self-canonicalises (absolute URL
+    with the repository project prefix); translated pairs carry reciprocal
+    ``hreflang=en``/``hreflang=ko`` alternates that resolve to the counterpart.
+  * Sitemap — every ``<loc>`` carries the project prefix; both locales appear.
+  * Search behaviour — the combined search index partitions by locale: English
+    reader entries live at root URLs, Korean entries under ``ko/``; no Korean
+    text leaks into a root (English) search entry and no location is duplicated.
+  * Unintended Hangul — no English reader page leaks Korean text in its article
+    body (the locale-neutral technical demos are exempt by policy).
+  * Static demos — ``demo/`` (en) and ``ko/demo/`` (ko) both render with the
+    correct ``<html lang>``, an EN<->KO switch link, a self canonical, and their
+    locale-neutral machine JSON payloads.
+
+Divergence from spec §12 (documented, operator-approved): the Korean ``devlog``
+archive is intentionally kept as an indexed Korean-only page inside the Korean
+nav/search/sitemap (decision "(b)"), rather than a ``noindex`` page absent from
+nav/search/sitemap. It has no English counterpart and no English content, so it
+cannot leak Hangul into an English page. This checker treats it as a declared
+Korean-only exception rather than a hidden archive.
 
 Usage:  python scripts/check_i18n_site.py <site-dir>
 """
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DOCS_KO = REPO_ROOT / "docs" / "ko"
 MKDOCS_YML = REPO_ROOT / "mkdocs.yml"
+
+# Content pages that are legitimately single-locale.
+KO_ONLY_PAGES = {"lab-notebook/devlog"}          # operator decision (b)
+# Redirect stubs (English-only legacy URLs) — verified by check_redirects, and
+# excluded from pairing / Hangul / canonical content checks.
+REDIRECT_PAGES = {"lab-notebook/story-arc-en"}
+REDIRECT_TARGETS = {"lab-notebook/story-arc-en": "lab-notebook/story-arc"}
+
+# Directories that are infrastructure, not reader content pages.
+INFRA_TOP = ("assets", "search")
+DEMO_PAGES = {"demo", "ko/demo"}
+
+HREF_RE = re.compile(r'href\s*=\s*"([^"]*)"', re.IGNORECASE)
+ID_RE = re.compile(r'\b(?:id|name)\s*=\s*"([^"]+)"', re.IGNORECASE)
+HTML_LANG_RE = re.compile(r'<html[^>]*\blang\s*=\s*"([^"]+)"', re.IGNORECASE)
+CANONICAL_RE = re.compile(
+    r'<link[^>]*\brel\s*=\s*"canonical"[^>]*\bhref\s*=\s*"([^"]+)"'
+    r'|<link[^>]*\bhref\s*=\s*"([^"]+)"[^>]*\brel\s*=\s*"canonical"',
+    re.IGNORECASE,
+)
+ALTERNATE_RE = re.compile(r'<link[^>]*\brel\s*=\s*"alternate"[^>]*>', re.IGNORECASE)
+HREFLANG_ATTR_RE = re.compile(r'\bhreflang\s*=\s*"([^"]+)"', re.IGNORECASE)
+HREF_ATTR_RE = re.compile(r'\bhref\s*=\s*"([^"]+)"', re.IGNORECASE)
+REFRESH_RE = re.compile(
+    r'http-equiv\s*=\s*"refresh"[^>]*content\s*=\s*"[^"]*url=([^"\']+)', re.IGNORECASE
+)
+ARTICLE_RE = re.compile(r"<article\b[^>]*>(.*?)</article>", re.IGNORECASE | re.DOTALL)
+TAG_RE = re.compile(r"<[^>]+>")
+HANGUL_RE = re.compile(r"[\uac00-\ud7a3]")
+EXTERNAL_PREFIXES = ("http://", "https://", "//", "mailto:", "tel:",
+                     "javascript:", "data:")
 
 
 def _base_path() -> str:
-    """Return the URL base path from mkdocs ``site_url`` (e.g. ``/repo/``).
-
-    The 404 page and any other site-absolute links are emitted with this prefix,
-    which maps to the site root on disk. Stripping it lets absolute links resolve
-    against the built tree. Falls back to ``/`` if site_url is absent.
-    """
+    """Return the URL base path from mkdocs ``site_url`` (e.g. ``/repo/``)."""
     if not MKDOCS_YML.is_file():
         return "/"
     for line in MKDOCS_YML.read_text(encoding="utf-8").splitlines():
@@ -56,82 +102,68 @@ def _base_path() -> str:
             return path or "/"
     return "/"
 
-# Language folders that must NOT appear as a top-level URL segment in the built
-# site while ko is the root default and en is build:false.
-FORBIDDEN_LANG_SEGMENTS = ("en", "ko")
 
-HREF_RE = re.compile(r'href\s*=\s*"([^"]*)"', re.IGNORECASE)
-ID_RE = re.compile(r'\b(?:id|name)\s*=\s*"([^"]+)"', re.IGNORECASE)
-HREFLANG_RE = re.compile(r'hreflang\s*=\s*"([^"]+)"', re.IGNORECASE)
+def _site_url() -> str:
+    if not MKDOCS_YML.is_file():
+        return ""
+    for line in MKDOCS_YML.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("site_url:"):
+            return stripped.split(":", 1)[1].strip()
+    return ""
 
-EXTERNAL_PREFIXES = ("http://", "https://", "//", "mailto:", "tel:",
-                     "javascript:", "data:")
+
+def _page_key(html_path: Path, site: Path) -> str | None:
+    """Return the locale-inclusive page key for an ``index.html`` (dir URL),
+    e.g. ``manual/install`` or ``ko/manual/install`` or ``""`` for the root.
+    Returns None for non-index HTML (404.html, sitemap, etc.)."""
+    rel = html_path.relative_to(site).as_posix()
+    if rel == "index.html":
+        return ""
+    if rel.endswith("/index.html"):
+        return rel[: -len("/index.html")]
+    return None
 
 
-def _expected_output(rel_md: Path) -> str:
-    """Map a docs/ko-relative markdown path to its directory-URL output path.
+def _iter_pages(site: Path):
+    """Yield (key, html_path) for every directory-URL page, skipping infra."""
+    for html_path in sorted(site.rglob("index.html")):
+        key = _page_key(html_path, site)
+        if key is None:
+            continue
+        top = key.split("/", 1)[0]
+        if top in INFRA_TOP:
+            continue
+        if key.startswith("ko/") and key.split("/")[1:2] == ["assets"]:
+            continue
+        yield key, html_path
 
-    ``index.md`` -> ``index.html``; ``x.md`` -> ``x/index.html``;
-    ``dir/index.md`` -> ``dir/index.html``. Mirrors mkdocs use_directory_urls.
+
+def _is_redirect(html_path: Path) -> bool:
+    return bool(REFRESH_RE.search(html_path.read_text(encoding="utf-8", errors="ignore")))
+
+
+def _norm(key: str) -> tuple[bool, str]:
+    """Normalise a page key to (is_korean, english_relative_key).
+
+    The Korean root is ``ko`` and Korean sub-pages are ``ko/...``; both map onto
+    the English-relative key so counterparts compare directly (``ko`` -> ``""``).
     """
-    parts = list(rel_md.parent.parts)
-    if rel_md.stem == "index":
-        parts.append("index.html")
-    else:
-        parts.extend([rel_md.stem, "index.html"])
-    return "/".join(parts)
-
-
-def check_no_language_prefix(site: Path) -> list[str]:
-    """Hard — no built page lives under a top-level ``en/`` or ``ko/`` folder."""
-    failures: list[str] = []
-    for segment in FORBIDDEN_LANG_SEGMENTS:
-        candidate = site / segment
-        if candidate.is_dir():
-            html = sorted(str(p.relative_to(site)) for p in candidate.rglob("*.html"))
-            if html:
-                sample = ", ".join(html[:5])
-                failures.append(
-                    "URL contract: found "
-                    + str(len(html))
-                    + " page(s) under forbidden /"
-                    + segment
-                    + "/ prefix (e.g. "
-                    + sample
-                    + ")"
-                )
-    return failures
-
-
-def check_ko_pages_at_root(site: Path) -> list[str]:
-    """Hard — every ko source page has a built HTML at its root URL."""
-    failures: list[str] = []
-    sources = sorted(DOCS_KO.rglob("*.md")) if DOCS_KO.is_dir() else []
-    if not sources:
-        return ["language coverage: no source pages found under docs/ko/"]
-    for md in sources:
-        rel = md.relative_to(DOCS_KO)
-        out = _expected_output(rel)
-        if not (site / out).is_file():
-            failures.append(
-                "language coverage: docs/ko/"
-                + rel.as_posix()
-                + " has no built page at /"
-                + out
-            )
-    return failures
+    if key == "ko":
+        return True, ""
+    if key.startswith("ko/"):
+        return True, key[len("ko/"):]
+    return False, key
 
 
 def _resolve_link(html_path: Path, site: Path, href: str, base: str) -> Path | None:
-    """Resolve a local href to a filesystem path, or None if it is external."""
+    """Resolve a local href to a filesystem path, or None if external."""
     target = href.split("#", 1)[0].split("?", 1)[0]
     if not target:
         return None
-    lowered = target.lower()
-    if lowered.startswith(EXTERNAL_PREFIXES):
+    if target.lower().startswith(EXTERNAL_PREFIXES):
         return None
     if target.startswith("/"):
-        # Site-absolute: strip the site_url base path, then resolve at root.
         if base != "/" and target.startswith(base):
             rel = target[len(base):]
         else:
@@ -146,10 +178,115 @@ def _link_exists(dest: Path) -> bool:
     return dest.exists()
 
 
-def check_internal_links(site: Path) -> list[str]:
-    """Hard — every local <a href> resolves to a real file or page directory."""
+# --------------------------------------------------------------------------- #
+# Hard checks
+# --------------------------------------------------------------------------- #
+
+def check_url_contract(site: Path) -> list[str]:
+    out: list[str] = []
+    if not (site / "index.html").is_file():
+        out.append("URL contract: missing English root index.html")
+    if not (site / "ko" / "index.html").is_file():
+        out.append("URL contract: missing Korean ko/index.html")
+    en_dir = site / "en"
+    if en_dir.is_dir():
+        pages = sorted(str(p.relative_to(site)) for p in en_dir.rglob("*.html"))
+        if pages:
+            out.append("URL contract: found " + str(len(pages))
+                       + " page(s) under forbidden /en/ prefix (e.g. "
+                       + ", ".join(pages[:5]) + ")")
+    return out
+
+
+def check_lang_attributes(site: Path) -> list[str]:
+    out: list[str] = []
+    for key, html_path in _iter_pages(site):
+        text = html_path.read_text(encoding="utf-8", errors="ignore")
+        m = HTML_LANG_RE.search(text)
+        if not m:
+            out.append("lang: " + (key or "<root>") + " has no <html lang>")
+            continue
+        lang = m.group(1).lower()
+        expected = "ko" if key == "ko" or key.startswith("ko/") else "en"
+        if lang != expected:
+            out.append("lang: " + (key or "<root>") + " declares lang="
+                       + lang + " (expected " + expected + ")")
+    return out
+
+
+def check_locale_pairs(site: Path) -> list[str]:
+    """Every content page has an EN/KO counterpart, minus declared exceptions."""
+    out: list[str] = []
+    en_keys: set[str] = set()
+    ko_keys: set[str] = set()
+    for key, html_path in _iter_pages(site):
+        if key in DEMO_PAGES:
+            continue
+        is_ko, rel = _norm(key)
+        if is_ko:
+            ko_keys.add(rel)
+        else:
+            if _is_redirect(html_path):
+                continue
+            en_keys.add(rel)
+
+    for key in sorted(en_keys):
+        if key in KO_ONLY_PAGES or key in REDIRECT_PAGES:
+            continue
+        if key not in ko_keys:
+            out.append("pair: English page '" + (key or "<root>")
+                       + "' has no Korean counterpart under /ko/")
+    for key in sorted(ko_keys):
+        if key in KO_ONLY_PAGES:
+            continue
+        if key in REDIRECT_PAGES:
+            continue
+        if key not in en_keys:
+            out.append("pair: Korean page '/ko/" + key
+                       + "' has no English counterpart at the site root")
+    # The declared Korean-only page must actually be Korean-only.
+    for ko_only in KO_ONLY_PAGES:
+        if not (site / "ko" / ko_only / "index.html").is_file():
+            out.append("pair: declared Korean-only page '" + ko_only
+                       + "' is missing under /ko/")
+        if (site / ko_only / "index.html").is_file():
+            out.append("pair: declared Korean-only page '" + ko_only
+                       + "' unexpectedly has an English page at the root")
+    return out
+
+
+def check_redirects(site: Path) -> list[str]:
+    out: list[str] = []
     base = _base_path()
-    failures: list[str] = []
+    for stub, target in REDIRECT_TARGETS.items():
+        path = site / stub / "index.html"
+        if not path.is_file():
+            out.append("redirect: legacy URL '" + stub + "' is missing")
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        m = REFRESH_RE.search(text)
+        if not m:
+            out.append("redirect: '" + stub + "' has no meta-refresh")
+            continue
+        dest = m.group(1).strip()
+        # Accept absolute (canonical https) or root-relative targets that point
+        # at the expected target page.
+        want_tail = target.rstrip("/") + "/"
+        if want_tail not in dest.rstrip("/") + "/":
+            out.append("redirect: '" + stub + "' points to '" + dest
+                       + "', expected to contain '" + want_tail + "'")
+        # The target page must exist in the built site.
+        if not (site / target / "index.html").is_file():
+            out.append("redirect: target page '" + target + "' does not exist")
+        if base not in dest and not dest.startswith(("http://", "https://")):
+            out.append("redirect: '" + stub + "' target '" + dest
+                       + "' lacks the project prefix " + base)
+    return out
+
+
+def check_internal_links(site: Path) -> list[str]:
+    base = _base_path()
+    out: list[str] = []
     for html_path in sorted(site.rglob("*.html")):
         text = html_path.read_text(encoding="utf-8", errors="ignore")
         for href in HREF_RE.findall(text):
@@ -160,44 +297,212 @@ def check_internal_links(site: Path) -> list[str]:
             try:
                 resolved.relative_to(site.resolve())
             except ValueError:
-                # Points outside the built site tree — treat as broken.
                 where = html_path.relative_to(site).as_posix()
-                failures.append("internal link: " + where + " -> " + href
-                                + " escapes the site root")
+                out.append("link: " + where + " -> " + href + " escapes site root")
                 continue
             if not _link_exists(dest):
                 where = html_path.relative_to(site).as_posix()
-                failures.append("internal link: " + where + " -> " + href
-                                + " does not resolve")
-    return failures
+                out.append("link: " + where + " -> " + href + " does not resolve")
+    return out
 
 
-def soft_anchors(site: Path) -> tuple[int, int]:
-    """Soft — same-page #fragment targets exist. Returns (checked, missing)."""
-    checked = 0
-    missing = 0
+def check_anchors(site: Path) -> list[str]:
+    out: list[str] = []
     for html_path in sorted(site.rglob("*.html")):
         text = html_path.read_text(encoding="utf-8", errors="ignore")
         ids = set(ID_RE.findall(text))
         for href in HREF_RE.findall(text):
             if not href.startswith("#") or href == "#":
                 continue
-            checked += 1
             if href[1:] not in ids:
-                missing += 1
-    return checked, missing
+                where = html_path.relative_to(site).as_posix()
+                out.append("anchor: " + where + " -> " + href + " has no target")
+    return out
 
 
-def soft_language_alternates(site: Path) -> tuple[int, int]:
-    """Soft — count pages that emit an hreflang alternate. (checked, without)."""
-    checked = 0
-    without = 0
-    for html_path in sorted(site.rglob("*.html")):
-        checked += 1
+def _canonical(text: str) -> str | None:
+    m = CANONICAL_RE.search(text)
+    if not m:
+        return None
+    return (m.group(1) or m.group(2) or "").strip()
+
+
+def _alternates(text: str) -> dict[str, str]:
+    alts: dict[str, str] = {}
+    for tag in ALTERNATE_RE.findall(text):
+        lang = HREFLANG_ATTR_RE.search(tag)
+        href = HREF_ATTR_RE.search(tag)
+        if lang and href:
+            alts[lang.group(1).lower()] = href.group(1).strip()
+    return alts
+
+
+def check_canonical_hreflang(site: Path) -> list[str]:
+    out: list[str] = []
+    base = _base_path()
+    site_url = _site_url()
+    for key, html_path in _iter_pages(site):
+        if key in DEMO_PAGES or key in REDIRECT_PAGES:
+            continue
+        is_ko, rel = _norm(key)
+        if not is_ko and _is_redirect(html_path):
+            continue
         text = html_path.read_text(encoding="utf-8", errors="ignore")
-        if not HREFLANG_RE.search(text):
-            without += 1
-    return checked, without
+        canon = _canonical(text)
+        page_url = site_url.rstrip("/") + "/" + (key + "/" if key else "")
+        if not canon:
+            out.append("canonical: " + (key or "<root>") + " has no canonical link")
+        else:
+            if base not in canon:
+                out.append("canonical: " + (key or "<root>")
+                           + " canonical '" + canon + "' lacks project prefix")
+            if canon.rstrip("/") != page_url.rstrip("/"):
+                out.append("canonical: " + (key or "<root>")
+                           + " is not self-canonical (got '" + canon + "')")
+        alts = _alternates(text)
+        # Korean-only archive: only a ko self-alternate is required; the plugin
+        # may emit an en alternate pointing at the site root (accepted).
+        if rel in KO_ONLY_PAGES:
+            if "ko" not in alts:
+                out.append("hreflang: Korean-only '" + key + "' lacks ko alternate")
+            continue
+        if "en" not in alts or "ko" not in alts:
+            out.append("hreflang: " + (key or "<root>")
+                       + " missing en/ko alternate(s) (have: "
+                       + ",".join(sorted(alts)) + ")")
+            continue
+        # Reciprocal alternate must resolve to the counterpart page.
+        for lang in ("en", "ko"):
+            dest = _resolve_link(html_path, site, alts[lang], base)
+            if dest is not None and not _link_exists(dest):
+                out.append("hreflang: " + (key or "<root>") + " " + lang
+                           + " alternate '" + alts[lang] + "' does not resolve")
+    return out
+
+
+def check_sitemap(site: Path) -> list[str]:
+    out: list[str] = []
+    base = _base_path()
+    sm = site / "sitemap.xml"
+    if not sm.is_file():
+        return ["sitemap: sitemap.xml is missing"]
+    text = sm.read_text(encoding="utf-8", errors="ignore")
+    locs = re.findall(r"<loc>([^<]+)</loc>", text)
+    if not locs:
+        return ["sitemap: no <loc> entries"]
+    missing_prefix = [u for u in locs if base not in u]
+    if missing_prefix:
+        out.append("sitemap: " + str(len(missing_prefix))
+                   + " URL(s) lack the project prefix (e.g. " + missing_prefix[0] + ")")
+    has_root = any(u.rstrip("/").endswith(base.rstrip("/")) for u in locs)
+    has_ko = any((base + "ko/") in u or u.rstrip("/").endswith(base.rstrip("/") + "/ko")
+                 for u in locs)
+    if not has_root:
+        out.append("sitemap: no English root URL present")
+    if not has_ko:
+        out.append("sitemap: no Korean (/ko/) URL present")
+    return out
+
+
+def check_search(site: Path) -> list[str]:
+    """Search behaviour: English reader entries at root URLs, Korean under ko/;
+    no Korean text leaks into a root entry; no duplicate locations."""
+    out: list[str] = []
+    index = site / "search" / "search_index.json"
+    if not index.is_file():
+        return ["search: search/search_index.json is missing"]
+    try:
+        data = json.loads(index.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return ["search: index is not valid JSON (" + str(exc) + ")"]
+    docs = data.get("docs", [])
+    if not docs:
+        return ["search: index has no documents"]
+    root_entries = [d for d in docs if not d.get("location", "").startswith("ko/")]
+    ko_entries = [d for d in docs if d.get("location", "").startswith("ko/")]
+    if not root_entries:
+        out.append("search: no English (root) entries")
+    if not ko_entries:
+        out.append("search: no Korean (ko/) entries")
+    leaks = []
+    for d in root_entries:
+        blob = (d.get("title", "") + " " + d.get("text", ""))
+        if len(HANGUL_RE.findall(blob)) > 3:
+            leaks.append(d.get("location", "?"))
+    if leaks:
+        out.append("search: " + str(len(leaks))
+                   + " English (root) entry/entries carry Korean text "
+                   + "(Korean search would return English URLs) e.g. " + leaks[0])
+    locs = [d.get("location", "") for d in docs]
+    dups = sorted({loc for loc in locs if locs.count(loc) > 1})
+    if dups:
+        out.append("search: " + str(len(dups))
+                   + " duplicate location(s) (fallback/redirect duplicates) e.g. "
+                   + dups[0])
+    return out
+
+
+def check_hangul_leak(site: Path) -> list[str]:
+    """No English reader page leaks Korean text in its article body."""
+    out: list[str] = []
+    for key, html_path in _iter_pages(site):
+        if key.startswith("ko/") or key == "ko":
+            continue
+        if key in DEMO_PAGES or key in REDIRECT_PAGES:
+            continue
+        if _is_redirect(html_path):
+            continue
+        text = html_path.read_text(encoding="utf-8", errors="ignore")
+        m = ARTICLE_RE.search(text)
+        body = m.group(1) if m else text
+        body = TAG_RE.sub(" ", body)
+        hits = HANGUL_RE.findall(body)
+        if hits:
+            out.append("hangul: English page '" + (key or "<root>") + "' leaks "
+                       + str(len(hits)) + " Korean character(s) in its body")
+    return out
+
+
+def check_demos(site: Path) -> list[str]:
+    """Both static demos render with correct lang, switch link, canonical, JSON."""
+    out: list[str] = []
+    specs = {
+        "demo": ("en", "ko", "../ko/demo/"),
+        "ko/demo": ("ko", "en", "../../demo/"),
+    }
+    for key, (lang, _other, switch) in specs.items():
+        index = site / key / "index.html"
+        if not index.is_file():
+            out.append("demo: '" + key + "/' is missing (index.html not built)")
+            continue
+        text = index.read_text(encoding="utf-8", errors="ignore")
+        m = HTML_LANG_RE.search(text)
+        if not m or m.group(1).lower() != lang:
+            out.append("demo: '" + key + "/' lang is "
+                       + (m.group(1) if m else "<none>") + " (expected " + lang + ")")
+        if 'rel="alternate"' not in text or switch not in text:
+            out.append("demo: '" + key + "/' has no EN<->KO switch link to '"
+                       + switch + "'")
+        if not _canonical(text):
+            out.append("demo: '" + key + "/' has no canonical link")
+        if not (site / key / "healthz.json").is_file():
+            out.append("demo: '" + key + "/' is missing machine JSON (healthz.json)")
+    return out
+
+
+CHECKS = [
+    ("url-contract", check_url_contract),
+    ("lang", check_lang_attributes),
+    ("locale-pairs", check_locale_pairs),
+    ("redirects", check_redirects),
+    ("internal-links", check_internal_links),
+    ("anchors", check_anchors),
+    ("canonical/hreflang", check_canonical_hreflang),
+    ("sitemap", check_sitemap),
+    ("search", check_search),
+    ("hangul-leak", check_hangul_leak),
+    ("demos", check_demos),
+]
 
 
 def main(argv: list[str]) -> int:
@@ -209,37 +514,30 @@ def main(argv: list[str]) -> int:
         print("check_i18n_site: site dir not found: " + str(site), file=sys.stderr)
         return 2
 
-    hard_failures: list[str] = []
-    hard_failures += check_no_language_prefix(site)
-    hard_failures += check_ko_pages_at_root(site)
-    hard_failures += check_internal_links(site)
+    all_failures: list[str] = []
+    summary: list[str] = []
+    for name, fn in CHECKS:
+        failures = fn(site)
+        all_failures += failures
+        status = "OK" if not failures else (str(len(failures)) + " FAIL")
+        summary.append("  [" + status + "] " + name)
 
-    ko_pages = sum(1 for _ in DOCS_KO.rglob("*.md")) if DOCS_KO.is_dir() else 0
-
-    if hard_failures:
-        print("i18n site check: " + str(len(hard_failures)) + " hard failure(s):")
-        print("")
-        for line in hard_failures:
+    if all_failures:
+        print("i18n site check (post-flip): " + str(len(all_failures))
+              + " failure(s):\n")
+        for line in all_failures:
             print("  - " + line)
+        print("\nper-check:")
+        for line in summary:
+            print(line)
         return 1
 
-    # Soft checks — reported for visibility, never fail the build (F1 scope).
-    anchors_checked, anchors_missing = soft_anchors(site)
-    alt_checked, alt_without = soft_language_alternates(site)
-
-    print("i18n site check: OK")
-    print("  hard: no /en//ko/ prefix, " + str(ko_pages)
-          + " ko pages at root URL, internal links resolve")
-    print("  soft [anchors]: " + str(anchors_checked)
-          + " same-page fragment link(s), " + str(anchors_missing) + " missing")
-    print("  soft [language-alternates]: " + str(alt_checked) + " page(s), "
-          + str(alt_without) + " without an hreflang tag")
-    # TODO(flip): the two checks below only carry signal once docs/en is
-    # populated and the default language flips (03F Phase F4).
-    print("  soft [edit-links]: TODO(flip) — no edit affordance rendered yet; "
-          "verify edit_uri resolves per language at flip")
-    print("  soft [redirects]: TODO(flip) — redirect_maps empty until pages "
-          "move at the URL cutover")
+    print("i18n site check (post-flip): OK")
+    for line in summary:
+        print(line)
+    print("  note: 'lab-notebook/devlog' is an operator-approved Korean-only "
+          "page (decision b); it is indexed in the Korean nav/search/sitemap and "
+          "has no English counterpart by design.")
     return 0
 
 

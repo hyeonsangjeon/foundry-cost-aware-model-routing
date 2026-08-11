@@ -23,7 +23,7 @@
     투영이며 `measured = false`입니다 — 어떤 상용 제품의 점수가 아닙니다.
 
 <figure markdown="span">
-  ![단일 호출 레인과 관찰-후-에스컬레이션 레인의 커버리지를 나란히 비교하는 애니메이션](../assets/gif/model-router.gif)
+  ![단일 호출 레인과 관찰-후-에스컬레이션 레인의 커버리지를 나란히 비교하는 애니메이션](/foundry-cost-aware-model-routing/assets/gif/model-router.gif)
   <figcaption>한 번 고르기 vs 결과 보고 올리기 — 앞서 한 티어를 정해두는 레인과, 값싼 실패를 관찰해 필요할 때만 올리는 레인의 커버리지 대비.</figcaption>
 </figure>
 

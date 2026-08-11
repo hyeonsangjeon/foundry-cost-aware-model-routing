@@ -4,7 +4,7 @@
     Route 100 synthetic-workload tasks cost-aware and you **hold coverage at 100%** while spending **25.5% less** than naive (premium on every task). All numbers are `measured = false`.
 
 <figure markdown="span">
-  ![Hero loop animation — a naive lane and a cost-aware lane running side by side](../assets/gif/hero.gif)
+  ![Hero loop animation — a naive lane and a cost-aware lane running side by side](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
   <figcaption>Hero loop — the naive lane sends every task to premium; the cost-aware lane tries the cheapest candidate first and escalates one step only on a failed check.</figcaption>
 </figure>
 

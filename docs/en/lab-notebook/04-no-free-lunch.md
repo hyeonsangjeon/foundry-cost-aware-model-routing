@@ -4,7 +4,7 @@
     On a workload where every task is genuinely hard and **only the most expensive model passes**, routing tries all the cheap models, fails, and climbs to the top. The result is **100% coverage · 0.0% savings** — routing cost is **exactly the same** as naive (always premium). Routing does not invent savings that aren't there. All numbers are `measured = false`.
 
 <figure markdown="span">
-  ![Limits loop animation — the cheap tiers fail one after another, climbing all the way to the top](../assets/gif/limits.gif)
+  ![Limits loop animation — the cheap tiers fail one after another, climbing all the way to the top](/foundry-cost-aware-model-routing/assets/gif/limits.gif)
   <figcaption>Limits loop — the cheap tiers each fail in turn, so every task ends up climbing to the top model. No saving, and honest spend.</figcaption>
 </figure>
 

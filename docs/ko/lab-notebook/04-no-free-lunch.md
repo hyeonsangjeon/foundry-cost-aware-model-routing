@@ -7,7 +7,7 @@
     지어내지 않습니다. 모든 수치는 `measured = false`.
 
 <figure markdown="span">
-  ![한계 루프 애니메이션 — 값싼 티어가 차례로 실패해 최상위까지 올라가는 모습](../assets/gif/limits.gif)
+  ![한계 루프 애니메이션 — 값싼 티어가 차례로 실패해 최상위까지 올라가는 모습](/foundry-cost-aware-model-routing/assets/gif/limits.gif)
   <figcaption>한계 루프 — 값싼 티어가 차례로 모두 실패해 매 태스크가 결국 최상위 모델까지 올라간다. 절감은 없고 지출은 정직하다.</figcaption>
 </figure>
 

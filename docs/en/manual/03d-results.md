@@ -35,7 +35,7 @@ timeout cells (HTTP 408).
 
 ## 1 · Arm comparison — cost · pass rate · cost-per-pass
 
-![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](../assets/03d/arm-cost-comparison.svg)
+![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.svg)
 
 The key contrast is **the cheapest router mode vs the direct-premium baseline**:
 `router-cost` holds a task pass rate of 95.8% while being **95.2% cheaper** than
@@ -78,7 +78,7 @@ and even that gap is entirely due to timeouts, as shown below.
 
 ## 2 · Cost × quality — the quality mode is dominated by direct-premium
 
-![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](../assets/03d/cost-vs-quality-scatter.svg)
+![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
 
 The most counterintuitive finding: **the `router-quality` ($1.56) mode is completely
 dominated by `direct-premium` ($1.34)** — more expensive yet a lower pass rate (95.8%
@@ -95,7 +95,7 @@ quality" but "holding quality + slashing cost."
 
 ## 3 · Backend distribution — Cost mode 100% Grok, reproduced across two runs
 
-![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](../assets/03d/backend-distribution.svg)
+![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.svg)
 
 `router-cost` sent all (100%) of its graded cells to `grok-4-1-fast-reasoning`. This
 **Cost-mode 100% Grok** skew **reproduced across two consecutive runs** — the prior
@@ -143,7 +143,7 @@ To avoid over-reading the measured result, we state the boundary per metric.
 
 ## 6 · Reproduction and provenance
 
-- **Data source**: [`docs/assets/03d/published.json`](../assets/03d/published.json), a
+- **Data source**: [`docs/assets/03d/published.json`](/foundry-cost-aware-model-routing/assets/03d/published.json), a
   masked extract of the sealed snapshot via the `measure publish` path. It holds **only
   aggregates, per-arm figures, and the backend distribution** — no prompt or response
   bodies, endpoints, or tenant identifiers (the endpoint is masked to

@@ -9,7 +9,7 @@
     모든 수치는 `measured = false`.
 
 <figure markdown="span">
-  ![어댑티브 루프 애니메이션 — 다이얼을 올려 병렬 팬아웃을 하나로 접는 모습](../assets/gif/adaptive.gif)
+  ![어댑티브 루프 애니메이션 — 다이얼을 올려 병렬 팬아웃을 하나로 접는 모습](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
   <figcaption>어댑티브 루프 — 다이얼을 모든 태스크 가치 위로 올리면 병렬 팬아웃이 하나로 접히고, 절감은 그대로인 채 팬아웃 세금이 0으로 빠진다.</figcaption>
 </figure>
 
