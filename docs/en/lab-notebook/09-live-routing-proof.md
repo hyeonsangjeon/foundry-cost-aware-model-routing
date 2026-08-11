@@ -149,7 +149,7 @@ Answer text also came back with `finish_reason = stop` and no truncation:
 | Accuracy | offline signals (`is_clean`) | ungraded (`coverage_measured = false`) |
 | Reproduction | deterministic (pinned by CI) | live snapshot (varies per call) |
 
-If experiment 08 was the **offline lens** that "looked at one problem four ways,"
+If experiment 08 was the **offline comparison** that "looked at one problem four ways,"
 experiment 09 is the **measurement** that wired that router arm into **real Foundry** to
 see what the router truly picks.
 
@@ -216,4 +216,4 @@ Measurement snapshot (captured):
 
 **Related docs:** [Foundry hands-on configuration · per-experiment setup](../manual/foundry-setup.md) ·
 [live measurement bridge](../manual/foundry-live.md) · [experiment 08 · arena](08-arena.md)
-(the offline lens) · [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)
+(the offline comparison) · [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)

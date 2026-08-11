@@ -22,7 +22,7 @@ reproduction steps; "when, and what was done" lives in the
     additional actions offline and deterministically:
 
     - **① Verify-then-adopt** — accept only when execution signals are clean, escalate the failures (gains in 01·02, guardrails in 03·04)
-    - **② Ensemble axis** — count the cost of calling every candidate instead of the winner alone (3.74×) ([05](05-ensemble-fanout.md))
+    - **② All-candidate call accounting** — count every candidate instead of the winner alone (3.74×) ([05](05-ensemble-fanout.md))
     - **③ Cost governor** — use a budget gate to reduce those extra calls (3.74× → $0) ([06](06-fanout-dial.md))
     - **④ Audit trace** — seal measured runs into a tamper-evident, cost-replayable ledger ([09](09-live-routing-proof.md)·[10](10-measured-ledger.md))
 
@@ -110,8 +110,8 @@ the result and calls another model only after failure.
 Acts 1–3 compared the **whole** workload in aggregate. [Experiment 08
 (arena)](08-arena.md) applies the same comparison to **a single task**, answering the
 first question a new user asks — *"on this one problem, how much does each approach
-spend, how slow is it, and does it get the answer right?"* — and it adds one axis the
-previous seven experiments didn't cover: **latency**.
+spend, how slow is it, and does it get the answer right?"* — and adds **latency**,
+which the previous seven experiments did not cover.
 
 On the default task `t-0003`, the router returns a correct answer 2.5× cheaper than
 premium but has the **highest latency**. Escalation is sequential, so time spent on
@@ -122,12 +122,10 @@ therefore differs from the cost and accuracy projections.
 The earlier phrase "every approach has a price" refers here to the added latency.
 This is the Act 3 latency result for the router itself.
 
-What the epilogue confirms: you can hold the whole story **in one hand** — the cost,
-(illustrative) latency, and correctness of four approaches on a single task, on one
-screen. And the thesis that no axis is free holds up even at the resolution of an
-individual task.
+The one-task table puts cost, illustrative latency, and correctness for four
+approaches on one screen. No approach is best on every measure.
 
-## Measured coda · from projection to measurement, and to audit (09 · 10)
+## Measured record · from projection to measurement and audit (09 · 10)
 
 Acts 1–3 and the epilogue (08) are all offline projections (`measured = false`,
 placeholder models). [Experiment 09 · Live routing](09-live-routing-proof.md) crosses
@@ -148,7 +146,7 @@ contract](index.md#shared-methodology), the measured track (09) is now protected
 **independently re-verifiable ledger** — the two audits kept separate so neither blurs
 the other's honesty label.
 
-## The axis of honesty — every experiment is one of two kinds
+## Every experiment is one of two kinds
 
 The repository keeps positive and negative results together. The seven experiments
 are one of two kinds:

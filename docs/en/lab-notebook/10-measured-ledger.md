@@ -200,7 +200,7 @@ The four-arm totals of the arena snapshot the ledger froze (measured usage × li
 
 The models the router actually ran: **`gpt-5.4` × 3 · `grok-4-1-fast-reasoning` × 2**.
 †Rates are illustrative, tokens are measured. ‡Measured wall-clock. (The same capture as the
-experiment 08 lens and the experiment 09 measurement.)
+experiment 08 comparison and the experiment 09 measurement.)
 
 !!! danger "§ The `router` row is **incomplete** — do not compare amounts across arms"
     Model Router billing is composite: a **router input-token markup** plus the chosen sub-model's
@@ -253,6 +253,6 @@ heart of this experiment.
 ---
 
 **Related docs:** [experiment 09 · measured routing](09-live-routing-proof.md) (what it picked) ·
-[experiment 08 · arena](08-arena.md) (the offline lens) ·
+[experiment 08 · arena](08-arena.md) (the offline comparison) ·
 [live measurement bridge](../manual/foundry-live.md) ·
 [Foundry hands-on configuration](../manual/foundry-setup.md) · [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)

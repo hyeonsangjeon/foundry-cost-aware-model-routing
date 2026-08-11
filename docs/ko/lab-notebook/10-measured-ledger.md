@@ -231,6 +231,6 @@ cost-router foundry arena --live --max-output-tokens 3000 \
 ---
 
 **관련 문서:** [실험 09 · 실측 라우팅](09-live-routing-proof.md)(무엇을 골랐나) ·
-[실험 08 · 아레나](08-arena.md)(오프라인 렌즈) ·
+[실험 08 · 아레나](08-arena.md)(오프라인 비교) ·
 [라이브 실측 브릿지](../manual/foundry-live.md) ·
 [Foundry 실전 구성](../manual/foundry-setup.md) · [개발 로그](devlog.md)
