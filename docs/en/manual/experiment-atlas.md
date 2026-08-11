@@ -103,14 +103,13 @@ the **headline** (re-derived live by the command shown), and a link to the full 
 
 !!! info "How the six map to the four differentiators (atop the built-in router's selection)"
     Azure AI Foundry's **built-in Model Router** already handles *selection* — one deploy, cross-
-    provider (Grok · DeepSeek · Llama · gpt-oss with no separate deploy; Claude the exception). So
-    "routes many providers" is **table-stakes**, not the differentiator. These experiments quantify
-    the **layer on top** — the repo's four differentiators: **① verification-based adoption**
+    provider (Grok · DeepSeek · Llama · gpt-oss with no separate deploy; Claude the exception).
+    The built-in already "routes many providers". These experiments test what happens after
+    selection: **① verification-based adoption**
     (`hero`, `curated`, `limits`) · **② all-candidate call accounting** (`ensemble`) ·
     **③ the spending check before fan-out** (`adaptive`) · **④ the audit trace** (the measured bridge + ledger
-    below). The **single-call** card is the **⭐ centerpiece**: the head-to-head that shows *why
-    this layer exists next to the built-in router* — one up-front pick, no escalation, versus
-    observe-and-escalate. The synthetic coverage numbers are in that card.
+    below). The **single-call** card compares one up-front pick with no escalation
+    against observe-and-escalate. Its synthetic coverage numbers show the difference.
 
 Each card **opens with a looping animation** that traces its real mechanism — flow dots, the
 escalation ladder, or the fan-out — while the offline (`measured=false`) numbers count up live.
