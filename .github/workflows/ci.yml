@@ -144,6 +144,9 @@ jobs:
           python scripts/build_static_site.py site/demo en
           python scripts/build_static_site.py site/ko/demo ko
 
+      - name: Re-localize root 404 to English (default locale)
+        run: python scripts/localize_root_404.py site
+
       - name: i18n site contract (en at root, ko under /ko/, pairs/redirects/hreflang/demos)
         run: python scripts/check_i18n_site.py site
 

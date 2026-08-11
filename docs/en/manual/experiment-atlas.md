@@ -319,7 +319,7 @@ in advance — grading coverage came in at **79.2%**, below the **90%** per-arm 
 kept as an asset by discipline: the predictions were overturned (Grok at 100%, not Claude; reasoning
 tokens swallowing the output).
 
-![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
+![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
 *This scatter is experiment **12**'s publishable result — experiment 11's own paid run is VOID, so it has no chart of its own.*
 → [Lab-notebook 11](../lab-notebook/11-router-modes-void.md)
 
@@ -329,8 +329,8 @@ Fix only the two causes experiment 11 identified, then re-run against the **same
 grading coverage recovers **79.2% → 96.18%** and **all four arms PASS → publishable** (**$3.27 / $20**,
 byte-identical replay). The three 03D charts below are this run's evidence.
 
-![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.svg)
-![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.svg)
+![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.en.svg)
+![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.en.svg)
 → [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · full charts: [03D measured results](03d-results.md)
 
 ---
