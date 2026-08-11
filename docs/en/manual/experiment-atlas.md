@@ -319,6 +319,10 @@ in advance — grading coverage came in at **79.2%**, below the **90%** per-arm 
 kept as an asset by discipline: the predictions were overturned (Grok at 100%, not Claude; reasoning
 tokens swallowing the output).
 
+**Arm labels:** `router-cost` (Model Router in Cost mode) · `router-balanced` (Model Router
+in Balanced mode) · `router-quality` (Model Router in Quality mode) · `direct-premium`
+(calling the premium model directly · `gpt-5.6-sol`).
+
 ![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
 *This scatter is experiment **12**'s publishable result — experiment 11's own paid run is VOID, so it has no chart of its own.*
 → [Lab-notebook 11](../lab-notebook/11-router-modes-void.md)

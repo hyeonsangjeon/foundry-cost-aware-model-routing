@@ -37,6 +37,10 @@ was re-committed and re-approved **before seeing the results** — the failure c
 
 ## Result — coverage · pass rate · cost · cost-per-pass per arm
 
+**Arm labels:** `router-cost` (Model Router in Cost mode) · `router-balanced` (Model Router
+in Balanced mode) · `router-quality` (Model Router in Quality mode) · `direct-premium`
+(calling the premium model directly · `gpt-5.6-sol`).
+
 <figure markdown="span">
   ![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.en.svg)
   <figcaption>Total cost per arm — router-cost is cheapest and router-quality is most expensive. Each bar also shows pass rate and cost per pass. These are the same measured values as the table below.</figcaption>

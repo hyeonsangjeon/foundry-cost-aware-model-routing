@@ -1,8 +1,10 @@
 # Routing-mode measured results · 03D Results
 
-> **`measured=true`, a paid measured run.** The result of running four arms (the three
-> routing modes + the direct-premium baseline) against the same 24 coding tasks at n=3
-> on real Azure AI Foundry. 288 cells, sealed snapshot, replay-verified byte-identical.
+> **`measured=true`, a paid measured run.** Four arms ran against the same 24 coding tasks
+> at n=3 on real Azure AI Foundry: `router-cost` (Model Router in Cost mode),
+> `router-balanced` (Model Router in Balanced mode), `router-quality` (Model Router in
+> Quality mode), and `direct-premium` (calling the premium model directly ·
+> `gpt-5.6-sol`). 288 cells, sealed snapshot, replay-verified byte-identical.
 > Every number on this page comes not from an offline projection but from **one real
 > measurement** — powerful, therefore, but narrow. Read the limits below first.
 

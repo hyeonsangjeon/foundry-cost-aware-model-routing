@@ -1,9 +1,11 @@
 # 라우팅 모드 실측 결과 · 03D Results
 
-> **`measured=true` 유료 실측.** 실제 Azure AI Foundry로 네 개 arm(라우팅 세 모드 + direct-premium
-> 기준선)을 같은 24개 코딩 과제에 n=3으로 돌린 결과다. 288셀, 봉인 스냅샷, replay로 byte-identical
-> 재생 검증됨. 이 페이지의 모든 숫자는 오프라인 투영이 아니라 **한 번의 실제 측정**에서 나왔다 —
-> 그래서 강력하지만 좁다. 아래 한계를 먼저 읽어라.
+> **`measured=true` 유료 실측.** 실제 Azure AI Foundry에서 같은 24개 코딩 과제에 네 arm을
+> n=3으로 돌렸다. 네 arm은 `router-cost`(Model Router의 Cost 모드), `router-balanced`(Model Router의
+> Balanced 모드), `router-quality`(Model Router의 Quality 모드), `direct-premium`(프리미엄
+> 모델 직접 호출 · `gpt-5.6-sol`)이다. 288셀, 봉인 스냅샷, replay로 byte-identical 재생 검증됨.
+> 이 페이지의 모든 숫자는 오프라인 투영이 아니라 **한 번의 실제 측정**에서 나왔다 — 그래서
+> 강력하지만 좁다. 아래 한계를 먼저 읽어라.
 
 !!! warning "먼저 읽을 한계 — 일반화 금지"
     - **24 과제 = evidence_tier `directional`.** 방향성 신호이지 통계적 신뢰가 아니다. 통계적
