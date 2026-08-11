@@ -50,14 +50,14 @@ Entra ID(`az login`)가 골든 패스입니다.
 | `max_output_tokens`, `repetitions`, `retry.max_retries` | |
 | 엔드포인트(호스트만), `api_version`, `random_seed` | |
 
-즉 **cost/quality/execution을 움직이는 것을 바꾸면 해시가 함께 움직이고** 순수 표시용을
+**cost/quality/execution을 움직이는 것을 바꾸면 해시도 바뀌고**, 순수 표시용을
 바꾸면 그대로 남습니다. 이 양방향 계약은 회귀 테스트로 고정돼 있습니다
 (`tests/test_live_config.py`).
 
 !!! warning "엔드포인트는 호스트만 남기고 편집됩니다"
     계획에 들어가는 엔드포인트는 `scheme://host[:port]`로 축약돼 경로·쿼리·URL 내
     자격증명(userinfo)이 제거됩니다. `http://`와 URL에 박힌 자격증명은 거부됩니다.
-    따라서 인쇄된 편집 계획만으로 `plan_hash`를 그대로 재현할 수 있습니다.
+    인쇄된 편집 계획만으로 `plan_hash`를 그대로 재현할 수 있습니다.
 
 ### 해석 우선순위
 
@@ -87,7 +87,7 @@ Entra ID(`az login`)가 골든 패스입니다.
 !!! danger "승인은 해시에 묶인다 — 어긋나면 fail-closed"
     `--live` 실행은 `--approve-plan <plan_hash>` 를 요구하고, 그 값이 방금 해석된
     계획의 `plan_hash`와 **한 글자라도 다르면 디스패치 이전에 거부**됩니다(exit 1).
-    자격증명은 그 뒤에야 조회됩니다. 즉 오래됐거나(stale) 어긋난 승인으로는 어떤
+    자격증명은 그 뒤에야 조회됩니다. 오래됐거나(stale) 어긋난 승인으로는 어떤
     유료 호출도 나가지 않습니다.
 
 ## 4. Model Router arm은 명시적이며 사라지지 않는다

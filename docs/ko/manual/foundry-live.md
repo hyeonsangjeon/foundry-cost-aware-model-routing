@@ -123,8 +123,8 @@ cost-router foundry status              # auth method : Microsoft Entra ID (keyl
 
 ## 2. 실측 스코어링 경로
 
-핵심은 `pricing.cost_usd(model, tokens)`에 **합성 `task.tokens` 대신 응답의 실제 usage**를
-넣는 것입니다. 오프라인 arm과 라이브 브릿지의 유일한 차이가 바로 이 한 곳입니다.
+`pricing.cost_usd(model, tokens)`에는 합성 `task.tokens` 대신 응답의 실제 usage를 넣습니다.
+오프라인 arm과 라이브 브릿지는 이 부분에서만 다릅니다.
 
 ```python
 from router.foundry_live import RouterOutcome, measured_router_summary

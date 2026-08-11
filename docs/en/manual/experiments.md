@@ -6,8 +6,9 @@ signals (fixture or synthetic), the pricing, and the policy, and adds an `expect
 before/after and **fails loudly** if the offline projection drops below the
 contracted floor.
 
-This is the device that turns the repository's "install it and it just runs" into
-a **checkable promise**.
+The repository's "install it and it just runs" promise is checked by the expect
+block: the command exits non-zero when the projection falls outside the declared
+limits.
 
 The files live in the `experiments/` directory.
 
@@ -46,7 +47,7 @@ expect:
 !!! tip "The fan-out dial — `budget:` (optional)"
     An experiment can tune the router's fan-out threshold. Raise
     `compare_min_value` and any task worth less than that goes down a **single path
-    (ordered)**, cutting the ensemble tax by that much —
+    (ordered)**, reducing the cost of extra candidate calls —
     [experiment 06](../lab-notebook/06-fanout-dial.md) uses this dial.
 
     ```yaml
@@ -56,8 +57,8 @@ expect:
     ```
 
 !!! tip "The measurement bridge — Azure AI Foundry Model Router (optional)"
-    The frontier's `single_call` arm is an offline proxy that shows the **shape** of
-    a single-call routing layer. To slot in the **decisions** of a real Foundry
+    The `single_call` arm is an offline proxy for a single-call routing layer. To use
+    the **decisions** of a real Foundry
     Model Router, give the dependency-free gate adapter
     `router.foundry_router.FoundryModelRouter` the environment variables below plus
     an injected `client` callable (with no configuration the adapter is inactive and
@@ -82,13 +83,13 @@ expect:
 | `dataset.synth` | If `true`, synthesize the signals deterministically |
 | `policy` | Policy YAML path (empty → bundled seed) |
 | `pricing` | Pricing YAML path (empty → bundled illustrative pricing) |
-| `budget.compare_min_value` | (optional) Fan-out threshold — compare (fan out) only when a task's value is at or above this. Higher → lower tax (see `adaptive.yaml`) |
+| `budget.compare_min_value` | (optional) Fan-out threshold — compare (fan out) only when a task's value is at or above this. Higher → fewer extra candidate calls (see `adaptive.yaml`) |
 | `budget.min_compare_candidates` | (optional) Minimum candidates required to go to compare |
 | `spotlight` | `auto`, a specific `task_id`, or `none` |
 | `expect.min_coverage` | Must hold at or above this coverage |
 | `expect.min_delta_pct` | Must lower the naive bill by at least this fraction |
-| `expect.max_delta_pct` | (optional) **Ceiling** — savings must not exceed this fraction (prevents phantom savings; see `limits.yaml`) |
-| `expect.max_tax_ratio` | (optional) **Fan-out tax ceiling** — the fan-out cost/winner ratio must not exceed this (see `adaptive.yaml`) |
+| `expect.max_delta_pct` | (optional) **Ceiling** — savings must not exceed this fraction (blocks implausibly large savings; see `limits.yaml`) |
+| `expect.max_tax_ratio` | (optional) **Extra-call ratio ceiling** — the fan-out cost/winner ratio must not exceed this (see `adaptive.yaml`) |
 | `expect.min_escalation_gain` | (optional) **Escalation-gain floor** — mix coverage − `single_call` arm coverage must be at or above this (see `single-call.yaml`) |
 | `expect.min_tasks` | Must cover at least this many tasks |
 
@@ -110,14 +111,13 @@ After the replay, `run_experiment` checks:
 
 - `coverage ≥ min_coverage`
 - `delta_pct ≥ min_delta_pct`
-- `delta_pct ≤ max_delta_pct` (only when set — a ceiling that blocks exaggerated phantom savings)
-- `tax_ratio ≤ max_tax_ratio` (only when set — the fan-out tax ceiling)
+- `delta_pct ≤ max_delta_pct` (only when set — a ceiling that blocks an implausibly large saving)
+- `tax_ratio ≤ max_tax_ratio` (only when set — the extra-call ratio ceiling)
 - `escalation_gain ≥ min_escalation_gain` (only when set — mix must beat the single-call `single_call` on coverage by at least this much)
 - `tasks ≥ min_tasks`
 
 If any one fails, `cost-router hero`/`experiment run` exits with a **non-zero code**.
-So a "it still runs but the savings vanished" regression is never waved through
-silently.
+This prevents an "it still runs but the savings vanished" regression from passing.
 
 !!! tip "Make your own experiment"
     ```bash
