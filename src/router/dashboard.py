@@ -455,6 +455,68 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .ck-gauge { height: 14px; background: var(--elev); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 8px 0 4px; }
   .ck-gauge span { display: block; height: 100%; width: 0; background: var(--brand); transition: width .3s; }
   .ck-gauge span.over { background: #b4453a; }
+
+  /* ---- demo-mode tabs: offline replay vs sealed measured 03D run ---- */
+  .tabbar { display: flex; gap: 8px; margin: 0 0 20px; flex-wrap: wrap; }
+  .tabbtn { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--elev);
+    color: var(--muted); padding: 9px 15px; border-radius: 11px; font-size: 13px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px; transition: background .12s, color .12s, border-color .12s; }
+  .tabbtn code { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 6px;
+    background: #fff; border: 1px solid var(--line); color: var(--faint); }
+  .tabbtn:hover { color: var(--ink); }
+  .tabbtn.active { background: var(--brand-soft); border-color: #b7dfc6; color: var(--brand); }
+  .tabbtn.active code { color: var(--brand); border-color: #b7dfc6; }
+  /* ---- measured 03D panel ---- */
+  .panel.measured { border-color: #b7dfc6; }
+  .panel.measured .eyebrow { color: var(--brand); }
+  .mlabels { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 16px; }
+  .mlabel { font-family: var(--mono); font-size: 11px; padding: 3px 9px; border-radius: 999px;
+    border: 1px solid #b7dfc6; background: #eefaf1; color: var(--green); white-space: nowrap; }
+  .mhead { font-size: 14px; line-height: 1.55; margin: 0 0 18px; color: var(--ink); }
+  .mhead b { color: var(--brand); }
+  .mdominated { border: 1px solid var(--amber); background: #fbf5e7; border-radius: var(--radius); padding: 14px 16px; margin: 0 0 20px; }
+  .mdominated .dh { font-size: 12px; font-weight: 700; color: var(--amber); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 6px; }
+  .mdominated p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ink); }
+  .marms { display: grid; grid-template-columns: repeat(auto-fit, minmax(184px, 1fr)); gap: 12px; margin: 0 0 8px; }
+  .marm { background: var(--elev); border: 1px solid var(--line); border-radius: 11px; padding: 13px 15px; }
+  .marm.win { border-color: #b7dfc6; background: #f2fbf5; }
+  .marm.dom { border-color: #ecd9ac; background: #fdfaf1; }
+  .marm .an { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--ink); }
+  .marm .adep { font-family: var(--mono); font-size: 10px; color: var(--faint); margin: 1px 0 9px; }
+  .marm .arow { display: flex; justify-content: space-between; font-size: 12px; margin: 4px 0; }
+  .marm .arow .k { color: var(--muted); }
+  .marm .arow .v { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+  .msub { font-size: 13px; font-weight: 700; margin: 22px 0 9px; color: var(--ink); }
+  .mnote { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 0 0 12px; }
+  .mbackrow { margin: 0 0 12px; }
+  .mbackrow .bl { display: flex; justify-content: space-between; font-size: 12px; margin: 0 0 4px; }
+  .mbackrow .bl .an { font-family: var(--mono); font-weight: 700; color: var(--ink); }
+  .mbar { display: flex; height: 20px; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); background: #fff; }
+  .mbar > span { display: block; height: 100%; }
+  .mbleg { font-size: 11px; color: var(--muted); margin: 4px 0 0; font-family: var(--mono); }
+  .mbleg .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin: 0 4px 0 10px; vertical-align: baseline; }
+  .mbleg .sw:first-child { margin-left: 0; }
+  .mtable { width: 100%; border-collapse: collapse; font-size: 12px; margin: 0 0 4px; }
+  .mtable th, .mtable td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line2); }
+  .mtable th { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 10px; font-weight: 700; }
+  .mtable td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .mtable td.z { color: var(--green); font-weight: 700; }
+  .mlimits { border-left: 3px solid var(--amber); padding: 2px 0 2px 16px; margin: 6px 0 0; list-style: none; }
+  .mlimits li { font-size: 12px; color: var(--muted); margin: 6px 0; line-height: 1.55; }
+  .mlimits li b { color: var(--ink); }
+  /* ---- measured 03D setup block ---- */
+  .msetup { display: grid; gap: 11px; margin: 2px 0 4px; }
+  .msetrow { display: grid; grid-template-columns: 190px 1fr; gap: 14px; align-items: start; }
+  .msetk { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding-top: 4px; }
+  .msetv { font-size: 13px; color: var(--ink); line-height: 1.5; }
+  .msetv .ev { display: block; margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+  .msetv .ev b { color: var(--ink); }
+  .mchip { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; background: var(--elev);
+    border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; margin: 0 6px 6px 0; color: var(--ink); }
+  .mchip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .mchip .mono, .msetv .mono { font-family: var(--mono); }
+  .mchip .mono { font-size: 11px; }
+  @media (max-width: 640px) { .msetrow { grid-template-columns: 1fr; gap: 4px; } .msetk { padding-top: 0; } }
 </style>
 </head>
 <body>
@@ -469,10 +531,20 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <div class="badges">
     <span id="health" class="badge">checking&#8230;</span>
     <span id="polver" class="badge">policy &mdash;</span>
-    <span class="badge measured">offline projection &middot; labels.measured=false</span>
+    <span id="modeBadge" class="badge measured">offline projection &middot; labels.measured=false</span>
   </div>
 </header>
 <main>
+
+  <nav class="tabbar" id="tabbar" hidden aria-label="Demo mode">
+    <button type="button" class="tabbtn active" id="tabOffline" aria-selected="true" aria-controls="tabpanelOffline">
+      <span id="tabOfflineLbl">Offline replay</span> <code>measured=false</code>
+    </button>
+    <button type="button" class="tabbtn" id="tabMeasured" aria-selected="false" aria-controls="tabpanelMeasured">
+      <span id="tabMeasuredLbl">Measured run &middot; 03D</span> <code>measured=true</code>
+    </button>
+  </nav>
+  <div id="tabpanelOffline" role="tabpanel">
 
   <section class="panel hero">
     <div class="eyebrow">The question</div>
@@ -826,6 +898,37 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   </details>
 
   <div class="foot end">Numbers are an offline projection over synthetic data &mdash; not measured. Model names are generic placeholders.</div>
+
+  </div><!-- /tabpanelOffline -->
+
+  <div id="tabpanelMeasured" role="tabpanel" hidden>
+    <section class="panel measured" id="measuredPanel">
+      <div class="eyebrow" id="mEyebrow">&mdash;</div>
+      <h2 class="sec" id="mTitle">&mdash;</h2>
+      <p class="sec-sub" id="mSub">&mdash;</p>
+      <div class="mlabels" id="mLabels"></div>
+      <div class="mhead" id="mHead"></div>
+      <div class="mdominated" id="mDom" hidden>
+        <div class="dh" id="mDomH">&mdash;</div>
+        <p id="mDomP">&mdash;</p>
+      </div>
+      <div class="msub" id="mSetupTitle">&mdash;</div>
+      <p class="mnote" id="mSetupNote"></p>
+      <div class="msetup" id="mSetup"></div>
+      <div class="msub" id="mArmsTitle">&mdash;</div>
+      <div class="marms" id="mArms"></div>
+      <p class="mnote" id="mArmsNote"></p>
+      <div class="msub" id="mBackTitle">&mdash;</div>
+      <p class="mnote" id="mBackNote"></p>
+      <div id="mBack"></div>
+      <div class="msub" id="mToTitle">&mdash;</div>
+      <p class="mnote" id="mToNote"></p>
+      <div id="mTo"></div>
+      <div class="msub" id="mLimTitle">&mdash;</div>
+      <ul class="mlimits" id="mLimits"></ul>
+      <p class="caveat"><span id="mCaveat"></span> <a id="mCaveatLink" href="https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/03d-results/" target="_blank" rel="noopener noreferrer"></a></p>
+    </section>
+  </div>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -1887,6 +1990,270 @@ function initCockpit() {
   loadCockpitCatalog();
 }
 
+// ===== Measured track — sealed 03D snapshot (static-demo tab) =====
+// Read-only render of the masked published.json bundle: aggregates only, no
+// prompts/responses, no endpoint or tenant ids. No live calls happen here. In
+// the live service EP.measured is undefined, so the tab bar stays hidden and
+// the dashboard is exactly the single offline view it has always been.
+const M_LOCALE = (typeof window !== "undefined" && window.__LOCALE__ === "ko") ? "ko" : "en";
+const M_BUDGET = "$20.00";   // prereg hard cap (benchmarks/original-coding/prereg-03d*, budget_usd 20.00)
+const M_COLORS = {
+  "grok-4-1-fast-reasoning": "var(--brand)",
+  "gpt-5.6-sol": "var(--purple)",
+  "gpt-5": "var(--blue)",
+  "gpt-5.5": "var(--cyan)",
+  "gpt-5.4": "var(--amber)",
+};
+const M_ARMS = [
+  { arm: "router-cost",     dep: "model-router-cost",    lbl: { en: "Cost mode",      ko: "Cost 모드" },     css: "win" },
+  { arm: "router-balanced", dep: "model-router",         lbl: { en: "Balanced mode",  ko: "Balanced 모드" }, css: "" },
+  { arm: "direct-premium",  dep: "gpt-5.6-sol",          lbl: { en: "Direct premium", ko: "직접 프리미엄" },  css: "" },
+  { arm: "router-quality",  dep: "model-router-quality", lbl: { en: "Quality mode",   ko: "Quality 모드" },   css: "dom" },
+];
+const M_STR = {
+  en: {
+    tabOffline: "Offline replay", tabMeasured: "Measured run · 03D",
+    badgeOff: "offline projection · labels.measured=false",
+    badgeMeas: "sealed 03D · labels.measured=true",
+    eyebrow: "Measured run · sealed 03D snapshot",
+    title: "What the router actually picked — one real measured run",
+    sub: "Four arms (three routing modes + the direct-premium baseline) over the same 24 coding tasks at n=3 on real Azure AI Foundry — 288 cells, sealed and replay-verified byte-identical. Rendered read-only from the masked published.json bundle: aggregates only, no prompts, endpoints, or tenant ids.",
+    lblCoverage: "coverage", lblUnpriced: "unpriced", lblReplay: "replay verified", lblSpend: "spend",
+    armsTitle: "Four arms — cost · pass rate · $/pass · grading coverage",
+    armsNote: "Deployment shown under each arm. Every arm is cost_complete=true (unpriced 0%), every cell priced at pinned rates. Pass rate is task-based (solved/planned); grading coverage is cell-based (measurement completeness) — different denominators.",
+    cCost: "cost", cPass: "pass rate", cPerPass: "$/pass", cCov: "coverage", cells: "cells",
+    head: (v) => `The cheapest router mode <b>router-cost</b> holds a <b>${v.qCost}</b> task pass rate while running <b>${v.cheaper}% cheaper</b> than direct-premium. The pass-rate gap is within <b>${v.gap}%p</b> — and that gap is entirely due to timeouts (below), not code quality.`,
+    domH: "Most counterintuitive — the quality mode is dominated by direct-premium",
+    domP: (v) => `<b>router-quality</b> (${v.qCostUsd}) is more expensive than <b>direct-premium</b> (${v.premUsd}) yet lands a lower pass rate (${v.qQual} &lt; ${v.premQual}). If you want quality, calling direct-premium directly is cheaper and more accurate than the router's quality mode — on this workload. Meanwhile router-cost holds the same ${v.costQual} pass rate at under 1/20 the cost.`,
+    setupTitle: "Setup — what was actually run",
+    setupNote: "Real deployment and backend identifiers from the sealed run — every name below is verbatim from the masked bundle. (The offline tab keeps synthetic placeholder model names; attaching real names to synthetic data would imply a per-model performance claim.)",
+    setArms: "Arms", setBackends: "Backends the router picked", setWorkload: "Workload", setRun: "Run conditions",
+    rosterEvidence: (v) => `None of these is a deployment in this run — the four deployments are <span class="mono">${v.deps}</span>. The router selected these backends from its own managed roster; <b>grok-4-1-fast-reasoning</b> in particular was never deployed to this account, yet Cost mode routed 100% to it.`,
+    workloadVal: (v) => `curated-24 · ${v.tasks} tasks × ${v.arms} arms × n=${v.n} = ${v.cells} cells`,
+    runVal: "keyless Entra · sequential dispatch · fixed seed 20260729",
+    backTitle: "Backend distribution — which model each arm actually reached",
+    backNote: "Over graded cells only (timeout cells, whose backend never settled, are excluded). Cost mode routed 100% to grok-4-1-fast-reasoning — a skew reproduced across both measured runs (the prior void run and this publishable one). Quality mode uses no Grok at all.",
+    toTitle: "11 timeout cells — shown, not hidden",
+    toNote: "All 11 are HTTP 408 read timeouts, all in the router arms; direct-premium had 0. A timeout cell is handled doubly conservatively — excluded from grading coverage AND counted as a failure — so the router arms' pass rate falls below direct-premium by exactly these timeouts. The 4.17%p gap is a latency-profile difference (router backends p50 ~12–16s vs direct-premium ~4.2s), not code quality.",
+    toByArm: "By arm", toByTask: "By task", toArm: "arm", toTask: "task", toN: "timeouts",
+    limTitle: "Limits — read before generalizing",
+    limits: [
+      "<b>24 tasks → evidence_tier directional.</b> A directional signal, not statistical confidence — a statistical conclusion would need ~100 problems.",
+      "<b>Single tenant · single region · one measurement.</b> Replay guarantees reproduction, not a population estimate.",
+      "<b>Timeouts count against the router arms only.</b> The router backends have longer latency and hit the fixed timeout; direct-premium does not — a latency-profile difference, not code quality.",
+      "<b>Do not generalize to other workloads.</b> Limited to this workload · this tenant · this one measurement.",
+    ],
+    caveat: "Sealed snapshot, rendered read-only — changing any number here would break the replay guarantee. Full write-up:",
+    caveatLink: "03D Results",
+  },
+  ko: {
+    tabOffline: "오프라인 재현", tabMeasured: "실측 런 · 03D",
+    badgeOff: "offline projection · labels.measured=false",
+    badgeMeas: "sealed 03D · labels.measured=true",
+    eyebrow: "실측 런 · 봉인 03D 스냅샷",
+    title: "라우터가 실제로 고른 것 — 실측 1회",
+    sub: "같은 24개 코딩 과제를 n=3으로 실제 Azure AI Foundry에서 네 arm(라우팅 3모드 + direct-premium 기준선)에 돌린 결과 — 288셀, 봉인, replay로 바이트 동일 검증. 마스킹된 published.json 번들에서 읽기 전용으로 렌더했다: 집계뿐이며 프롬프트·엔드포인트·테넌트 식별자는 없다.",
+    lblCoverage: "coverage", lblUnpriced: "unpriced", lblReplay: "replay verified", lblSpend: "spend",
+    armsTitle: "네 arm — 비용 · 통과율 · $/pass · 채점 커버리지",
+    armsNote: "arm 이름 아래에 배포명을 표기했다. 모든 arm이 cost_complete=true(unpriced 0%)이고 셀마다 고정 요율로 가격이 매겨졌다. 통과율은 과제 기준(해결/계획), 채점 커버리지는 셀 기준(측정 완결성) — 분모가 다르다.",
+    cCost: "비용", cPass: "통과율", cPerPass: "$/pass", cCov: "커버리지", cells: "셀",
+    head: (v) => `가장 싼 라우터 모드 <b>router-cost</b>는 통과율 <b>${v.qCost}</b>를 유지하면서 direct-premium 대비 <b>${v.cheaper}% 저렴</b>하다. 통과율 격차는 <b>${v.gap}%p</b> 이내이고, 그 격차조차 전부 타임아웃 때문이지(아래) 코드 품질 때문이 아니다.`,
+    domH: "가장 반직관적인 발견 — quality 모드가 direct-premium에 지배당한다",
+    domP: (v) => `<b>router-quality</b>(${v.qCostUsd})는 <b>direct-premium</b>(${v.premUsd})보다 비싼데도 통과율은 더 낮다(${v.qQual} &lt; ${v.premQual}). 품질을 원한다면 라우터의 quality 모드보다 direct-premium을 직접 부르는 편이 더 싸고 더 정확하다 — 이 워크로드에서는. 한편 router-cost는 같은 ${v.costQual} 통과율을 1/20 미만 비용으로 유지한다.`,
+    setupTitle: "실험 구성 — 무엇을 돌렸나",
+    setupNote: "봉인 런의 실제 배포·백엔드 식별자다 — 아래 모든 이름은 마스킹된 번들에서 그대로 가져왔다. (offline 탭은 합성 placeholder 모델명을 유지한다; 합성 데이터에 실제 모델명을 붙이면 모델별 성능 주장이 되기 때문이다.)",
+    setArms: "Arm 구성", setBackends: "라우터가 고른 백엔드", setWorkload: "워크로드", setRun: "실행 조건",
+    rosterEvidence: (v) => `이 중 어느 것도 이번 런의 배포가 아니다 — 배포는 넷뿐이다: <span class="mono">${v.deps}</span>. 라우터는 이 백엔드들을 자기 관리 로스터에서 골랐다; 특히 <b>grok-4-1-fast-reasoning</b>은 이 계정에 배포된 적이 없는데도 Cost 모드가 100%를 그리로 보냈다.`,
+    workloadVal: (v) => `curated-24 · 과제 ${v.tasks}개 × arm ${v.arms}개 × n=${v.n} = ${v.cells}셀`,
+    runVal: "keyless Entra · 순차 디스패치 · 고정 시드 20260729",
+    backTitle: "백엔드 분포 — 각 arm이 실제로 도달한 모델",
+    backNote: "채점된 셀만 대상(백엔드가 확정되지 않은 타임아웃 셀은 제외). Cost 모드는 100%를 grok-4-1-fast-reasoning으로 보냈다 — 이 쏠림은 두 번의 실측 런(직전 void 런과 이 발행 런)에서 재현됐다. quality 모드는 Grok을 전혀 쓰지 않는다.",
+    toTitle: "타임아웃 11셀 — 숨기지 않고 보여준다",
+    toNote: "11셀 전부 HTTP 408 읽기 타임아웃이고 전부 라우터 arm에서 났다. direct-premium은 0. 타임아웃 셀은 이중으로 보수적으로 처리된다 — 채점 커버리지에서 제외되는 동시에 실패로 집계된다 — 그래서 라우터 arm 통과율이 딱 이 타임아웃만큼 direct-premium보다 낮다. 4.17%p 격차는 지연 프로파일 차이(라우터 백엔드 p50 ~12–16초 vs direct-premium ~4.2초)이지 코드 품질이 아니다.",
+    toByArm: "arm별", toByTask: "과제별", toArm: "arm", toTask: "과제", toN: "타임아웃",
+    limTitle: "한계 — 일반화 전에 읽어라",
+    limits: [
+      "<b>24과제 → evidence_tier directional.</b> 통계적 신뢰가 아니라 방향성 신호다 — 통계적 결론에는 ~100문제가 필요하다.",
+      "<b>단일 테넌트 · 단일 리전 · 1회 측정.</b> replay는 재현을 보장하지 모집단 추정을 보장하지 않는다.",
+      "<b>타임아웃은 라우터 arm에만 불리하게 집계된다.</b> 라우터 백엔드는 지연이 더 길어 고정 타임아웃에 걸리고 direct-premium은 걸리지 않는다 — 지연 프로파일 차이지 코드 품질이 아니다.",
+      "<b>다른 워크로드로 일반화하지 마라.</b> 이 워크로드 · 이 테넌트 · 이 1회 측정에 한정된다.",
+    ],
+    caveat: "봉인 스냅샷을 읽기 전용으로 렌더한 것 — 여기 숫자를 바꾸면 replay 보장이 깨진다. 전체 서술:",
+    caveatLink: "03D 결과",
+  },
+};
+function mPct2(x) { return (Number(x) * 100).toFixed(2) + "%"; }
+function mPerPass(x) { return "$" + Number(x).toFixed(4); }
+function renderMeasured(d) {
+  const t = M_STR[M_LOCALE];
+  const R = d.result || {};
+  const byC = (R.cost && R.cost.by_candidate) || {};
+  const byQ = (R.quality && R.quality.by_candidate) || {};
+  const covA = R.coverage_by_arm || {};
+  const backends = R.backends || {};
+  $("mEyebrow").textContent = t.eyebrow;
+  $("mTitle").textContent = t.title;
+  $("mSub").textContent = t.sub;
+  // Honesty labels — measured=true / coverage / unpriced / evidence_tier / replay / spend-of-budget.
+  const grCov = (R.grading && R.grading.coverage) || 0;
+  const unp = (R.cost && R.cost.unpriced_calls) || 0;
+  const spend = (R.cost && R.cost.total_usd) || 0;
+  const replayOK = d.provenance && d.provenance.replay_ok && d.provenance.summary_matches;
+  const labels = [
+    (d.labels && d.labels.measured ? "measured=true" : "measured=false"),
+    t.lblCoverage + " " + mPct2(grCov),
+    t.lblUnpriced + " " + (unp === 0 ? "0%" : String(unp)),
+    "evidence_tier=directional",
+    (replayOK ? t.lblReplay : "replay unverified"),
+    t.lblSpend + " $" + Number(spend).toFixed(2) + " / " + M_BUDGET,
+  ];
+  const L = $("mLabels"); L.innerHTML = "";
+  labels.forEach((s) => { const b = document.createElement("span"); b.className = "mlabel"; b.textContent = s; L.appendChild(b); });
+  // Headline contrast — cheapest router arm vs direct-premium (full-precision).
+  const cCost = (byC["model-router-cost"] || {}).total_usd || 0;
+  const cPrem = (byC["gpt-5.6-sol"] || {}).total_usd || 0;
+  const cheaper = cPrem ? (1 - cCost / cPrem) * 100 : 0;
+  const qPrem = (byQ["gpt-5.6-sol"] || {}).pass_rate || 0;
+  const qCostR = (byQ["model-router-cost"] || {}).pass_rate || 0;
+  const gap = (qPrem - qCostR) * 100;
+  $("mHead").innerHTML = t.head({ qCost: pct(qCostR), cheaper: cheaper.toFixed(1), gap: gap.toFixed(2) });
+  // Counterintuitive finding — quality mode Pareto-dominated by direct-premium.
+  const qQ = (byQ["model-router-quality"] || {}).pass_rate || 0;
+  $("mDomH").textContent = t.domH;
+  $("mDomP").innerHTML = t.domP({
+    qCostUsd: usd((byC["model-router-quality"] || {}).total_usd || 0),
+    premUsd: usd(cPrem), qQual: pct(qQ), premQual: pct(qPrem), costQual: pct(qCostR),
+  });
+  $("mDom").hidden = false;
+  // Experiment setup — deployments, router-selected backends, workload, run conditions (all sealed facts).
+  $("mSetupTitle").textContent = t.setupTitle;
+  $("mSetupNote").textContent = t.setupNote;
+  const deployments = d.deployments || [];
+  const routerDeps = M_ARMS.filter((a) => a.arm !== "direct-premium").map((a) => a.dep);
+  const picked = [];
+  routerDeps.forEach((dep) => { Object.keys(backends[dep] || {}).forEach((m) => { if (picked.indexOf(m) < 0) picked.push(m); }); });
+  const armChips = M_ARMS.map((a) =>
+    '<span class="mchip"><span class="dot" style="background:' + (a.arm === "direct-premium" ? "var(--muted)" : "var(--brand)") + '"></span>' +
+    esc(a.arm) + ' · ' + esc(a.lbl[M_LOCALE]) + ' · <span class="mono">' + esc(a.dep) + '</span></span>').join("");
+  const backChips = picked.map((m) =>
+    '<span class="mchip"><span class="dot" style="background:' + (M_COLORS[m] || "var(--muted)") + '"></span><span class="mono">' + esc(m) + '</span></span>').join("");
+  const tasksN = ((byQ["gpt-5.6-sol"] || {}).tasks_planned) || 0;
+  const cellsN = (R.grading && R.grading.planned_cells) || 0;
+  const wl = t.workloadVal({ tasks: tasksN, arms: M_ARMS.length, n: (d.n || 0), cells: cellsN });
+  const setupRows = [
+    [t.setArms, armChips],
+    [t.setBackends, backChips + '<span class="ev">' + t.rosterEvidence({ deps: deployments.map(esc).join(", ") }) + '</span>'],
+    [t.setWorkload, '<span class="mono">' + esc(wl) + '</span>'],
+    [t.setRun, esc(t.runVal)],
+  ];
+  $("mSetup").innerHTML = setupRows.map((r) =>
+    '<div class="msetrow"><div class="msetk">' + esc(r[0]) + '</div><div class="msetv">' + r[1] + '</div></div>').join("");
+  // Four arm cards.
+  $("mArmsTitle").textContent = t.armsTitle;
+  $("mArmsNote").textContent = t.armsNote;
+  const A = $("mArms"); A.innerHTML = "";
+  M_ARMS.forEach((a) => {
+    const c = byC[a.dep] || {}, q = byQ[a.dep] || {}, cv = covA[a.dep] || {};
+    const passStr = pct(q.pass_rate) + " (" + q.tasks_passed + "/" + q.tasks_planned + ")";
+    const div = document.createElement("div");
+    div.className = "marm" + (a.css ? " " + a.css : "");
+    div.innerHTML =
+      '<div class="an">' + esc(a.arm) + '</div>' +
+      '<div class="adep">' + esc(a.lbl[M_LOCALE]) + ' · ' + esc(a.dep) + '</div>' +
+      '<div class="arow"><span class="k">' + esc(t.cCost) + '</span><span class="v">' + usd(c.total_usd) + '</span></div>' +
+      '<div class="arow"><span class="k">' + esc(t.cPass) + '</span><span class="v">' + passStr + '</span></div>' +
+      '<div class="arow"><span class="k">' + esc(t.cPerPass) + '</span><span class="v">' + mPerPass(q.cost_per_pass_usd) + '</span></div>' +
+      '<div class="arow"><span class="k">' + esc(t.cCov) + '</span><span class="v">' + pct(cv.coverage) + '</span></div>';
+    A.appendChild(div);
+  });
+  // Backend distribution — per-arm stacked bar over graded cells.
+  $("mBackTitle").textContent = t.backTitle;
+  $("mBackNote").textContent = t.backNote;
+  const B = $("mBack"); B.innerHTML = "";
+  M_ARMS.forEach((a) => {
+    const dist = backends[a.dep] || {};
+    const models = Object.keys(dist);
+    const total = models.reduce((s, m) => s + dist[m], 0) || 1;
+    let segs = "", leg = "";
+    models.forEach((m) => {
+      const col = M_COLORS[m] || "var(--muted)";
+      const p = (dist[m] / total) * 100;
+      segs += '<span style="width:' + p.toFixed(1) + '%;background:' + col + '"></span>';
+      leg += '<span class="sw" style="background:' + col + '"></span>' + esc(m) + ' ' + dist[m] + ' (' + p.toFixed(0) + '%)';
+    });
+    const row = document.createElement("div");
+    row.className = "mbackrow";
+    row.innerHTML =
+      '<div class="bl"><span class="an">' + esc(a.arm) + '</span><span>' + total + ' ' + esc(t.cells) + '</span></div>' +
+      '<div class="mbar">' + segs + '</div>' +
+      '<div class="mbleg">' + leg + '</div>';
+    B.appendChild(row);
+  });
+  // 11 timeout cells — aggregated from failures_detail, never hidden.
+  $("mToTitle").textContent = t.toTitle;
+  $("mToNote").textContent = t.toNote;
+  const fd = R.failures_detail || [];
+  const byTask = {};
+  fd.forEach((f) => { byTask[f.task_id] = (byTask[f.task_id] || 0) + 1; });
+  const byArm = {};
+  fd.forEach((f) => { byArm[f.arm] = (byArm[f.arm] || 0) + 1; });
+  let armRows = "";
+  M_ARMS.forEach((a) => {
+    const n = byArm[a.arm] || 0;
+    armRows += '<tr><td>' + esc(a.arm) + '</td><td class="n' + (n === 0 ? " z" : "") + '">' + n + '</td></tr>';
+  });
+  let taskRows = "";
+  Object.keys(byTask).sort((x, y) => byTask[y] - byTask[x]).forEach((k) => {
+    taskRows += '<tr><td>' + esc(k) + '</td><td class="n">' + byTask[k] + '</td></tr>';
+  });
+  $("mTo").innerHTML =
+    '<table class="mtable"><thead><tr><th>' + esc(t.toByArm) + ' (' + esc(t.toArm) + ')</th><th class="n">' + esc(t.toN) + '</th></tr></thead><tbody>' + armRows + '</tbody></table>' +
+    '<table class="mtable" style="margin-top:10px"><thead><tr><th>' + esc(t.toByTask) + ' (' + esc(t.toTask) + ')</th><th class="n">' + esc(t.toN) + '</th></tr></thead><tbody>' + taskRows + '</tbody></table>';
+  // Limits.
+  $("mLimTitle").textContent = t.limTitle;
+  const LI = $("mLimits"); LI.innerHTML = "";
+  t.limits.forEach((s) => { const li = document.createElement("li"); li.innerHTML = s; LI.appendChild(li); });
+  $("mCaveat").textContent = t.caveat;
+  $("mCaveatLink").textContent = t.caveatLink;
+}
+function mSwitchTab(measured) {
+  const on = !!measured;
+  const po = $("tabpanelOffline"), pm = $("tabpanelMeasured");
+  const bo = $("tabOffline"), bm = $("tabMeasured");
+  if (po) po.hidden = on;
+  if (pm) pm.hidden = !on;
+  if (bo) { bo.classList.toggle("active", !on); bo.setAttribute("aria-selected", String(!on)); }
+  if (bm) { bm.classList.toggle("active", on); bm.setAttribute("aria-selected", String(on)); }
+  const badge = $("modeBadge");
+  if (badge) {
+    badge.textContent = on ? M_STR[M_LOCALE].badgeMeas : M_STR[M_LOCALE].badgeOff;
+    badge.className = on ? "badge ok" : "badge measured";
+  }
+}
+let M_LOADED = false;
+async function loadMeasured() {
+  if (M_LOADED || !EP || !EP.measured) return;
+  try {
+    const d = await (await fetch(EP.measured)).json();
+    renderMeasured(d);
+    M_LOADED = true;
+  } catch (e) {
+    const p = $("mSub");
+    if (p) p.textContent = "measured snapshot unavailable";
+  }
+}
+function initMeasuredTab() {
+  const t = M_STR[M_LOCALE];
+  const lo = $("tabOfflineLbl"); if (lo) lo.textContent = t.tabOffline;
+  const lm = $("tabMeasuredLbl"); if (lm) lm.textContent = t.tabMeasured;
+  if (!EP || !EP.measured) return;   // live service: no bundle → keep the single offline view (tab bar hidden)
+  const bar = $("tabbar"); if (bar) bar.hidden = false;
+  const bo = $("tabOffline"); if (bo) bo.addEventListener("click", () => mSwitchTab(false));
+  const bm = $("tabMeasured"); if (bm) bm.addEventListener("click", () => { mSwitchTab(true); loadMeasured(); });
+  const q = new URLSearchParams(window.location.search);
+  if (q.get("measured") === "1") { mSwitchTab(true); loadMeasured(); }
+}
+
 $("run").addEventListener("click", runReplay);
 $("fleetRun").addEventListener("click", runFleet);
 if (window.innerWidth < 960) { const d = $("policyDetails"); if (d) d.removeAttribute("open"); }
@@ -1897,6 +2264,7 @@ initCockpit();
 loadExperiments();
 loadHistory();
 loadSweep();
+initMeasuredTab();
 loadPolicy().then(() => {
   // Hero mode (cost-router hero --serve) opens the dashboard with ?run=1 so the
   // before/after animates on load — no click needed. Policy must load first so

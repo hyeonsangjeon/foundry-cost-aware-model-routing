@@ -35,6 +35,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from router.dashboard import DASHBOARD_HTML  # noqa: E402
 from router.server import RouterService  # noqa: E402
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+# Masked sealed 03D snapshot — aggregates only (no prompts/responses/endpoints/
+# tenant ids). The Measured-run demo tab renders it read-only. Copied verbatim.
+_MEASURED_BUNDLE = _REPO_ROOT / "docs" / "assets" / "03d" / "published.json"
+
 # Canonical project Pages base (keeps the repository project prefix, matching
 # ``site_url`` in mkdocs.yml). The two demos live at these stable URLs.
 _SITE_URL = "https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/"
@@ -54,7 +59,8 @@ window.__ENDPOINTS__ = {
   fanoutSweep: "fanout-sweep.json",
   compare: "compare.json",
   experiments: "experiments.json",
-  metricsHistory: "metrics-history.json"
+  metricsHistory: "metrics-history.json",
+  measured: "published.json"
 };
 </script>
 """
@@ -80,6 +86,7 @@ def _localize(html: str, locale: str) -> str:
     html = html.replace('<html lang="en">', f'<html lang="{locale}">', 1)
 
     meta = (
+        f'<script>window.__LOCALE__ = "{locale}";</script>\n'
         f'<link rel="canonical" href="{_DEMO_URLS[locale]}" />\n'
         f'<link rel="alternate" hreflang="en" href="{_DEMO_URLS["en"]}" />\n'
         f'<link rel="alternate" hreflang="ko" href="{_DEMO_URLS["ko"]}" />\n'
@@ -120,6 +127,15 @@ def build(output_dir: Path, locale: str = "en") -> None:
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
+    # Copy the masked sealed 03D snapshot verbatim (rendered read-only by the
+    # Measured-run tab). The bundle is aggregates only — no prompts/responses,
+    # no endpoint or tenant ids — so it is safe to host as a static file.
+    if not _MEASURED_BUNDLE.is_file():
+        raise SystemExit(f"measured bundle not found: {_MEASURED_BUNDLE}")
+    (output_dir / "published.json").write_text(
+        _MEASURED_BUNDLE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
     # Inject the static endpoint map immediately before the dashboard script so
     # window.__ENDPOINTS__ is set before the main module reads it.
     if DASHBOARD_HTML.count("<script>") < 1:
@@ -129,7 +145,7 @@ def build(output_dir: Path, locale: str = "en") -> None:
     (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
     print(f"static site written to {output_dir}/ (locale={locale})")
-    for name in ("index.html", *files):
+    for name in ("index.html", "published.json", *files):
         print(f"  - {name}")
 
 
