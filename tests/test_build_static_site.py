@@ -46,8 +46,25 @@ def test_export_writes_all_files(site: Path) -> None:
         "compare.json",
         "experiments.json",
         "metrics-history.json",
+        "published.json",
     ):
         assert (site / name).is_file(), f"missing {name}"
+
+
+def test_measured_bundle_copied_verbatim(site: Path) -> None:
+    # The Measured-run tab renders the sealed 03D snapshot read-only; the export
+    # must copy it byte-for-byte (no re-serialisation that could drift a value).
+    src = _ROOT / "docs" / "assets" / "03d" / "published.json"
+    assert (site / "published.json").read_bytes() == src.read_bytes()
+
+
+def test_injected_locale_and_measured_endpoint(site: Path) -> None:
+    html = (site / "index.html").read_text(encoding="utf-8")
+    # Locale marker drives per-locale captions in the measured tab.
+    assert 'window.__LOCALE__ = "en"' in html
+    # Measured endpoint is relative like every other injected path.
+    assert 'measured: "published.json"' in html
+    assert '"/published.json"' not in html
 
 
 def test_injected_endpoints_are_relative(site: Path) -> None:
