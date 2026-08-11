@@ -52,6 +52,9 @@ jobs:
       - name: Build interactive dashboard demo (ko at /ko/demo/)
         run: python scripts/build_static_site.py _site/ko/demo ko
 
+      - name: Re-localize root 404 to English (default locale)
+        run: python scripts/localize_root_404.py _site
+
       - name: i18n site contract (en at root, ko under /ko/, pairs/redirects/hreflang/demos)
         run: python scripts/check_i18n_site.py _site
 

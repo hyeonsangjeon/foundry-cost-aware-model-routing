@@ -103,6 +103,39 @@ SCRIPT_STYLE_RE = re.compile(r"<(script|style)\b[^>]*>.*?</\1>",
                              re.IGNORECASE | re.DOTALL)
 HEAD_RE = re.compile(r"<head\b[^>]*>.*?</head>", re.IGNORECASE | re.DOTALL)
 
+# -- site-wide language purity (whole en/ko tree, not just the demos) --------
+# The Material language selector renders one anchor per locale, each showing the
+# *other* locale's endonym (``한국어`` on an English page, ``English`` on a Korean
+# one). That single Korean word is the one sanctioned bit of Korean on an English
+# page — a navigation affordance, the user's own example of intentional (b)
+# Korean — so the selector anchors are removed before the Hangul assertion.
+LANG_SELECT_RE = re.compile(
+    r'<a\b[^>]*\bhreflang\s*=\s*"[^"]*"[^>]*>.*?</a>', re.IGNORECASE | re.DOTALL
+)
+# Explicitly-sanctioned non-English assets under the English tree — the (b)
+# allow-list, kept here so every exemption is auditable rather than silent:
+#   * assets/javascripts/lunr/*.ko(.min).js — Material's bundled Korean *search
+#     stemmer* language pack, present only because the site indexes Korean
+#     pages. It is third-party tokenizer data, never surfaced as page text, so
+#     the reader-facing page scan below (which reads HTML, not JS) never sees it.
+ASSET_LANG_EXCEPTIONS = ("assets/javascripts/lunr/",)
+# The 03D result charts are shared SVG assets whose axis/legend labels are baked
+# in at generation time. English pages must reference the English ``.en.svg``
+# variants; the bare ``.svg`` files keep Korean labels for the Korean pages.
+SVG03D_REF_RE = re.compile(r"assets/03d/([\w.-]+?)\.svg", re.IGNORECASE)
+
+
+def _reader_visible_text(html: str) -> str:
+    """Reader-visible prose of a built page: drop ``<head>``, ``<script>``,
+    ``<style>`` and the language-selector anchors, then every remaining tag, and
+    collapse whitespace. Nav labels, headings and body copy remain; identifiers,
+    model names, commands and numbers are ASCII and never trip the Hangul scan."""
+    html = HEAD_RE.sub(" ", html)
+    html = SCRIPT_STYLE_RE.sub(" ", html)
+    html = LANG_SELECT_RE.sub(" ", html)
+    html = TAG_RE.sub(" ", html)
+    return re.sub(r"\s+", " ", html).strip()
+
 
 def _base_path() -> str:
     """Return the URL base path from mkdocs ``site_url`` (e.g. ``/repo/``)."""
@@ -459,23 +492,64 @@ def check_search(site: Path) -> list[str]:
 
 
 def check_hangul_leak(site: Path) -> list[str]:
-    """No English reader page leaks Korean text in its article body."""
+    """No English page leaks Korean in its reader-visible text.
+
+    Scans the whole English tree — every built ``*.html`` outside ``ko/`` and the
+    infrastructure dirs, **including ``404.html``** (which the directory-URL
+    iterator skips, and which the i18n plugin overwrites with the last-built,
+    i.e. Korean, locale unless a post-build step re-localizes it). The scan reads
+    the full reader-visible text (nav, chrome and article body), not just the
+    ``<article>``, after removing the language-selector endonyms — so a Korean
+    navigation shell or footer note is caught, while the sanctioned ``한국어``
+    switch label is not. The static demos have their own dedicated per-locale
+    check (``check_demo_languages``); redirect stubs carry no prose.
+    """
     out: list[str] = []
-    for key, html_path in _iter_pages(site):
-        if key.startswith("ko/") or key == "ko":
+    for html_path in sorted(site.rglob("*.html")):
+        rel = html_path.relative_to(site).as_posix()
+        top = rel.split("/", 1)[0]
+        if top == "ko" or top in INFRA_TOP:
             continue
+        key = _page_key(html_path, site)  # dir-URL key, or None for 404.html etc.
         if key in DEMO_PAGES or key in REDIRECT_PAGES:
             continue
         if _is_redirect(html_path):
             continue
+        label = key if key is not None else rel
         text = html_path.read_text(encoding="utf-8", errors="ignore")
-        m = ARTICLE_RE.search(text)
-        body = m.group(1) if m else text
-        body = TAG_RE.sub(" ", body)
-        hits = HANGUL_RE.findall(body)
+        hits = HANGUL_RE.findall(_reader_visible_text(text))
         if hits:
-            out.append("hangul: English page '" + (key or "<root>") + "' leaks "
-                       + str(len(hits)) + " Korean character(s) in its body")
+            out.append("hangul: English page '" + (label or "<root>") + "' leaks "
+                       + str(len(hits)) + " Korean character(s) in reader-visible text")
+    return out
+
+
+def check_localized_assets(site: Path) -> list[str]:
+    """English pages reference the English 03D chart variants, and those
+    variants are actually English.
+
+    Chart labels are baked into the SVG at generation time, so an English page
+    that embeds the bare (Korean-labelled) ``assets/03d/*.svg`` shows Korean to
+    an English reader even though its Markdown alt-text is English. The English
+    pages must use the ``.en.svg`` variants; those variants must carry no Korean.
+    """
+    out: list[str] = []
+    for html_path in sorted(site.rglob("index.html")):
+        key = _page_key(html_path, site)
+        if key is None or key == "ko" or key.startswith("ko/") or key in DEMO_PAGES:
+            continue
+        text = html_path.read_text(encoding="utf-8", errors="ignore")
+        for name in SVG03D_REF_RE.findall(text):
+            if not name.endswith(".en"):
+                out.append("assets: English page '" + (key or "<root>")
+                           + "' embeds Korean chart 'assets/03d/" + name
+                           + ".svg' (expected the .en.svg variant)")
+    charts_dir = site / "assets" / "03d"
+    for svg in sorted(charts_dir.glob("*.en.svg")) if charts_dir.is_dir() else []:
+        hits = HANGUL_RE.findall(svg.read_text(encoding="utf-8", errors="ignore"))
+        if hits:
+            out.append("assets: English chart 'assets/03d/" + svg.name + "' leaks "
+                       + str(len(hits)) + " Korean character(s)")
     return out
 
 
@@ -592,6 +666,7 @@ CHECKS = [
     ("sitemap", check_sitemap),
     ("search", check_search),
     ("hangul-leak", check_hangul_leak),
+    ("localized-assets", check_localized_assets),
     ("demos", check_demos),
     ("demo-languages", check_demo_languages),
 ]
