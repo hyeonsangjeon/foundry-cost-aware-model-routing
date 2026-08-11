@@ -11,12 +11,12 @@ placeholders); nothing here is a measured result.
 
 from __future__ import annotations
 
-DASHBOARD_HTML = """<!DOCTYPE html>
+DASHBOARD_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>cost-router · offline routing demo</title>
+<title>@@k000@@</title>
 <style>
   :root {
     --bg: #eef2f6; --panel: #ffffff; --elev: #f5f8fa; --line: #dce3ea; --line2: #eaeff4;
@@ -524,214 +524,197 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <div class="brand">
     <div class="logo">&#9671;</div>
     <div>
-      <h1>cost-router</h1>
-      <div class="tag">Cost-aware model routing over Microsoft Foundry &middot; offline demo</div>
+      <h1>@@k001@@</h1>
+      <div class="tag">@@k002@@</div>
     </div>
   </div>
   <div class="badges">
-    <span id="health" class="badge">checking&#8230;</span>
-    <span id="polver" class="badge">policy &mdash;</span>
-    <span id="modeBadge" class="badge measured">offline projection &middot; labels.measured=false</span>
+    <span id="health" class="badge">@@k003@@</span>
+    <span id="polver" class="badge">@@k004@@</span>
+    <span id="modeBadge" class="badge measured">@@k005@@</span>
   </div>
 </header>
 <main>
 
   <nav class="tabbar" id="tabbar" hidden aria-label="Demo mode">
     <button type="button" class="tabbtn active" id="tabOffline" aria-selected="true" aria-controls="tabpanelOffline">
-      <span id="tabOfflineLbl">Offline replay</span> <code>measured=false</code>
+      <span id="tabOfflineLbl">@@k006@@</span> <code>@@k007@@</code>
     </button>
     <button type="button" class="tabbtn" id="tabMeasured" aria-selected="false" aria-controls="tabpanelMeasured">
-      <span id="tabMeasuredLbl">Measured run &middot; 03D</span> <code>measured=true</code>
+      <span id="tabMeasuredLbl">@@k008@@</span> <code>@@k009@@</code>
     </button>
   </nav>
   <div id="tabpanelOffline" role="tabpanel">
 
   <section class="panel hero">
-    <div class="eyebrow">The question</div>
-    <p class="lead">Can we cut inference cost <b>without losing coverage</b>? Route cheap-first &mdash;
-      try the cheapest capable model, and escalate to a stronger one only when the cheap one fails.</p>
+    <div class="eyebrow">@@k010@@</div>
+    <p class="lead">@@k011@@<b>@@k012@@</b>@@k013@@</p>
     <div class="controls">
-      <button id="run" class="btn">&#9654;&nbsp; Run replay</button>
-      <label class="toggle"><input type="checkbox" id="synth" checked /> full synthetic workload (100 tasks)</label>
-      <span id="progress" class="badge">idle</span>
+      <button id="run" class="btn">@@k014@@</button>
+      <label class="toggle"><input type="checkbox" id="synth" checked />@@k015@@</label>
+      <span id="progress" class="badge">@@k016@@</span>
     </div>
     <div class="headline">
       <span class="hnum" id="savedPct">0.0%</span>
-      <span class="hunit">lower cost</span>
+      <span class="hunit">@@k017@@</span>
     </div>
-    <div class="hsub" id="savedAbs">&mdash; run a replay to project savings against an all-premium baseline.</div>
-    <p class="caveat" id="mixCaveat">Savings depend on workload mix and placeholder pricing &mdash; this is one synthetic run, not a guaranteed number.</p>
+    <div class="hsub" id="savedAbs">@@k018@@</div>
+    <p class="caveat" id="mixCaveat">@@k019@@</p>
   </section>
 
   <section class="panel journey" id="journeyPanel" hidden aria-live="polite">
-    <div class="eyebrow">Reproduction complete</div>
-    <div class="journey-verdict" id="journeyVerdict">Reproduction passed</div>
-    <p class="journey-meta" id="journeyMeta">&mdash; tasks &middot; replay verified &middot; <code>measured=false</code></p>
+    <div class="eyebrow">@@k020@@</div>
+    <div class="journey-verdict" id="journeyVerdict">@@k021@@</div>
+    <p class="journey-meta" id="journeyMeta">@@k022@@<code>@@k023@@</code></p>
     <div class="journey-cta">
-      <a class="cta" id="ctaTrace" href="#trace-details">Inspect a routing trace</a>
+      <a class="cta" id="ctaTrace" href="#trace-details">@@k024@@</a>
       <a class="cta" id="ctaMethod"
          href="https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/measurement-protocol/"
-         target="_blank" rel="noopener noreferrer">View methodology</a>
+         target="_blank" rel="noopener noreferrer">@@k025@@</a>
       <a class="cta star" id="ctaStar" href="https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing"
          target="_blank" rel="noopener noreferrer"
-         aria-label="Useful? Star the project on GitHub (opens in a new tab)">&#9733;&nbsp;Useful? Star it on GitHub</a>
+         aria-label="Useful? Star the project on GitHub (opens in a new tab)">@@k026@@</a>
     </div>
-    <p class="caveat">This offline reproduction is a deterministic projection over synthetic data
-      (<code>measured=false</code>) &mdash; only a fresh live call ever earns a measured label. The
-      Star link just opens GitHub; nothing here stars the repo for you.</p>
+    <p class="caveat">@@k027@@<code>@@k028@@</code>@@k029@@</p>
   </section>
 
   <section class="panel spotlight" id="spotlightPanel" hidden>
-    <div class="eyebrow">The one task that makes it obvious</div>
-    <h2 class="sec">Spotlight <span class="spot-meta" id="spotMeta">&mdash;</span></h2>
-    <p class="sec-sub">The single task where cheap-first routing beat the all-premium arm by the widest margin &mdash;
-      same task, same checks, one picked the cheapest model that passed.</p>
+    <div class="eyebrow">@@k030@@</div>
+    <h2 class="sec">@@k031@@<span class="spot-meta" id="spotMeta">&mdash;</span></h2>
+    <p class="sec-sub">@@k032@@</p>
     <div class="spot-grid">
       <div class="spot-arm routed">
-        <div class="spot-lbl">routed &middot; cost-aware</div>
+        <div class="spot-lbl">@@k033@@</div>
         <div class="spot-model" id="spotRoutedModel">&mdash;</div>
         <div class="spot-cost" id="spotRoutedCost">&mdash;</div>
       </div>
-      <div class="spot-vs"><span id="spotRatio">&mdash;</span><small>cheaper</small></div>
+      <div class="spot-vs"><span id="spotRatio">&mdash;</span><small>@@k034@@</small></div>
       <div class="spot-arm naive">
-        <div class="spot-lbl">naive &middot; premium on every task</div>
+        <div class="spot-lbl">@@k035@@</div>
         <div class="spot-model" id="spotNaiveModel">&mdash;</div>
         <div class="spot-cost" id="spotNaiveCost">&mdash;</div>
       </div>
     </div>
-    <p class="caveat">One synthetic task, placeholder pricing &mdash; an offline projection, not a measured saving.</p>
+    <p class="caveat">@@k036@@</p>
   </section>
 
   <section class="panel arena" id="arenaPanel" hidden>
-    <div class="eyebrow">The 5-minute wow</div>
-    <h2 class="sec">One problem, four ways <span class="arena-meta" id="arenaMeta">&mdash;</span></h2>
-    <p class="sec-sub">Pick a task. The <b>same problem</b> is sent four ways &mdash; the cheapest model, the premium
-      model, an ensemble that fans out to all of them, and the cost-aware router that escalates cheap-first.
-      Watch <b>cost</b>, <b>latency</b>, and <b>accuracy</b> fill in for each.</p>
+    <div class="eyebrow">@@k037@@</div>
+    <h2 class="sec">@@k038@@<span class="arena-meta" id="arenaMeta">&mdash;</span></h2>
+    <p class="sec-sub">@@k039@@<b>@@k040@@</b>@@k041@@<b>@@k042@@</b>, <b>@@k043@@</b>@@k044@@<b>@@k045@@</b>@@k046@@</p>
     <div class="arena-tasks" id="arenaTasks"></div>
     <div class="arena-problem" id="arenaProblem" hidden></div>
     <div class="arena-grid" id="arenaGrid"></div>
     <div class="arena-verdict" id="arenaVerdict">&mdash;</div>
-    <p class="caveat">Cost &amp; accuracy reuse the same offline machinery as every other panel (<code>measured = false</code>).
-      Latency is an <b>illustrative projection</b> from token counts &mdash; not wall-clock; a live run is where real timings come from.</p>
+    <p class="caveat">@@k047@@<code>@@k048@@</code>@@k049@@<b>@@k050@@</b>@@k051@@</p>
   </section>
 
   <section class="panel cockpit" id="cockpitPanel" hidden>
-    <div class="eyebrow">Live cockpit &mdash; the only place paid runs happen</div>
-    <h2 class="sec">Measure it live <span class="arena-meta" id="ckMode">&mdash;</span></h2>
-    <p class="sec-sub">This panel is served by <code>cost-router dashboard --live</code> on your machine. It reads your
-      Foundry connection from the environment (<b>no credential fields here</b>), shows the exact prompts and a
-      dry-run cost, and only spends after <b>you</b> click <b>approve &amp; run</b>. The public site never renders it.</p>
+    <div class="eyebrow">@@k052@@</div>
+    <h2 class="sec">@@k053@@<span class="arena-meta" id="ckMode">&mdash;</span></h2>
+    <p class="sec-sub">@@k054@@<code>@@k055@@</code>@@k056@@<b>@@k057@@</b>@@k058@@<b>@@k059@@</b>@@k060@@<b>@@k061@@</b>@@k062@@</p>
 
     <div class="ck-grid">
       <div class="ck-col">
-        <div class="cls">1 &middot; Connection</div>
-        <div id="ckStatus" class="ck-box"><div class="foot">loading status&#8230;</div></div>
+        <div class="cls">@@k063@@</div>
+        <div id="ckStatus" class="ck-box"><div class="foot">@@k064@@</div></div>
       </div>
       <div class="ck-col">
-        <div class="cls">2 &middot; Prompts &amp; dry-run (no calls yet)</div>
-        <div id="ckCatalog" class="ck-box"><div class="foot">loading catalog&#8230;</div></div>
+        <div class="cls">@@k065@@</div>
+        <div id="ckCatalog" class="ck-box"><div class="foot">@@k066@@</div></div>
       </div>
     </div>
 
-    <div class="cls">3 &middot; Run gate &mdash; this button is the human approval</div>
-    <div id="ckPlan" class="ck-box"><div class="foot">loading plan&#8230;</div></div>
+    <div class="cls">@@k067@@</div>
+    <div id="ckPlan" class="ck-box"><div class="foot">@@k068@@</div></div>
     <div class="ck-run">
-      <label for="ckBudget">Budget cap (USD)</label>
+      <label for="ckBudget">@@k069@@</label>
       <input id="ckBudget" type="number" step="0.01" min="0" placeholder="e.g. 0.50" />
-      <label class="ck-approve"><input id="ckApprove" type="checkbox" /> I approve running this exact plan</label>
-      <button class="fleet-run" id="ckRunBtn">approve &amp; run</button>
+      <label class="ck-approve"><input id="ckApprove" type="checkbox" />@@k070@@</label>
+      <button class="fleet-run" id="ckRunBtn">@@k071@@</button>
     </div>
-    <p class="caveat" id="ckGate">The run halts at the plan-approval and budget gates until they are green.
-      <b>measured=true is only ever shown after completion + a clean snapshot replay</b>, never at start.</p>
+    <p class="caveat" id="ckGate">@@k072@@<b>@@k073@@</b>@@k074@@</p>
 
     <div id="ckProgress" hidden>
-      <div class="cls">4 &middot; Live progress
-        <button class="fleet-run" id="ckAbortBtn">abort run</button></div>
+      <div class="cls">@@k075@@<button class="fleet-run" id="ckAbortBtn">@@k076@@</button></div>
       <div class="ck-gauge"><span id="ckGaugeBar"></span></div>
       <p class="foot" id="ckProgressText">&mdash;</p>
     </div>
 
     <div id="ckSnapshot" hidden>
-      <div class="cls">5 &middot; Snapshot (re-read from disk &mdash; the replay is the check)</div>
+      <div class="cls">@@k077@@</div>
       <div id="ckSnapshotBody" class="ck-box"><div class="foot">&mdash;</div></div>
     </div>
   </section>
 
   <section class="panel" id="fleetPanel" hidden>
-    <div class="eyebrow">Pick your fleet</div>
-    <h2 class="sec">Fleet &amp; live routing <span class="arena-meta" id="fleetMeta">&mdash;</span></h2>
-    <p class="sec-sub">These are the Foundry deployments registered in your fleet file. Choose which model plays each
-      role &mdash; the <b>router (main)</b>, the <b>cheapest</b> floor, the <b>premium</b> ceiling, and the
-      <b>ensemble</b> that fans out. The exact command to run <b>your</b> selection live is generated below.</p>
+    <div class="eyebrow">@@k078@@</div>
+    <h2 class="sec">@@k079@@<span class="arena-meta" id="fleetMeta">&mdash;</span></h2>
+    <p class="sec-sub">@@k080@@<b>@@k081@@</b>@@k082@@<b>@@k083@@</b>@@k084@@<b>@@k085@@</b>@@k086@@<b>@@k087@@</b>@@k088@@<b>@@k089@@</b>@@k090@@</p>
     <div class="fleet-grid">
-      <div class="fleet-cat" id="fleetCatalog"><div class="foot">loading fleet&#8230;</div></div>
+      <div class="fleet-cat" id="fleetCatalog"><div class="foot">@@k091@@</div></div>
       <div>
         <div class="fleet-roles">
-          <div class="fleet-role"><label for="selRouter">Router (main)</label><select id="selRouter"></select></div>
-          <div class="fleet-role"><label for="selCheapest">Cheapest floor</label><select id="selCheapest"></select></div>
-          <div class="fleet-role"><label for="selPremium">Premium ceiling</label><select id="selPremium"></select></div>
-          <div class="fleet-role"><label>Ensemble / fan-out</label><div class="fleet-ens" id="fleetEnsemble"></div></div>
+          <div class="fleet-role"><label for="selRouter">@@k092@@</label><select id="selRouter"></select></div>
+          <div class="fleet-role"><label for="selCheapest">@@k093@@</label><select id="selCheapest"></select></div>
+          <div class="fleet-role"><label for="selPremium">@@k094@@</label><select id="selPremium"></select></div>
+          <div class="fleet-role"><label>@@k095@@</label><div class="fleet-ens" id="fleetEnsemble"></div></div>
         </div>
-        <button class="fleet-run" id="fleetRun">Run selection (recorded)</button>
+        <button class="fleet-run" id="fleetRun">@@k096@@</button>
       </div>
     </div>
     <div id="fleetResult" hidden>
       <div class="fleet-arms" id="fleetArms"></div>
       <div class="chips" id="fleetLabels"></div>
       <p class="foot" id="fleetRouterMix">&mdash;</p>
-      <div class="cls">Run YOUR selection live (measured = true)</div>
+      <div class="cls">@@k097@@</div>
       <div class="fleet-cmd" id="fleetLive">&mdash;</div>
       <p class="caveat" id="fleetNote">&mdash;</p>
     </div>
   </section>
 
   <section class="panel">
-    <h2 class="sec">Three strategies, one workload</h2>
-    <p class="sec-sub">Each single-tier strategy fails on one axis. Only the cost-aware mix wins on both cost and coverage.</p>
+    <h2 class="sec">@@k098@@</h2>
+    <p class="sec-sub">@@k099@@</p>
     <div class="strats" id="strats">
       <div class="strat">
         <div class="lbl">
-          <span class="name"><span class="stag mini">all-mini</span><span class="desc">cheapest tier on every task</span></span>
+          <span class="name"><span class="stag mini">@@k100@@</span><span class="desc">@@k101@@</span></span>
           <b class="cost" id="miniVal">&mdash;</b>
         </div>
         <div class="bar mini"><span id="miniBar"></span></div>
-        <div class="covline"><span class="covpill" id="miniCov">coverage &mdash;</span><small>cheapest &mdash; but the cheap tier fails the hard tasks</small></div>
+        <div class="covline"><span class="covpill" id="miniCov">@@k102@@</span><small>@@k103@@</small></div>
       </div>
       <div class="strat">
         <div class="lbl">
-          <span class="name"><span class="stag prem">all-premium</span><span class="desc">premium model on every task</span></span>
+          <span class="name"><span class="stag prem">@@k104@@</span><span class="desc">@@k105@@</span></span>
           <b class="cost" id="premVal">&mdash;</b>
         </div>
         <div class="bar prem"><span id="premBar"></span></div>
-        <div class="covline"><span class="covpill" id="premCov">coverage &mdash;</span><small>holds coverage &mdash; but the most expensive</small></div>
+        <div class="covline"><span class="covpill" id="premCov">@@k106@@</span><small>@@k107@@</small></div>
       </div>
       <div class="strat win">
         <div class="lbl">
-          <span class="name"><span class="stag mix">cost-aware mix</span><span class="desc">cheap-first, escalate only the hard tasks</span><span class="win-flag">&#10003; recommended</span></span>
+          <span class="name"><span class="stag mix">@@k108@@</span><span class="desc">@@k109@@</span><span class="win-flag">@@k110@@</span></span>
           <b class="cost" id="afterVal">&mdash;</b>
         </div>
         <div class="bar mix"><span id="afterBar"></span></div>
-        <div class="covline"><span class="covpill" id="mixCov">coverage &mdash;</span><small>the only both-win: full coverage below premium cost</small></div>
+        <div class="covline"><span class="covpill" id="mixCov">@@k111@@</span><small>@@k112@@</small></div>
       </div>
     </div>
     <div class="frontier">
-      <div class="fttl">Cost &times; coverage &mdash; the trade-off frontier</div>
-      <div id="frontier"><small style="color:var(--muted)">run a replay&#8230;</small></div>
-      <div class="fnote"><span class="fnote-dot"></span><b>single-call</b> (파란 점) = 프롬프트마다
-        모델을 <b>한 번</b> 고르는 단일 호출 라우팅 레이어의 일반형 &mdash; 미리 고르고 에스컬레이션이 없어
-        커버리지가 낮습니다. 관찰-후-에스컬레이션하는 <b>cost-aware mix</b>가 비슷한 비용으로 커버리지를 채웁니다.
-        <a href="../lab-notebook/07-model-router/">실험 07 &rarr;</a> <span class="badge measured">measured=false</span></div>
+      <div class="fttl">@@k113@@</div>
+      <div id="frontier"><small style="color:var(--muted)">@@k114@@</small></div>
+      <div class="fnote"><span class="fnote-dot"></span><b>@@k115@@</b>@@k116@@<b>@@k117@@</b>@@k118@@<b>@@k119@@</b>@@k120@@<a href="../lab-notebook/07-model-router/">@@k121@@</a> <span class="badge measured">@@k122@@</span></div>
     </div>
-    <div class="takeaway" id="takeaway">Run a replay to compare all-mini vs all-premium vs the cost-aware mix &mdash; each single-tier strategy fails on one axis; only the mix keeps full coverage below premium cost.</div>
+    <div class="takeaway" id="takeaway">@@k123@@</div>
   </section>
 
   <section class="panel" id="experimentsPanel">
-    <div class="eyebrow">experiments</div>
-    <h2 class="sec">Experiments &mdash; click for the metrics</h2>
-    <p class="sec-sub">각 실험을 눌러 비용 &middot; 커버리지 &middot; <b>앙상블 팬아웃 세금</b> &middot; 재현성 계약을
-      확인하세요. 수치는 Azure Foundry 형태의 오프라인 메트릭입니다 (labels.measured=false).</p>
-    <div class="exp-tabs" id="expTabs"><small style="color:var(--muted)">loading experiments&#8230;</small></div>
+    <div class="eyebrow">@@k124@@</div>
+    <h2 class="sec">@@k125@@</h2>
+    <p class="sec-sub">@@k126@@<b>@@k127@@</b>@@k128@@</p>
+    <div class="exp-tabs" id="expTabs"><small style="color:var(--muted)">@@k129@@</small></div>
     <div class="exp-detail" id="expDetail" hidden>
       <div class="exp-head">
         <div>
@@ -747,19 +730,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   </section>
 
   <section class="panel" id="historyPanel">
-    <div class="eyebrow">historical</div>
-    <h2 class="sec">Historical dashboard</h2>
-    <p class="sec-sub">기록된 실험 실행 이력 (metrics history store). 라이브 서버에서 실험을 실행할 때마다
-      한 줄씩 누적됩니다 &mdash; 정적 데모에서는 실험별 기준 스냅샷을 보여줍니다.</p>
+    <div class="eyebrow">@@k130@@</div>
+    <h2 class="sec">@@k131@@</h2>
+    <p class="sec-sub">@@k132@@</p>
     <div class="history-wrap">
       <table class="htable">
         <thead>
           <tr>
-            <th>recorded</th><th>experiment</th><th>coverage</th><th>routed</th>
-            <th>saved</th><th>fan-out tax</th><th>ratio</th><th>contract</th>
+            <th>@@k133@@</th><th>@@k134@@</th><th>@@k135@@</th><th>@@k136@@</th>
+            <th>@@k137@@</th><th>@@k138@@</th><th>@@k139@@</th><th>@@k140@@</th>
           </tr>
         </thead>
-        <tbody id="histBody"><tr><td colspan="8"><small style="color:var(--muted)">loading history&#8230;</small></td></tr></tbody>
+        <tbody id="histBody"><tr><td colspan="8"><small style="color:var(--muted)">@@k141@@</small></td></tr></tbody>
       </table>
     </div>
   </section>
@@ -767,100 +749,100 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <section class="panel" id="cliffPanel" hidden>
     <div class="cliff-hd">
       <div>
-        <h2 class="sec" style="margin:0">Coverage cliff &mdash; deleting the safety net</h2>
-        <p class="sec-sub" style="margin:6px 0 0">A different policy, same workload. Naively deleting the expensive fallback models (<code>deep-reasoner</code>, <code>premium-max</code>) looks cheaper &mdash; but silently drops the tasks only they could pass.</p>
+        <h2 class="sec" style="margin:0">@@k142@@</h2>
+        <p class="sec-sub" style="margin:6px 0 0">@@k143@@<code>@@k144@@</code>, <code>@@k145@@</code>@@k146@@</p>
       </div>
       <span class="cliff-drop" id="cliffDrop">&mdash;</span>
     </div>
     <div class="strats">
       <div class="strat">
         <div class="lbl">
-          <span class="name"><span class="stag seed">seed policy</span><span class="desc">keeps the expensive fallback</span></span>
+          <span class="name"><span class="stag seed">@@k147@@</span><span class="desc">@@k148@@</span></span>
           <b class="cost" id="cliffBaseCov">&mdash;</b>
         </div>
         <div class="bar seed"><span id="cliffBaseBar"></span></div>
-        <div class="covline"><span class="covpill ok" id="cliffBaseCost">routed &mdash;</span><small>full coverage &mdash; the fallback catches the hard tasks</small></div>
+        <div class="covline"><span class="covpill ok" id="cliffBaseCost">@@k149@@</span><small>@@k150@@</small></div>
       </div>
       <div class="strat">
         <div class="lbl">
-          <span class="name"><span class="stag cut">cost-cut</span><span class="desc">deletes the expensive fallback</span></span>
+          <span class="name"><span class="stag cut">@@k151@@</span><span class="desc">@@k152@@</span></span>
           <b class="cost" id="cliffCandCov">&mdash;</b>
         </div>
         <div class="bar cut"><span id="cliffCandBar"></span></div>
-        <div class="covline"><span class="covpill warn" id="cliffCandCost">routed &mdash;</span><small>looks cheaper &mdash; but a third of tasks lost a model that passes</small></div>
+        <div class="covline"><span class="covpill warn" id="cliffCandCost">@@k153@@</span><small>@@k154@@</small></div>
       </div>
     </div>
-    <div class="takeaway" id="cliffTakeaway">Cost-cut's routed bill is lower only because it stopped covering hard tasks &mdash; that is dropped work, not savings. Cost is comparable only at fixed coverage.</div>
-    <p class="caveat">Deterministic policy regression over shared synthetic signals (100 tasks) &mdash; an offline projection, <code>measured = false</code>. See the lab notebook: <a href="../lab-notebook/03-coverage-cliff/">실험 03 &middot; 커버리지 절벽</a>.</p>
+    <div class="takeaway" id="cliffTakeaway">@@k155@@</div>
+    <p class="caveat">@@k156@@<code>@@k157@@</code>@@k158@@<a href="../lab-notebook/03-coverage-cliff/">@@k159@@</a>.</p>
   </section>
 
   <section class="panel" id="sweepPanel" hidden>
     <div class="cliff-hd">
       <div>
-        <h2 class="sec" style="margin:0">Fan-out dial &mdash; the ensemble tax is a knob</h2>
-        <p class="sec-sub" style="margin:6px 0 0">Same ensemble workload, one lever: the budget gate's <code>compare_min_value</code>. Raise it and the router fans out on fewer tasks. Coverage and savings stay flat &mdash; only the ensemble tax moves. Experiment 05 (fan out all) vs 06 (fan out none).</p>
+        <h2 class="sec" style="margin:0">@@k160@@</h2>
+        <p class="sec-sub" style="margin:6px 0 0">@@k161@@<code>@@k162@@</code>@@k163@@</p>
       </div>
       <span class="cliff-drop" id="sweepDrop" style="color:var(--green);border-color:#cdebd9;background:rgba(26,127,75,.08)">&mdash;</span>
     </div>
     <div class="sweep-key">
-      <span class="k-tax"><b>&#9646; ensemble tax</b> (collapses)</span>
-      <span class="k-cov"><b>&ndash;&ndash; coverage</b> (flat)</span>
-      <span class="k-sav"><b>&ndash;&ndash; savings vs naive</b> (flat)</span>
+      <span class="k-tax"><b>@@k164@@</b>@@k165@@</span>
+      <span class="k-cov"><b>@@k166@@</b>@@k167@@</span>
+      <span class="k-sav"><b>@@k168@@</b>@@k169@@</span>
     </div>
     <div class="sweep" id="sweepChart"></div>
     <table class="sweep-tbl">
-      <thead><tr><th>fan-out (compare)</th><th>coverage</th><th>savings</th><th>ensemble tax</th><th>fan-out $</th><th>tax &times;</th></tr></thead>
+      <thead><tr><th>@@k170@@</th><th>@@k171@@</th><th>@@k172@@</th><th>@@k173@@</th><th>@@k174@@</th><th>@@k175@@</th></tr></thead>
       <tbody id="sweepBody"></tbody>
     </table>
-    <div class="takeaway" id="sweepTakeaway">On this deterministic projection fan-out finds the same cheapest-passing winner ordered escalation already reaches &mdash; so the tax buys nothing here. Dial it to zero and keep every win. (Best-of-N can lift quality in a real system; this projection does not model that, so measure the lift before paying.)</div>
-    <p class="caveat">Offline sweep over the bundled ensemble workload &mdash; <code>measured = false</code>. See the lab notebook: <a href="../lab-notebook/06-fanout-dial/">실험 06 &middot; 적응형 팬아웃 다이얼</a>.</p>
+    <div class="takeaway" id="sweepTakeaway">@@k176@@</div>
+    <p class="caveat">@@k177@@<code>@@k178@@</code>@@k179@@<a href="../lab-notebook/06-fanout-dial/">@@k180@@</a>.</p>
   </section>
 
   <section class="panel">
-    <h2 class="sec">At a glance</h2>
-    <p class="sec-sub">Headline numbers for this run.</p>
+    <h2 class="sec">@@k181@@</h2>
+    <p class="sec-sub">@@k182@@</p>
     <div class="kpis" id="kpis">
-      <div class="kpi"><div class="v" id="kTasks">&mdash;</div><div class="k">tasks</div></div>
-      <div class="kpi"><div class="v" id="kCov">&mdash;</div><div class="k">coverage</div></div>
-      <div class="kpi"><div class="v" id="kSingle">&mdash;</div><div class="k">single-route</div></div>
-      <div class="kpi"><div class="v" id="kEnsemble">&mdash;</div><div class="k">ensemble</div></div>
-      <div class="kpi"><div class="v" id="kAvg">&mdash;</div><div class="k">avg $/task</div></div>
+      <div class="kpi"><div class="v" id="kTasks">&mdash;</div><div class="k">@@k183@@</div></div>
+      <div class="kpi"><div class="v" id="kCov">&mdash;</div><div class="k">@@k184@@</div></div>
+      <div class="kpi"><div class="v" id="kSingle">&mdash;</div><div class="k">@@k185@@</div></div>
+      <div class="kpi"><div class="v" id="kEnsemble">&mdash;</div><div class="k">@@k186@@</div></div>
+      <div class="kpi"><div class="v" id="kAvg">&mdash;</div><div class="k">@@k187@@</div></div>
     </div>
     <div class="covnote" id="covNote"></div>
     <div class="modes">
-      <div class="mode-explain"><b>single-route</b> &mdash; try candidates cheapest-first and take the first one that passes.</div>
-      <div class="mode-explain"><b>ensemble</b> &mdash; evaluate several models and keep the best; reserved for higher-value tasks.</div>
+      <div class="mode-explain"><b>@@k188@@</b>@@k189@@</div>
+      <div class="mode-explain"><b>@@k190@@</b>@@k191@@</div>
     </div>
   </section>
 
   <details class="disc" open>
-    <summary><span class="chev">&#9656;</span> Breakdown <span class="sumsub">cost by class &middot; model usage &middot; routing modes</span></summary>
+    <summary><span class="chev">&#9656;</span>@@k192@@<span class="sumsub">@@k193@@</span></summary>
     <div class="disc-body">
       <div class="cards">
         <div class="card">
-          <h3>Cost by task class &mdash; routed vs naive</h3>
-          <div id="byClass"><small style="color:var(--muted)">run a replay&#8230;</small></div>
+          <h3>@@k194@@</h3>
+          <div id="byClass"><small style="color:var(--muted)">@@k195@@</small></div>
         </div>
         <div class="card">
-          <h3>Model usage &mdash; tasks &amp; routed cost</h3>
-          <div id="byModel"><small style="color:var(--muted)">run a replay&#8230;</small></div>
+          <h3>@@k196@@</h3>
+          <div id="byModel"><small style="color:var(--muted)">@@k197@@</small></div>
           <div class="usage-split" id="usageSplit"></div>
         </div>
         <div class="card">
-          <h3>Routing mode</h3>
-          <div class="chips" id="byMode"><small style="color:var(--muted)">run a replay&#8230;</small></div>
-          <h3 style="margin-top:16px">Reason</h3>
-          <div class="chips" id="byReason"><small style="color:var(--muted)">run a replay&#8230;</small></div>
+          <h3>@@k198@@</h3>
+          <div class="chips" id="byMode"><small style="color:var(--muted)">@@k199@@</small></div>
+          <h3 style="margin-top:16px">@@k200@@</h3>
+          <div class="chips" id="byReason"><small style="color:var(--muted)">@@k201@@</small></div>
         </div>
         <div class="card">
-          <h3>What each column means</h3>
+          <h3>@@k202@@</h3>
           <div class="legend">
-            <div class="li"><span class="term">task</span> &mdash; synthetic task id.</div>
-            <div class="li"><span class="term">class</span> &mdash; task type: plan &middot; generate &middot; test &middot; validate &middot; repo_patch.</div>
-            <div class="li"><span class="term">mode</span> &mdash; <small><b>ordered</b> = cheapest-first, take the first clean one &middot; <b>compare</b> = ensemble, keep the best.</small></div>
-            <div class="li"><span class="term">chosen</span> &mdash; placeholder model that handled the task.</div>
-            <div class="li"><span class="term">reason</span> &mdash; <small><b>clean-first</b> top pick passed &middot; <b>escalated</b> cheaper failed, moved up &middot; <b>compared</b> ensemble winner &middot; <b>tie-broken</b> settled by cost.</small></div>
-            <div class="li"><span class="term">cost</span> &mdash; <small>projected USD for this task (offline, not measured).</small></div>
+            <div class="li"><span class="term">@@k203@@</span>@@k204@@</div>
+            <div class="li"><span class="term">@@k205@@</span>@@k206@@</div>
+            <div class="li"><span class="term">@@k207@@</span> &mdash; <small><b>@@k208@@</b>@@k209@@<b>@@k210@@</b>@@k211@@</small></div>
+            <div class="li"><span class="term">@@k212@@</span>@@k213@@</div>
+            <div class="li"><span class="term">@@k214@@</span> &mdash; <small><b>@@k215@@</b>@@k216@@<b>@@k217@@</b>@@k218@@<b>@@k219@@</b>@@k220@@<b>@@k221@@</b>@@k222@@</small></div>
+            <div class="li"><span class="term">@@k223@@</span> &mdash; <small>@@k224@@</small></div>
           </div>
         </div>
       </div>
@@ -868,11 +850,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   </details>
 
   <details class="disc" id="trace-details">
-    <summary><span class="chev">&#9656;</span> Per-task routing trace <span class="sumsub">every task, streamed live</span></summary>
+    <summary><span class="chev">&#9656;</span>@@k225@@<span class="sumsub">@@k226@@</span></summary>
     <div class="disc-body">
       <div class="tracewrap">
         <table>
-          <thead><tr><th>task</th><th>class</th><th>mode</th><th>chosen</th><th>reason</th><th>cost</th></tr></thead>
+          <thead><tr><th>@@k227@@</th><th>@@k228@@</th><th>@@k229@@</th><th>@@k230@@</th><th>@@k231@@</th><th>@@k232@@</th></tr></thead>
           <tbody id="traceBody"></tbody>
         </table>
       </div>
@@ -880,24 +862,22 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   </details>
 
   <details class="disc" id="policyDetails" open>
-    <summary><span class="chev">&#9656;</span> Policy &amp; model tiers <span class="sumsub">class &#8594; candidates, cheapest first</span></summary>
+    <summary><span class="chev">&#9656;</span>@@k233@@<span class="sumsub">@@k234@@</span></summary>
     <div class="disc-body">
       <div class="grid2">
         <div>
-          <div id="policy">loading&#8230;</div>
+          <div id="policy">@@k235@@</div>
         </div>
         <div>
-          <h3 style="margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Model tiers &mdash; what these names mean</h3>
-          <div id="catalog"><small style="color:var(--muted)">loading&#8230;</small></div>
+          <h3 style="margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">@@k236@@</h3>
+          <div id="catalog"><small style="color:var(--muted)">@@k237@@</small></div>
         </div>
       </div>
-      <div class="foot">Generic placeholder tiers &mdash; not real product names. They stand in for a
-        lightweight/high-volume model, an efficient coder, a balanced general model, a deliberate
-        reasoner, and a premium frontier model.</div>
+      <div class="foot">@@k238@@</div>
     </div>
   </details>
 
-  <div class="foot end">Numbers are an offline projection over synthetic data &mdash; not measured. Model names are generic placeholders.</div>
+  <div class="foot end">@@k239@@</div>
 
   </div><!-- /tabpanelOffline -->
 
@@ -2005,87 +1985,19 @@ const M_COLORS = {
   "gpt-5.4": "var(--amber)",
 };
 const M_ARMS = [
-  { arm: "router-cost",     dep: "model-router-cost",    lbl: { en: "Cost mode",      ko: "Cost 모드" },     css: "win" },
-  { arm: "router-balanced", dep: "model-router",         lbl: { en: "Balanced mode",  ko: "Balanced 모드" }, css: "" },
-  { arm: "direct-premium",  dep: "gpt-5.6-sol",          lbl: { en: "Direct premium", ko: "직접 프리미엄" },  css: "" },
-  { arm: "router-quality",  dep: "model-router-quality", lbl: { en: "Quality mode",   ko: "Quality 모드" },   css: "dom" },
+  { arm: "router-cost",     dep: "model-router-cost",    css: "win" },
+  { arm: "router-balanced", dep: "model-router",         css: "" },
+  { arm: "direct-premium",  dep: "gpt-5.6-sol",          css: "" },
+  { arm: "router-quality",  dep: "model-router-quality", css: "dom" },
 ];
-const M_STR = {
-  en: {
-    tabOffline: "Offline replay", tabMeasured: "Measured run · 03D",
-    badgeOff: "offline projection · labels.measured=false",
-    badgeMeas: "sealed 03D · labels.measured=true",
-    eyebrow: "Measured run · sealed 03D snapshot",
-    title: "What the router actually picked — one real measured run",
-    sub: "Four arms (three routing modes + the direct-premium baseline) over the same 24 coding tasks at n=3 on real Azure AI Foundry — 288 cells, sealed and replay-verified byte-identical. Rendered read-only from the masked published.json bundle: aggregates only, no prompts, endpoints, or tenant ids.",
-    lblCoverage: "coverage", lblUnpriced: "unpriced", lblReplay: "replay verified", lblSpend: "spend",
-    armsTitle: "Four arms — cost · pass rate · $/pass · grading coverage",
-    armsNote: "Deployment shown under each arm. Every arm is cost_complete=true (unpriced 0%), every cell priced at pinned rates. Pass rate is task-based (solved/planned); grading coverage is cell-based (measurement completeness) — different denominators.",
-    cCost: "cost", cPass: "pass rate", cPerPass: "$/pass", cCov: "coverage", cells: "cells",
-    head: (v) => `The cheapest router mode <b>router-cost</b> holds a <b>${v.qCost}</b> task pass rate while running <b>${v.cheaper}% cheaper</b> than direct-premium. The pass-rate gap is within <b>${v.gap}%p</b> — and that gap is entirely due to timeouts (below), not code quality.`,
-    domH: "Most counterintuitive — the quality mode is dominated by direct-premium",
-    domP: (v) => `<b>router-quality</b> (${v.qCostUsd}) is more expensive than <b>direct-premium</b> (${v.premUsd}) yet lands a lower pass rate (${v.qQual} &lt; ${v.premQual}). If you want quality, calling direct-premium directly is cheaper and more accurate than the router's quality mode — on this workload. Meanwhile router-cost holds the same ${v.costQual} pass rate at under 1/20 the cost.`,
-    setupTitle: "Setup — what was actually run",
-    setupNote: "Real deployment and backend identifiers from the sealed run — every name below is verbatim from the masked bundle. (The offline tab keeps synthetic placeholder model names; attaching real names to synthetic data would imply a per-model performance claim.)",
-    setArms: "Arms", setBackends: "Backends the router picked", setWorkload: "Workload", setRun: "Run conditions",
-    rosterEvidence: (v) => `None of these is a deployment in this run — the four deployments are <span class="mono">${v.deps}</span>. The router selected these backends from its own managed roster; <b>grok-4-1-fast-reasoning</b> in particular was never deployed to this account, yet Cost mode routed 100% to it.`,
-    workloadVal: (v) => `curated-24 · ${v.tasks} tasks × ${v.arms} arms × n=${v.n} = ${v.cells} cells`,
-    runVal: "keyless Entra · sequential dispatch · fixed seed 20260729",
-    backTitle: "Backend distribution — which model each arm actually reached",
-    backNote: "Over graded cells only (timeout cells, whose backend never settled, are excluded). Cost mode routed 100% to grok-4-1-fast-reasoning — a skew reproduced across both measured runs (the prior void run and this publishable one). Quality mode uses no Grok at all.",
-    toTitle: "11 timeout cells — shown, not hidden",
-    toNote: "All 11 are HTTP 408 read timeouts, all in the router arms; direct-premium had 0. A timeout cell is handled doubly conservatively — excluded from grading coverage AND counted as a failure — so the router arms' pass rate falls below direct-premium by exactly these timeouts. The 4.17%p gap is a latency-profile difference (router backends p50 ~12–16s vs direct-premium ~4.2s), not code quality.",
-    toByArm: "By arm", toByTask: "By task", toArm: "arm", toTask: "task", toN: "timeouts",
-    limTitle: "Limits — read before generalizing",
-    limits: [
-      "<b>24 tasks → evidence_tier directional.</b> A directional signal, not statistical confidence — a statistical conclusion would need ~100 problems.",
-      "<b>Single tenant · single region · one measurement.</b> Replay guarantees reproduction, not a population estimate.",
-      "<b>Timeouts count against the router arms only.</b> The router backends have longer latency and hit the fixed timeout; direct-premium does not — a latency-profile difference, not code quality.",
-      "<b>Do not generalize to other workloads.</b> Limited to this workload · this tenant · this one measurement.",
-    ],
-    caveat: "Sealed snapshot, rendered read-only — changing any number here would break the replay guarantee. Full write-up:",
-    caveatLink: "03D Results",
-  },
-  ko: {
-    tabOffline: "오프라인 재현", tabMeasured: "실측 런 · 03D",
-    badgeOff: "offline projection · labels.measured=false",
-    badgeMeas: "sealed 03D · labels.measured=true",
-    eyebrow: "실측 런 · 봉인 03D 스냅샷",
-    title: "라우터가 실제로 고른 것 — 실측 1회",
-    sub: "같은 24개 코딩 과제를 n=3으로 실제 Azure AI Foundry에서 네 arm(라우팅 3모드 + direct-premium 기준선)에 돌린 결과 — 288셀, 봉인, replay로 바이트 동일 검증. 마스킹된 published.json 번들에서 읽기 전용으로 렌더했다: 집계뿐이며 프롬프트·엔드포인트·테넌트 식별자는 없다.",
-    lblCoverage: "coverage", lblUnpriced: "unpriced", lblReplay: "replay verified", lblSpend: "spend",
-    armsTitle: "네 arm — 비용 · 통과율 · $/pass · 채점 커버리지",
-    armsNote: "arm 이름 아래에 배포명을 표기했다. 모든 arm이 cost_complete=true(unpriced 0%)이고 셀마다 고정 요율로 가격이 매겨졌다. 통과율은 과제 기준(해결/계획), 채점 커버리지는 셀 기준(측정 완결성) — 분모가 다르다.",
-    cCost: "비용", cPass: "통과율", cPerPass: "$/pass", cCov: "커버리지", cells: "셀",
-    head: (v) => `가장 싼 라우터 모드 <b>router-cost</b>는 통과율 <b>${v.qCost}</b>를 유지하면서 direct-premium 대비 <b>${v.cheaper}% 저렴</b>하다. 통과율 격차는 <b>${v.gap}%p</b> 이내이고, 그 격차조차 전부 타임아웃 때문이지(아래) 코드 품질 때문이 아니다.`,
-    domH: "가장 반직관적인 발견 — quality 모드가 direct-premium에 지배당한다",
-    domP: (v) => `<b>router-quality</b>(${v.qCostUsd})는 <b>direct-premium</b>(${v.premUsd})보다 비싼데도 통과율은 더 낮다(${v.qQual} &lt; ${v.premQual}). 품질을 원한다면 라우터의 quality 모드보다 direct-premium을 직접 부르는 편이 더 싸고 더 정확하다 — 이 워크로드에서는. 한편 router-cost는 같은 ${v.costQual} 통과율을 1/20 미만 비용으로 유지한다.`,
-    setupTitle: "실험 구성 — 무엇을 돌렸나",
-    setupNote: "봉인 런의 실제 배포·백엔드 식별자다 — 아래 모든 이름은 마스킹된 번들에서 그대로 가져왔다. (offline 탭은 합성 placeholder 모델명을 유지한다; 합성 데이터에 실제 모델명을 붙이면 모델별 성능 주장이 되기 때문이다.)",
-    setArms: "Arm 구성", setBackends: "라우터가 고른 백엔드", setWorkload: "워크로드", setRun: "실행 조건",
-    rosterEvidence: (v) => `이 중 어느 것도 이번 런의 배포가 아니다 — 배포는 넷뿐이다: <span class="mono">${v.deps}</span>. 라우터는 이 백엔드들을 자기 관리 로스터에서 골랐다; 특히 <b>grok-4-1-fast-reasoning</b>은 이 계정에 배포된 적이 없는데도 Cost 모드가 100%를 그리로 보냈다.`,
-    workloadVal: (v) => `curated-24 · 과제 ${v.tasks}개 × arm ${v.arms}개 × n=${v.n} = ${v.cells}셀`,
-    runVal: "keyless Entra · 순차 디스패치 · 고정 시드 20260729",
-    backTitle: "백엔드 분포 — 각 arm이 실제로 도달한 모델",
-    backNote: "채점된 셀만 대상(백엔드가 확정되지 않은 타임아웃 셀은 제외). Cost 모드는 100%를 grok-4-1-fast-reasoning으로 보냈다 — 이 쏠림은 두 번의 실측 런(직전 void 런과 이 발행 런)에서 재현됐다. quality 모드는 Grok을 전혀 쓰지 않는다.",
-    toTitle: "타임아웃 11셀 — 숨기지 않고 보여준다",
-    toNote: "11셀 전부 HTTP 408 읽기 타임아웃이고 전부 라우터 arm에서 났다. direct-premium은 0. 타임아웃 셀은 이중으로 보수적으로 처리된다 — 채점 커버리지에서 제외되는 동시에 실패로 집계된다 — 그래서 라우터 arm 통과율이 딱 이 타임아웃만큼 direct-premium보다 낮다. 4.17%p 격차는 지연 프로파일 차이(라우터 백엔드 p50 ~12–16초 vs direct-premium ~4.2초)이지 코드 품질이 아니다.",
-    toByArm: "arm별", toByTask: "과제별", toArm: "arm", toTask: "과제", toN: "타임아웃",
-    limTitle: "한계 — 일반화 전에 읽어라",
-    limits: [
-      "<b>24과제 → evidence_tier directional.</b> 통계적 신뢰가 아니라 방향성 신호다 — 통계적 결론에는 ~100문제가 필요하다.",
-      "<b>단일 테넌트 · 단일 리전 · 1회 측정.</b> replay는 재현을 보장하지 모집단 추정을 보장하지 않는다.",
-      "<b>타임아웃은 라우터 arm에만 불리하게 집계된다.</b> 라우터 백엔드는 지연이 더 길어 고정 타임아웃에 걸리고 direct-premium은 걸리지 않는다 — 지연 프로파일 차이지 코드 품질이 아니다.",
-      "<b>다른 워크로드로 일반화하지 마라.</b> 이 워크로드 · 이 테넌트 · 이 1회 측정에 한정된다.",
-    ],
-    caveat: "봉인 스냅샷을 읽기 전용으로 렌더한 것 — 여기 숫자를 바꾸면 replay 보장이 깨진다. 전체 서술:",
-    caveatLink: "03D 결과",
-  },
-};
+const M_STR = __MEASURED_JSON__;
+function mfmt(tpl, v) {
+  return String(tpl).replace(/\\{(\\w+)\\}/g, function (_, k) { return (k in v) ? v[k] : ""; });
+}
 function mPct2(x) { return (Number(x) * 100).toFixed(2) + "%"; }
 function mPerPass(x) { return "$" + Number(x).toFixed(4); }
 function renderMeasured(d) {
-  const t = M_STR[M_LOCALE];
+  const t = M_STR;
   const R = d.result || {};
   const byC = (R.cost && R.cost.by_candidate) || {};
   const byQ = (R.quality && R.quality.by_candidate) || {};
@@ -2116,11 +2028,11 @@ function renderMeasured(d) {
   const qPrem = (byQ["gpt-5.6-sol"] || {}).pass_rate || 0;
   const qCostR = (byQ["model-router-cost"] || {}).pass_rate || 0;
   const gap = (qPrem - qCostR) * 100;
-  $("mHead").innerHTML = t.head({ qCost: pct(qCostR), cheaper: cheaper.toFixed(1), gap: gap.toFixed(2) });
+  $("mHead").innerHTML = mfmt(t.head, { qCost: pct(qCostR), cheaper: cheaper.toFixed(1), gap: gap.toFixed(2) });
   // Counterintuitive finding — quality mode Pareto-dominated by direct-premium.
   const qQ = (byQ["model-router-quality"] || {}).pass_rate || 0;
   $("mDomH").textContent = t.domH;
-  $("mDomP").innerHTML = t.domP({
+  $("mDomP").innerHTML = mfmt(t.domP, {
     qCostUsd: usd((byC["model-router-quality"] || {}).total_usd || 0),
     premUsd: usd(cPrem), qQual: pct(qQ), premQual: pct(qPrem), costQual: pct(qCostR),
   });
@@ -2134,15 +2046,15 @@ function renderMeasured(d) {
   routerDeps.forEach((dep) => { Object.keys(backends[dep] || {}).forEach((m) => { if (picked.indexOf(m) < 0) picked.push(m); }); });
   const armChips = M_ARMS.map((a) =>
     '<span class="mchip"><span class="dot" style="background:' + (a.arm === "direct-premium" ? "var(--muted)" : "var(--brand)") + '"></span>' +
-    esc(a.arm) + ' · ' + esc(a.lbl[M_LOCALE]) + ' · <span class="mono">' + esc(a.dep) + '</span></span>').join("");
+    esc(a.arm) + ' · ' + esc(t.armLbl[a.arm]) + ' · <span class="mono">' + esc(a.dep) + '</span></span>').join("");
   const backChips = picked.map((m) =>
     '<span class="mchip"><span class="dot" style="background:' + (M_COLORS[m] || "var(--muted)") + '"></span><span class="mono">' + esc(m) + '</span></span>').join("");
   const tasksN = ((byQ["gpt-5.6-sol"] || {}).tasks_planned) || 0;
   const cellsN = (R.grading && R.grading.planned_cells) || 0;
-  const wl = t.workloadVal({ tasks: tasksN, arms: M_ARMS.length, n: (d.n || 0), cells: cellsN });
+  const wl = mfmt(t.workloadVal, { tasks: tasksN, arms: M_ARMS.length, n: (d.n || 0), cells: cellsN });
   const setupRows = [
     [t.setArms, armChips],
-    [t.setBackends, backChips + '<span class="ev">' + t.rosterEvidence({ deps: deployments.map(esc).join(", ") }) + '</span>'],
+    [t.setBackends, backChips + '<span class="ev">' + mfmt(t.rosterEvidence, { deps: deployments.map(esc).join(", ") }) + '</span>'],
     [t.setWorkload, '<span class="mono">' + esc(wl) + '</span>'],
     [t.setRun, esc(t.runVal)],
   ];
@@ -2159,7 +2071,7 @@ function renderMeasured(d) {
     div.className = "marm" + (a.css ? " " + a.css : "");
     div.innerHTML =
       '<div class="an">' + esc(a.arm) + '</div>' +
-      '<div class="adep">' + esc(a.lbl[M_LOCALE]) + ' · ' + esc(a.dep) + '</div>' +
+      '<div class="adep">' + esc(t.armLbl[a.arm]) + ' · ' + esc(a.dep) + '</div>' +
       '<div class="arow"><span class="k">' + esc(t.cCost) + '</span><span class="v">' + usd(c.total_usd) + '</span></div>' +
       '<div class="arow"><span class="k">' + esc(t.cPass) + '</span><span class="v">' + passStr + '</span></div>' +
       '<div class="arow"><span class="k">' + esc(t.cPerPass) + '</span><span class="v">' + mPerPass(q.cost_per_pass_usd) + '</span></div>' +
@@ -2226,7 +2138,7 @@ function mSwitchTab(measured) {
   if (bm) { bm.classList.toggle("active", on); bm.setAttribute("aria-selected", String(on)); }
   const badge = $("modeBadge");
   if (badge) {
-    badge.textContent = on ? M_STR[M_LOCALE].badgeMeas : M_STR[M_LOCALE].badgeOff;
+    badge.textContent = on ? M_STR.badgeMeas : M_STR.badgeOff;
     badge.className = on ? "badge ok" : "badge measured";
   }
 }
@@ -2243,7 +2155,7 @@ async function loadMeasured() {
   }
 }
 function initMeasuredTab() {
-  const t = M_STR[M_LOCALE];
+  const t = M_STR;
   const lo = $("tabOfflineLbl"); if (lo) lo.textContent = t.tabOffline;
   const lm = $("tabMeasuredLbl"); if (lm) lm.textContent = t.tabMeasured;
   if (!EP || !EP.measured) return;   // live service: no bundle → keep the single offline view (tab bar hidden)
@@ -2276,3 +2188,24 @@ loadPolicy().then(() => {
 </body>
 </html>
 """
+
+import json as _json  # noqa: E402
+
+from .demo_i18n import measured_payload, render_demo_prose  # noqa: E402
+
+
+def render_dashboard(locale: str = "en") -> str:
+    """Render the dashboard HTML for ``locale`` (``en`` or ``ko``).
+
+    Resolves the per-locale prose markers in :data:`DASHBOARD_TEMPLATE` and
+    inlines the matching measured-tab payload in place of the
+    ``__MEASURED_JSON__`` placeholder, so a single served ``<script>`` carries
+    exactly one locale's measured strings (no cross-locale leak, no extra
+    script block).
+    """
+    payload = _json.dumps(measured_payload(locale), ensure_ascii=False).replace("</", "<\\/")
+    template = DASHBOARD_TEMPLATE.replace("__MEASURED_JSON__", payload)
+    return render_demo_prose(template, locale)
+
+
+DASHBOARD_HTML = render_dashboard("en")
