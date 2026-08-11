@@ -470,7 +470,7 @@ def check_demos(site: Path) -> list[str]:
         "demo": ("en", "ko", "../ko/demo/"),
         "ko/demo": ("ko", "en", "../../demo/"),
     }
-    for key, (lang, other, switch) in specs.items():
+    for key, (lang, _other, switch) in specs.items():
         index = site / key / "index.html"
         if not index.is_file():
             out.append("demo: '" + key + "/' is missing (index.html not built)")
