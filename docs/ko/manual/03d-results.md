@@ -58,7 +58,7 @@
     - **헤드라인 95.2%** = `router-cost`($0.06) 대 **`direct-premium`**($1.34). 실무에서 흔한
       "그냥 제일 좋은 모델 직접 호출"과 라우팅을 비교한다.
     - 공개 번들(`published.json`)의 **`savings_pct=95.8%`** 는 다른 기준선이다 — best-arm 대
-      **naive/worst-arm**(`router-quality` $1.56), 즉 비용이 가장 낮은 arm과 가장 높은 arm을
+      **naive/worst-arm**(`router-quality` $1.56), 비용이 가장 낮은 arm과 가장 높은 arm을
       비교한다.
     - 두 숫자는 서로 다른 쌍을 비교한다. 이 페이지는 실제 사용 방식에 가까운
       **direct-premium 기준선**을 헤드라인으로 쓰고 번들 값도 그대로 공개한다. 두 값 모두 표시
@@ -137,7 +137,7 @@ pass=False로 **실패 계상**한다. 이 타임아웃들이 라우터 arm과 d
 - **품질 게이트 판정**(prereg 고정 기준): 채점 커버리지 ≥ 90% **PASS** · min_pass ≥ 0.60 **PASS** ·
   premium 대비 drop ≤ 10%p (실측 4.17%p) **PASS** · 예산 **PASS** → **publishable**.
 - **prereg 예상 적중**: 갱신 예상은 `cost < balanced < premium ≤ quality`(비용 순서)였고
-  실측도 `$0.06 < $0.31 < $1.34 < $1.56`로 **맞았다**. 즉 quality 모드가 premium보다 비싸다는
+  실측도 `$0.06 < $0.31 < $1.34 < $1.56`로 **맞았다**. Quality 모드가 premium보다 비싸다는
   예상이 확인됐다.
 
 같은 런의 서술형 기록은 실험노트에 있다 —

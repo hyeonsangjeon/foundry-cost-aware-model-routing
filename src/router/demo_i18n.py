@@ -427,8 +427,8 @@ DEMO_STRINGS = {
         'ko': '세 전략, 하나의 워크로드',
     },
     'k099': {
-        'en': 'Each single-tier strategy fails on one axis. Only the cost-aware mix wins on both cost and coverage.',
-        'ko': '단일 티어 전략은 저마다 한 축에서 실패한다. 비용과 커버리지 두 축 모두에서 이기는 건 비용 인지 믹스뿐이다.',
+        'en': 'Each single-tier strategy either costs more or solves fewer tasks. The cost-aware mix keeps full coverage at lower cost.',
+        'ko': '단일 티어 전략은 비용이 더 들거나 푸는 태스크가 적다. 비용 인지 믹스는 더 낮은 비용으로 완전한 커버리지를 유지한다.',
     },
     'k100': {
         'en': 'all-mini',
@@ -983,8 +983,8 @@ DEMO_STRINGS = {
         'ko': '로딩&#8230;',
     },
     'k238': {
-        'en': 'Generic placeholder tiers &mdash; not real product names. They stand in for a\n        lightweight/high-volume model, an efficient coder, a balanced general model, a deliberate\n        reasoner, and a premium frontier model.',
-        'ko': '일반 placeholder 티어 &mdash; 실제 제품명이 아니다. 경량/대용량 모델, 효율적인 코더, 균형 잡힌 범용 모델, 신중한 추론기, 프리미엄 프론티어 모델을 대신한다.',
+        'en': 'Generic placeholder tiers &mdash; not real product names. They stand in for a\n        lightweight/high-volume model, an efficient coder, a balanced general model, a deliberate\n        reasoner, and a premium model.',
+        'ko': '일반 placeholder 티어 &mdash; 실제 제품명이 아니다. 경량/대용량 모델, 효율적인 코더, 균형 잡힌 범용 모델, 신중한 추론기, 프리미엄 모델을 대신한다.',
     },
     'k239': {
         'en': 'Numbers are an offline projection over synthetic data &mdash; not measured. Model names are generic placeholders.',
@@ -1166,8 +1166,8 @@ EXPERIMENT_I18N = {
             'ko': '라우팅 레이어 — 한 번 고르기 vs 관찰하고 올리기',
         },
         'summary': {
-            'en': "Projects 'single-call' routing that picks one model per prompt up front (what the built-in Model Router already does well) as a difficulty-tiered one-shot arm, and compares it on the same axes as this repo's 'observe and escalate only when needed' routing. The one-shot arm commits early and loses coverage; the escalation layer wins that coverage back at the same cost band.",
-            'ko': "프롬프트당 모델 하나를 앞서 고르는 '단일 콜' 라우팅(내장 Model Router가 이미 잘 하는 일)을 난이도 기반 원샷 arm으로 투영하고, 이 저장소의 '관찰하고 필요할 때만 올리는' 라우팅과 같은 축에서 비교합니다. 원샷은 앞서 커밋해 커버리지를 잃고, 에스컬레이션 레이어가 같은 비용대에서 그 커버리지를 되찾습니다.",
+            'en': "Projects 'single-call' routing that picks one model per prompt up front (what the built-in Model Router already does well) as a difficulty-tiered one-shot arm, and compares its cost and coverage with this repo's 'observe and escalate only when needed' routing. The one-shot arm commits early and loses coverage; the escalation layer recovers that coverage in the same cost band.",
+            'ko': "프롬프트당 모델 하나를 앞서 고르는 '단일 콜' 라우팅(내장 Model Router가 이미 잘 하는 일)을 난이도 기반 원샷 arm으로 투영하고, 이 저장소의 '관찰하고 필요할 때만 올리는' 라우팅과 비용·커버리지를 비교합니다. 원샷은 앞서 커밋해 커버리지를 잃고, 에스컬레이션 레이어가 같은 비용대에서 그 커버리지를 되찾습니다.",
         },
     },
 }
