@@ -272,13 +272,13 @@ def test_dashboard_shows_three_way_strategy_comparison(service: RouterService) -
     assert 'id="takeaway"' in html
 
 
-def test_dashboard_shows_cost_coverage_frontier(service: RouterService) -> None:
+def test_dashboard_explains_cost_and_coverage(service: RouterService) -> None:
     html = service.dispatch("GET", "/").payload
     script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
-    # A cost x coverage scatter makes the trade-off frontier explicit: only the
-    # cost-aware mix reaches the top-left (full coverage, low cost) corner.
+    # The scatter states what each option costs and solves; only the cost-aware
+    # mix reaches the top-left (full coverage, low cost) corner.
     assert 'id="frontier"' in html
-    assert "trade-off frontier" in html
+    assert "what each option costs and solves" in html
     assert "renderFrontier" in script
     # rendered from the same strategies payload and wired into the replay run.
     assert "s.strategies" in script

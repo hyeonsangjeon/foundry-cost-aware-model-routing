@@ -32,9 +32,9 @@
 
 ![arm별 총비용 가로 막대: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56. 각 막대에 통과율과 cost-per-pass 주석](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.svg)
 
-핵심 대비는 **가장 싼 라우터 모드 대 direct-premium 기준선**이다: `router-cost`는 과제 통과율을
-95.8%로 유지하면서 direct-premium 대비 **95.2% 저렴**하다(풀정밀도 계산). 통과율 격차는 **4.17%p**
-이내이고 그 격차마저 아래에서 보듯 전부 타임아웃 때문이다.
+`router-cost`는 과제 통과율 95.8%를 유지하면서 direct-premium 기준선보다 비용이 **95.2%
+낮았다**(풀정밀도 계산). 통과율 차이는 **4.17%p** 이내였다. 아래 타임아웃 절에 따르면 이 차이
+전부가 코드 품질이 아니라 타임아웃에서 나왔다.
 
 | Arm | 모드 | 총비용 | 통과율 | $/pass | 채점 커버리지 |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -56,25 +56,26 @@
 
 !!! note "두 개의 절감 기준선 — 섞지 말 것"
     - **헤드라인 95.2%** = `router-cost`($0.06) 대 **`direct-premium`**($1.34). 실무에서 흔한
-      "그냥 제일 좋은 모델 직접 호출" 대비 절감이다.
+      "그냥 제일 좋은 모델 직접 호출"과 라우팅을 비교한다.
     - 공개 번들(`published.json`)의 **`savings_pct=95.8%`** 는 다른 기준선이다 — best-arm 대
-      **naive/worst-arm**(`router-quality` $1.56). 최선 대 최악 arm 대비다.
-    - 두 숫자는 서로 다른 질문에 답한다. 이 페이지는 실무에 더 가까운 **direct-premium 기준선**을
-      헤드라인으로 쓰고, 번들 값도 그대로 공개한다. 절감률은 표시 반올림이 아니라 풀정밀도 금액으로
-      계산한다(표시 금액은 2자리, 서브센트·단가 평균은 4자리).
+      **naive/worst-arm**(`router-quality` $1.56), 즉 비용이 가장 낮은 arm과 가장 높은 arm을
+      비교한다.
+    - 두 숫자는 서로 다른 쌍을 비교한다. 이 페이지는 실제 사용 방식에 가까운
+      **direct-premium 기준선**을 헤드라인으로 쓰고 번들 값도 그대로 공개한다. 두 값 모두 표시
+      반올림이 아니라 풀정밀도 금액으로 계산한다(표시 금액은 2자리, 서브센트·단가 평균은 4자리).
 
 ---
 
-## 2 · 비용 × 품질 — quality 모드는 direct-premium에 지배당한다
+## 2 · 비용 × 품질 — Quality 모드는 비용이 더 들고 덜 풀었다
 
-![비용 대 통과율 산점도: direct-premium이 router-quality보다 왼쪽 위(더 싸고 통과율 높음)에 있어 router-quality가 지배당함을 보인다. router-cost는 같은 통과율에서 가장 왼쪽](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
+![비용 대 통과율 산점도: direct-premium은 router-quality보다 비용이 낮고 통과율이 높다. router-cost는 같은 통과율에서 비용이 가장 낮다](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
 
-가장 반직관적인 발견: **`router-quality`($1.56) 모드는 `direct-premium`($1.34)에 완전히
-지배당한다** — 더 비싼데 통과율은 오히려 낮다(95.8% < 100.0%). 라우터의 "품질" 모드가 프리미엄
-백엔드로 올라가면서 붙는 마크업이 직접 프리미엄 호출을 이기지 못한다. 품질을 원하면 라우터의
-quality 모드보다 **direct-premium을 직접 부르는 편이 싸고 정확하다** — 이 워크로드에서는.
+`router-quality`의 비용은 $1.56이고 통과율은 95.8%였다. `direct-premium`의 비용은 $1.34이고
+통과율은 100.0%였다. **Quality 모드는 비용이 더 들고 푼 문제는 더 적었다.** 라우터의 "품질"
+모드가 프리미엄 백엔드로 올라가면 마크업이 붙지만 프리미엄 모델을 직접 부르면 그 비용이 없다.
+이 워크로드에서는 **direct-premium을 직접 부르는 편이 싸고 정확하다**.
 
-반대로 `router-cost`는 다른 라우터 arm과 같은 통과율(95.8%)을 **1/20 이하 비용**으로 낸다. 이
+`router-cost`는 다른 라우터 arm과 같은 통과율(95.8%)을 **1/20 이하 비용**으로 냈다. 이
 워크로드에서 라우터의 가치는 "품질 상향"이 아니라 "품질 유지 + 비용 급감"에 있다.
 
 ---
@@ -84,16 +85,16 @@ quality 모드보다 **direct-premium을 직접 부르는 편이 싸고 정확�
 ![arm별 실제 라우팅된 백엔드 스택 막대: router-cost는 100% grok-4-1-fast-reasoning, router-quality는 gpt-5과 gpt-5.5로 분할되고 grok 없음, direct-premium은 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.svg)
 
 `router-cost`는 graded 셀 전부(100%)를 `grok-4-1-fast-reasoning`으로 보냈다. 이 **Cost 모드
-100% Grok** 쏠림은 직전 void 런과 이번 publishable 런 **두 번 연속 재현**됐다 — 라우터 정책이
-비용 모드에서 일관되게 같은 저비용 백엔드를 고른다는 방향성 증거다. `router-quality`는 정반대로
-`gpt-5`(57%)와 `gpt-5.5`(43%)로 나뉘고 Grok은 전혀 쓰지 않는다. (분포는 graded 셀 기준 —
-타임아웃으로 백엔드가 확정되지 않은 셀은 제외.)
+100% Grok** 결과는 직전 void 런과 이번 publishable 런 **두 번 연속 재현**됐다. 두 런 모두 Cost
+모드가 같은 저비용 백엔드를 골랐다. 이는 두 런에 대한 방향성 증거이지 일반적인 라우팅 보장은
+아니다. `router-quality`는 `gpt-5`(57%)와 `gpt-5.5`(43%)로 나뉘고 Grok은 전혀 쓰지 않았다.
+분포는 graded 셀만 대상으로 하며 타임아웃으로 백엔드가 확정되지 않은 셀은 제외한다.
 
 ---
 
 ## 4 · 타임아웃 11셀 — 숨기지 않는다
 
-11셀이 HTTP 408로 타임아웃했다(전체의 3.8%). **전부 라우터 arm에서만** 발생했다 —
+11셀이 HTTP 408로 타임아웃했다(전체의 3.8%). **모든 타임아웃이 라우터 arm에서 발생했다.**
 `direct-premium`은 0건이다.
 
 | 분해 | 내역 |
@@ -102,11 +103,11 @@ quality 모드보다 **direct-premium을 직접 부르는 편이 싸고 정확�
 | 과제별 | `toll-schedule` 7 · `dedupe-stable` 3 · `weekday-label` 1 |
 | 상태 | 11셀 모두 HTTP 408 (read timeout) |
 
-타임아웃 셀은 **이중 보수 처리**된다: (1) content가 없으니 채점 커버리지에서 **제외**되고, 동시에
-(2) pass=False로 **실패 계상**된다. 그래서 라우터 arm의 통과율이 direct-premium보다 정확히
-이 타임아웃만큼 낮아진다. **위 4.17%p 격차는 코드 품질 차이가 아니라 지연(latency) 차이다** —
-라우터 백엔드가 프리미엄보다 느려 고정 타임아웃(read 90s / overall 120s)에 먼저 걸렸다. 후속
-타임아웃 상향 제안은 [Fix C 문서](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md)에 있다(적용 시 새 prereg + 재런 필요).
+타임아웃은 두 곳에 반영된다. (1) content가 없으므로 채점 커버리지에서 **제외**하고, (2)
+pass=False로 **실패 계상**한다. 이 타임아웃들이 라우터 arm과 direct-premium 사이의 통과율 차이
+전부를 만든다. **위 4.17%p 격차는 코드 품질 차이가 아니라 지연(latency) 차이다.** 라우터
+백엔드가 프리미엄보다 느려 고정 타임아웃(read 90s / overall 120s)에 먼저 걸렸다. 타임아웃 상향
+제안은 [Fix C 문서](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md)에 있다(적용 시 새 prereg + 재런 필요).
 
 ---
 
