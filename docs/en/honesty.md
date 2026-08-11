@@ -1,8 +1,8 @@
 # Honesty Charter
 
-This project keeps an **authority label** on every numeric and behavioral claim.
-This page makes clear what is measured and what is projected, and what we do and
-do not claim.
+Every numeric and behavioral claim has an **authority label**. The label tells you
+whether the result was measured, computed offline, or taken from a vendor
+specification. This page also states what the project does not claim.
 
 ## The modeling vs measurement boundary
 
@@ -13,24 +13,31 @@ do not claim.
 | Measured experiments 09 · 10 · 11 · 12 (committed) | Real Foundry calls · `evidence_tier = directional` (11 is VOID, below its pre-registration bar) | `measured = true` |
 | A live eval in your tenant | Real measurement (scope: the workload you measured) | `measured = true` |
 
-**The offline `hero` and projection-bundle figures are projections over synthetic
-data** (`measured = false`). The **measured experiments 09 · 10 · 11 · 12, by
-contrast, are `measured = true` results from real Azure Foundry calls**; 09 · 10 ·
-12 carry `evidence_tier = directional` (24 tasks · single tenant · one measurement),
-so read them only as a directional signal. Experiment 11 is `measured = true`, but
-one arm failed to clear the grading-coverage gate set by pre-registration, so it is
-ruled **VOID** — void or not, a measurement is still a measurement, so it stays in
-the track. That live measurement path is implemented by the
-[live measurement bridge](manual/foundry-live.md) — it computes cost from the token
-usage of a real Azure Model Router and grants `measured = true` only to live calls.
-To see measured savings on your own workload, run this path in your tenant yourself.
+The offline `hero` and projection bundle use synthetic data (`measured = false`).
+They do not report measured savings.
+
+Experiments 09 · 10 · 11 · 12 use real Azure Foundry calls and are
+`measured = true`. Experiments 09 · 10 · 12 still carry
+`evidence_tier = directional`: 24 tasks · single tenant · one measurement. They show
+what happened in those runs, not what every workload will do.
+
+Experiment 11 is also `measured = true`, but one arm did not clear the
+grading-coverage gate fixed by pre-registration. The result is **VOID**. The
+measurement remains in the measured track, but it cannot support the comparison
+that was planned.
+
+The [live measurement bridge](manual/foundry-live.md) implements this path. It reads
+the token usage from a real Azure Model Router call, computes the cost, and grants
+`measured = true` only to live calls. To find the measured savings for your workload,
+run it in your own tenant.
 
 ## Claim-authority labels
 
-- **Tier 1 — vendor spec.** e.g. the `retry-after-ms` acceptance signal, documented
-  cache-key thresholds, published rates.
-- **Tier 2 — this project's inference/operating policy.** e.g. the seed
-  pass-rate / `$/resolved` priors, escalation thresholds, the "ensemble only above
+- **Tier 1 — vendor spec.** Facts the vendor publishes, such as the `retry-after-ms`
+  acceptance signal, documented cache-key thresholds, and published rates.
+- **Tier 2 — this project's inference/operating policy.** Choices this project makes,
+  such as the seed pass-rate / `$/resolved` priors, escalation thresholds, and the
+  "ensemble only above
   value X" rule.
 
 ## Placeholder models and pricing (projection track)
@@ -38,25 +45,25 @@ To see measured savings on your own workload, run this path in your tenant yours
 - **Projection track (experiments 01–08):** the model names (`mini-fast`,
   `swift-coder`, `balanced-pro`, `deep-reasoner`, `premium-max`) are all generic
   placeholders, not specific products.
-- The rates in `samples/pricing/illustrative.yaml` are **dummy values** that match no
-  one's published pricing. If you want measured numbers, copy it to
+- The rates in `samples/pricing/illustrative.yaml` are **dummy values** and do not
+  match any published pricing. For measured numbers, copy the file to
   `your-tenant.yaml` (gitignored) and enter your real rates.
 - **Measured track (experiments 09 · 10 · 11 · 12):** uses real Azure deployment
-  names and your tenant's real rates (gitignored) — not placeholders. Public
-  artifacts keep only aggregates and hashes; endpoint and tenant identifiers are
+  names and your tenant's real rates (gitignored), not placeholders. Public
+  artifacts include only aggregates and hashes. Endpoint and tenant identifiers are
   masked.
 
 ## Billing basis
 
-Today the router picks one execution from pre-computed offline signals, and that
-signal lookup is not a model call. So the ledger cost is on a
-`selected-execution-only` basis. A future live fan-out layer would have to account
-for every panel/judge call separately. → [audit ledger](manual/ledger.md)
+The current router chooses one execution from pre-computed offline signals. Looking
+up that signal is not a model call, so the ledger uses a
+`selected-execution-only` billing basis. A future live fan-out layer must record the
+cost of every panel and judge call separately. → [audit ledger](manual/ledger.md)
 
 ## What this is / is not
 
-**This is** an offline-first, deployable router that turns model selection into an
-auditable, cost-governed decision and proves the result live.
+**This is** an offline-first, deployable router. It checks model-selection results,
+limits spending, records each decision, and can prove the result with a live run.
 
 **What it is not:**
 
@@ -64,8 +71,8 @@ auditable, cost-governed decision and proves the result live.
 - Not a measured SLA/throughput model.
 - Not a promise of any specific savings figure.
 
-Savings depend entirely on your workload mix and rates — which is exactly why the
-proof step runs **in your tenant**.
+Savings depend entirely on your workload mix and rates. That is why the proof step
+runs **in your tenant**.
 
 ## Security and reproducibility discipline
 

@@ -2,54 +2,60 @@
 
 > The decision this repo encodes: **for each task, send it to the cheapest model that still passes, escalate to a higher model only when the pass-rate gain outweighs the cost, and prove the result.**
 
-Welcome to the manual and lab notebook. The experiments here are offline and
-deterministic — no network, no external calls, the same result every time you run
-them. This site lays out how to **install, run, see for yourself, and reproduce**
-those experiments.
+These pages show how to install the project, run its experiments, inspect the
+results, and reproduce them. The included experiments are offline and deterministic:
+they make no network or external calls, and the same inputs produce the same results.
 
 !!! success "Measured result (measured=true · directional)"
-    In a real Azure Foundry measurement, the `router-cost` arm (Model Router in Cost mode) was
-    **95.2% cheaper** than `direct-premium` (calling the premium model directly ·
-    `gpt-5.6-sol`), with the pass-rate gap within
-    **4.17%p** — a directional (publishable) result from 24 tasks · a single tenant ·
-    one measurement.
+    One real Azure Foundry measurement found that the `router-cost` arm (Model Router in
+    Cost mode) cost **95.2% less** than `direct-premium` (calling the premium model
+    directly · `gpt-5.6-sol`). The pass-rate gap was within **4.17%p**. This result
+    comes from 24 tasks · a single tenant · one measurement, so it is directional
+    (publishable), not statistical confidence.
     → [Routing-mode measured results dashboard](manual/03d-results.md)
 
-Before the numbers, here is where they come from — starting with the layer this
-repo occupies.
+Before comparing results, separate what Foundry already does from what this repository adds.
 
 !!! abstract "A layer on top of the built-in Model Router — four differentiators"
-    **Model selection** is already handled well by Azure AI Foundry's **built-in
-    Model Router** (one deployment, cross-provider). This repo does not **replace**
-    it; it **sits on top** — ① **verify** with execution signals and escalate only
-    the failures · ② meter the **ensemble tax** · ③ gate spend with a **cost
-    governor** · ④ seal every decision into an **audit ledger**. *Selection is the
-    built-in's job; verification, governance, and audit are this repo's.*
+    Azure AI Foundry's **built-in Model Router** already handles **model selection**
+    from one deployment, including across providers. This repo does not **replace**
+    it. It adds four controls to the run: ① check the answer with execution signals
+    and try a higher model only after a failure (**verify**) · ② total the extra cost
+    of calling several models (**ensemble tax**) · ③ stop at the approved spending
+    limit (**cost governor**) · ④ record every decision so the run can be checked
+    again (**audit ledger**). *The built-in selects the model. This repo checks the
+    result, controls spending, and records what happened.*
 
-The centerpiece that puts this contrast on one screen is
-[experiment 07 · Routing layer](lab-notebook/07-model-router.md). There the
-**pass rate** is the **share of tasks that passed (were solved) all the way
-through** — the offline CLI and experiment contract emit this value as `coverage`,
-which is a different metric from the **grading coverage** (share of cells graded)
-reported separately in measured results ([Glossary](manual/glossary.md)). Over
-synthetic data, the generic **`single-call`** arm holds only a **52%** pass rate,
-while observe-then-escalate fills **100%** (`measured = false` projection).
+[Experiment 07 · Routing layer](lab-notebook/07-model-router.md) compares one model
+choice with a process that can try again after a failure. On synthetic data, the
+generic **`single-call`** arm chooses once and stops, and its **pass rate** is **52%**.
+Observe-then-escalate checks the first result and moves up only after a failure,
+reaching **100%**. Both numbers are a `measured = false` projection.
 
-To read those numbers correctly, though, you have to tell two tracks apart and know
-their limits.
+Here **pass rate** means the **share of tasks that passed (were solved) all the way
+through**. The offline CLI and experiment contract call this field `coverage`.
+Measured results also report **grading coverage**, the share of cells that produced
+an answer that could be graded; it is a different metric
+([Glossary](manual/glossary.md)).
+
+The two tracks below tell you whether a number was computed offline or measured from
+real calls.
 
 !!! warning "Honesty first — two tracks"
-    This repo **separates two kinds of numbers by label**. Here `measured` is the
-    label for whether a number was measured from a real model call or only computed
-    offline. The **projection track (experiments 01–08)** is an offline projection
-    over synthetic data (`labels.measured = false`), so the model names are all
-    generic placeholders too. The **measured track (experiments 09 · 10 · 11 · 12)**
-    is measured from real Azure Foundry calls (`measured = true`) and uses real
-    deployment names. But `evidence_tier = directional` — 24 tasks · a single tenant ·
-    one measurement, so it is a **directional signal**, not statistical confidence
-    (experiment 11 is **VOID**, below its pre-registration bar — void or not, a
-    measurement is still a measurement). Check the label on each page — your actual
-    savings depend on your workload mix and rates.
+    Every result belongs to one of two tracks. The `measured` label says whether a
+    number came from a real model call or an offline calculation.
+
+    The **projection track (experiments 01–08)** runs on synthetic data
+    (`labels.measured = false`). It makes no real model calls, and its model names are
+    generic placeholders. These numbers are not measured savings.
+
+    The **measured track (experiments 09 · 10 · 11 · 12)** uses real Azure Foundry
+    calls (`measured = true`) and real deployment names. Its evidence is still
+    `evidence_tier = directional`: 24 tasks · a single tenant · one measurement. That
+    is a **directional signal**, not statistical confidence. Experiment 11 is
+    **VOID** because it fell below its pre-registration bar; it remains a measurement,
+    but it cannot support the comparison that was planned. Check the label on each
+    page. Your actual savings depend on your workload mix and rates.
 
 ## Check it in 30 seconds
 
@@ -86,9 +92,9 @@ cost-router hero --serve   # runs, then opens the offline dashboard
 ```
 
 !!! success "Try it with no install · interactive offline demo"
-    If you want to see the results before you clone, an **interactive offline demo**
-    is ready to open right in your browser. The moment it opens, the before/after and
-    spotlight for 100 synthetic-workload tasks auto-play.
+    To see the results before cloning, open the **interactive offline demo** in your
+    browser. It automatically plays the before/after and spotlight for 100
+    synthetic-workload tasks.
 
     [:material-rocket-launch: Open the interactive offline demo (auto-play)](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1){ .md-button .md-button--primary target=_blank }
 
@@ -98,16 +104,16 @@ cost-router hero --serve   # runs, then opens the offline dashboard
 
 ## Not a mockup but your own Azure — the browser cockpit
 
-The offline demo above is a **read-only mockup of results already measured and
-committed**. To run the same screen **live against your own Foundry deployment**, use
-the local cockpit — no credentials ever go into the browser (`127.0.0.1` only + a
-session token; Entra is read from `az login`).
+The offline demo above is read-only: it shows results that were already measured and
+committed. The local cockpit runs the same screen **live against your own Foundry
+deployment**. Credentials never enter the browser; it connects only to `127.0.0.1`
+with a session token, while Entra reads the sign-in from `az login`.
 
 !!! note "The cockpit is mid-update to the latest measurement wiring (issue #55)"
-    The cockpit's run path has not yet received the latest measurement wiring (03B-2
-    v2 rates · 03D-1 grading bridge) — for example, the live client does not inject
+    The cockpit's run path does not yet include the latest measurement wiring (03B-2
+    v2 rates · 03D-1 grading bridge). For example, the live client does not set
     `max_output_tokens`, so it uses the default of 512. For **accurate measurement
-    right now, use the CLI path**. For the wiring details see
+    right now, use the CLI path**. For wiring details, see
     [issue #55](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/issues/55),
     and for the method see the [measurement protocol](manual/measurement-protocol.md).
 
@@ -116,11 +122,11 @@ az login                      # keyless Entra — no input field in the browser
 cost-router dashboard --live  # prints a 127.0.0.1 + random-port + session-token URL
 ```
 
-From connection check → outgoing prompts and dry-run cost → **approve and run** (the
-human gate) → live progress → replay of the `results/measured/<exp>/<run-id>`
-snapshot, all in the **same UI** as the mockup. For the setup end to end, just follow
-[Foundry setup](manual/foundry-setup.md) → [Customize · cockpit](manual/customize.md)
-→ [audit ledger](manual/ledger.md) in order.
+The same UI first checks the connection, then shows the outgoing prompts and dry-run
+cost. Nothing runs until a person chooses **approve and run** (the human gate). It
+then shows live progress and replays the `results/measured/<exp>/<run-id>` snapshot.
+For the full setup, follow [Foundry setup](manual/foundry-setup.md) →
+[Customize · cockpit](manual/customize.md) → [audit ledger](manual/ledger.md) in order.
 
 ## What you'll see
 
@@ -130,38 +136,40 @@ snapshot, all in the **same UI** as the mockup. For the setup end to end, just f
 
     ---
 
-    A real Azure Foundry measurement (`measured=true` · directional): `router-cost`
-    is **95.2% cheaper** than `direct-premium`, with a pass-rate gap within 4.17%p.
+    In a real Azure Foundry measurement (`measured=true` · directional), `router-cost`
+    cost **95.2% less** than `direct-premium`. The pass-rate gap was within 4.17%p.
     → [Routing-mode measured results](manual/03d-results.md)
 
 -   :material-rocket-launch: **Flagship run mode**
 
     ---
 
-    With the experiment set up, one command gives you before/after, the spotlight,
-    and a reproducibility self-check in one shot.
+    One command prints the before/after result, the spotlight task, and the
+    reproducibility self-check.
     → [Experiment 01 · Flagship run](lab-notebook/01-hero.md)
 
 -   :material-scale-balance: **Same pass rate, lower cost**
 
     ---
 
-    The cheapest arm collapses to a 22% pass rate; the premium arm hits 100% but
-    costs the most. Routing **holds the pass rate at 100%** while lowering cost.
+    Always choosing the cheapest model solves only 22% of the tasks. Always choosing
+    the premium model reaches 100% but costs the most. Routing starts cheaper and
+    moves up after a failure, so it **holds the pass rate at 100%** while lowering cost.
     → [Core concepts](manual/concept.md)
 
 -   :material-file-document-check: **A reproducible audit ledger**
 
     ---
 
-    Every routing decision is recorded in a hash-chained JSONL, and replaying the
-    stored inputs verifies it byte for byte. → [audit ledger](manual/ledger.md)
+    Every routing decision goes into a hash-chained JSONL. Replaying the stored
+    inputs must reproduce it byte for byte. → [audit ledger](manual/ledger.md)
 
 -   :material-flask: **Lab notebook**
 
     ---
 
-    A lab notebook recording the methodology, honesty labels, and actual figures.
+    The lab notebook records how each experiment ran, which honesty labels apply,
+    and what numbers came out.
     → [Lab notebook intro](lab-notebook/index.md)
 
 </div>
