@@ -1,6 +1,8 @@
 # Foundry cost-aware model routing
 
-> The decision this repo encodes: **for each task, send it to the cheapest model that still passes, escalate to a higher model only when the pass-rate gain outweighs the cost, and prove the result.**
+> **Start with the cheapest model that can pass the task. Check its result; if it
+> fails, try the next model. Use a more expensive model only when the higher pass
+> rate is worth the extra cost, and record the evidence needed to verify the result.**
 
 These pages show how to install the project, run its experiments, inspect the
 results, and reproduce them. The included experiments are offline and deterministic:
@@ -16,14 +18,14 @@ they make no network or external calls, and the same inputs produce the same res
 
 Before comparing results, separate what Foundry already does from what this repository adds.
 
-!!! abstract "A layer on top of the built-in Model Router — four differentiators"
+!!! abstract "What this repo adds after the built-in Model Router chooses a model"
     Azure AI Foundry's **built-in Model Router** already handles **model selection**
     from one deployment, including across providers. This repo does not **replace**
     it. It adds four controls to the run: ① check the answer with execution signals
-    and try a higher model only after a failure (**verify**) · ② total the extra cost
-    of calling several models (**ensemble tax**) · ③ stop at the approved spending
-    limit (**cost governor**) · ④ record every decision so the run can be checked
-    again (**audit ledger**). *The built-in selects the model. This repo checks the
+    and try a higher model only after a failure (**verify**) · ② total the extra
+    candidate-call cost (**ensemble tax**) · ③ stop at the approved spending limit
+    (**cost governor**) · ④ write every decision to a replayable record (**audit
+    ledger**). *The built-in selects the model. This repo checks the
     result, controls spending, and records what happened.*
 
 [Experiment 07 · Routing layer](lab-notebook/07-model-router.md) compares one model
