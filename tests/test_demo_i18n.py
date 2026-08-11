@@ -91,6 +91,18 @@ def test_measured_payload_is_single_locale() -> None:
     assert set(en["armLbl"]) == set(ko["armLbl"])
 
 
+def test_measured_arm_key_explains_all_four_arms_before_other_copy() -> None:
+    en, ko = di.measured_payload("en"), di.measured_payload("ko")
+    for arm in en["armLbl"]:
+        assert en["armKey"].count(arm) == 1
+        assert ko["armKey"].count(arm) == 1
+    assert "Model Router in Cost mode" in en["armKey"]
+    assert "calling the premium model directly" in en["armKey"]
+    assert "Model Router의 Cost 모드" in ko["armKey"]
+    assert "프리미엄 모델 직접 호출" in ko["armKey"]
+    assert DASHBOARD_TEMPLATE.index('id="mArmKey"') < DASHBOARD_TEMPLATE.index('id="mSub"')
+
+
 def test_localize_experiments_translates_and_guards() -> None:
     payload = {
         "experiments": [

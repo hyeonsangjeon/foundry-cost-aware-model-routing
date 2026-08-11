@@ -7,9 +7,10 @@
 **설치하고, 돌리고, 눈으로 확인하고, 재현**하는 방법을 정리합니다.
 
 !!! success "실측 결과 (measured=true · directional)"
-    실제 Azure Foundry 실측에서 `router-cost` arm이 `direct-premium` 대비
-    **95.2% 저렴**했고 통과율 격차는 **4.17%p** 이내였습니다 — 24과제·단일 테넌트·1회의
-    방향성(publishable) 결과입니다.
+    실제 Azure Foundry 실측에서 `router-cost`(Model Router의 Cost 모드)가
+    `direct-premium`(프리미엄 모델 직접 호출 · `gpt-5.6-sol`) 대비 **95.2% 저렴**했고
+    통과율 격차는 **4.17%p** 이내였습니다 — 24과제·단일 테넌트·1회의 방향성(publishable)
+    결과입니다.
     → [라우팅 모드 실측 결과 대시보드](manual/03d-results.md)
 
 이 결과가 어디서 나오는지 — 이 저장소가 어떤 층인지부터 보겠습니다.

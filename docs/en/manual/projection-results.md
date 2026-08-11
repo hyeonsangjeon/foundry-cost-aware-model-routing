@@ -29,7 +29,7 @@
 
 | Metric | Value | Source experiment |
 | --- | --- | --- |
-| Flagship savings (cost-aware vs direct-premium) | **25.5%** ($2.23 → $1.66) | [Experiment 01 · Flagship run](../lab-notebook/01-hero.md) |
+| Flagship savings — cost-aware vs `direct-premium` (premium on every task) | **25.5%** ($2.23 → $1.66) | [Experiment 01 · Flagship run](../lab-notebook/01-hero.md) |
 | Pass rate (cost-aware routing, 100 synthetic tasks) | **100%** (100/100) | [Experiment 01 · Flagship run](../lab-notebook/01-hero.md) |
 | Ensemble fan-out tax | **3.74×** | [Experiment 05 · Ensemble fan-out](../lab-notebook/05-ensemble-fanout.md) |
 | single-call pass-rate gap | **+48%p** (52% → 100%) | [Experiment 07 · Routing layer](../lab-notebook/07-model-router.md) |

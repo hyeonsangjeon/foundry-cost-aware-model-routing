@@ -44,7 +44,7 @@ nav:
       - Home: index.md
       - 30-second install: manual/install.md
       - Core concepts: manual/concept.md
-      - "Glossary · pass rate vs grading coverage": manual/glossary.md
+      - "Glossary · metrics and experiment arm labels": manual/glossary.md
   - Results:
       - "Routing-mode measured results (03D)": manual/03d-results.md
       - "[measured] Experiment 12 · router three modes · run 2 (measurement succeeded)": lab-notebook/12-router-modes-measured.md
@@ -114,7 +114,7 @@ plugins:
                 - 홈: index.md
                 - 30초 설치: manual/install.md
                 - 핵심 개념: manual/concept.md
-                - "용어집 · 통과율 vs 채점 커버리지": manual/glossary.md
+                - "용어집 · 지표와 실험 arm 라벨": manual/glossary.md
             - 결과:
                 - "라우팅 모드 실측 결과 (03D)": manual/03d-results.md
                 - "[실측] 실험 12 · 라우터 세 모드 비교 · 2차 (측정 성공)": lab-notebook/12-router-modes-measured.md

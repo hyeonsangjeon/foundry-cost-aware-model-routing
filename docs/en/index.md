@@ -8,8 +8,9 @@ them. This site lays out how to **install, run, see for yourself, and reproduce*
 those experiments.
 
 !!! success "Measured result (measured=true · directional)"
-    In a real Azure Foundry measurement, the `router-cost` arm was
-    **95.2% cheaper** than `direct-premium`, with the pass-rate gap within
+    In a real Azure Foundry measurement, the `router-cost` arm (Model Router in Cost mode) was
+    **95.2% cheaper** than `direct-premium` (calling the premium model directly ·
+    `gpt-5.6-sol`), with the pass-rate gap within
     **4.17%p** — a directional (publishable) result from 24 tasks · a single tenant ·
     one measurement.
     → [Routing-mode measured results dashboard](manual/03d-results.md)

@@ -1,8 +1,24 @@
-# Glossary — pass rate vs grading coverage
+# Glossary — metrics and experiment arm labels
 
 A single place to pin down the metrics used across this repo. In particular,
 **pass rate** and **grading coverage** sound alike but are **two different
 metrics**.
+
+## Experiment arm labels
+
+An **arm** is one comparison strategy evaluated against the same workload under the same
+measurement plan.
+Experiments 11, 12, and the 03D measured result use these four identifiers:
+
+| Label | Meaning |
+| --- | --- |
+| `router-cost` | Model Router in Cost mode |
+| `router-balanced` | Model Router in Balanced mode |
+| `router-quality` | Model Router in Quality mode |
+| `direct-premium` | Calling the premium model directly · `gpt-5.6-sol` |
+
+On the offline projection page for experiments 01–08, `direct-premium` names the synthetic
+premium-on-every-task baseline. It is not measured performance for `gpt-5.6-sol`.
 
 !!! abstract "At a glance — the two metrics differ"
     | Metric | Meaning | Denominator |

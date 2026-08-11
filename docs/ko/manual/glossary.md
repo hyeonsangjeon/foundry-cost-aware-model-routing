@@ -1,7 +1,22 @@
-# 용어집 — 통과율 vs 채점 커버리지
+# 용어집 — 지표와 실험 arm 라벨
 
 이 저장소의 지표를 한 곳에서 확인하는 용어집입니다. 특히 **통과율(pass rate)** 과
 **채점 커버리지(grading coverage)** 는 이름이 비슷하지만 **서로 다른 지표**입니다.
+
+## 실험 arm 라벨
+
+**arm**은 같은 측정 계획으로 같은 워크로드를 비교할 때 쓰는 전략 하나를 뜻합니다.
+실험 11·12와 03D 실측 결과에서는 다음 네 식별자를 씁니다.
+
+| 라벨 | 뜻 |
+| --- | --- |
+| `router-cost` | Model Router의 Cost 모드 |
+| `router-balanced` | Model Router의 Balanced 모드 |
+| `router-quality` | Model Router의 Quality 모드 |
+| `direct-premium` | 프리미엄 모델 직접 호출 · `gpt-5.6-sol` |
+
+실험 01–08의 오프라인 투영 페이지에서 `direct-premium`은 모든 태스크에 프리미엄을 쓰는
+합성 기준선입니다. `gpt-5.6-sol`의 실측 성능을 뜻하지 않습니다.
 
 !!! abstract "한눈에 — 두 지표는 다르다"
     | 지표 | 뜻 | 분모 |

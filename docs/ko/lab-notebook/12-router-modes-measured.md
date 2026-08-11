@@ -34,6 +34,10 @@ max_drop 10pp, 예산 $20)은 **완화 없이 그대로**입니다.
 
 ## 결과 — arm별 커버리지 · 통과율 · 비용 · cost-per-pass
 
+**실험 arm 라벨:** `router-cost`(Model Router의 Cost 모드) · `router-balanced`(Model
+Router의 Balanced 모드) · `router-quality`(Model Router의 Quality 모드) ·
+`direct-premium`(프리미엄 모델 직접 호출 · `gpt-5.6-sol`).
+
 <figure markdown="span">
   ![arm별 총비용 가로 막대: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56. 각 막대에 통과율과 cost-per-pass 주석](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.svg)
   <figcaption>arm별 총비용 — router-cost가 가장 싸고 router-quality가 가장 비싸다. 각 막대에 통과율과 통과당 비용(cost-per-pass)을 함께 표기했다. 아래 표와 같은 실측 값이다.</figcaption>

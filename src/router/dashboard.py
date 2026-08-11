@@ -885,6 +885,7 @@ DASHBOARD_TEMPLATE = """<!DOCTYPE html>
     <section class="panel measured" id="measuredPanel">
       <div class="eyebrow" id="mEyebrow">&mdash;</div>
       <h2 class="sec" id="mTitle">&mdash;</h2>
+      <p class="mnote" id="mArmKey"></p>
       <p class="sec-sub" id="mSub">&mdash;</p>
       <div class="mlabels" id="mLabels"></div>
       <div class="mhead" id="mHead"></div>
@@ -2005,6 +2006,7 @@ function renderMeasured(d) {
   const backends = R.backends || {};
   $("mEyebrow").textContent = t.eyebrow;
   $("mTitle").textContent = t.title;
+  $("mArmKey").innerHTML = t.armKey;
   $("mSub").textContent = t.sub;
   // Honesty labels — measured=true / coverage / unpriced / evidence_tier / replay / spend-of-budget.
   const grCov = (R.grading && R.grading.coverage) || 0;

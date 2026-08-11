@@ -23,8 +23,10 @@
 - **상황(왜):** 라우터에는 `Cost` / `Balanced` / `Quality` 세 라우팅 모드가 있습니다. 오프라인
   투영은 "Cost가 싸고 Quality가 정확하다"를 **가정**했을 뿐, 같은 워크로드에서 **실측으로**
   비용과 통과율이 정말 그 순서로 갈리는지는 검증된 적이 없었습니다.
-- **작업(무엇을):** 4개 arm — `router-cost`(mode=Cost) · `router-balanced`(routing 블록 부재=
-  Balanced 기본값) · `router-quality`(mode=Quality) · `direct-premium`(`gpt-5.6-sol` 직결) — 을
+- **작업(무엇을):** 4개 arm — `router-cost`(Model Router의 Cost 모드; mode=Cost) ·
+  `router-balanced`(Model Router의 Balanced 모드; routing 블록 부재=Balanced 기본값) ·
+  `router-quality`(Model Router의 Quality 모드; mode=Quality) · `direct-premium`(프리미엄 모델
+  직접 호출 · `gpt-5.6-sol`) — 을
   [`benchmarks/original-coding`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/tree/main/benchmarks/original-coding)
   의 24개 큐레이션 코딩 태스크에 물립니다. `24 태스크 × 4 arm × n=3 = 288 셀`, 결정론적
   exec-signals 채점, v2 합성 요율표로 비용 산정.

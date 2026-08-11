@@ -315,6 +315,10 @@ Foundry **Model Router**를 배포하고 실제 프롬프트를 라우팅하게 
 커버리지가 **79.2%**로 **90%** arm별 바닥 아래로 떨어졌습니다. 규율로 자산으로 남긴 음성 결과:
 예상이 뒤집혔습니다(Claude가 아니라 Grok이 100%; 추론 토큰이 출력을 삼킴).
 
+**실험 arm 라벨:** `router-cost`(Model Router의 Cost 모드) · `router-balanced`(Model
+Router의 Balanced 모드) · `router-quality`(Model Router의 Quality 모드) ·
+`direct-premium`(프리미엄 모델 직접 호출 · `gpt-5.6-sol`).
+
 ![비용 대 통과율 산점도: direct-premium이 router-quality보다 왼쪽 위(더 싸고 통과율 높음)에 있어 router-quality가 지배당함을 보인다. router-cost는 같은 통과율에서 가장 왼쪽](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
 *이 산점도는 실험 **12**의 publishable 결과입니다 — 실험 11 자신의 유료 런은 VOID라 자기 차트가 없습니다.*
 → [Lab-notebook 11](../lab-notebook/11-router-modes-void.md)

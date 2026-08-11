@@ -29,9 +29,10 @@
   Offline projections merely **assumed** "Cost is cheap and Quality is accurate"; whether
   cost and pass rate really split in that order **by measurement** on the same workload had
   never been verified.
-- **Task (what):** wire four arms — `router-cost` (mode=Cost) · `router-balanced` (no routing
-  block = the Balanced default) · `router-quality` (mode=Quality) · `direct-premium`
-  (`gpt-5.6-sol` direct) — onto the 24 curated coding tasks in
+- **Task (what):** wire four arms — `router-cost` (Model Router in Cost mode; mode=Cost) ·
+  `router-balanced` (Model Router in Balanced mode; no routing block = the Balanced default) ·
+  `router-quality` (Model Router in Quality mode; mode=Quality) · `direct-premium` (calling
+  the premium model directly · `gpt-5.6-sol`) — onto the 24 curated coding tasks in
   [`benchmarks/original-coding`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/tree/main/benchmarks/original-coding).
   `24 tasks × 4 arms × n=3 = 288 cells`, deterministic exec-signal grading, cost computed with
   the v2 synthetic rate card.
