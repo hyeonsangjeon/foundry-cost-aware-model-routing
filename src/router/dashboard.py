@@ -504,6 +504,19 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   .mlimits { border-left: 3px solid var(--amber); padding: 2px 0 2px 16px; margin: 6px 0 0; list-style: none; }
   .mlimits li { font-size: 12px; color: var(--muted); margin: 6px 0; line-height: 1.55; }
   .mlimits li b { color: var(--ink); }
+  /* ---- measured 03D setup block ---- */
+  .msetup { display: grid; gap: 11px; margin: 2px 0 4px; }
+  .msetrow { display: grid; grid-template-columns: 190px 1fr; gap: 14px; align-items: start; }
+  .msetk { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding-top: 4px; }
+  .msetv { font-size: 13px; color: var(--ink); line-height: 1.5; }
+  .msetv .ev { display: block; margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+  .msetv .ev b { color: var(--ink); }
+  .mchip { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; background: var(--elev);
+    border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; margin: 0 6px 6px 0; color: var(--ink); }
+  .mchip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .mchip .mono, .msetv .mono { font-family: var(--mono); }
+  .mchip .mono { font-size: 11px; }
+  @media (max-width: 640px) { .msetrow { grid-template-columns: 1fr; gap: 4px; } .msetk { padding-top: 0; } }
 </style>
 </head>
 <body>
@@ -899,6 +912,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <div class="dh" id="mDomH">&mdash;</div>
         <p id="mDomP">&mdash;</p>
       </div>
+      <div class="msub" id="mSetupTitle">&mdash;</div>
+      <p class="mnote" id="mSetupNote"></p>
+      <div class="msetup" id="mSetup"></div>
       <div class="msub" id="mArmsTitle">&mdash;</div>
       <div class="marms" id="mArms"></div>
       <p class="mnote" id="mArmsNote"></p>
@@ -2009,6 +2025,12 @@ const M_STR = {
     head: (v) => `The cheapest router mode <b>router-cost</b> holds a <b>${v.qCost}</b> task pass rate while running <b>${v.cheaper}% cheaper</b> than direct-premium. The pass-rate gap is within <b>${v.gap}%p</b> — and that gap is entirely due to timeouts (below), not code quality.`,
     domH: "Most counterintuitive — the quality mode is dominated by direct-premium",
     domP: (v) => `<b>router-quality</b> (${v.qCostUsd}) is more expensive than <b>direct-premium</b> (${v.premUsd}) yet lands a lower pass rate (${v.qQual} &lt; ${v.premQual}). If you want quality, calling direct-premium directly is cheaper and more accurate than the router's quality mode — on this workload. Meanwhile router-cost holds the same ${v.costQual} pass rate at under 1/20 the cost.`,
+    setupTitle: "Setup — what was actually run",
+    setupNote: "Real deployment and backend identifiers from the sealed run — every name below is verbatim from the masked bundle. (The offline tab keeps synthetic placeholder model names; attaching real names to synthetic data would imply a per-model performance claim.)",
+    setArms: "Arms", setBackends: "Backends the router picked", setWorkload: "Workload", setRun: "Run conditions",
+    rosterEvidence: (v) => `None of these is a deployment in this run — the four deployments are <span class="mono">${v.deps}</span>. The router selected these backends from its own managed roster; <b>grok-4-1-fast-reasoning</b> in particular was never deployed to this account, yet Cost mode routed 100% to it.`,
+    workloadVal: (v) => `curated-24 · ${v.tasks} tasks × ${v.arms} arms × n=${v.n} = ${v.cells} cells`,
+    runVal: "keyless Entra · sequential dispatch · fixed seed 20260729",
     backTitle: "Backend distribution — which model each arm actually reached",
     backNote: "Over graded cells only (timeout cells, whose backend never settled, are excluded). Cost mode routed 100% to grok-4-1-fast-reasoning — a skew reproduced across both measured runs (the prior void run and this publishable one). Quality mode uses no Grok at all.",
     toTitle: "11 timeout cells — shown, not hidden",
@@ -2038,6 +2060,12 @@ const M_STR = {
     head: (v) => `가장 싼 라우터 모드 <b>router-cost</b>는 통과율 <b>${v.qCost}</b>를 유지하면서 direct-premium 대비 <b>${v.cheaper}% 저렴</b>하다. 통과율 격차는 <b>${v.gap}%p</b> 이내이고, 그 격차조차 전부 타임아웃 때문이지(아래) 코드 품질 때문이 아니다.`,
     domH: "가장 반직관적인 발견 — quality 모드가 direct-premium에 지배당한다",
     domP: (v) => `<b>router-quality</b>(${v.qCostUsd})는 <b>direct-premium</b>(${v.premUsd})보다 비싼데도 통과율은 더 낮다(${v.qQual} &lt; ${v.premQual}). 품질을 원한다면 라우터의 quality 모드보다 direct-premium을 직접 부르는 편이 더 싸고 더 정확하다 — 이 워크로드에서는. 한편 router-cost는 같은 ${v.costQual} 통과율을 1/20 미만 비용으로 유지한다.`,
+    setupTitle: "실험 구성 — 무엇을 돌렸나",
+    setupNote: "봉인 런의 실제 배포·백엔드 식별자다 — 아래 모든 이름은 마스킹된 번들에서 그대로 가져왔다. (offline 탭은 합성 placeholder 모델명을 유지한다; 합성 데이터에 실제 모델명을 붙이면 모델별 성능 주장이 되기 때문이다.)",
+    setArms: "Arm 구성", setBackends: "라우터가 고른 백엔드", setWorkload: "워크로드", setRun: "실행 조건",
+    rosterEvidence: (v) => `이 중 어느 것도 이번 런의 배포가 아니다 — 배포는 넷뿐이다: <span class="mono">${v.deps}</span>. 라우터는 이 백엔드들을 자기 관리 로스터에서 골랐다; 특히 <b>grok-4-1-fast-reasoning</b>은 이 계정에 배포된 적이 없는데도 Cost 모드가 100%를 그리로 보냈다.`,
+    workloadVal: (v) => `curated-24 · 과제 ${v.tasks}개 × arm ${v.arms}개 × n=${v.n} = ${v.cells}셀`,
+    runVal: "keyless Entra · 순차 디스패치 · 고정 시드 20260729",
     backTitle: "백엔드 분포 — 각 arm이 실제로 도달한 모델",
     backNote: "채점된 셀만 대상(백엔드가 확정되지 않은 타임아웃 셀은 제외). Cost 모드는 100%를 grok-4-1-fast-reasoning으로 보냈다 — 이 쏠림은 두 번의 실측 런(직전 void 런과 이 발행 런)에서 재현됐다. quality 모드는 Grok을 전혀 쓰지 않는다.",
     toTitle: "타임아웃 11셀 — 숨기지 않고 보여준다",
@@ -2097,6 +2125,29 @@ function renderMeasured(d) {
     premUsd: usd(cPrem), qQual: pct(qQ), premQual: pct(qPrem), costQual: pct(qCostR),
   });
   $("mDom").hidden = false;
+  // Experiment setup — deployments, router-selected backends, workload, run conditions (all sealed facts).
+  $("mSetupTitle").textContent = t.setupTitle;
+  $("mSetupNote").textContent = t.setupNote;
+  const deployments = d.deployments || [];
+  const routerDeps = M_ARMS.filter((a) => a.arm !== "direct-premium").map((a) => a.dep);
+  const picked = [];
+  routerDeps.forEach((dep) => { Object.keys(backends[dep] || {}).forEach((m) => { if (picked.indexOf(m) < 0) picked.push(m); }); });
+  const armChips = M_ARMS.map((a) =>
+    '<span class="mchip"><span class="dot" style="background:' + (a.arm === "direct-premium" ? "var(--muted)" : "var(--brand)") + '"></span>' +
+    esc(a.arm) + ' · ' + esc(a.lbl[M_LOCALE]) + ' · <span class="mono">' + esc(a.dep) + '</span></span>').join("");
+  const backChips = picked.map((m) =>
+    '<span class="mchip"><span class="dot" style="background:' + (M_COLORS[m] || "var(--muted)") + '"></span><span class="mono">' + esc(m) + '</span></span>').join("");
+  const tasksN = ((byQ["gpt-5.6-sol"] || {}).tasks_planned) || 0;
+  const cellsN = (R.grading && R.grading.planned_cells) || 0;
+  const wl = t.workloadVal({ tasks: tasksN, arms: M_ARMS.length, n: (d.n || 0), cells: cellsN });
+  const setupRows = [
+    [t.setArms, armChips],
+    [t.setBackends, backChips + '<span class="ev">' + t.rosterEvidence({ deps: deployments.map(esc).join(", ") }) + '</span>'],
+    [t.setWorkload, '<span class="mono">' + esc(wl) + '</span>'],
+    [t.setRun, esc(t.runVal)],
+  ];
+  $("mSetup").innerHTML = setupRows.map((r) =>
+    '<div class="msetrow"><div class="msetk">' + esc(r[0]) + '</div><div class="msetv">' + r[1] + '</div></div>').join("");
   // Four arm cards.
   $("mArmsTitle").textContent = t.armsTitle;
   $("mArmsNote").textContent = t.armsNote;
