@@ -12,7 +12,8 @@
 - **Task (what):** run a regression comparison of a candidate policy with the expensive fallback deleted (`experiments/policies/cost-cut.yaml`) against the bundled seed policy on the **same shared signals**.
 - **Experiment (what it tests):** how badly a naive cost cut breaks coverage (100% → 67%) — that is, why a cost comparison that doesn't pin coverage is meaningless.
 
-This experiment runs in the opposite direction from the previous two. Where experiments 01 · 02 showed *"routing pays off,"* this one honestly exposes **what you lose when routing is mistuned**.
+Experiments 01 · 02 showed *"routing pays off,"* and this experiment removes the
+expensive fallback and records what stops passing.
 
 ## The tempting "optimization"
 
@@ -51,18 +52,25 @@ regression (candidate vs base):
 
 ## Reading this number honestly
 
-The candidate policy's routing cost ($0.73) **is genuinely lower** than base ($1.66). But that isn't a saving — it's **the result of not doing the work**: 33% of tasks lost any model that passes their own checks. With the expensive fallback gone, the "guaranteed clean last candidate" is gone too.
+The candidate policy costs $0.73 instead of $1.66, but it solves fewer tasks. For 33%
+of tasks, every remaining model fails its checks. Removing the expensive fallback
+removed the "guaranteed clean last candidate" that could pass those tasks.
 
 !!! danger "Don't compare delta_pct at face value"
-    The report's `delta_pct vs baseline` compares **each policy against its own naive baseline**. Because cost-cut deleted the expensive models, even that baseline drops (`$1.19` vs the seed's `$2.23`). So "38.9% > 25.5%" is **not a better saving** — it is an illusion against a weakened baseline. **A cost comparison that doesn't pin coverage is meaningless.**
+    The report's `delta_pct vs baseline` compares **each policy against its own naive baseline**. Because cost-cut deleted the expensive models, even that baseline drops     (`$1.19` vs the seed's `$2.23`). So "38.9% > 25.5%" is **not a better saving**.
+    It compares against a smaller baseline while fewer tasks pass. **A cost comparison
+    that doesn't pin coverage is meaningless.**
 
-This is why the seed policy keeps the expensive fallback. Those models are rarely chosen on most tasks (so they barely affect normal cost), but on a handful of hard tasks they are the **safety net that holds coverage at 100%**. The core claim of cost-aware routing is *"same coverage, lower cost,"* and a saving that breaks coverage doesn't qualify.
+This is why the seed policy keeps the expensive fallback. Most tasks do not use it,
+so it adds little to their cost. Hard tasks use it when cheaper models fail, which
+keeps coverage at 100%. The core claim is *"same coverage, lower cost,"* so a result
+with lower coverage does not qualify.
 
 ## When to use this experiment
 
 - When you want to check for a **coverage regression** before touching a policy.
 - When a "let's delete the expensive model" proposal lands and you want to show its cost **in numbers**.
-- When explaining to the team that routing isn't a silver bullet but **a tuning of trade-offs**.
+- When explaining that lowering cost by removing fallback models also removes solved tasks.
 
 !!! note "Use it as a regression guard"
     `cost-router policy regression` also works as a guard that protects policy changes in CI — if a candidate policy drops coverage, it shows up immediately in review. For the field descriptions, see [experiment config (YAML)](../manual/experiments.md) and `cost-router policy regression --help`.

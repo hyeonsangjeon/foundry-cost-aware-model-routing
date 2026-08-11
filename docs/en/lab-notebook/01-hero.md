@@ -1,7 +1,9 @@
 # Experiment 01 · Cheapest first, escalate only on failure
 
 !!! abstract "One-line summary — this repo's *flagship* experiment"
-    Route 100 synthetic-workload tasks cost-aware and you **hold coverage at 100%** while spending **25.5% less** than naive (premium on every task). All numbers are `measured = false`.
+    Run 100 synthetic-workload tasks in two ways. Cost-aware routing keeps coverage at
+    **100%** and costs **25.5% less** than sending every task to the premium model.
+    All numbers are `measured = false`.
 
 <figure markdown="span">
   ![Hero loop animation — a naive lane and a cost-aware lane running side by side](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
@@ -66,7 +68,8 @@ The `validate` task passed cleanly on the first try with the cheapest candidate 
 | quality (naive) | 100% | $2.23 | 100% coverage but maximum cost |
 | **cost-aware routing** | **100%** | **$1.66** | holds coverage + saves |
 
-The point is to lower cost while holding coverage. The cheapest arm is cheap, but its coverage collapses to 22%.
+The cheapest arm solves only 22% of the tasks. Cost-aware routing moves to another
+model after a failed check and keeps full coverage at a lower cost than naive.
 
 ## Routing-strategy breakdown
 
@@ -93,7 +96,8 @@ strategy  single-route=74 ensemble=26  |  clean-first=19 compared=18 escalated=5
 | medium | 41 | $0.86 |
 | easy | 37 | $0.17 |
 
-Cost concentrates in a handful of high-risk tasks — which is exactly where routing earns its keep.
+High-risk tasks account for most of the cost. Routing spends more on those tasks and
+less on the rest.
 
 ## Reproducibility self-check
 

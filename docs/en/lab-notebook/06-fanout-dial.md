@@ -1,29 +1,43 @@
 # Experiment 06 · When is it worth calling several models
 
 !!! abstract "One-line summary"
-    Experiment 05 surfaced the ensemble tax — "run everything" costs **[3.74×](../manual/projection-results.md)** the winner. This experiment shows that tax is a **dial**: raise the budget gate's `compare_min_value` by one notch and the number of tasks that fan out drops, so **coverage (100%) and savings (47%) stay put while only the tax** collapses `$0.36 → $0.00`. Using the **same** workload · signals · policy · pricing as experiment 05, only with the dial turned off, experiment 06 (`adaptive`) pins that extreme (zero tax) with a reproducibility contract. All numbers are `measured = false`.
+    Experiment 05 showed that "run everything" costs
+    **[3.74×](../manual/projection-results.md)** as much as the winner. This experiment
+    raises the budget gate's `compare_min_value`, so fewer tasks call every candidate.
+    **Coverage (100%) and savings (47%) stay unchanged while extra-call cost falls
+    `$0.36 → $0.00`.** It uses the **same** workload · signals · policy · pricing as
+    experiment 05. Experiment 06 (`adaptive`) fixes the zero-fan-out end with a
+    reproducibility contract. All numbers are `measured = false`.
 
 <figure markdown="span">
   ![Adaptive loop animation — a dial rises and folds the parallel fan-out into one](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
-  <figcaption>Adaptive loop — raise the dial above every task's value and the parallel fan-out folds to one, draining the fan-out tax to zero while the savings stay put.</figcaption>
+  <figcaption>Adaptive loop — raise the threshold above every task's value, and each task uses one ordered route. Extra fan-out cost falls to zero while savings stay unchanged.</figcaption>
 </figure>
 
 ## What this experiment is
 
 - **Situation (when):** right after experiment 05 showed "an ensemble isn't free." The natural next question — *"how much, and how, can we cut that tax without losing coverage or savings?"* When that question needs an honest answer.
-- **Task (what):** make the lever that governs the router's fan-out decision — the budget gate `BudgetGate.compare_min_value` (fan out in compare mode if a task's **value** is at or above this threshold, otherwise take a single ordered route) — adjustable **from the experiment config (`budget:`)**, and **sweep** that threshold from low (fan out everything) to high (fan out nothing).
-- **Experiment (what it tests):** that while the dial turns, (1) **coverage 100%**, (2) **winner cost $0.13**, and (3) **savings 47%** stay **invariant**, and only (4) the **ensemble tax** collapses `$0.36 → $0.00`. The extreme (zero tax) is pinned by experiment 06 `adaptive`'s reproducibility contract (`max_tax_ratio`).
+- **Task (what):** expose `BudgetGate.compare_min_value` in the experiment config
+  (`budget:`). Tasks at or above this value use compare mode; tasks below it use one
+  ordered route. Run the same workload from a low threshold (fan out everything) to a
+  high threshold (fan out nothing).
+- **Experiment (what it tests):** while the threshold changes, (1) **coverage 100%**,
+  (2) **winner cost $0.13**, and (3) **savings 47%** stay **invariant**, while (4)
+  extra fan-out cost falls `$0.36 → $0.00`. Experiment 06 `adaptive` pins the
+  zero-fan-out end with `max_tax_ratio`.
 
-This is the **sixth honesty**, after 01 · 02 (the gain), 03 (the coverage cliff), 04 (no free lunch), and 05 (the ensemble tax), and it is the **honest fix** for experiment 05: *the fan-out tax is a controllable dial, and on this workload turning the dial off recovers all of it at no loss.*
+Experiments 01 · 02 show savings, 03 shows lost coverage, 04 shows no saving on hard
+work, and 05 counts every ensemble call. This experiment changes only the fan-out
+threshold and checks whether the result changes compared with experiment 05.
 
-## What the dial is
+## What the threshold controls
 
 For each task `route_task` asks the budget gate: "fan out (compare) or take a single route (ordered)?" The gate picks compare (fan-out) if the task's **value** (derived from `difficulty` · `diff_size_lines` · `class`) is at or above `compare_min_value`, otherwise ordered.
 
-- **Lower the threshold** → more tasks fan out → tax ↑
-- **Raise the threshold** → fewer tasks fan out → tax ↓
+- **Lower the threshold** → more tasks call every candidate → extra cost ↑
+- **Raise the threshold** → fewer tasks call every candidate → extra cost ↓
 
-The experiment config now exposes this lever:
+The experiment config exposes this setting:
 
 ```yaml
 budget:
@@ -42,22 +56,26 @@ The per-task values on this workload are as follows (which is why the sweep move
 | t-0036 | generate · hard | 0.850 |
 | t-0024 | repo_patch · hard | 1.000 |
 
-## Result — the tax is a dial, everything else is invariant
+## Result — extra calls fall while coverage and savings stay unchanged
 
 The result of sweeping `compare_min_value` (the very data the dashboard's **fan-out dial** panel plots, on the `cost-router` bundled workload):
 
-| Threshold | Fan-out tasks | Coverage | Savings | Winner cost | Ensemble tax | Ratio |
+| Threshold | Fan-out tasks | Coverage | Savings | Winner cost | Extra fan-out cost | Ratio |
 | --- | --- | --- | --- | --- | --- | --- |
 | ≤ 0.75 (fan out all = experiment 05) | 6 / 6 | 100% | 47.0% | $0.13 | **$0.36** | 3.74× |
 | 0.76 (excludes the one at 0.75) | 5 / 6 | 100% | 47.0% | $0.13 | $0.22 | 3.17× |
 | 0.86 – 1.00 (only the one at 1.0) | 1 / 6 | 100% | 47.0% | $0.13 | $0.12 | 3.03× |
 | > 1.00 (fan out none = experiment 06) | 0 / 6 | 100% | 47.0% | **$0.00** | **$0.00** | — |
 
-**Coverage, winner cost, and savings are identical in every cell.** The only thing that moves is the ensemble tax, and turning the dial all the way up makes the tax **exactly 0**.
+**Coverage, winner cost, and savings are identical in every row.** Raising the
+threshold reduces fan-out tasks and makes the extra cost **exactly 0**.
 
-## Why fan-out is pure tax on this workload
+## Why the extra calls do not help on this workload
 
-On deterministic offline signals, ordered mode **escalates from the cheapest candidate** and takes the first model that passes. That is the **same winner as the cheapest passing model** compare mode picks after evaluating every candidate. So compare only pays extra to **run the losing candidates** on the way to the same winner — it produces neither a cheaper winner nor higher coverage → **pure tax**.
+On deterministic offline signals, ordered mode starts with the cheapest candidate and
+takes the first one that passes. Compare mode evaluates every candidate and selects
+that same cheapest passing model. The additional calls produce neither a different
+winner nor higher coverage on this workload.
 
 ## Experiment 06 — pinning the extreme with a contract
 
@@ -78,20 +96,27 @@ reproducibility  PASS
   PASS  fanout_tax_ceiling: tax 0.00x ≤ 0.01x
 ```
 
-Exactly the **same** savings and coverage as experiment 05, but a new contract check `fanout_tax_ceiling` pins *"this config must not fan out (tax ≈ 0)."* If someone accidentally lowers the dial and fan-out leaks back in, CI fails on this contract.
+Savings and coverage are **the same** as experiment 05. The new
+`fanout_tax_ceiling` check pins *"this config must not fan out (tax ≈ 0)."* If the
+threshold is lowered and fan-out returns, CI fails this contract.
 
 !!! note "New capability — a contract beyond two sides"
-    Where experiment 04 introduced `max_delta_pct` (a phantom-saving ceiling), experiment 06 introduces `max_tax_ratio` (**a fan-out tax ceiling**). Placing the savings/coverage **floor** and the tax **ceiling** together, CI catches both "inflating to look cheap" and "quietly growing fan-out cost." For the fields, see [experiment config (YAML)](../manual/experiments.md).
+    Experiment 04 introduced `max_delta_pct` to cap reported savings. Experiment 06
+    adds `max_tax_ratio` to cap extra candidate-call cost. Together with the
+    savings/coverage floor, CI catches both "inflating to look cheap" and
+    "quietly growing fan-out cost." For the fields, see
+    [experiment config (YAML)](../manual/experiments.md).
 
 ## See it in the web app — the fan-out dial panel
 
 We added a **Fan-out dial** panel to the dashboard. It reads the sweep data from `GET /fanout-sweep` (live) or `fanout-sweep.json` (static export):
 
-- **purple bars** = the ensemble tax at each threshold (collapsing 3.74× → 0),
-- **green/blue dotted lines** = coverage and savings (flat across the whole dial),
-- **table** = the exact numbers for fan-out task count · coverage · savings · tax · ratio.
+- **purple bars** = extra fan-out cost at each threshold (3.74× → 0),
+- **green/blue dotted lines** = coverage and savings (unchanged across thresholds),
+- **table** = exact fan-out task count · coverage · savings · extra cost · ratio.
 
-In other words, it shows the story "the tax comes down but coverage and savings stay put" at a glance.
+It shows the original summary, "the tax comes down but coverage and savings stay put",
+with the exact values.
 
 [See it in the live demo →](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1)
 
@@ -101,8 +126,10 @@ This experiment shows that *"the fan-out tax is controllable, and on this worklo
 
 ## When to use this experiment
 
-- When you're deciding whether to turn on ensemble / best-of-N and want to pick the sweet spot by reading "how much to fan out" off a **cost curve**.
-- To set a **fan-out tax ceiling** (`max_tax_ratio`) in the reproducibility contract so CI blocks a quiet cost increase.
+- When deciding whether to turn on ensemble / best-of-N and choosing a threshold from
+  the **cost curve** for "how much to fan out".
+- To set an **extra fan-out cost ceiling** (`max_tax_ratio`) so CI blocks a quiet
+  cost increase.
 - To tune the router's fan-out threshold **per workload from config**.
 
 ## Reproduce this experiment

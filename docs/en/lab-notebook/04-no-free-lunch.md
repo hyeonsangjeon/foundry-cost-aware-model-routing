@@ -14,7 +14,9 @@
 - **Task (what):** on 6 hand-picked hard tasks, attach offline signals where **only the top candidate passes** each task (`samples/responses/hard-tasks-signals.sample.json`) and run routing.
 - **Experiment (what it tests):** that on this workload routing (1) **holds coverage at 100%** while (2) saving **0%** — that is, it honestly spends top-tier cost on hard work.
 
-This is the **third honesty**, after experiments 01 · 02 (routing pays off) and experiment 03 (mistuning breaks coverage). Here it exposes the **boundary where the gain is zero** even when routing is used *correctly*.
+Experiments 01 · 02 save money, and experiment 03 shows that removing fallback
+models loses solved tasks. Here the policy is correct, but every task reaches the
+top model, so the saving is zero.
 
 ## Setup — a workload where only the top passes
 
@@ -60,7 +62,11 @@ Total routing cost **$0.24** = naive cost **$0.24** → savings **$0.00 (0.0%)**
 
 ## Reading this number honestly
 
-Routing didn't "fail." Its promise is *"same coverage, lower cost,"* not *"always lower cost."* A saving appears **only when a cheap model actually passes**. When every task genuinely needs the top model, the correct choice is to **spend** that cost, and routing does exactly that — instead of shaving coverage to fake a saving (unlike [experiment 03](03-coverage-cliff.md)).
+Routing did not "fail." Its promise is *"same coverage, lower cost,"* not
+*"always lower cost."* A saving appears **only when a cheap model actually passes**. Here every
+cheap model fails, so the router reaches the top model on every task and spends the
+same amount as naive. Unlike [experiment 03](03-coverage-cliff.md), it does not lower
+coverage to make cost look smaller.
 
 !!! success "Two-sided reproducibility contract (`max_delta_pct`)"
     This experiment's `expect` block pins **both** sides:
@@ -68,7 +74,10 @@ Routing didn't "fail." Its promise is *"same coverage, lower cost,"* not *"alway
     - `min_coverage: 1.0` — routing must hold coverage at 100% (even if it has to spend), and
     - `max_delta_pct: 0.0` — on this workload **savings must not exceed 0%.**
 
-    The second ceiling is a newly added guard. If some future change suddenly makes this hard workload look "cheaper" (say, a weakened signal, or a **phantom saving** from a cost-calculation bug), the `savings_ceiling` check fails and CI breaks loudly. Savings must be honest both upward and downward.
+    The second ceiling is a newly added guard. If a future change makes this hard
+    workload look "cheaper" because signals weakened or cost calculation broke, the
+    `savings_ceiling` check fails. It prevents the page from reporting a saving where
+    every task still requires the top model.
 
 ## When to use this experiment
 
