@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="440" viewBox="0 0 760 440" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Cost versus pass-rate scatter. direct-premium sits up and to the left of router-quality (cheaper and higher pass-rate), so router-quality is dominated; router-cost sits far left at the same pass-rate as the other router arms, the best cost-for-quality point.">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="440" viewBox="0 0 760 440" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Cost versus pass-rate scatter. direct-premium costs less and has a higher pass rate than router-quality. router-cost has the lowest cost among the router arms with the same pass rate.">
   <rect x="0" y="0" width="760" height="440" fill="#ffffff"/>
-<text x="24" y="34" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">비용 × 품질 — quality 모드는 direct-premium에 지배당한다</text>
+<text x="24" y="34" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">비용 × 통과율 — Quality 모드는 비용이 더 들고 덜 풀었다</text>
 <text x="24" y="56" font-size="11" fill="#7b8794" text-anchor="start">y축 확대(94–101%)로 4.17%p 격차 가시화 · x축 총비용(USD)</text>
   <line x1="96" y1="92" x2="96" y2="360" stroke="#9aa5b1" stroke-width="1.4"/>
   <line x1="96" y1="360" x2="700" y2="360" stroke="#9aa5b1" stroke-width="1.4"/>
@@ -29,8 +29,8 @@
 <text x="628.9411764705883" y="380" font-size="10" fill="#7b8794" text-anchor="middle">$1.50</text>
 <text x="398.0" y="400" font-size="12" fill="#52606d" text-anchor="middle">arm 총비용 (USD)</text>
   <rect x="572.3" y="130.3" width="127.7" height="229.7" fill="#e8683f" opacity="0.06"/>
-<text x="692" y="146.28571428571428" font-size="10" fill="#e8683f" text-anchor="end">direct-premium 지배 영역</text>
-<text x="692" y="159.28571428571428" font-size="9" fill="#7b8794" text-anchor="end">→ 더 비쌈 · ↓ 품질 낮음</text>
+<text x="692" y="146.28571428571428" font-size="10" fill="#e8683f" text-anchor="end">direct-premium보다 비싸고 통과율 낮음</text>
+<text x="692" y="159.28571428571428" font-size="9" fill="#7b8794" text-anchor="end">→ 비용 높음 · ↓ 통과율 낮음</text>
   <circle cx="119.0" cy="289.8" r="7" fill="#2f9e44" stroke="#ffffff" stroke-width="1.5"/>
 <text x="131.04686352941178" y="275.8108000000002" font-size="11" fill="#1f2933" text-anchor="start" font-weight="600">router-cost</text>
 <text x="131.04686352941178" y="288.8108000000002" font-size="10" fill="#52606d" text-anchor="start">$0.06 · 95.8%</text>

@@ -377,7 +377,7 @@ def render_cost_chart(rows: list[dict]) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Chart 2 — cost vs quality scatter (quality mode dominated by direct-premium)
+# Chart 2 — cost vs quality scatter (quality mode costs more and passes less)
 # --------------------------------------------------------------------------- #
 def render_scatter(rows: list[dict]) -> str:
     w, h = 760, 440
@@ -392,17 +392,16 @@ def render_scatter(rows: list[dict]) -> str:
         return bot - (bot - top) * (rate - ymin) / (ymax - ymin)
 
     label = (
-        "Cost versus pass-rate scatter. direct-premium sits up and to the left of "
-        "router-quality (cheaper and higher pass-rate), so router-quality is "
-        "dominated; router-cost sits far left at the same pass-rate as the other "
-        "router arms, the best cost-for-quality point."
+        "Cost versus pass-rate scatter. direct-premium costs less and has a higher "
+        "pass rate than router-quality. router-cost has the lowest cost among the "
+        "router arms with the same pass rate."
     )
     out = [_svg_open(w, h, label)]
     out.append(
         _txt(
             24,
             34,
-            "비용 × 품질 — quality 모드는 direct-premium에 지배당한다",
+            "비용 × 통과율 — Quality 모드는 비용이 더 들고 덜 풀었다",
             size=16,
             fill=INK,
             weight=700,
@@ -432,8 +431,7 @@ def render_scatter(rows: list[dict]) -> str:
     out.append(
         _txt((left + right) / 2, h - 40, "arm 총비용 (USD)", size=12, fill=SUB, anchor="middle")
     )
-    # domination guide: premium dominates everything to its lower-right
-    # (more expensive AND lower-or-equal pass-rate). router-quality sits there.
+    # Highlight the area that costs more and has an equal-or-lower pass rate than premium.
     prem = next(r for r in rows if r["label"] == "direct-premium")
     ppx, ppy = px(prem["total_usd"]), py(prem["pass_rate"] * 100)
     out.append(
@@ -441,10 +439,17 @@ def render_scatter(rows: list[dict]) -> str:
         f'fill="#e8683f" opacity="0.06"/>'
     )
     out.append(
-        _txt(right - 8, ppy + 16, "direct-premium 지배 영역", size=10, fill=PREM, anchor="end")
+        _txt(
+            right - 8,
+            ppy + 16,
+            "direct-premium보다 비싸고 통과율 낮음",
+            size=10,
+            fill=PREM,
+            anchor="end",
+        )
     )
     out.append(
-        _txt(right - 8, ppy + 29, "→ 더 비쌈 · ↓ 품질 낮음", size=9, fill=MUTE, anchor="end")
+        _txt(right - 8, ppy + 29, "→ 비용 높음 · ↓ 통과율 낮음", size=9, fill=MUTE, anchor="end")
     )
     # points
     for r in rows:

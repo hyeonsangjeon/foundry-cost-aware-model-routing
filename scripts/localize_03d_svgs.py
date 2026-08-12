@@ -49,13 +49,14 @@ LABELS: dict[str, str] = {
         "Key contrast: router-cost is 95.2% cheaper than direct-premium "
         "(full precision), pass-rate gap within 4.17%p.",
     # cost-vs-quality-scatter.svg
-    "비용 × 품질 — quality 모드는 direct-premium에 지배당한다":
-        "Cost × quality — the quality mode is dominated by direct-premium",
+    "비용 × 통과율 — Quality 모드는 비용이 더 들고 덜 풀었다":
+        "Cost × pass rate — Quality mode cost more and passed less",
     "y축 확대(94–101%)로 4.17%p 격차 가시화 · x축 총비용(USD)":
         "y-axis zoomed (94–101%) to surface the 4.17%p gap · x-axis total cost (USD)",
     "arm 총비용 (USD)": "Arm total cost (USD)",
-    "direct-premium 지배 영역": "direct-premium dominance region",
-    "→ 더 비쌈 · ↓ 품질 낮음": "→ costlier · ↓ lower pass rate",
+    "direct-premium보다 비싸고 통과율 낮음":
+        "Costs more and passes less than direct-premium",
+    "→ 비용 높음 · ↓ 통과율 낮음": "→ higher cost · ↓ lower pass rate",
     # backend-distribution.svg
     "백엔드 분포 — arm별 실제 라우팅된 모델 (graded 셀 기준)":
         "Backend distribution — models actually routed per arm (graded cells)",

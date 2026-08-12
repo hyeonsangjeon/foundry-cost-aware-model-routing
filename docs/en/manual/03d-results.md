@@ -39,10 +39,10 @@ timeout cells (HTTP 408).
 
 ![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.en.svg)
 
-The key contrast is **the cheapest router mode vs the direct-premium baseline**:
-`router-cost` holds a task pass rate of 95.8% while being **95.2% cheaper** than
-direct-premium (full-precision calculation). The pass-rate gap is within **4.17%p**,
-and even that gap is entirely due to timeouts, as shown below.
+`router-cost` kept a 95.8% task pass rate while costing **95.2% less** than the
+direct-premium baseline (full-precision calculation). The pass-rate gap was within
+**4.17%p**. The timeout section below shows that every part of this gap came from
+timeouts, not code quality.
 
 | Arm | Mode | Total cost | Pass rate | $/pass | Grading coverage |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -67,30 +67,30 @@ and even that gap is entirely due to timeouts, as shown below.
 
 !!! note "Two savings baselines — don't mix them"
     - **The headline 95.2%** = `router-cost` ($0.06) vs **`direct-premium`** ($1.34).
-      Savings against the common real-world "just call the best model directly."
+      This compares routing with the common real-world choice to "just call the best model directly."
     - The **`savings_pct=95.8%`** in the public bundle (`published.json`) is a different
-      baseline — best-arm vs **naive/worst-arm** (`router-quality` $1.56). Best vs worst
-      arm.
-    - The two numbers answer different questions. This page uses the **direct-premium
-      baseline** — closer to practice — as the headline, and publishes the bundle value
-      as-is too. The savings rate is computed from full-precision amounts, not display
-      rounding (displayed amounts to 2 places; sub-cent and unit-price averages to 4).
+      comparison: the least expensive arm against **naive/worst-arm**
+      (`router-quality` $1.56).
+    - The two numbers compare different pairs. This page uses the **direct-premium
+      baseline** as the headline because it is closer to common practice. It also
+      publishes the bundle value unchanged. Both use full-precision amounts, not
+      display rounding (displayed amounts to 2 places; sub-cent and unit-price averages
+      to 4).
 
 ---
 
-## 2 · Cost × quality — the quality mode is dominated by direct-premium
+## 2 · Cost × quality — Quality mode cost more and solved less
 
-![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
+![Cost vs pass-rate scatter: direct-premium costs less and has a higher pass rate than router-quality; router-cost has the lowest cost at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
 
-The most counterintuitive finding: **the `router-quality` ($1.56) mode is completely
-dominated by `direct-premium` ($1.34)** — more expensive yet a lower pass rate (95.8%
-< 100.0%). The markup the router's "quality" mode adds as it escalates to the premium
-backend cannot beat a direct premium call. If you want quality, **calling
-direct-premium directly is cheaper and more accurate** than the router's quality mode
-— on this workload.
+`router-quality` cost $1.56 and reached a 95.8% pass rate. `direct-premium` cost $1.34
+and reached 100.0%. **Quality mode cost more and solved fewer tasks.** The router adds
+markup when its "quality" mode moves to the premium backend, while a direct premium
+call does not. On this workload, **calling direct-premium directly is cheaper and more
+accurate** than using the router's quality mode.
 
-Conversely, `router-cost` delivers the same pass rate (95.8%) as the other router arms
-at **under 1/20 the cost**. On this workload the router's value is not "raising
+`router-cost` reached the same 95.8% pass rate as the other router arms at **under
+1/20 the cost**. On this workload the router's value is not "raising
 quality" but "holding quality + slashing cost."
 
 ---
@@ -100,19 +100,19 @@ quality" but "holding quality + slashing cost."
 ![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.en.svg)
 
 `router-cost` sent all (100%) of its graded cells to `grok-4-1-fast-reasoning`. This
-**Cost-mode 100% Grok** skew **reproduced across two consecutive runs** — the prior
-void run and this publishable run — directional evidence that the router policy
-consistently picks the same low-cost backend in cost mode. `router-quality`, the
-opposite, splits across `gpt-5` (57%) and `gpt-5.5` (43%) and uses no Grok at all.
-(The distribution is over graded cells — cells whose backend was not settled because
-of a timeout are excluded.)
+**Cost-mode 100% Grok** result appeared in two consecutive runs: the prior void run
+and this publishable run. In both runs, Cost mode chose the same low-cost backend.
+That is directional evidence for these runs, not a general routing guarantee.
+`router-quality` instead split across `gpt-5` (57%) and `gpt-5.5` (43%) and used no
+Grok at all. The distribution includes graded cells only; timeout cells whose backend
+never settled are excluded.
 
 ---
 
 ## 4 · 11 timeout cells — we don't hide them
 
-11 cells timed out with HTTP 408 (3.8% of the total). **All of them in the router arms
-only** — `direct-premium` had 0.
+11 cells timed out with HTTP 408 (3.8% of the total). **Every timeout occurred in a
+router arm**; `direct-premium` had 0.
 
 | Breakdown | Detail |
 | --- | --- |
@@ -120,13 +120,13 @@ only** — `direct-premium` had 0.
 | By task | `toll-schedule` 7 · `dedupe-stable` 3 · `weekday-label` 1 |
 | Status | all 11 cells HTTP 408 (read timeout) |
 
-A timeout cell is handled **doubly conservatively**: (1) with no content it is
-**excluded** from grading coverage, and at the same time (2) it is **counted as a
-failure** with pass=False. So the router arms' pass rate falls below direct-premium's
-by exactly these timeouts. **The 4.17%p gap above is a latency difference, not a
-code-quality one** — the router backends are slower than premium and hit the fixed
-timeout (read 90s / overall 120s) first. A follow-up proposal to raise the timeout is
-in the [Fix C doc](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md) (applying it needs a new prereg + re-run).
+Each timeout is handled in two ways: (1) no content means it is **excluded** from
+grading coverage, and (2) pass=False means it is **counted as a failure**. These
+timeouts account for the entire difference between the router arms and
+direct-premium. **The 4.17%p gap above is a latency difference, not a code-quality
+one.** The router backends are slower than premium and reached the fixed timeout
+(read 90s / overall 120s) first. A proposal to raise the timeout is in the
+[Fix C doc](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md) (applying it needs a new prereg + re-run).
 
 ---
 
