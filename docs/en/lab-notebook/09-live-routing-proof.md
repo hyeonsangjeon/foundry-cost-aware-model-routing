@@ -1,15 +1,14 @@
 # Experiment 09 · The model the Foundry router actually picked (`measured = true`)
 
 !!! abstract "One-line summary"
-    Experiments 01–08 were all **offline projections over synthetic telemetry**
-    (`measured = false`, placeholder models). This experiment crosses that boundary —
-    it **really sends** five curated prompts to a real **Azure AI Foundry Model
-    Router** deployment and reads the **actual model** the router picked and the
-    **actually billed token usage** (authenticated with **Microsoft Entra ID, no
-    key**). Result: a single `model-router` deployment really forked, task by task, to
-    **`gpt-5.4` (3) and `grok-4-1-fast-reasoning` (2)**. This is the repository's first
-    `measured = true` experiment, and **latency here is real wall-clock too** (in
-    contrast to the illustrative projection of experiment 08).
+    Experiments 01–08 used synthetic telemetry and placeholder models
+    (`measured = false`). This experiment sent five curated prompts to a real
+    **Azure AI Foundry Model Router** deployment using **Microsoft Entra ID, no key**.
+    The response recorded which model served each prompt, the billed token usage, and
+    wall-clock latency. One `model-router` deployment chose **`gpt-5.4` (3) and
+    `grok-4-1-fast-reasoning` (2)**. This is the repository's first
+    `measured = true` experiment; unlike experiment 08, **latency here is real
+    wall-clock too**.
 
 <figure markdown="span">
   ![Azure AI Foundry router architecture — with keyless Entra authentication, the router selects a backend](/foundry-cost-aware-model-routing/assets/azure-architecture.svg)
@@ -20,9 +19,9 @@
 
 - **Situation (why):** all eight of the repository's experiments were honestly
   `measured = false` — deterministic projections over **placeholder** models like
-  `mini-fast` and `premium-max`, with no network and no credentials. Powerful, but one
-  question always tagged along: *"so when it's wired to real Foundry, what model does
-  the router **actually** pick?"*
+  `mini-fast` and `premium-max`, with no network and no credentials. They could not
+  answer this question: *"so when it's wired to real Foundry, what model does the
+  router **actually** pick?"*
 - **Task (what):** for this work alone we provisioned a new **keyless (Entra-only)
   AIServices resource**, deployed one real **`model-router`** plus **GPT‑5.4-family
   candidates** (`gpt-5.4-nano` · `gpt-5.4-mini` · `gpt-5.4`), and then **really
@@ -102,17 +101,17 @@ wall-clock.
 **identical** across two independent runs (the task→model mapping was stable); only
 tokens, cost, and latency varied from call to call — the essence of a live measurement.
 
-## Proof it's real — the response-ID format differs by model
+## The response-ID format differs by model
 
-The two backends return **response IDs in different formats** — a strong fingerprint,
-impossible to fake with a mock, that different real backends served them:
+The two backends returned **response IDs in different formats**. That difference
+confirms that the responses came from two backend implementations:
 
 | serving model | response-ID format | example |
 | --- | --- | --- |
 | `gpt-5.4-2026-03-05` | OpenAI-standard `chatcmpl-…` | `chatcmpl-E3cromf…` |
 | `grok-4-1-fast-reasoning` | pure UUID | `cca8d752-05f4-40…` |
 
-And real answer text came back too (`finish_reason = stop`, no truncation):
+Answer text also came back with `finish_reason = stop` and no truncation:
 
 - **t-0001 · grok** — a Python code block that really implements `slugify()` with `import re`.
 - **t-0006 · grok** — a real `unittest` test for `merge_intervals`.
@@ -150,7 +149,7 @@ And real answer text came back too (`finish_reason = stop`, no truncation):
 | Accuracy | offline signals (`is_clean`) | ungraded (`coverage_measured = false`) |
 | Reproduction | deterministic (pinned by CI) | live snapshot (varies per call) |
 
-If experiment 08 was the **offline lens** that "looked at one problem four ways,"
+If experiment 08 was the **offline comparison** that "looked at one problem four ways,"
 experiment 09 is the **measurement** that wired that router arm into **real Foundry** to
 see what the router truly picks.
 
@@ -217,4 +216,4 @@ Measurement snapshot (captured):
 
 **Related docs:** [Foundry hands-on configuration · per-experiment setup](../manual/foundry-setup.md) ·
 [live measurement bridge](../manual/foundry-live.md) · [experiment 08 · arena](08-arena.md)
-(the offline lens) · [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)
+(the offline comparison) · [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)

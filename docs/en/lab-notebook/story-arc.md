@@ -8,24 +8,22 @@
     **measurable price**. This repository meters that price offline and
     deterministically, and **never inflates it** (`labels.measured = false`).
 
-This page is a **map for reading the core arc (01–07)** of the repository's
-[experiments 01–12](index.md) as **one story**. Each experiment answers the question
-the previous one left open, and together they defend the single sentence above.
-[Experiment 08 (arena)](08-arena.md) is the **epilogue that narrows that story to a
-single task**. The derivation and reproduction steps for individual numbers live on
-each experiment page; "when, and what was done" lives in the [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).
+This page puts the repository's [experiments 01–12](index.md) in order. For the core
+experiments 01–07, it states what changed, what result came out, and what question
+the next experiment answers. [Experiment 08 (arena)](08-arena.md) applies the same
+comparison to one task. Each experiment page contains the calculation and
+reproduction steps; "when, and what was done" lives in the
+[dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).
 
 !!! info "What are these experiments evidence of — four axes on top of 'selection'"
-    Azure AI Foundry's **built-in Model Router** already solves the *selection*
-    problem — picking one model per prompt — well (one deployment, cross-provider —
-    [experiment 07](07-model-router.md)). This repository does not replace it; it is
-    the **layer on top**. The experiments below meter that layer's four axes offline
-    and deterministically — *multi-provider routing is the built-in table-stakes; the
-    differentiators are these four*:
+    Azure AI Foundry's **built-in Model Router** already picks one model per prompt
+    from one cross-provider deployment ([experiment 07](07-model-router.md)). This
+    repository does not replace that selection. The experiments below test four
+    additional actions offline and deterministically:
 
     - **① Verify-then-adopt** — accept only when execution signals are clean, escalate the failures (gains in 01·02, guardrails in 03·04)
-    - **② Ensemble axis** — expose and meter the fan-out tax (winner-only vs summing all = 3.74×) ([05](05-ensemble-fanout.md))
-    - **③ Cost governor** — dial that tax down with a budget gate (3.74× → $0) ([06](06-fanout-dial.md))
+    - **② All-candidate call accounting** — count every candidate instead of the winner alone (3.74×) ([05](05-ensemble-fanout.md))
+    - **③ Cost governor** — use a budget gate to reduce those extra calls (3.74× → $0) ([06](06-fanout-dial.md))
     - **④ Audit trace** — seal measured runs into a tamper-evident, cost-replayable ledger ([09](09-live-routing-proof.md)·[10](10-measured-ledger.md))
 
     And **[experiment 07](07-model-router.md)** *is* that contrast — the generic
@@ -41,8 +39,8 @@ each experiment page; "when, and what was done" lives in the [dev log](/foundry-
 | [02 · Curated](02-curated.md) | Five tasks you can follow by eye? | 100% coverage, **−56.7%** ($0.13 → $0.06) | verify the gain task by task |
 | [03 · Coverage cliff](03-coverage-cliff.md) | Delete the expensive fallback to save more? | looks cheaper, but coverage **100% → 67%** (−33%p) | cost without pinned coverage is meaningless |
 | [04 · No free lunch](04-no-free-lunch.md) | A workload where only the top model passes? | 100% coverage, **0%** saved | routing doesn't invent savings that aren't there |
-| [05 · Ensemble tax](05-ensemble-fanout.md) | What does "just ensemble everything" cost? | 100% coverage, −47% + fan-out **3.74×** | ensembling isn't free (a hidden tax) |
-| [06 · Fan-out dial](06-fanout-dial.md) | Get rid of that tax? | coverage/savings flat, tax **3.74× → $0** | the tax is a dial |
+| [05 · Ensemble tax](05-ensemble-fanout.md) | What does "just ensemble everything" cost? | 100% coverage, −47% + fan-out **3.74×** | every candidate call is billed |
+| [06 · Fan-out dial](06-fanout-dial.md) | Remove unnecessary fan-out? | coverage/savings unchanged, extra-call ratio **3.74× → $0** | fewer calls, same result |
 | [07 · Routing layer](07-model-router.md) | Pick once (`single-call`)? | single-call **52%** vs mix **100%** (+48%p gain) | the value of observing = coverage regained |
 | [08 · Arena](08-arena.md) *(epilogue)* | This one problem, four ways? | router = cheapest correct but **slowest** (sequential) | even the winner pays a **latency** price |
 
@@ -86,57 +84,58 @@ inflate**. So the natural next move — *push harder?*
 
 ### Act 3 · Expensive shortcuts and their price — "push harder? each shortcut has a tax" (05–07)
 
-Act 3 meters the two directions of "harder" and the price of each.
+Act 3 tests two ways to do more work and records what each one costs.
 
-- **Experiment 05 (ensemble tax):** direction ①, **run everything**. Ensemble
-  (compare) all candidates and take only the winner: coverage fills up, but the
-  fan-out spends **3.74× the winner** (the cost of running the losing candidates too
-  = a hidden tax). Metrics in the Azure Foundry shape record that tax.
-- **Experiment 06 (fan-out dial):** the honest fix for 05. That tax isn't a fixed
-  cost but a **dial** — a single budget-gate threshold turns the tax off
-  (**3.74× → $0**) while coverage (100%) and savings (47%) stay flat.
+- **Experiment 05 (ensemble tax):** **run everything.** Ensemble (compare) calls all
+  candidates and keeps one winner. Coverage fills, but the run costs
+  **3.74× the winner** because the losing candidates are billed too. Azure
+  Foundry-shaped metrics record those calls.
+- **Experiment 06 (fan-out dial):** compared with experiment 05, raise one
+  budget-gate threshold so fewer tasks
+  call every candidate. The extra-call ratio falls **3.74× → $0** while coverage
+  (100%) and savings (47%) stay unchanged.
 - **Experiment 07 (routing layer):** direction ②, **pick once**. The generic
   **`single-call`** arm that picks one model per prompt up front is cheap and simple,
-  but with no escalation its coverage collapses to **52%** on synthetic data. The
-  observe-then-escalate mix fills **100%** at **comparable cost** (**+48%p** gain). →
-  *the value of observing = coverage regained.*
+  but with no escalation it reaches only **52%** coverage on synthetic data. The
+  observe-then-escalate mix checks the result and moves up after a failure, reaching
+  **100%** at **comparable cost** (**+48%p** gain).
 
-Act 3 comes full circle: not ensemble (all) nor single-call (one) but
-**observe-then-escalate** is the sweet spot — 05 and 07 meter the price of the two
-extremes, and 06 connects them with a dial.
+Act 3 brings together experiments 05 and 07; experiment 06 controls the extra calls.
+Together, the results favor **observe-then-escalate**: calling every candidate adds
+cost, while choosing once leaves failed tasks unresolved. The middle process checks
+the result and calls another model only after failure.
 
 ## Epilogue · Arena — narrowing to one problem (08)
 
 Acts 1–3 compared the **whole** workload in aggregate. [Experiment 08
-(arena)](08-arena.md) narrows the same frontier to **a single task**, answering the
+(arena)](08-arena.md) applies the same comparison to **a single task**, answering the
 first question a new user asks — *"on this one problem, how much does each approach
-spend, how slow is it, and does it get the answer right?"* — and it adds one axis the
-previous seven experiments didn't cover: **latency**.
+spend, how slow is it, and does it get the answer right?"* — and adds **latency**,
+which the previous seven experiments did not cover.
 
-On the default task `t-0003` the router wins on cost and accuracy (a correct answer
-2.5× cheaper than premium) but is the **slowest** on latency — because escalation is
-sequential, so the latency of the failed attempts adds up. In other words, the lesson
-of Act 3 ("every approach has a price") applies to **the router itself**: the price
-for the cost and coverage the router regains is, here, **latency**. This latency,
-though, is an **illustrative projection** (`measured = false`, not wall-clock), so it
-is marked as a different origin than cost and accuracy (offline projections).
+On the default task `t-0003`, the router returns a correct answer 2.5× cheaper than
+premium but has the **highest latency**. Escalation is sequential, so time spent on
+failed attempts is added to the final attempt. This latency is an **illustrative
+projection** (`measured = false`, not wall-clock), not a measured timing. Its source
+therefore differs from the cost and accuracy projections.
 
-What the epilogue confirms: you can hold the whole story **in one hand** — the cost,
-(illustrative) latency, and correctness of four approaches on a single task, on one
-screen. And the thesis that no axis is free holds up even at the resolution of an
-individual task.
+The earlier phrase "every approach has a price" refers here to the added latency.
+This is the Act 3 latency result for the router itself.
 
-## Measured coda · from projection to measurement, and to audit (09 · 10)
+The one-task table puts cost, illustrative latency, and correctness for four
+approaches on one screen. No approach is best on every measure.
+
+## Measured record · from projection to measurement and audit (09 · 10)
 
 Acts 1–3 and the epilogue (08) are all offline projections (`measured = false`,
 placeholder models). [Experiment 09 · Live routing](09-live-routing-proof.md) crosses
 that boundary: it wires the same routing idea into a **real Azure AI Foundry Model
 Router**, the repository's first **`measured = true`** measurement — a single
 `model-router` deployment really forked, task by task, to **`gpt-5.4` and
-`grok-4-1-fast-reasoning`** (keyless Entra). This coda does *not* replace the story
-above: the honesty of 01–08 is still an offline projection, and 09 is **separate live
-evidence** that the idea is observed on the real frontier too (accuracy ungraded, cost
-rates illustrative — the honesty boundary is spelled out in experiment 09).
+`grok-4-1-fast-reasoning`** (keyless Entra). This result does *not* turn experiments 01–08 into measurements. They remain offline
+projections. Experiment 09 is **separate live evidence** that one real deployment
+made those routing choices (accuracy ungraded, cost rates illustrative — the honesty
+boundary is spelled out in experiment 09).
 
 [Experiment 10 · Measured ledger](10-measured-ledger.md) hardens that measured record
 one step further — it seals the live run into a canonical audit ledger with **tamper
@@ -147,19 +146,20 @@ contract](index.md#shared-methodology), the measured track (09) is now protected
 **independently re-verifiable ledger** — the two audits kept separate so neither blurs
 the other's honesty label.
 
-## The axis of honesty — every experiment is one of two kinds
+## Every experiment is one of two kinds
 
-This is why the repository is not a demo but a collection of **honest experiments**.
-Without exception, the seven experiments are one of two kinds:
+The repository keeps positive and negative results together. The seven experiments
+are one of two kinds:
 
 - **show a gain** — 01, 02
 - **refute a way to fake or misread the gain (03 · 04 · 05 · 07), or control its price (06)**
 
-Repositories with nothing but victory slides are common. Here, **five experiments
-(03–07) are guardrails** — they rebut "this looks cheaper, but actually…" themselves.
-[Experiment 08](08-arena.md) is a third kind — a **lens**: it adds no new claim and
-instead **shows** the same honest machine at single-task resolution (noting, though,
-that the latency axis is a new illustrative projection).
+**Five experiments (03–07) are guardrails**: they test ways a cost result can be
+misread or made to look better. [Experiment 08](08-arena.md) adds no new aggregate
+claim. It shows the same comparison for one task and labels latency as a new
+illustrative projection.
+
+They test the claim "this looks cheaper, but actually…" with the recorded values.
 
 ## The reproducibility contract keeps the story honest
 
@@ -169,33 +169,32 @@ grows in three directions:
 | Contract | What it stops | Introduced |
 | --- | --- | --- |
 | `min_coverage` · `min_delta_pct` · `min_tasks` | the gain quietly disappearing | 01 |
-| `max_delta_pct` (ceiling) | an inflated **phantom saving** | [04](04-no-free-lunch.md) |
-| `max_tax_ratio` (ceiling) | a quietly leaking **fan-out tax** | [06](06-fanout-dial.md) |
+| `max_delta_pct` (ceiling) | an implausibly large saving | [04](04-no-free-lunch.md) |
+| `max_tax_ratio` (ceiling) | too much cost from extra candidate calls | [06](06-fanout-dial.md) |
 | `min_escalation_gain` (floor) | observe-then-escalate slipping out unnoticed | [07](07-model-router.md) |
 
 So each turn of the storyline is pinned by an **executable contract**: if anyone
 changes the code and distorts the numbers, the pipeline blocks it. For field details,
 see [experiment configuration (YAML)](../manual/experiments.md).
 
-## One frontier in a single picture — the whole story in one image
+## Five strategies in one cost-and-coverage chart
 
-The [dashboard](../manual/dashboard.md)'s **cost × coverage frontier** overlays five
-strategies on one scatter:
+The [dashboard](../manual/dashboard.md) plots five strategies by cost and coverage:
 
-- `all-mini` (lower-left) — cheap but coverage collapses,
+- `all-mini` (lower-left) — cheap but low coverage,
 - `all-premium` (upper-right) — 100% coverage but maximum cost,
 - `all-ensemble` (far right) — 100% coverage but the **most expensive** through fan-out ([05](05-ensemble-fanout.md)),
 - `single_call` (blue dot, below the corner) — pick once, **low coverage** ([07](07-model-router.md)),
-- `cost-aware mix` (**upper-left win-win corner**) — the only one with full coverage + low cost.
+- `cost-aware mix` (upper-left) — full coverage at low cost.
 
-All of Act 3 is in this one picture: only mix sits in the corner, and every other
-strategy loses on one axis or another —
+The chart summarizes Act 3. It shows the result directly: the mix has full coverage without the premium
+or all-ensemble cost —
 [live demo](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1).
 
 ## Reading paths
 
 - **5 minutes (executive):** this page's thesis + the journey table → [experiment 01](01-hero.md).
-- **15 minutes (practitioner):** the three acts above → check the five strategies on the [dashboard frontier](../manual/dashboard.md) → one guardrail of interest ([03](03-coverage-cliff.md) / [05](05-ensemble-fanout.md) / [07](07-model-router.md)).
+- **15 minutes (practitioner):** the three acts above → compare the five strategies on the [dashboard chart](../manual/dashboard.md) → one guardrail of interest ([03](03-coverage-cliff.md) / [05](05-ensemble-fanout.md) / [07](07-model-router.md)).
 - **Everything:** [introduction and methodology](index.md) → 01–07 in order → narrow to one task in [experiment 08 · arena](08-arena.md) → [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).
 
 ## Reproduce everything
