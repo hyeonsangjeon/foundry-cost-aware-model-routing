@@ -79,4 +79,6 @@ runs **in your tenant**.
 - The repo holds no real keys, tokens, connection strings, or live endpoints (a
   verification gate scans for them).
 - `.env.sample` carries only valueless placeholder names.
-- Every experiment reproduces offline and deterministically.
+- The projection track (experiments 01–08) reproduces offline and deterministically.
+  The measured track (experiments 09 · 10 · 11 · 12) makes real Azure Foundry calls,
+  so it runs in your tenant.

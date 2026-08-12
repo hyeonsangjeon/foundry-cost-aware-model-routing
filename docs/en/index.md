@@ -5,8 +5,11 @@
 > rate is worth the extra cost, and record the evidence needed to verify the result.**
 
 These pages show how to install the project, run its experiments, inspect the
-results, and reproduce them. The included experiments are offline and deterministic:
-they make no network or external calls, and the same inputs produce the same results.
+results, and reproduce them. The experiments come in two kinds: one measures real
+results by calling Azure Foundry (experiments 09 · 10 · 11 · 12), and the other
+validates the routing logic offline on synthetic data (experiments 01–08). The
+offline experiments make no network or external calls, so the same inputs produce
+the same results.
 
 !!! success "Measured result (measured=true · directional)"
     One real Azure Foundry measurement found that the `router-cost` arm (Model Router in

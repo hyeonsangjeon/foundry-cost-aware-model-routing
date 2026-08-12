@@ -1,8 +1,10 @@
 # 30-second install
 
-These experiments are **offline and deterministic**. No network, no credentials,
-no external API calls. Everything reproduces identically from the synthetic samples
-shipped in the repo.
+The experiments this quickstart runs (projection track 01–08) are **offline and
+deterministic**. No network, no credentials, no external API calls. Everything
+reproduces identically from the synthetic samples shipped in the repo. The measured
+track (experiments 09 · 10 · 11 · 12) makes real Azure Foundry calls and needs a
+tenant to set up.
 
 ## Requirements
 
