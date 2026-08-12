@@ -75,10 +75,10 @@ models:
 
 !!! note "`provider` 태그가 의미 있는 곳"
     Model Router arm은 이 파트너 모델 상당수를 **이미 내부에서 크로스 프로바이더로** 라우팅합니다
-    (별도 배포 불필요 — [실험 07](../lab-notebook/07-model-router.md)). 따라서 이 `provider` 태그는
+    (별도 배포 불필요 — [실험 07](../lab-notebook/07-model-router.md)). 이 `provider` 태그는
     라우터를 거치지 않고 **직접 호출**하는 arm — cheapest·premium·ensemble 팬아웃 — 이 파트너 표면을
-    부를 때 의미가 있습니다. 멀티프로바이더 라우팅 자체는 내장 기능(table-stakes)이고 이 저장소의
-    가치는 그 위의 검증·앙상블·거버너·감사 축에 있습니다.
+    부를 때 의미가 있습니다. 내장 라우터가 모델을 고른 뒤 이 저장소는 결과를 검사하고, 실패하면
+    다른 모델을 부르고, 추가 호출 비용을 계산하고, 결정을 기록합니다.
 
 !!! warning "`provider: foundry`는 벤치마크에서 scope-out (은퇴 예정 SDK, 2026-08-26)"
     파트너 표면(`provider: foundry`)은 베타 SDK `azure-ai-inference` 위에서 동작합니다. 이 SDK는

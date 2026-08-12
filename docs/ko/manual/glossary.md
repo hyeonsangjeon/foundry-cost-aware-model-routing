@@ -65,7 +65,7 @@
     수용된** 태스크의 비율입니다. "이 arm이 문제를 실제로 얼마나 풀었나"를 답합니다.
 
     - **오프라인 실험(01–08).** 코드가 `coverage = accepted / counted` 로 계산합니다
-      (`src/router/baseline.py`). 즉 오프라인 CLI·실험 계약(`min_coverage`)이 출력하는 `coverage`
+      (`src/router/baseline.py`). 오프라인 CLI·실험 계약(`min_coverage`)이 출력하는 `coverage`
       필드는 **통과율과 같은 값**입니다. 실험노트의 **"커버리지 절벽"**(실험 03·07 등) 서사가
       말하는 "커버리지"도 이 통과율을 뜻합니다.
     - **실측 실험(03D).** 봉인 스냅샷의 `pass_rate` 필드입니다 —

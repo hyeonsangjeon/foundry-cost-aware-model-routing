@@ -20,31 +20,28 @@ machinery** as the aggregate panels, so the numbers agree by construction.
 | --- | --- | --- |
 | **Cheapest model** | Calls only the class's single cheapest candidate | that one call |
 | **Premium model** | Calls only the most expensive candidate (the naive ceiling) | that one call |
-| **Ensemble (fan-out)** | Fans out to **all** candidates and takes the best | **the sum of all candidates** (the fan-out tax) |
+| **Ensemble (fan-out)** | Fans out to **all** candidates and takes the best | **the sum of all candidates** ([extra call cost](../lab-notebook/05-ensemble-fanout.md)) |
 | **Cost-aware router** | Starts cheap, escalates upward on failure | **the winner only** |
 
 !!! info "The four ways = a contrast of the axes layered on top of the built-in router"
     The Azure AI Foundry **built-in Model Router** already does the **per-prompt "selection"**
-    well (one deployment, cross-provider). This four-way comparison shows the **layer above**
-    it — **ensemble (fan-out)** represents the [ensemble-tax
-    distinction](../lab-notebook/05-ensemble-fanout.md) (winner only vs. sum of all), and the
-    **cost-aware router** represents *observe-then-escalate* (validation-based acceptance + a
-    cost governor). In short, it narrows to a single task the contrast between the built-in
-    router's single selection and the **validation, escalation, and governance** this repository
-    adds — and the aggregate view of that is [Experiment 07 · The routing layer](../lab-notebook/07-model-router.md) ⭐.
+    well (one deployment, cross-provider). The ensemble calls every candidate and
+    bills every call; the cost-aware router checks the result and calls another model
+    only after failure. [Experiment 07 · The routing layer](../lab-notebook/07-model-router.md)
+    shows the aggregate comparison.
 
-## The three axes
+## The three measures
 
 - **Cost** — applies example prices to the task's token count. The router bills the **winner
   only**; the ensemble bills **all**.
 - **Accuracy** — the router's `is_clean` verdict ("pass" when every offline check passes). It's
   a synthetic-signal projection, not a graded live answer.
 - **Latency** — an **illustrative projection**, not a measurement. The bundled telemetry has no
-  timing, so a per-tier throughput model turns token counts into milliseconds just to give the
-  third axis a shape. The ensemble is a parallel fan-out, so it's the **slowest single one**
+  timing, so a per-tier throughput model turns token counts into milliseconds for a
+  relative comparison. The ensemble is a parallel fan-out, so it's the **slowest single one**
   (max); the router escalates sequentially, so it's the **sum of the calls it attempted** (sum).
 
-## An honest trade-off
+## Result on the default task
 
 On the default task `t-0003` (repo_patch), the result is:
 
@@ -56,9 +53,8 @@ On the default task `t-0003` (repo_patch), the result is:
 | **Cost-aware router** | **`$0.03`** | **slowest** | ✓ pass |
 
 The router is **the cheapest and gets it right** (about 2.5× cheaper than premium — and
-premium and ensemble are equally right), but because of sequential escalation it has the
-**slowest latency**. Premium wins on latency. **There is no free lunch** — here you pay latency
-for the cost you save. Accuracy is binary, so the three approaches that pass
+premium and ensemble are equally right), but sequential escalation gives it the
+**slowest latency**. Premium is faster. Accuracy is binary, so the three approaches that pass
 (premium, ensemble, router) are **equally** correct and only the cheapest model fails. Pick an
 easy task (`t-0001`) and the cheapest model wins all three axes, and the router picks exactly
 that — routing earns its value on the hard tasks.

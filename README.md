@@ -5,10 +5,10 @@
 [![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**Send the cheapest model that still passes, escalate only when it doesn't, and
-prove the savings hold at full coverage.** Every routing decision is verified
-against execution signals, governed before the spend happens, and sealed into a
-tamper-evident, cost-replayable ledger.
+**Try the cheapest model first. Check the result, and call a stronger model only
+after a failure.** Before extra calls run, the budget check decides whether to allow
+them. Every decision is recorded in a hash-chained ledger that can recalculate cost
+from the saved usage and rate card.
 
 ![Hero experiment: premium-on-everything bills $2.23 while try-cheap-first routing bills $1.66 — 25.5% lower at 100% coverage over 100 synthetic tasks](docs/assets/gif/hero.gif)
 
@@ -62,8 +62,8 @@ table → [install guide](docs/ko/manual/install.md).
   <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
 - **Interactive offline demo** (no install, no account, nothing is billed) —
   <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1>
-  — animated before/after, the cost × coverage frontier, and the policy-A/B
-  coverage cliff, rendered from the same offline projection.
+  — animated before/after, five cost-and-coverage strategies, and the coverage loss
+  after removing fallback models, all rendered from the same offline projection.
 
 ---
 
@@ -151,44 +151,43 @@ replay of an already-measured run, not a live paid dashboard. Full recipe: the
 
 ## The experiment arc — honest by construction
 
-This repo proves where cost-aware routing **wins** and, just as deliberately,
-where it **doesn't**. Ten one-command experiments — 01–08 are deterministic
-offline projections over synthetic data (`labels.measured=false`); 09–10 are
-real **measured** runs against a live Foundry Model Router:
+Ten one-command experiments test when cost-aware routing lowers cost and when it
+does not. Experiments 01–08 are deterministic offline projections over synthetic
+data (`labels.measured=false`); 09–10 are real **measured** runs against a live
+Foundry Model Router:
 
 | # | Experiment | Question it answers | Result |
 | --- | --- | --- | --- |
 | 01 | [Hero](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/01-hero/) | Routing on a realistic 100-task workload? | 100% coverage, **−25.5%** cost |
 | 02 | [Curated](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/02-curated/) | Five tasks you can follow by eye? | 100% coverage, **−56.7%** cost |
-| 03 | [Coverage cliff](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/03-coverage-cliff/) | Delete the expensive fallback to save more? | looks cheaper, but coverage **100% → 67%** (honest failure) |
-| 04 | [No free lunch](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/04-no-free-lunch/) | A workload where only the top model passes? | 100% coverage, **0%** saved (the boundary) |
-| 05 | [Ensemble fan-out tax](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% coverage, **−47%** — but fan-out spends **3.74×** the winner (the hidden tax) |
-| 06 | [Adaptive fan-out dial](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/06-fanout-dial/) | Can you keep the savings but drop the tax? | one budget dial: coverage/savings stay flat, tax **3.74× → $0** (the honest fix for exp 05) |
+| 03 | [Coverage cliff](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/03-coverage-cliff/) | Delete the expensive fallback to save more? | cost falls, but coverage drops **100% → 67%** |
+| 04 | [No free lunch](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/04-no-free-lunch/) | A workload where only the top model passes? | 100% coverage, **0%** saved |
+| 05 | [Ensemble fan-out tax](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% coverage, **−47%** — all candidate calls cost **3.74×** the winner |
+| 06 | [Adaptive fan-out dial](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/06-fanout-dial/) | Can you keep the savings but drop the extra calls? | compared with experiment 05, one budget threshold keeps coverage/savings unchanged while the extra-call ratio falls **3.74× → $0** |
 | 07 | [Routing layer](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/07-model-router/) | Single-call routing — pick once, no escalation (the shape any per-prompt router has, including ours in ordered-only mode)? | 52% coverage; layering observe-then-escalate on top reaches 100% at ~the same cost (gain **+48%p**) — experiment 09 wires a real deployment in as this arm |
-| 08 | [Arena](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/08-arena/) *(per-task lens)* | One problem, four ways — cost · latency · accuracy at a glance? | router is the **cheapest correct** answer but the **slowest** (sequential escalation); latency is a **new illustrative projection** |
+| 08 | [Arena](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/08-arena/) *(one-task comparison)* | One problem, four ways — what does each cost, how long does it take, and does it pass? | router is the **cheapest correct** answer but the **slowest** (sequential escalation); latency is a **new illustrative projection** |
 | 09 | [Live routing proof](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/09-live-routing-proof/) *(measured)* | Wired to a real Foundry Model Router, what does it actually pick? | one `model-router` deployment really split to **`gpt-5.4` (×3) and `grok-4-1-fast-reasoning` (×2)** — the repo's **first `measured = true`** run, keyless Entra |
 | 10 | [Measured ledger](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/10-measured-ledger/) *(measured)* | Once it's measured, can anyone re-verify the record wasn't tampered with? | the live run is sealed into a **hash-chained, cost-replayable** ledger — `measured-replay` re-derives every amount from token usage × a pinned rate card; **one edited byte fails it**, the offline ledger stays untouched. Integrity, not a cost claim: the router arm's amounts are **pricing-incomplete** and carry a versioned annotation that every renderer enforces |
 
-Experiments 01–02 are the win; 03–07 are the guardrails; 08 is a per-task **lens**
-(an interactive arena that collapses the frontier to a single task and adds a
-latency axis). Each `expect` contract fails CI if the projection ever drifts —
-including a two-sided ceiling that rejects **phantom savings** and an
-escalation-gain floor that keeps observe-then-escalate honest. Read them as one
-story in the
+Experiments 01–02 show lower cost; 03–07 test ways that result can fail or cost
+more; 08 compares four approaches on one task and adds illustrative latency. Each
+`expect` contract fails CI if the projection drifts, including a ceiling that rejects
+an implausibly large saving and a floor that requires escalation to recover coverage.
+Read them in order in the
 [**story arc**](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc/)
 ([EN summary](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc-en/)),
 or dive into the full
 [Korean lab notebook](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/).
 
-## Deployment philosophy — bring your own routes
+## Bring your own deployments
 
 This repo attaches to Foundry deployments you **already have**; it provisions
 nothing. To add an arm, put its **deployment name** in a fleet YAML
 (`samples/fleet/*.yaml`) — that is the whole bring-your-own-route step. The
 built-in **Model Router** arm needs no extra deployment: a single `model-router`
 deployment already routes cross-provider (OpenAI · xAI · DeepSeek · Meta)
-internally, so this repo layers verify → escalate → govern → audit *on top*
-instead of re-deploying those models.
+internally. This repo then checks the selected result, retries after failure, limits
+spending, and records the decision instead of re-deploying those models.
 
 ## Usage
 
@@ -220,9 +219,9 @@ cost-router experiment run curated   # run one by name
 cost-router experiment run hero --json
 ```
 
-The honest boundary — a workload of genuinely hard tasks where only the top
-model passes, so routing keeps full coverage but saves **0%** (a two-sided
-`expect` contract fails CI if it ever reports phantom savings; lab notebook:
+The hard-workload boundary: only the top model passes, so routing keeps full
+coverage but saves **0%**. A two-sided `expect` contract fails CI if a future change
+reports a saving here (lab notebook:
 실험 04 · 공짜 점심은 없다):
 
 ```bash
@@ -236,11 +235,10 @@ cheaper but drops coverage from 100% to 67% (lab notebook: 실험 03 · 커버�
 cost-router policy regression --candidate experiments/policies/cost-cut.yaml --synth
 ```
 
-The ensemble fan-out tax — routing fans out to every candidate on high-value
-tasks (compare mode) but only charges the winner. A common Azure-Foundry-shaped
-metrics module (`src/router/metrics.py`) recovers the hidden fan-out cost and
-records it for the web app + historical dashboard (lab notebook: 실험 05 · 앙상블
-팬아웃 세금):
+All-candidate call cost: compare mode calls every candidate on high-value tasks but
+stores only the winner in the routing bill. `src/router/metrics.py` also sums every
+candidate call and records the difference for the web app and historical dashboard
+(lab notebook: 실험 05 · 앙상블 팬아웃 세금):
 
 ```bash
 cost-router experiment run ensemble          # 100% coverage, −47% — but fan-out is 3.74× the winner
@@ -249,11 +247,10 @@ cost-router experiment run ensemble --metrics-store runs.jsonl
 cost-router metrics history --store runs.jsonl
 ```
 
-The adaptive fan-out dial — the honest fix for that tax. The budget gate's
-`compare_min_value` is a dial: raise it and the router fans out on fewer tasks.
-Coverage (100%) and savings (47%) stay flat while the tax collapses **3.74× → $0**.
-Experiment 06 pins this with a `max_tax_ratio` ceiling (lab notebook: 실험 06 ·
-적응형 팬아웃 다이얼):
+The `compare_min_value` threshold controls how many tasks call every candidate.
+Raising it reduces fan-out tasks. Coverage (100%) and savings (47%) stay unchanged
+while the extra-call ratio falls **3.74× → $0**. Experiment 06 pins this with a
+`max_tax_ratio` ceiling (lab notebook: 실험 06 · 적응형 팬아웃 다이얼):
 
 ```bash
 cost-router experiment run adaptive          # 100% coverage, −47% — fan-out tax dialed to 0.00×
@@ -267,12 +264,11 @@ dependency-free, env-gated adapter (`FOUNDRY_*`) lets a live deployment's
 decisions replace the offline proxy, and experiment 09 wires that real
 deployment in as the arm and proves it `measured=true`.
 
-Experiment 07 adds the *shape* to the frontier as a fifth arm — a generic
-**single-call** projection over synthetic tasks (`measured=false`), not a
-product measurement. That generic arm holds **52%** coverage, while layering
-observe-then-escalate on top reaches **100%** at ~the same cost — a **+48%p**
-escalation gain pinned by a `min_escalation_gain` contract (lab notebook: 실험
-07 · 라우팅 레이어):
+Experiment 07 adds a generic **single-call** arm over synthetic tasks
+(`measured=false`), not a product measurement. It reaches **52%** coverage; the
+observe-then-escalate path reaches **100%** at about the same cost. The
+`min_escalation_gain` contract pins the **+48%p** difference (lab notebook: 실험 07 ·
+라우팅 레이어):
 
 ```bash
 cost-router experiment run single-call       # 100% coverage, −25.5% — single-call vs escalate gain +48%p
@@ -487,6 +483,6 @@ therefore leaves the signals untouched (zero delta), while dropping an expensive
 fallback exposes the coverage risk it creates instead of hiding it. Over the
 synthetic 100-row workload the bundled candidate (which removes the `premium-max`
 fallback from `repo_patch`) routes for `$1.34` vs the seed's `$1.66`, but
-coverage drops to `93%` (base `100%`) — the report surfaces that trade-off rather
-than masking it. The result is deterministic for a given workload, and all models
+coverage drops to `93%` (base `100%`). The report shows both the lower cost and lower
+coverage. The result is deterministic for a given workload, and all models
 stay generic placeholders.

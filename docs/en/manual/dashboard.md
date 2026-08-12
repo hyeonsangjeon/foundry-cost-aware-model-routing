@@ -27,33 +27,31 @@ service's JSON endpoints.
 - **Policy table** — candidate models ranked per class, with their priors.
 - **before / after** — naive (premium on every task) vs. cost-aware routing.
 - **Cost × coverage frontier** — plots three strategies (all-mini / all-premium / cost-aware
-  mix) as a cost (x) × coverage (y) scatter. It's an inline SVG with no library, and **only the
-  cost-aware mix** sits in the top-left "both-win" corner (full coverage + low cost). all-mini
-  collapses down the coverage axis, and all-premium has the same coverage but sits at the far
-  right (maximum cost).
+  mix) as a cost (x) × coverage (y) scatter. The cost-aware mix reaches full
+  coverage at lower cost than all-premium — the panel labels this "both-win".
+  all-mini costs less but has lower coverage.
 - **Spotlight card** — highlights the one task where cost-aware routing beat the naive premium
   arm by the most, with two cards (routing vs. naive) and a multiplier (e.g. `24.1×` cheaper).
 - **Arena (one problem, four ways)** — the "5-minute wow" panel. Pick one task and send **the
   same problem** four ways: the cheapest model · a premium model · an ensemble that fans out to
   everyone · a cost-aware router that climbs up from the cheapest. Each card fills in three axes —
-  **cost · latency · accuracy** — and highlights the winner on each. On the default task
+  **cost · latency · accuracy** — and highlights the winner for each measure. On the default task
   (`t-0003`) the router is **the cheapest and also right** (premium and ensemble are right too) but
-  the **slowest on latency** (sequential escalation) — the honest trade-off that there's no free
-  lunch. It reads from `/compare` (live) or `compare.json` (static), and task switching is handled
+  the **slowest on latency** because escalation is sequential. It reads from `/compare`
+  (live) or `compare.json` (static), and task switching is handled
   client-side with no round trip. For details, see [One problem, four ways](head-to-head.md).
 - **Coverage cliff (policy A/B)** — compares the same workload side by side against a `cost-cut`
-  candidate that erases the seed policy and its expensive fallback. The candidate looks cheaper,
-  but coverage collapses **100% → 67% (−33%p)**. This comes from `/regression`, independently of
+  candidate that removes the seed policy's expensive fallback. The candidate costs less,
+  but coverage drops **100% → 67% (−33%p)**. This comes from `/regression`, independently of
   replay, and hides silently when there's no data. For the full reading, see [Experiment 03 ·
   Coverage cliff](../lab-notebook/03-coverage-cliff.md).
 - **Fan-out dial (threshold sweep)** — sweeps the budget gate's `compare_min_value` from 0 → 1.01
-  and shows the number of fan-out tasks, coverage, savings, and ensemble tax at each step.
-  **Coverage (100%) and savings (47%) are flat lines**, and only the fan-out tax draws a staircase
-  collapsing **[3.74×](projection-results.md) → $0.0000** — a dial that switches off just the tax
-  without losing coverage or savings. It comes from `/fanout-sweep` and hides when there's no data.
+  and shows fan-out task count, coverage, savings, and extra candidate-call cost.
+  **Coverage (100%) and savings (47%) stay unchanged** while the extra-call ratio falls
+  **[3.74×](projection-results.md) → $0.0000**. It comes from `/fanout-sweep` and hides when there's no data.
   See [Experiment 06 · Adaptive fan-out dial](../lab-notebook/06-fanout-dial.md).
 - **Experiments (click for statistics)** — click an experiment tab and that experiment's cost,
-  coverage, **ensemble fan-out tax**, and reproducibility contract appear at once. It reads
+  coverage, extra candidate-call cost, and reproducibility contract appear at once. It reads
   Azure-Foundry-shaped offline metrics from `GET /experiments` (live) or `experiments.json` (static
   export). To see **which models and how** each tab is built as an animated SVG, see [Experiment
   atlas](experiment-atlas.md); for reading the ensemble tax, see [Experiment 05 · Ensemble fan-out
@@ -61,11 +59,11 @@ service's JSON endpoints.
 - **Historical dashboard** — a table of recorded experiment-run history. On a live server, one row
   accumulates each time you run an experiment (`GET /metrics/history`); in the static demo, it shows
   a deterministic baseline snapshot per experiment.
-- The **cost × coverage frontier** also plots a fourth point, `all-ensemble` (fan out every model
-  on every task), revealing that "just run everything" is 100% coverage but sits in the **most
-  expensive** corner outside the frontier. A fifth point, `single_call` (**blue dot**), is an Azure
+- The **cost × coverage frontier** also plots the "just run everything" strategy,
+  `all-ensemble`, which calls every model
+  on every task and reaches 100% coverage at the highest cost. `single_call` (**blue dot**) is an Azure
   AI Foundry Model Router–shaped **single-call** routing layer — it picks one model per prompt in
-  advance with no escalation, so it sits below and outside the both-win corner at **low coverage**.
+  advance with no escalation, so it has **low coverage**.
   For the full reading, see [Experiment 07 · The routing layer](../lab-notebook/07-model-router.md).
 - **Per-task routing-decision animation** — class, selected model, reason, cost.
 - **Aggregates** — cost by class, model usage, mode/reason statistics.
