@@ -2,62 +2,59 @@
 
 ## The problem
 
-Most dev-centric environments live in a multi-model world yet **spend like a single
-model**. The entry point may be a coding agent, but the back end runs on APIs — and
-**a premium model gets applied uniformly to every workload**: planning, code
-generation, test generation, validation. Two facts make that wasteful.
+Many development tools can call several models but still **spend like a single
+model**: they send planning, code generation, test generation, and validation to the
+same premium model. The front end may be a coding agent, but the back end still pays
+for API calls. That wastes money for two reasons.
 
-1. **No single model is best at everything.** Strengths split by task type, and
-   cost-per-resolved (`$/resolved`) differs between models by orders of magnitude.
-2. **Most tasks don't need the top model.** A good share of them are solved on the
-   first try by a cheap candidate.
+1. **No single model is best at everything.** Different models do well on different
+   task types, and cost-per-resolved (`$/resolved`) can differ by orders of magnitude.
+2. **Most tasks don't need the top model.** A cheaper candidate can solve many of
+   them on the first try.
 
 ## The thesis
 
-Treat model selection as a **per-task routing decision**, not a global default.
+Choose a model for each task instead of using one global default.
 
-- Send each task to the **cheapest candidate** first.
-- Accept it **only when the verifiable self-signals are clean** (applied, compiled,
-  self-tests pass, lint/types pass) — never accept on a hunch.
-- **Escalate** to the next candidate, or to a small **execution-graded ensemble**,
-  only when the cheap path fails its checks.
-- Before spending, a **cost governor** judges whether the task is worth running an
-  ensemble on.
+- Start with the **cheapest candidate**.
+- Check the result. Accept it **only when the verifiable self-signals are clean**
+  (applied, compiled, self-tests pass, lint/types pass), never on a hunch.
+- If it fails those checks, **escalate** to the next candidate or a small
+  **execution-graded ensemble**.
+- Before calling several models, let the **cost governor** decide whether that extra
+  spend is justified for the task.
 
-Here the **pass rate** is the share of tasks that passed (were solved) all the way
-through — the offline CLI and experiment contract emit this value as `coverage`, and
-it is a different metric from the **grading coverage** (share of cells graded)
-reported separately in measured results ([Glossary](glossary.md)). The point isn't
+Here **pass rate** means the share of tasks that were solved. The offline CLI and
+experiment contract call this field `coverage`. Measured results also report
+**grading coverage**, the share of cells that produced an answer that could be
+graded; it is a different metric ([Glossary](glossary.md)). The goal is not
 "the cheapest bill possible"; it is **the same pass rate at far lower cost, with an
 audit trail on every decision**.
 
 !!! quote "An old field concern this project answers"
     "A multi-model approach is only worth it when the use case justifies the extra
     tokens and latency."
-    — this repo answers that judgment with **code (the governor)**, not skepticism.
+    — the **cost governor** turns that concern into a rule checked before spending.
 
 !!! info "The built-in Model Router already does this well — this repo is the layer on top"
-    **Model selection** is already handled well by Azure AI Foundry's **built-in
-    Model Router**. A single deployment routes **cross-provider with no separate
-    deployment** — not just OpenAI (the GPT-4/5 family) but xAI Grok · DeepSeek ·
-    Meta Llama · gpt-oss (only Anthropic Claude needs a direct deployment). It solves
-    the problem of picking a suitable model **by prediction** from the prompt — and it
-    does it well ([experiment 07](../lab-notebook/07-model-router.md)).
+    Azure AI Foundry's **built-in Model Router** already handles **model selection**.
+    It reads the prompt and predicts which model to call. One deployment can route
+    **cross-provider with no separate deployment**: OpenAI (the GPT-4/5 family), xAI
+    Grok, DeepSeek, Meta Llama, and gpt-oss. Only Anthropic Claude needs a direct
+    deployment ([experiment 07](../lab-notebook/07-model-router.md)).
 
-    So *"we route across several vendors' models"* is not a differentiator to
-    replace but **table-stakes**. This repo does not **replace** it; it
-    **complements** it — *selection* and *verification/governance* are **different
-    layers**. The built-in router **picks** which model to call, and this repo takes
-    that **selected result** and — ① **verifies** it with execution signals
-    (accepting only when clean) · ② **escalates** on failure · ③ gates whether an
-    ensemble is worth running with a **cost governor** · ④ seals every decision into
-    an **auditable ledger** (hash-chained, cost-replayable). All four are
-    **implemented** in this repo, and the **APIM governance** that lifts quota,
-    routing, and observability up to the gateway is the next direction to extend.
+    The built-in already covers "we route across several vendors' models". This repo
+    starts with the result the built-in router selected. It does not **replace** the
+    router; it **complements** it. The next steps are separate:
+    ① **verify** the result with execution signals and accept it only when clean ·
+    ② **escalate** after a failure · ③ use a **cost governor** to decide whether
+    calling an ensemble is worth the extra spend · ④ write every decision to an
+    **auditable ledger** that is hash-chained and cost-replayable. All four are
+    **implemented** here. **APIM governance** for quota, routing, and observability at
+    the gateway is the next direction to extend.
 
-    In fact this repo carries the built-in Model Router as a **first-class candidate
-    arm (`single_call`)** at the frontier — an asset that *uses the product rather
-    than replacing it*.
+    The built-in Model Router also remains a **first-class candidate arm
+    (`single_call`)**. This project uses the product rather than replacing it.
 
     > **In one line:** model selection is already handled well by the built-in Model
     > Router. This asset is the layer for the **next problem** — **verifying** the
@@ -74,42 +71,42 @@ audit trail on every decision**.
 ```
 
 ### 1 · Classify
-A lightweight classifier maps each incoming task to a class. The class is what makes
-routing possible — "generate a small function" and "patch a repository" have
-different best models and different cost ceilings. Start rule-based (keywords,
-metadata, diff size) and upgrade to a small model later.
+A lightweight classifier puts each incoming task into a class. Tasks such as
+"generate a small function" and "patch a repository" can need different models and
+different spending limits. The first version can use rules such as keywords,
+metadata, and diff size; a small model can replace those rules later.
 
 ### 2 · Policy
-Each class maps to an ordered list of candidate models, and each candidate carries
-two priors — **pass-rate** (how often it solves that class) and **`$/resolved`**
-(total cost per resolved task). These values are **seeded** from public/field
-benchmarks and then **updated from your own routing telemetry**. Operating policy,
-not fixed truth.
+Each class has an ordered list of candidate models. Each candidate has two starting
+estimates: **pass-rate**, how often it solves that class, and **`$/resolved`**, its
+total cost per resolved task. Public and field benchmarks provide the initial
+values. Your own routing telemetry then updates them. They are operating policy, not
+fixed truth.
 
 The seed policy lives in [`src/policy/seed_policy.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/src/policy/seed_policy.yaml),
 and the contract (every class present, `prior_usd_resolved` sorted non-decreasing,
 and so on) is enforced by `PolicyTable.validate`.
 
 ### 3 · Select
-The governor picks between two strategies:
+The governor chooses one of two ways to run the task:
 
-- **Cost-aware single path** — consult candidates cheapest-first, accept the first
-  whose verifiable signals are clean, and escalate only on failure. Most of the
-  savings come from this path.
-- **Execution-graded ensemble** — run several candidates, grade them on execution
-  signals, and break ties with an LLM judge. Higher pass rate but higher cost, so it
-  is used only on tasks the governor has flagged as high value.
+- **Cost-aware single path** — try candidates from cheapest upward. Accept the first
+  result whose verifiable signals are clean; move up only after a failure. Most of
+  the savings come from this path.
+- **Execution-graded ensemble** — run several candidates, check them with execution
+  signals, and use an LLM judge to break ties. It can raise the pass rate but also
+  costs more, so the governor uses it only for tasks marked as high value.
 
 ### 4 · Govern
-Before spending, the cost governor dials the size of the decision — reasoning effort,
-PAYG vs provisioned throughput, handling of the `429 retry-after-ms` acceptance
-signal, `prompt_cache_key` bucketing. This layer is consumed as a **dependency** from
-the companion toolkit; the router does not reimplement its math.
+Before spending, the cost governor sets how much work the task may use: reasoning
+effort, PAYG vs provisioned throughput, handling of the `429 retry-after-ms`
+acceptance signal, and `prompt_cache_key` bucketing. The router consumes this layer
+as a **dependency** from the companion toolkit instead of reimplementing its math.
 
 ## Why "the cheapest bill" isn't the answer
 
-Put the single-call arms side by side in the flagship experiment (100 synthetic
-tasks) and it becomes clear.
+The flagship experiment runs 100 synthetic tasks through the single-call arms and
+cost-aware routing.
 
 | arm | Selection | Pass rate | Cost |
 | --- | --- | --- | --- |
@@ -118,9 +115,10 @@ tasks) and it becomes clear.
 | quality (naive) | most expensive candidate per class | 100% | $2.23 |
 | **cost-aware routing** | cheapest passing model first | **100%** | **$1.66** |
 
-The cheapest arm is cheap but its pass rate collapses to 22%. The premium arm hits
-100% but costs the most. Routing **holds the pass rate at 100%** while spending 25.5%
-less than naive ([offline experiment results](projection-results.md) is canonical).
+The cheapest arm solves only 22% of the tasks. The premium arm solves 100% but costs
+the most. Routing starts with a cheaper model and moves up after a failed check. It
+also **holds the pass rate at 100%** while spending 25.5% less than naive
+([offline experiment results](projection-results.md) is canonical).
 
 !!! note "This table is an illustrative equivalent"
     The cost/balanced/quality arms are transparent **placeholder baselines**, not a
@@ -137,8 +135,8 @@ Every numeric and behavioral claim in this repo keeps an authority label.
   pass-rate / `$/resolved` priors, escalation thresholds, the "ensemble only above
   value X" rule.
 
-The modeling vs measurement boundary is stated explicitly. The offline before/after
-is a **projection over synthetic data**; only a live eval in your tenant yields
-**measured** savings.
+The offline before/after is a **projection over synthetic data**, not a measured
+saving. Only a live eval in your tenant can produce **measured** savings for your
+workload.
 
 For the boundaries in full, see the [Honesty Charter](../honesty.md).
