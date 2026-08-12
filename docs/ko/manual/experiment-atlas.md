@@ -75,11 +75,10 @@
 
 === "팬아웃 (앙상블)"
 
-    **모든** 후보를 병렬로 돌리고(`compare` 모드), 실행 신호로 각각 채점한 뒤 최고를 남깁니다 —
-    동점은 **가장 싼 통과** 모델로 갈립니다. 커버리지는 높지만 진 후보를 돌린 값도 냅니다:
-    **앙상블 세금**.
+    **모든** 후보를 병렬로 돌리고(`compare` 모드), 실행 신호로 각각 채점한 뒤 최고를 남깁니다.
+    동점은 **가장 싼 통과** 모델로 가릅니다. 선택하지 않은 후보의 호출에도 비용이 듭니다.
 
-    ![앙상블 팬아웃: 모든 후보를 병렬로 돌리고, 가장 싼 통과 결과를 남기며, 진 호출에 앙상블 세금을 낸다](/foundry-cost-aware-model-routing/assets/mechanism-fanout.svg)
+    ![앙상블 팬아웃: 모든 후보를 병렬로 돌리고, 가장 싼 통과 결과를 남기며, 선택하지 않은 호출 비용도 낸다](/foundry-cost-aware-model-routing/assets/mechanism-fanout.svg)
 
     *사용 · `ensemble`*  ·  코드: `compare_select()`
 
@@ -103,13 +102,12 @@
 
 !!! info "여섯 실험이 네 차별점에 어떻게 매핑되는가 (내장 라우터의 선택 위에서)"
     Azure AI Foundry의 **내장 Model Router**는 이미 *선택*을 처리합니다 — 한 번 배포로, 크로스
-    프로바이더(Grok · DeepSeek · Llama · gpt-oss는 별도 배포 없이; Claude는 예외). 그래서 "여러
-    프로바이더를 라우팅한다"는 것은 차별점이 아니라 **기본기**입니다. 이 실험들은 그 **위에 얹는
-    레이어** — 저장소의 네 차별점 — 를 정량화합니다: **① 검증 기반 채택**(`hero`, `curated`,
-    `limits`) · **② 앙상블 축 / 팬아웃 세금**(`ensemble`) · **③ 비용 거버너**(`adaptive`) ·
-    **④ 감사 추적**(측정 브리지 + 아래 원장). **single-call** 카드는 **⭐ 핵심**입니다: *왜 이
-    레이어가 내장 라우터 곁에 존재하는지*를 보이는 정면 대결 — 하나의 선제 선택, 에스컬레이션
-    없음 대 관찰-후-에스컬레이션. 합성 커버리지 숫자가 그 카드에 있습니다.
+    프로바이더(Grok · DeepSeek · Llama · gpt-oss는 별도 배포 없이; Claude는 예외). 아래 실험은
+    선택 뒤에 일어나는 네 동작을 검사합니다. **① 검증 기반 채택**(`hero`, `curated`,
+    `limits`) · **② 모든 후보 호출 비용 계산**(`ensemble`) · **③ 팬아웃 전 지출 검사**(`adaptive`) ·
+    **④ 감사 추적**(측정 브리지 + 아래 원장). **single-call** 카드는 한 번 미리 고르고 멈추는
+    방식과 결과를 확인한 뒤 실패하면 올리는 방식을 비교합니다. 합성 커버리지 숫자가 차이를
+    보여 줍니다.
 
 각 카드는 **반복 애니메이션으로 시작**해 자신의 실제 메커니즘 — 흐름 점, 에스컬레이션 사다리,
 팬아웃 — 을 그리며, 그동안 오프라인(`measured=false`) 숫자가 라이브로 세어 올라갑니다. 이들은 위
@@ -160,7 +158,7 @@ cost-router experiment run curated
 
 ### `ensemble` — best-of-N, 진짜 비용을 치르고
 
-![ensemble 루프 애니메이션: 워크로드가 다섯 후보로 병렬 팬아웃하고, 비교 노드가 가장 싼 통과 승자(swift-coder)를 남기며, 진 호출에 치른 ~3.7배 팬아웃 세금까지 계량기가 채워진다](/foundry-cost-aware-model-routing/assets/gif/ensemble.gif)
+![ensemble 루프 애니메이션: 워크로드가 다섯 후보를 병렬 호출하고, 가장 싼 통과 승자(swift-coder)를 남기며, 모든 호출 비용 ~3.7배를 기록한다](/foundry-cost-aware-model-routing/assets/gif/ensemble.gif)
 
 | | |
 | --- | --- |
@@ -168,7 +166,7 @@ cost-router experiment run curated
 | **모델** | 클래스별 전체 사다리, 태스크마다 **전부** 실행 |
 | **메커니즘** | **팬아웃 (compare)** |
 | **다이얼** | 모든 태스크에 팬아웃 **켜짐** |
-| **헤드라인** | **−47%** vs 나이브 ($0.25 → $0.13) · 다만 **≈3.7× 팬아웃 세금** (승자 ≈ $0.13, 전체 호출 ≈ $0.50) |
+| **헤드라인** | **−47%** vs 나이브 ($0.25 → $0.13) · 모든 후보 호출은 승자의 **≈3.7×** (승자 ≈ $0.13, 전체 호출 ≈ $0.50) |
 | **계약** | `min_coverage 1.0`, `min_delta_pct 0.40`, `min_tasks 6` |
 
 ```bash
@@ -181,7 +179,7 @@ cost-router experiment run ensemble
 
 ### `adaptive` — 팬아웃 다이얼, 꺼 버리기
 
-![adaptive 루프 애니메이션: 다이얼이 compare_min_value를 모든 태스크 가치 위로 올려, 병렬 팬아웃 다섯 줄을 하나로 붕괴시키고 팬아웃 세금을 3.7배에서 0.00배로 빼내되 47% 절감은 그대로 둔다](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
+![adaptive 루프 애니메이션: compare_min_value를 모든 태스크 가치 위로 올려 병렬 호출 다섯 줄을 하나로 줄이고, 추가 호출 비율을 3.7배에서 0.00배로 낮추며 47% 절감은 유지한다](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
 
 | | |
 | --- | --- |
@@ -189,17 +187,16 @@ cost-router experiment run ensemble
 | **모델** | 클래스별 전체 사다리 |
 | **메커니즘** | **순차 에스컬레이션** (팬아웃 게이트로 차단) |
 | **다이얼** | `budget.compare_min_value: 1.1` — 모든 태스크 가치(최대 1.0) 위 → **절대 팬아웃 안 함** |
-| **헤드라인** | **100% 커버리지에서 동일한 −47%**, 다만 **팬아웃 세금 → 0.00×** |
+| **헤드라인** | **100% 커버리지에서 동일한 −47%**, 추가 호출 비율은 **0.00×** |
 | **계약** | `min_coverage 1.0`, `min_delta_pct 0.40`, `max_tax_ratio 0.01`, `min_tasks 6` |
 
 ```bash
 cost-router experiment run adaptive
 ```
 
-`ensemble`과 같은 워크로드, 같은 절감, 같은 커버리지 — 그런데 앙상블 세금은 ~$0으로 붕괴합니다.
-이 결정론적 투영에서는 단일 경로 에스컬레이션이 이미 팬아웃이 찾는 가장 싼 통과 승자에 도달하므로,
-세금은 순수합니다. (실제 시스템에서 best-of-N은 *품질*을 끌어올릴 수 있습니다 — 세금을 내기 전에
-그것을 측정하세요.)
+`ensemble`과 워크로드·절감·커버리지가 같지만 후보 추가 호출 비용은 ~$0으로 낮아집니다.
+이 결정론적 투영에서는 단일 경로 에스컬레이션과 팬아웃이 같은 가장 싼 통과 모델을 고릅니다.
+실제 best-of-N은 *품질*을 높일 수 있으므로 추가 호출 비용을 내기 전에 그 효과를 측정해야 합니다.
 → [Lab-notebook 06](../lab-notebook/06-fanout-dial.md)
 
 ### `limits` — 공짜 점심은 없다
@@ -253,10 +250,9 @@ Router의 선택 실력은 독점이며 — 그 간극이야말로 다음 **측�
 
 ---
 
-## 비용 × 커버리지 프론티어
+## 다섯 전략을 비용과 커버리지로 비교
 
-싱글콜 arm을 라우팅 전략들과 나란히 놓으면 트레이드오프가 한눈에 보입니다(이것이 대시보드의 프론티어
-산점도입니다):
+대시보드는 싱글콜 arm과 라우팅 전략을 비용·커버리지 산점도 하나에 놓습니다:
 
 ![다섯 전략의 비용 대 커버리지 산점도](/foundry-cost-aware-model-routing/assets/frontier.svg)
 
@@ -319,7 +315,7 @@ Foundry **Model Router**를 배포하고 실제 프롬프트를 라우팅하게 
 Router의 Balanced 모드) · `router-quality`(Model Router의 Quality 모드) ·
 `direct-premium`(프리미엄 모델 직접 호출 · `gpt-5.6-sol`).
 
-![비용 대 통과율 산점도: direct-premium이 router-quality보다 왼쪽 위(더 싸고 통과율 높음)에 있어 router-quality가 지배당함을 보인다. router-cost는 같은 통과율에서 가장 왼쪽](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
+![비용 대 통과율 산점도: direct-premium은 router-quality보다 비용이 낮고 통과율이 높다. router-cost는 같은 통과율에서 비용이 가장 낮다](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
 *이 산점도는 실험 **12**의 publishable 결과입니다 — 실험 11 자신의 유료 런은 VOID라 자기 차트가 없습니다.*
 → [Lab-notebook 11](../lab-notebook/11-router-modes-void.md)
 

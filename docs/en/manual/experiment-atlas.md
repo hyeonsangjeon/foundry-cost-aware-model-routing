@@ -76,10 +76,10 @@ Only **layer 3 (SELECT)** changes shape between experiments. There are exactly *
 === "Fan-out (ensemble)"
 
     Run **every** candidate in parallel (`compare` mode), score each by its execution signals, and
-    keep the highest — ties break to the **cheapest passing** model. Coverage is high, but you pay to
-    run the losers too: **the ensemble tax**.
+    keep the highest — ties break to the **cheapest passing** model. Every discarded candidate
+    still incurs a call cost.
 
-    ![Ensemble fan-out: run every candidate in parallel, keep the cheapest passing result, and pay the ensemble tax for the losing calls](/foundry-cost-aware-model-routing/assets/mechanism-fanout.svg)
+    ![Ensemble fan-out: run every candidate in parallel, keep the cheapest passing result, and pay for every discarded call](/foundry-cost-aware-model-routing/assets/mechanism-fanout.svg)
 
     *Used by · `ensemble`*  ·  code: `compare_select()`
 
@@ -103,14 +103,13 @@ the **headline** (re-derived live by the command shown), and a link to the full 
 
 !!! info "How the six map to the four differentiators (atop the built-in router's selection)"
     Azure AI Foundry's **built-in Model Router** already handles *selection* — one deploy, cross-
-    provider (Grok · DeepSeek · Llama · gpt-oss with no separate deploy; Claude the exception). So
-    "routes many providers" is **table-stakes**, not the differentiator. These experiments quantify
-    the **layer on top** — the repo's four differentiators: **① verification-based adoption**
-    (`hero`, `curated`, `limits`) · **② the ensemble axis / fan-out tax** (`ensemble`) ·
-    **③ the cost governor** (`adaptive`) · **④ the audit trace** (the measured bridge + ledger
-    below). The **single-call** card is the **⭐ centerpiece**: the head-to-head that shows *why
-    this layer exists next to the built-in router* — one up-front pick, no escalation, versus
-    observe-and-escalate. The synthetic coverage numbers are in that card.
+    provider (Grok · DeepSeek · Llama · gpt-oss with no separate deploy; Claude the exception).
+    The built-in already "routes many providers". These experiments test what happens after
+    selection: **① verification-based adoption**
+    (`hero`, `curated`, `limits`) · **② all-candidate call accounting** (`ensemble`) ·
+    **③ the spending check before fan-out** (`adaptive`) · **④ the audit trace** (the measured bridge + ledger
+    below). The **single-call** card compares one up-front pick with no escalation
+    against observe-and-escalate. Its synthetic coverage numbers show the difference.
 
 Each card **opens with a looping animation** that traces its real mechanism — flow dots, the
 escalation ladder, or the fan-out — while the offline (`measured=false`) numbers count up live.
@@ -161,7 +160,7 @@ Tiny enough to follow every routing decision by eye end-to-end.
 
 ### `ensemble` — best-of-N, at a real cost
 
-![Animated ensemble loop: the workload fans out to all five candidates in parallel, a compare node keeps the cheapest passing winner (swift-coder), and a meter fills to the ~3.7x fan-out tax paid for the losing calls](/foundry-cost-aware-model-routing/assets/gif/ensemble.gif)
+![Animated ensemble loop: the workload calls all five candidates in parallel, keeps the cheapest passing winner (swift-coder), and records ~3.7x total cost for all calls](/foundry-cost-aware-model-routing/assets/gif/ensemble.gif)
 
 | | |
 | --- | --- |
@@ -169,7 +168,7 @@ Tiny enough to follow every routing decision by eye end-to-end.
 | **Models** | full ladder per class, **all** run per task |
 | **Mechanism** | **Fan-out (compare)** |
 | **Dial** | fan-out **on** for every task |
-| **Headline** | **−47%** vs naive ($0.25 → $0.13) · but a **≈3.7× fan-out tax** (winners ≈ $0.13, all calls ≈ $0.50) |
+| **Headline** | **−47%** vs naive ($0.25 → $0.13) · all candidate calls cost **≈3.7×** the winners (winners ≈ $0.13, all calls ≈ $0.50) |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.40`, `min_tasks 6` |
 
 ```bash
@@ -182,7 +181,7 @@ model — still 47% under naive — but fanning out means paying for the losing 
 
 ### `adaptive` — the fan-out dial, turned off
 
-![Animated adaptive loop: a dial raises compare_min_value above every task value, collapsing the five parallel fan-out lines to one and draining the fan-out tax from 3.7x to 0.00x while the 47% savings stay put](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
+![Animated adaptive loop: compare_min_value rises above every task value, reducing five parallel calls to one; extra-call ratio falls from 3.7x to 0.00x while 47% savings stay unchanged](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
 
 | | |
 | --- | --- |
@@ -190,17 +189,17 @@ model — still 47% under naive — but fanning out means paying for the losing 
 | **Models** | full ladder per class |
 | **Mechanism** | **Ordered escalation** (fan-out gated off) |
 | **Dial** | `budget.compare_min_value: 1.1` — above every task's value (max 1.0) → **never fans out** |
-| **Headline** | **identical −47% at 100% coverage**, but **fan-out tax → 0.00×** |
+| **Headline** | **identical −47% at 100% coverage**, with **extra-call ratio → 0.00×** |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.40`, `max_tax_ratio 0.01`, `min_tasks 6` |
 
 ```bash
 cost-router experiment run adaptive
 ```
 
-Same workload, same savings, same coverage as `ensemble` — but the ensemble tax collapses to ~$0.
+Same workload, savings, and coverage as `ensemble`, but extra candidate-call cost falls to ~$0.
 On this deterministic projection, single-route escalation already reaches the same cheapest-passing
-winner fan-out finds, so the tax is pure. (In a real system best-of-N can lift *quality* — measure
-that before paying the tax.)
+winner as fan-out. A real best-of-N system can improve *quality*, so measure that improvement before
+paying for the additional calls.
 → [Lab-notebook 06](../lab-notebook/06-fanout-dial.md)
 
 ### `limits` — there is no free lunch
@@ -255,10 +254,9 @@ bridge captures next.
 
 ---
 
-## The cost × coverage frontier
+## Compare five strategies by cost and coverage
 
-Put the single-call arms next to the routing strategies and the trade-off is visible at a glance
-(this is the dashboard's frontier scatter):
+The dashboard places the single-call arms and routing strategies on one cost-and-coverage scatter:
 
 ![Cost versus coverage scatter of five strategies](/foundry-cost-aware-model-routing/assets/frontier.svg)
 
@@ -270,8 +268,8 @@ Put the single-call arms next to the routing strategies and the trade-off is vis
 | `all-premium` (naive) | priciest candidate on every task | $2.23 | 100.0% |
 | `ensemble-all` | fan out to every model, every task | $4.23 | 100.0% |
 
-The **cost-aware mix** sits in the *both-win zone*: 100% coverage at roughly the cheapest cost that
-still buys full coverage — well under `all-premium`, and a fraction of `ensemble-all`.
+The **cost-aware mix** reaches 100% coverage at the lowest cost among the strategies
+that reach full coverage. It costs less than `all-premium` and `ensemble-all`.
 
 ---
 
@@ -323,7 +321,7 @@ tokens swallowing the output).
 in Balanced mode) · `router-quality` (Model Router in Quality mode) · `direct-premium`
 (calling the premium model directly · `gpt-5.6-sol`).
 
-![Cost vs pass-rate scatter: direct-premium sits upper-left of router-quality (cheaper and higher pass rate), showing router-quality is dominated; router-cost is furthest left at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
+![Cost vs pass-rate scatter: direct-premium costs less and has a higher pass rate than router-quality; router-cost has the lowest cost at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
 *This scatter is experiment **12**'s publishable result — experiment 11's own paid run is VOID, so it has no chart of its own.*
 → [Lab-notebook 11](../lab-notebook/11-router-modes-void.md)
 

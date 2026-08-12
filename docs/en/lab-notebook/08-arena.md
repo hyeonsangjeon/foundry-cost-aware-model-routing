@@ -1,17 +1,26 @@
 # Experiment 08 · One problem, four routing strategies
 
 !!! abstract "One-line summary"
-    Where experiments 01–07 weighed the **whole workload** in aggregate, this one narrows that frontier to **a single task** — the "fills in the moment you click" prototype run screen that answers the first question a new user asks: *"for this one problem, how much does each method spend, how slow is it, and does it even get it right?"* It runs four approaches on the same task (cheapest model · premium · ensemble · cost-aware router) and fills three axes — **cost · latency · accuracy**. On the default task `t-0003` the router is the **cheapest correct answer** (1/2.5 of premium) but the **slowest** (sequential escalation) — even the hero pays a price on this experiment's **new axis, latency**. Cost and accuracy come from the **same offline machine** as the other experiments (`measured = false`); **latency is a newly introduced illustrative projection** (not measured).
+    This experiment runs four approaches on the same task: cheapest model, premium,
+    ensemble, and cost-aware router. The screen "fills in the moment you click" and asks
+    *"for this one problem, how much does each method spend, how slow is it, and does it even get it right?"* On `t-0003`,
+    the router is the **cheapest correct answer** (1/2.5 of premium) and the
+    **slowest** because escalation is sequential. Cost and accuracy use the same
+    offline calculation as experiments 01–07 (`measured = false`). **Latency is a
+    newly introduced illustrative projection**, not a measurement.
 
 ## What this experiment is
 
-- **Situation (when):** every other dashboard panel is an **aggregate** — a frontier or strategy bar that summarizes a 100-task workload into one point. Powerful, but a first-time visitor wants an immediate screen that *"runs the same one problem several ways and compares cost, performance, and accuracy by eye."* There was no HuggingFace-Spaces-style "5-minute wow."
+- **Situation (when):** other dashboard panels summarize a 100-task workload. A new
+  user also needs to *"runs the same one problem several ways and compares cost, performance, and accuracy by eye."* There was no "5-minute wow."
 - **Task (what):** we built an **arena** that scores four approaches on a single task and put it in both the web app and the CLI. Cost and accuracy **reuse the existing offline machine** as-is (`classify_task` · `candidates_for` · `pricing.cost_usd` · `is_clean` · `ordered_select`), matching the aggregate panels by construction, and we newly added a **third axis, latency**, as an illustrative projection.
 - **Experiment (what it tests):** on the default `t-0003`, that (1) the router **wins on cost** (the cheapest correct answer), (2) **accuracy is shared by the three approaches that pass** (only the cheapest model fails), and yet (3) the router is **slowest on latency** (1.25× premium) — the hero's hidden price.
 
-This is the **lens that narrows the whole story to one task**, following 01 · 02 (the gain), 03 · 04 (the honest limits), and 05 · 06 · 07 (the expensive shortcuts and their price). And it honestly puts one axis the earlier experiments didn't cover — **latency** — on stage.
+This page applies the earlier comparisons to one task and adds **latency**, which the
+earlier experiments did not include.
+It follows experiments 01 · 02, 03 · 04, and 05 · 06 · 07.
 
-## Aggregate frontier ↔ single-task arena
+## Aggregate results ↔ one-task comparison
 
 | | Experiments 01–07 (aggregate) | Experiment 08 (arena) |
 | --- | --- | --- |
@@ -21,7 +30,10 @@ This is the **lens that narrows the whole story to one task**, following 01 · 0
 | Question | "which strategy wins across the whole workload" | "what does each method produce on this one problem" |
 
 !!! note "This is a lens, not a contract experiment"
-    01–07 are **workload experiments**, each with its own `expect` contract. The arena is a different animal — a **prototype-run lens** that runs one task several ways to show it, so we didn't force an `expect` floor onto it. Instead, every number is pinned by `tests/test_arena.py` (the cost convention · latency projection · winner logic · endpoint/CLI shape), so CI fails if it drifts.
+    Experiments 01–07 cover workloads and each has an `expect` contract. The arena
+    runs one task several ways, so it has no `expect` floor. Instead,
+    `tests/test_arena.py` pins every number, the cost convention, latency projection,
+    winner logic, and endpoint/CLI shape.
 
 ## Four approaches — same task, different strategies
 
@@ -29,7 +41,7 @@ This is the **lens that narrows the whole story to one task**, following 01 · 0
 | --- | --- | --- |
 | **Cheapest model** | calls only the single cheapest candidate in the class | that one call |
 | **Premium model** | calls only the priciest candidate (the naive ceiling) | that one call |
-| **Ensemble (fan-out)** | fans out to **all** candidates and adopts the best | **the sum of all candidates** ([fan-out tax](05-ensemble-fanout.md)) |
+| **Ensemble (fan-out)** | fans out to **all** candidates and adopts the best | **the sum of all candidates** ([extra fan-out cost](05-ensemble-fanout.md)) |
 | **Cost-aware router** | cheapest first, escalate up on failure | **the winner only** |
 
 The billing convention is the same as elsewhere in the repo: the router matches the winner-billing in `trace.py`, and the ensemble matches the sum-all in `baseline.ensemble_all_summary` — they cannot diverge by construction.
@@ -54,10 +66,12 @@ Candidate ladder: `swift-coder → balanced-pro → deep-reasoner → premium-ma
 
 Winners by axis: **cost = router** · **latency = premium** · **accuracy = the three that pass (premium · ensemble · router)**.
 
-Three honest observations:
+Three observations:
 
 1. **Router = the cheapest correct answer.** It delivers the same "pass" as premium **2.5× cheaper** ($0.03 vs $0.08), and than the ensemble **5.5× cheaper** ($0.03 vs $0.18). The cheapest model is cheaper still but **wrong**.
-2. **The ensemble buys the answer but pays a tax.** It fans out four candidates and adopts **the best passing answer**, but bills **all** four models — about **2.2×** the single winner-bill (premium $0.08) — the [fan-out tax](05-ensemble-fanout.md) seen through one task.
+2. **The ensemble calls all four models.** It adopts **the best passing answer** but
+   bills every call, about **2.2×** the single winner-bill (premium $0.08)
+   ([fan-out details](05-ensemble-fanout.md)).
 3. **The router is the slowest.** This is the experiment's key new observation → below.
 
 ## The new axis, latency — why the router is slowest
@@ -68,7 +82,9 @@ On `t-0003` the router wins on cost and accuracy but **loses on latency** (1.25�
 - **The ensemble** fans candidates out **in parallel**, so its latency is the **slowest single one** (max).
 - **The router** is the **sum** of the calls it tried, so it can be slowest on escalated tasks.
 
-In other words, **there is no free lunch.** The price of the cost and accuracy the router reclaims is **latency** here. On a real-time path where latency is critical, a single premium call may be the sensible choice; on a batch path where cost dominates, the router wins — the arena **meters that trade-off on one screen**.
+The router saves cost here but adds **latency**. A real-time path may prefer one
+premium call, while a batch path may prefer the lower-cost router. The table shows
+both results for the same task.
 
 !!! warning "Latency is an illustrative projection (`measured = false`, not wall-clock)"
     The bundled telemetry has no timing. So latency is an **illustrative projection** that turns token counts into ms with a per-tier throughput model — `latency = (150 + 90·tier) + 1000·(output+reasoning tokens)/(200 − 28·tier)`, ensemble = parallel (max), router = sequential (sum). It exists only to give the third axis a **shape**, not real wall-clock. Real latency has to be measured with real calls in the [live measured bridge](../manual/foundry-live.md). We flag it consistently across UI · CLI · docs as a **different source** from cost/accuracy (offline projection).
@@ -82,7 +98,9 @@ In other words, **there is no free lunch.** The price of the cost and accuracy t
 | Ensemble (fan-out) | all 3 | `$0.0083` | 4,399 ms | ✓ pass |
 | Cost-aware router | mini-fast | `$0.0005` | 3,080 ms | ✓ pass |
 
-On an easy task the **cheapest model wins all three axes** (cheapest · fastest · passes). The router picks exactly that (mini-fast) — its first try passes, so there's no escalation, and premium/ensemble's extra spend ($0.0065 · $0.0083, **up to 17×**) buys nothing. **Routing earns its value on hard tasks** — the arena shows this contrast with one task chip.
+On an easy task the **cheapest model wins all three axes**. The router picks
+mini-fast and stops because the first try passes. Premium and ensemble spend
+$0.0065 · $0.0083, **up to 17×**, without changing the pass result.
 
 ## See it in the web app — the arena panel
 
@@ -96,7 +114,8 @@ Below the dashboard spotlight we added a **"one problem, four ways"** panel:
 
 ## Reading these numbers honestly
 
-1. **Cost and accuracy are the same offline machine as the aggregate experiments.** So they match the frontier/strategy panels' numbers **by construction** — the arena invents no new claim. `measured = false`.
+1. **Cost and accuracy use the same offline calculation as the aggregate experiments.**
+   The numbers match the strategy panels by construction. `measured = false`.
 2. **Latency is a new illustrative projection.** It shows only the **relative shape** between approaches (router = sequential sum, ensemble = parallel max); the absolute ms are not measured. Measure it for real before making a real-time decision.
 3. **Accuracy is binary.** Approaches that pass are **equally** correct, so we don't crown only the router but credit all three that pass. Only the cheapest model fails.
 
@@ -104,8 +123,10 @@ So the honest rule: *the arena meters "for this problem, each method's cost, (il
 
 ## When to use this experiment
 
-- When first introducing routing to a team — to convey the cost/latency/accuracy trade-off with **one problem** in 5 minutes, before they read the aggregate frontier.
-- To weigh the router's **latency price** (sequential escalation) by eye and decide whether a single premium call fits a real-time path and the router a batch path.
+- When introducing routing with **one problem** in 5 minutes before showing aggregate
+  results.
+- To compare the router's sequential latency with a single premium call for real-time
+  and batch paths.
 - To demo, switching between an easy task (t-0001) and a hard one (t-0003), that **"routing is only worth it on hard work."**
 
 ## Reproduce this experiment

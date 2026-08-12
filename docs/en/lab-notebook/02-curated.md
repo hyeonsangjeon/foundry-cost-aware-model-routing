@@ -1,7 +1,9 @@
 # Experiment 02 · Which model the router chose, and why
 
 !!! abstract "One-line summary"
-    Route **5 tasks** carrying hand-written offline signals and you can read the routing decisions from start to finish, watching each one by eye. **56.7% lower** cost than naive. All numbers are `measured = false`.
+    Run **5 tasks** with hand-written offline signals. Each row shows the chosen
+    model, reason, and cost from start to finish. The total is **56.7% lower** than
+    naive. All numbers are `measured = false`.
 
 <figure markdown="span">
   ![Curated loop animation — the same escalation ladder applied to five hand-labelled tasks](/foundry-cost-aware-model-routing/assets/gif/curated.gif)
@@ -10,7 +12,8 @@
 
 ## What this experiment is
 
-- **Situation (when):** 100 synthetic tasks are hard to follow by eye. When you want to validate the routing logic by reading each decision on a small, hand-built set of signals.
+- **Situation (when):** the 100-task run is too large to inspect one decision at a
+  time, so this experiment uses a small hand-built signal set.
 - **Task (what):** route **5 curated tasks** on fixed-fixture signals (`samples/responses/routing-signals.sample.json`).
 - **Experiment (what it tests):** confirm each routing decision (class, chosen model, reason, cost) at a human-verifiable scale, and reproduce the saving against naive.
 
@@ -48,6 +51,9 @@ spotlight  t-0005 · validate · clean-first
   routed  mini-fast      $0.0002
   naive   deep-reasoner  $0.0051   (23.8x more)
 ```
+
+The cheapest candidate passed the check, so the router stopped there. The naive path
+called the more expensive model for the same task.
 
 ## When to use this experiment
 
