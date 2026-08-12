@@ -13,10 +13,12 @@ commands.
 
 ## Shared methodology
 
-- **Offline and deterministic.** No network, no credentials, no external calls.
-  Synthetic workloads and deterministic signals reproduce identically every time.
-- **Honesty label.** Every number carries `labels.measured = false` — an offline
-  projection over synthetic data, not a measured saving.
+- **Offline and deterministic (projection track 01–08).** No network, no credentials,
+  no external calls. Synthetic workloads and deterministic signals reproduce
+  identically every time.
+- **Honesty label.** The projection track (01–08) numbers carry `labels.measured =
+  false` — an offline projection over synthetic data, not a measured saving. The
+  measured track (09–12) uses real Azure Foundry calls with `measured = true`.
 - **Placeholder models.** `mini-fast`, `swift-coder`, `balanced-pro`,
   `deep-reasoner`, and `premium-max` are all generic placeholders, not specific
   products.
