@@ -53,6 +53,7 @@ from .foundry_live import (
     AzureModelRouterClient,
     FoundryConfig,
     RecordedRouterClient,
+    TransportTimeouts,
     capture_recorded_usage,
     load_dotenv_file,
     load_recorded_usage,
@@ -2553,6 +2554,25 @@ def _cmd_benchmark_run(args: argparse.Namespace) -> int:
 _DIAG_COVERAGE_GATE = 0.90
 
 
+def _live_measure_client(plan, fconfig) -> AzureMeasureClient:
+    """Build the live benchmark client with the plan's own transport cutoffs.
+
+    The plan's ``retry`` timeouts are bound into ``plan_hash`` and sealed into
+    the run manifest, so they must also reach the socket. Before this was
+    wired, the client fell back to :class:`TransportTimeouts` defaults
+    (read 90 / overall 120) and an operator-approved timeout change was a
+    silent no-op that the sealed manifest still reported as applied.
+    """
+
+    return AzureMeasureClient(
+        AzureModelRouterClient(
+            config=fconfig,
+            max_output_tokens=plan.execution["request"]["max_output_tokens"],
+            timeouts=TransportTimeouts.from_retry(plan.execution.get("retry")),
+        )
+    )
+
+
 def _benchmark_preview_or_dispatch(args: argparse.Namespace, *, kind: str) -> int:
     label = f"benchmark {kind}"
     live = bool(getattr(args, "live", False))
@@ -2591,11 +2611,7 @@ def _benchmark_preview_or_dispatch(args: argparse.Namespace, *, kind: str) -> in
     if not fconfig.credentialed:  # pragma: no cover - live guard
         print(f"{label} --live: not credentialed; set AZURE_AI_FOUNDRY_* in .env, then `az login`.")
         return 1
-    client = AzureMeasureClient(  # pragma: no cover - live path
-        AzureModelRouterClient(
-            config=fconfig, max_output_tokens=plan.execution["request"]["max_output_tokens"]
-        )
-    )
+    client = _live_measure_client(plan, fconfig)  # pragma: no cover - live path
     out_root = Path(plan.execution["artifacts"]["local_root"])
     run_dir = out_root / kind / make_run_id()
     run_dir.mkdir(parents=True, exist_ok=True)  # pragma: no cover - live path

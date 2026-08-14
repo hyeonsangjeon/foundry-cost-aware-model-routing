@@ -328,6 +328,34 @@ def test_plan_hash_is_deterministic(tmp_path: Path) -> None:
     assert plan_a.plan_hash == plan_b.plan_hash
 
 
+def test_plan_transport_timeouts_reach_the_live_client(tmp_path: Path) -> None:
+    # The plan's transport cutoffs are bound into plan_hash and sealed into the
+    # run manifest, so they must also reach the socket. Regression: the live
+    # benchmark client was built without `timeouts=`, so it fell back to the
+    # TransportTimeouts() defaults (read 90 / overall 120) and an approved
+    # timeout change was a silent no-op the manifest still reported as applied.
+    from router.cli import _live_measure_client
+    from router.foundry_live import FoundryConfig
+
+    mapping = _benchmark_config(tmp_path)
+    mapping["benchmark"]["retry"] = {
+        "max_retries": 4,
+        "connect_timeout_seconds": 10,
+        "read_timeout_seconds": 180,
+        "write_timeout_seconds": 30,
+        "pool_timeout_seconds": 10,
+        "overall_timeout_seconds": 240,
+    }
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    assert plan.execution["retry"]["read_timeout_seconds"] == 180
+
+    client = _live_measure_client(plan, FoundryConfig())
+    timeouts = client.client.timeouts
+    assert timeouts is not None, "live client must carry the plan's timeouts"
+    assert (timeouts.read, timeouts.overall) == (180.0, 240.0)
+    assert (timeouts.connect, timeouts.write, timeouts.pool) == (10.0, 30.0, 10.0)
+
+
 def test_router_arm_routing_mode_survives_resolution(tmp_path: Path) -> None:
     # A router arm's approved routing mode is expected evidence: it must reach
     # the resolved plan so the doctor deployment probe can verify it, and it must
