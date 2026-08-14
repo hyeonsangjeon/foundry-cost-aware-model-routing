@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main, "feat/**"]
 
+# Every job here only reads the repository — lint, tests, offline smokes and a
+# local `docker build` that is never pushed. Nothing comments, tags, releases or
+# writes back, so the token is narrowed to match (docs.yml and release-smoke.yml
+# already declare their own).
+permissions:
+  contents: read
+
 # One in-flight run per ref; newer pushes cancel stale ones. Keying on the PR
 # number (when present) collapses the push+pull_request pair for a branch that
 # has an open PR into a single active run.
@@ -197,4 +204,62 @@ jobs:
             exit 1
           fi
           echo "onboarding is offline and star-neutral"
+
+  clean-install:
+    # The user-shaped install, which no other job exercises. Every install in
+    # this file is `pip install -e`, and an editable install leaves the whole
+    # checkout on sys.path — so a module or data file that was never packaged
+    # still imports, and the gap only surfaces on someone else's machine. Here
+    # the package is installed non-editable and the console script runs from a
+    # temp dir outside the checkout, where that gap fails the build instead.
+    # (The Dockerfile does `pip install .` too, but only on 3.11, and it never
+    # runs the CLI against the result.)
+    name: clean install (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      # Report both interpreters on every run: a failure on one must not be
+      # hidden by cancelling the other. Dropping a version from this matrix is
+      # the one edit that would make the README's support claim untrue again.
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install non-editable (core deps only, no extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Console script works outside the checkout
+        # `cost-router hero` is deliberately absent: it reads samples/, which is
+        # checkout content the wheel does not ship. Quickstart and the release
+        # smoke already cover that path from inside a clone.
+        run: |
+          set -euo pipefail
+          outside="$(mktemp -d)"
+          cd "$outside"
+          python - <<'PY'
+          import os
+          import pathlib
+
+          import policy
+          import router
+
+          workspace = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          for module in (router, policy):
+              path = pathlib.Path(module.__file__).resolve()
+              assert workspace not in path.parents, (
+                  f"{module.__name__} resolved into the checkout, not the install: {path}"
+              )
+              print(f"{module.__name__}: {path}")
+          PY
+          cost-router --version
+          cost-router serve --help
 
