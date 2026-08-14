@@ -27,7 +27,9 @@ def _inputs(**overrides) -> DoctorInputs:
         workload_path="samples/workloads/validated-smoke.example.jsonl",
         workload_ok=True,
         rate_card_present=True,
-        rate_card_covers_all_arms=True,
+        unpriced_direct_arms=(),
+        partial_direct_arms=(),
+        router_arm_ids=(),
         authorization_ceiling_usd=1.0,
         planned_cells=5,
         base_transport_attempts=1,
@@ -186,17 +188,66 @@ def test_doctor_only_calls_injected_probes():
 
 def test_benchmark_requires_complete_pinned_pricing():
     report = run_doctor(
-        _inputs(run_mode="benchmark", rate_card_covers_all_arms=False),
+        _inputs(run_mode="benchmark",
+                unpriced_direct_arms=(("premium", "gpt-9-unlisted"),)),
         token_probe=lambda: "tok", rbac_probe=lambda: True,
         deployment_probe=lambda: True,
     )
-    assert _get(report, "pricing").status == FAIL
+    check = _get(report, "pricing")
+    assert check.status == FAIL
+    # The operator has to be able to act on it: name the arm and the model.
+    assert "premium" in check.detail and "gpt-9-unlisted" in check.detail
+
+
+def test_benchmark_pricing_ok_only_when_every_arm_is_direct_and_pinned():
+    report = run_doctor(
+        _inputs(run_mode="benchmark"),
+        token_probe=lambda: "tok", rbac_probe=lambda: True,
+        deployment_probe=lambda: True,
+    )
+    assert _get(report, "pricing").status == OK
+
+
+def test_router_arm_pricing_coverage_is_unknown_never_ok():
+    # Regression: doctor used to print "complete pinned pricing coverage for
+    # every arm" whenever a rate-card path was configured -- the coverage flag
+    # was aliased to mere presence and nothing was ever looked up. A router arm's
+    # backend is chosen per prompt, so coverage cannot be proven in advance; the
+    # 03D-3 run then billed a backend absent from the card, withheld its cost and
+    # lost that arm's savings claim, after doctor had reported green.
+    report = run_doctor(
+        _inputs(run_mode="benchmark", router_arm_ids=("router-balanced",)),
+        token_probe=lambda: "tok", rbac_probe=lambda: True,
+        deployment_probe=lambda: True,
+    )
+    check = _get(report, "pricing")
+    assert check.status == UNKNOWN
+    assert "router-balanced" in check.detail
+    # unknown must stay actionable: say what an unpriced backend costs them.
+    assert check.next_step and "cost_complete=false" in check.next_step
+    # ...and it must not block dispatch -- it is a warning, not a gate.
+    assert all(c.status != FAIL for c in report.checks)
+
+
+def test_partially_pinned_direct_rate_is_not_reported_as_complete():
+    # A pinned key is necessary but not sufficient: a null cached/reasoning
+    # component still fails the cell closed once tokens of that kind appear.
+    report = run_doctor(
+        _inputs(run_mode="benchmark",
+                partial_direct_arms=(("premium", "grok-4-1-fast (cached unpinned)"),)),
+        token_probe=lambda: "tok", rbac_probe=lambda: True,
+        deployment_probe=lambda: True,
+    )
+    check = _get(report, "pricing")
+    assert check.status == UNKNOWN
+    assert "cached unpinned" in check.detail
 
 
 def test_smoke_ok_with_authorization_ceiling_only():
     report = run_doctor(
         _inputs(run_mode="smoke", rate_card_present=False,
-                rate_card_covers_all_arms=False, authorization_ceiling_usd=0.5)
+                unpriced_direct_arms=(("premium", "gpt-9-unlisted"),),
+                authorization_ceiling_usd=0.5)
     )
     assert _get(report, "pricing").status == OK
 
@@ -204,7 +255,8 @@ def test_smoke_ok_with_authorization_ceiling_only():
 def test_smoke_without_pricing_or_ceiling_fails():
     report = run_doctor(
         _inputs(run_mode="smoke", rate_card_present=False,
-                rate_card_covers_all_arms=False, authorization_ceiling_usd=None)
+                unpriced_direct_arms=(("premium", "gpt-9-unlisted"),),
+                authorization_ceiling_usd=None)
     )
     assert _get(report, "pricing").status == FAIL
 

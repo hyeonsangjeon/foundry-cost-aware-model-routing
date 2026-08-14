@@ -16,6 +16,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from . import __version__
 from .annotations import router_amount_text, router_cost_disclosure, savings_claim_allowed
 from .baseline import single_call_summary
@@ -109,6 +111,7 @@ from .pipeline import (
     run_route_once,
 )
 from .pricing import PricingTable, format_usd, format_usd_avg
+from .rate_card import RateCardError, RateCardV2
 from .run_plan import (
     DEFAULT_LOCAL_CONFIG,
     SUPPORTED_LOCALES,
@@ -2308,12 +2311,78 @@ def _build_doctor_parser(subparsers: argparse._SubParsersAction) -> None:
     doctor.set_defaults(func=_cmd_doctor)
 
 
-def _doctor_inputs_from_plan(plan, *, deps_present: bool) -> DoctorInputs:
+def _doctor_pricing_coverage(
+    plan, config, *, rate_card_path: str | None
+) -> tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...], tuple[str, ...]]:
+    """Classify arms by what their pricing coverage can actually be proven to be.
+
+    Returns ``(unpriced_direct, partial_direct, router_arm_ids)``.
+
+    A ``direct`` arm bills under a model fixed at plan time, so its rate can be
+    resolved now and a miss is a hard failure. A ``model_router`` arm's backend is
+    chosen by the provider per prompt, so no pre-flight lookup can prove coverage
+    — its arm/deployment name is never itself a pricing key.
+
+    A pinned key is *necessary but not sufficient*: the v2 card prices cached and
+    reasoning tokens from their own components, and a ``null`` component still
+    fails the cell closed when tokens of that kind appear (this is exactly the
+    ``cached: null`` hole that voided the first 03D run). Such arms come back as
+    ``partial`` — not a failure, because whether it bites depends on the usage
+    the run actually produces, but never reported as complete coverage either.
+    """
+
+    arms = plan.execution["arms"]
+    routers = tuple(
+        str(arm["id"]) for arm in arms if str(arm.get("kind")) == "model_router"
+    )
+    direct = [
+        (str(arm["id"]), str(arm.get("requested_model") or arm.get("deployment") or ""))
+        for arm in arms
+        if str(arm.get("kind")) == "direct"
+    ]
+    all_unpriced = tuple(direct)
+    if not rate_card_path:
+        return all_unpriced, (), routers
+    try:
+        resolved = config.resolve_path(rate_card_path)
+        raw = yaml.safe_load(resolved.read_text(encoding="utf-8")) or {}
+        schema = raw.get("schema_version")
+        if schema is None or int(schema) < 2:
+            # A v1 card fails *open* (PricingTable.rates_for falls back to a
+            # default), so it can never answer a coverage question. Report the
+            # direct arms as unverified rather than implying they are covered.
+            return (), tuple(direct), routers
+        card = RateCardV2.from_yaml(resolved)
+    except (OSError, ValueError, RateCardError, yaml.YAMLError):
+        # An unreadable card clears nothing; every direct arm stays unproven.
+        return all_unpriced, (), routers
+
+    unpriced: list[tuple[str, str]] = []
+    partial: list[tuple[str, str]] = []
+    for arm_id, model in direct:
+        rates = card.rates_for(card.resolve_pricing_key(model))
+        if rates is None:
+            unpriced.append((arm_id, model))
+            continue
+        missing = [
+            name for name in ("cached", "reasoning")
+            if getattr(rates, name, None) is None
+        ]
+        if missing:
+            partial.append((arm_id, f"{model} ({'/'.join(missing)} unpinned)"))
+    return tuple(unpriced), tuple(partial), routers
+
+
+def _doctor_inputs_from_plan(plan, config, *, deps_present: bool) -> DoctorInputs:
     ex = plan.execution
     endpoint = ex["endpoint"]
     pricing = ex["pricing"]
     view = plan.approval_view()
-    rate_card_present = bool(pricing.get("rate_card_path"))
+    rate_card_path = pricing.get("rate_card_path")
+    rate_card_present = bool(rate_card_path)
+    unpriced_direct, partial_direct, router_arms = _doctor_pricing_coverage(
+        plan, config, rate_card_path=rate_card_path
+    )
     deployments = [
         arm["deployment"] for arm in ex["arms"]
         if arm.get("deployment") and not _is_placeholder_value(arm["deployment"])
@@ -2331,7 +2400,9 @@ def _doctor_inputs_from_plan(plan, *, deps_present: bool) -> DoctorInputs:
         workload_path=workload_path,
         workload_ok=Path(workload_path).is_file(),
         rate_card_present=rate_card_present,
-        rate_card_covers_all_arms=rate_card_present,
+        unpriced_direct_arms=unpriced_direct,
+        partial_direct_arms=partial_direct,
+        router_arm_ids=router_arms,
         authorization_ceiling_usd=pricing.get("smoke_authorization_ceiling_usd"),
         planned_cells=plan.planned_cells,
         base_transport_attempts=plan.base_transport_attempts,
@@ -2384,12 +2455,12 @@ def _doctor_prereg_allowed(plan) -> bool:
 
 
 def _cmd_doctor(args: argparse.Namespace) -> int:
-    _config, plan = _resolve_plan_or_error(args, label="doctor", require_run_ready=False)
+    config, plan = _resolve_plan_or_error(args, label="doctor", require_run_ready=False)
     if plan is None:
         return 1
 
     deps_present = _foundry_extra_present()
-    inputs = _doctor_inputs_from_plan(plan, deps_present=deps_present)
+    inputs = _doctor_inputs_from_plan(plan, config, deps_present=deps_present)
 
     # All live probes are read-only and NEVER send an inference prompt: a token
     # acquisition, a data-plane models GET (RBAC), and management-plane deployment

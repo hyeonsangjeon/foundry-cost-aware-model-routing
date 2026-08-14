@@ -145,7 +145,18 @@ class DoctorInputs:
     workload_path: str | None
     workload_ok: bool
     rate_card_present: bool
-    rate_card_covers_all_arms: bool
+    # Arms whose priceable model is knowable before dispatch (kind=direct) and has
+    # no pinned rate in the card, as (arm_id, model). This is the only pricing
+    # coverage that can be *guaranteed* in advance, so it is the only one gated.
+    unpriced_direct_arms: Sequence[tuple[str, str]]
+    # Direct arms whose key IS pinned but whose cached/reasoning components are
+    # ``null``. A pinned key is necessary but not sufficient: a cell still fails
+    # closed if it reports tokens of a kind the card leaves unpriced.
+    partial_direct_arms: Sequence[tuple[str, str]]
+    # Arms that dispatch to a provider-chosen backend (kind=model_router). Their
+    # backend set is not enumerable before dispatch, so their coverage is
+    # reported as unverifiable rather than asserted.
+    router_arm_ids: Sequence[str]
     authorization_ceiling_usd: float | None
     planned_cells: int
     base_transport_attempts: int
@@ -321,34 +332,98 @@ def _check_workload(report: DoctorReport, inputs: DoctorInputs) -> None:
         )
 
 
+#: What an unpriced cell costs the operator, stated wherever coverage is not
+#: guaranteed. Per the 03Z-b fail-closed contract an unpriced cell is withheld
+#: (``cost_usd = null``, never 0.0 and never a guessed rate), the attempt is
+#: still graded, and the arm is ``cost_complete=false`` and excluded from savings
+#: claims. Naming the consequence is what makes an ``unknown`` here actionable.
+ROUTER_COVERAGE_NEXT_STEP = (
+    "a router backend with no pinned rate fails closed: cost_usd=null, the arm "
+    "becomes cost_complete=false and is excluded from savings claims (the "
+    "attempt is still graded). Pin rates for every backend the router may pick, "
+    "or expect a withheld-cost arm."
+)
+
+
+def _describe_unpriced(pairs: Sequence[tuple[str, str]]) -> str:
+    return ", ".join(f"{arm}->{model}" for arm, model in pairs)
+
+
 def _check_pricing(report: DoctorReport, inputs: DoctorInputs) -> None:
+    """Report pricing coverage as what it is: guaranteed, or merely not-yet-refuted.
+
+    A router arm's priceable model is chosen by the provider *per prompt*, so the
+    set of backends it may bill under is not enumerable before dispatch. Only a
+    ``direct`` arm's model is fixed in advance, so only that can be gated. Saying
+    "complete coverage for every arm" while a router arm is configured overstates
+    what was checked — and an operator who reads that green line has no reason to
+    expect the withheld-cost arm that a missing backend rate actually produces.
+    """
+
+    unpriced = tuple(inputs.unpriced_direct_arms)
+    partial = tuple(inputs.partial_direct_arms)
+    routers = tuple(inputs.router_arm_ids)
+    unverifiable: list[str] = []
+    if routers:
+        unverifiable.append(
+            f"router arm(s) {', '.join(routers)} (the provider picks the backend "
+            "per prompt, so the billable model set is not enumerable)"
+        )
+    if partial:
+        unverifiable.append(f"partially pinned rate(s): {_describe_unpriced(partial)}")
+
     if inputs.run_mode == "benchmark":
-        if inputs.rate_card_present and inputs.rate_card_covers_all_arms:
-            report.add("pricing", OK, "complete pinned pricing coverage for every arm")
-        else:
+        if not inputs.rate_card_present:
+            report.add(
+                "pricing", FAIL, "benchmark mode requires a pinned rate card",
+                "set benchmark.rate_card (no default fallback)",
+            )
+        elif unpriced:
             report.add(
                 "pricing", FAIL,
-                "benchmark mode requires a complete pinned rate card covering every arm",
-                "pin every arm's rates in benchmark.rate_card (no default fallback)",
+                f"no pinned rate for direct arm(s): {_describe_unpriced(unpriced)}",
+                "pin every direct arm's rates in benchmark.rate_card "
+                "(no default fallback)",
             )
-    else:
-        has_ceiling = (
-            inputs.authorization_ceiling_usd is not None
-            and inputs.authorization_ceiling_usd > 0
-        )
-        if inputs.rate_card_present and inputs.rate_card_covers_all_arms:
-            report.add("pricing", OK, "complete pricing (smoke)")
-        elif has_ceiling:
+        elif unverifiable:
+            report.add(
+                "pricing", UNKNOWN,
+                "every direct arm resolves to a pinned rate; coverage is NOT "
+                "verifiable for " + "; ".join(unverifiable),
+                ROUTER_COVERAGE_NEXT_STEP,
+            )
+        else:
             report.add(
                 "pricing", OK,
-                f"no complete rate card; authorized by ceiling "
-                f"${inputs.authorization_ceiling_usd} (response stays unpriced)",
+                "complete pinned pricing coverage for every arm "
+                "(all arms direct and fully pinned, so the billable set is fixed)",
             )
-        else:
-            report.add(
-                "pricing", FAIL,
-                "smoke needs complete pricing or a positive authorization ceiling",
-            )
+        return
+
+    has_ceiling = (
+        inputs.authorization_ceiling_usd is not None
+        and inputs.authorization_ceiling_usd > 0
+    )
+    if inputs.rate_card_present and not unpriced and not unverifiable:
+        report.add("pricing", OK, "complete pricing (smoke)")
+    elif has_ceiling:
+        report.add(
+            "pricing", OK,
+            f"no complete rate card; authorized by ceiling "
+            f"${inputs.authorization_ceiling_usd} (response stays unpriced)",
+        )
+    elif inputs.rate_card_present and not unpriced and unverifiable:
+        report.add(
+            "pricing", UNKNOWN,
+            "every direct arm resolves to a pinned rate; coverage is NOT "
+            "verifiable for " + "; ".join(unverifiable),
+            ROUTER_COVERAGE_NEXT_STEP,
+        )
+    else:
+        report.add(
+            "pricing", FAIL,
+            "smoke needs complete pricing or a positive authorization ceiling",
+        )
 
 
 def _check_prereg(report: DoctorReport, inputs: DoctorInputs) -> None:

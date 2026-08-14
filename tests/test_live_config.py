@@ -192,6 +192,78 @@ def test_committed_template_has_no_secret_field() -> None:
     LocalRunConfig.from_mapping(data, base_dir=ROOT)  # must not raise
 
 
+def _v2_rate_card(tmp_path: Path, *, pin_premium: bool = True,
+                  premium_cached: str = "2.5") -> None:
+    """A minimal schema-v2 card. ``model-router`` is deliberately absent from
+    ``rates`` — a router arm's *deployment name* is never a pricing key, which is
+    why router coverage cannot be settled by a pre-flight lookup at all."""
+
+    premium = (
+        f"  premium-max: {{input: 5.0, output: 15.0, cached: {premium_cached}, "
+        "reasoning: 15.0}\n"
+    ) if pin_premium else ""
+    (tmp_path / "v2-rates.yaml").write_text(
+        "schema_version: 2\n"
+        "currency: USD\n"
+        "unit_basis: per_1m_tokens\n"
+        "source: test-fixture\n"
+        "effective_date: \"2026-08-01\"\n"
+        "router_input_markup: 0.14\n"
+        "alias_map:\n"
+        "  version: 1\n"
+        "  entries: {}\n"
+        "rates:\n" + (premium or "  unused-floor: {input: 0.1, output: 0.2}\n"),
+        encoding="utf-8",
+    )
+
+
+def test_doctor_pricing_coverage_is_computed_not_assumed(tmp_path: Path) -> None:
+    # Regression: DoctorInputs.rate_card_covers_all_arms was assigned
+    # `rate_card_present`, so merely configuring a rate-card path made doctor
+    # print "complete pinned pricing coverage for every arm" — an assertion
+    # nothing had computed. 03D-3 then billed a router backend that was absent
+    # from the card, withheld its cost and lost that arm's savings claim, after
+    # doctor had reported green on exactly that config.
+    from router.cli import _doctor_inputs_from_plan
+
+    _v2_rate_card(tmp_path)
+    mapping = _benchmark_config(tmp_path, rate_card="v2-rates.yaml")
+    config, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    inputs = _doctor_inputs_from_plan(plan, config, deps_present=True)
+
+    # The direct arm's model IS knowable in advance and IS pinned.
+    assert inputs.unpriced_direct_arms == ()
+    assert inputs.partial_direct_arms == ()
+    # The router arm is reported as unverifiable rather than silently "covered".
+    assert inputs.router_arm_ids == ("router-cost",)
+
+
+def test_doctor_flags_a_direct_arm_missing_from_the_card(tmp_path: Path) -> None:
+    from router.cli import _doctor_inputs_from_plan
+
+    _v2_rate_card(tmp_path, pin_premium=False)
+    mapping = _benchmark_config(tmp_path, rate_card="v2-rates.yaml")
+    config, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    inputs = _doctor_inputs_from_plan(plan, config, deps_present=True)
+
+    assert inputs.unpriced_direct_arms == (("direct-premium", "premium-max"),)
+
+
+def test_doctor_flags_a_pinned_rate_with_an_unpinned_component(tmp_path: Path) -> None:
+    # `cached: null` is an explicit "unsupported" marker that fails the cell
+    # closed once cached tokens appear — the hole that voided the first 03D run.
+    # A key that merely exists must therefore not be reported as full coverage.
+    from router.cli import _doctor_inputs_from_plan
+
+    _v2_rate_card(tmp_path, premium_cached="null")
+    mapping = _benchmark_config(tmp_path, rate_card="v2-rates.yaml")
+    config, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    inputs = _doctor_inputs_from_plan(plan, config, deps_present=True)
+
+    assert inputs.unpriced_direct_arms == ()
+    assert inputs.partial_direct_arms == (("direct-premium", "premium-max (cached unpinned)"),)
+
+
 def test_run_yaml_rejects_credential_field(tmp_path: Path) -> None:
     mapping = _benchmark_config(tmp_path)
     mapping["foundry"]["api_key"] = "sk-should-be-rejected"
