@@ -8,7 +8,8 @@ tenant to set up.
 
 ## Requirements
 
-- **Python 3.11 or newer** (3.12 recommended)
+- **Python 3.11 or 3.12** — the two interpreters CI installs and runs. Newer
+  versions are not claimed, so `pip` declines them at install time.
 - `pip` (or an equivalent such as [`uv`](https://docs.astral.sh/uv/))
 
 ## Install

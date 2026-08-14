@@ -27,9 +27,14 @@ from dataclasses import dataclass, field
 
 # --- Constants ---------------------------------------------------------------
 
-#: Interpreters the project declares, tests, and times (pyproject requires >=3.11
-#: and classifies 3.11 + 3.12). 3.10 fails to import the router (StrEnum /
-#: ``datetime.UTC``), so it is explicitly unsupported.
+#: Interpreters the project declares, tests, and times. This tuple is the single
+#: source of truth for the support range: ``pyproject.toml`` pins
+#: ``requires-python = ">=3.11,<3.13"`` to match it, and the CI clean-install
+#: matrix proves a non-editable ``pip install .`` on exactly these versions.
+#:
+#: The two ends are rejected for *different* reasons, and the message below says
+#: which: 3.10 genuinely cannot import the router (``StrEnum`` /
+#: ``datetime.UTC``), while 3.13+ is simply untested here — not known broken.
 SUPPORTED_PYTHONS: tuple[str, ...] = ("3.11", "3.12")
 MIN_PYTHON: tuple[int, int] = (3, 11)
 
@@ -88,13 +93,23 @@ def unsupported_python_message(
     ``version`` is the rejected interpreter (e.g. ``"3.10"``). ``found`` names a
     supported interpreter discovered on PATH, if any. The message stays a couple
     of lines — a fresh cloner should never see a long traceback.
+
+    The stated *reason* depends on which end of the range was missed, and the
+    distinction is not cosmetic: below the floor the router really does fail to
+    import, whereas above the ceiling it is only unverified. Claiming a newer
+    interpreter is broken when it has merely never been run would be the same
+    kind of unearned claim this project refuses to make about measurements.
     """
 
     plat = (platform or sys.platform).lower()
     supported = " / ".join(SUPPORTED_PYTHONS)
+    newest = max(SUPPORTED_PYTHONS, key=_version_key)
+    if _version_key(version) > _version_key(newest):
+        reason = f"{version} is newer than the tested range, so it is not verified here"
+    else:
+        reason = "3.10 and older lack datetime.UTC / StrEnum and fail at import/collection"
     lines = [
-        f"Python {version} is not supported — the router needs {supported} "
-        "(3.10 lacks datetime.UTC / StrEnum and fails at import/collection).",
+        f"Python {version} is not supported — the router needs {supported} ({reason}).",
     ]
     if found:
         lines.append(f"Found {found}; re-run with it, e.g.  {found} scripts/quickstart.py")
@@ -131,8 +146,9 @@ def detect_supported_python(
 
     Prefers the *current* interpreter when it already qualifies; otherwise it
     searches PATH for ``python3.12``/``python3.11``. Raises :class:`BootstrapError`
-    with a short message when nothing suitable exists (the common fresh-clone
-    failure is a system ``python3`` that is 3.10).
+    with a short message when nothing suitable exists. Both ends of the range are
+    rejected: the common fresh-clone failure is a system ``python3`` that is 3.10,
+    and a 3.13+ interpreter is turned away too — untested, not known broken.
     """
 
     cur = f"{current_version[0]}.{current_version[1]}"

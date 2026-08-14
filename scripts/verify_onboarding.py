@@ -10,8 +10,9 @@ loopback dashboard — zero Azure calls, zero GitHub Star mutations, no network
 install. It asserts the onboarding contract without needing a browser engine by
 checking, in order:
 
-1. bootstrap detection picks a declared interpreter (3.11 / 3.12) and rejects an
-   unsupported one (e.g. system 3.10) with a short message, not a traceback;
+1. bootstrap detection accepts both declared interpreters (3.11 / 3.12) and
+   rejects either end of the range — a below-floor 3.10 and an above-ceiling
+   3.13 — with a short message, not a traceback;
 2. the served/rendered dashboard ships the success screen + accessible Star CTA
    (HTTPS repo URL, ``rel="noopener noreferrer"``, keyboard-labelled) and no
    auto-loaded external resources;
@@ -59,16 +60,38 @@ def check_bootstrap_detection() -> str:
     choice = ob.detect_supported_python()
     assert choice.version in ob.SUPPORTED_PYTHONS, f"detected {choice.version}, expected 3.11/3.12"
 
-    try:
-        ob.detect_supported_python(current_version=(3, 10), which=lambda _n: None)
-    except ob.BootstrapError as exc:
-        msg = str(exc)
-        assert "not supported" in msg, "3.10 rejection message should say 'not supported'"
-        assert "3.11" in msg and "3.12" in msg, "rejection should name the supported interpreters"
-        assert len(msg.splitlines()) <= 4, "rejection message must stay short (no traceback)"
-    else:
-        raise AssertionError("system 3.10 should be rejected with a BootstrapError")
-    return f"detects {choice.version}; rejects 3.10 with a short hint"
+    # Every declared interpreter is accepted as-is when it is the current one —
+    # the range has to be provably inclusive, not just provably exclusive.
+    for version in ob.SUPPORTED_PYTHONS:
+        major, _, minor = version.partition(".")
+        accepted = ob.detect_supported_python(
+            current_version=(int(major), int(minor)),
+            current_executable=f"/usr/bin/python{version}",
+            which=lambda _n: None,
+        )
+        assert accepted.is_current and accepted.version == version, (
+            f"{version} is declared supported but was not accepted as the current interpreter"
+        )
+
+    # Both ends are rejected, each stating the reason that end fails for: below
+    # the floor the router cannot import; above the ceiling it is only untested.
+    # Neither may print a traceback at a fresh cloner.
+    boundaries = (((3, 10), "datetime.UTC"), ((3, 13), "newer than the tested range"))
+    for rejected, expected_reason in boundaries:
+        label = f"{rejected[0]}.{rejected[1]}"
+        try:
+            ob.detect_supported_python(current_version=rejected, which=lambda _n: None)
+        except ob.BootstrapError as exc:
+            msg = str(exc)
+            assert "not supported" in msg, f"{label} rejection should say 'not supported'"
+            assert "3.11" in msg and "3.12" in msg, "rejection should name the interpreters"
+            assert expected_reason in msg, (
+                f"{label} rejection must say why: expected {expected_reason!r} in {msg!r}"
+            )
+            assert len(msg.splitlines()) <= 4, "rejection message must stay short (no traceback)"
+        else:
+            raise AssertionError(f"Python {label} should be rejected with a BootstrapError")
+    return f"detects {choice.version}; accepts 3.11/3.12; rejects 3.10 and 3.13 with short hints"
 
 
 def check_success_and_cta_markup() -> str:

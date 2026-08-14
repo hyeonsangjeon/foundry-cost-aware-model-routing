@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/ci.yml/badge.svg)](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/ci.yml)
 [![docs](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/docs.yml/badge.svg)](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/)
-[![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **Try the cheapest model first. Check the result, and call a stronger model only
@@ -50,6 +50,12 @@ interpreters (CPython 3.11.15 / 3.12.13); a fresh clone plus install added
 roughly **6–9 s** on the same machine. Environment metadata and the full segment
 table → [install guide](docs/ko/manual/install.md).
 
+Both interpreters are held to that claim by CI: each run installs the package
+**non-editable** (`pip install .`) on 3.11 and on 3.12, then runs `cost-router`
+from a directory outside the checkout — so anything the package forgot to ship
+fails the build here instead of failing your clone. Linux runners only, and
+nothing is published to PyPI; `git clone` is still the install path.
+
 ### Where to go next
 
 - **Methodology** — [measurement protocol](docs/ko/manual/measurement-protocol.md)
@@ -86,8 +92,10 @@ diagrams stay outside Git.
 
 ## Requirements
 
-- **Python 3.11+** — the router uses `StrEnum`, so 3.10 fails to import. Check
-  first with `python3 --version`. Supported and timed: **3.11** and **3.12**.
+- **Python 3.11 or 3.12** — the router uses `StrEnum`, so 3.10 fails to import.
+  Check first with `python3 --version`. Newer interpreters are not claimed
+  because they are not run in CI, so `pip` declines them at install time rather
+  than letting an untested version fail later.
 - `git`, plus network access for a one-time install (the only core dependency
   is `pyyaml`).
 

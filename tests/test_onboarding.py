@@ -20,6 +20,7 @@ import importlib.util
 import subprocess
 import sys
 import time
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -83,6 +84,58 @@ def test_rejects_unsupported_with_short_message():
     assert "3.11" in msg and "3.12" in msg
     assert "datetime.UTC" in msg  # the exact fresh-clone failure mode
     assert len(msg.splitlines()) <= 4  # short, never a traceback
+
+
+def _key(version: str) -> tuple[int, int]:
+    major, _, minor = version.partition(".")
+    return int(major), int(minor)
+
+
+def test_rejects_above_the_ceiling_as_untested_not_broken():
+    # 3.13 is turned away too, but for a different reason than 3.10: the router
+    # is not known to fail there, it has simply never been run there. Telling a
+    # 3.13 user it "lacks datetime.UTC" would be an unearned claim, and the
+    # remediation it implies (install an older interpreter to get StrEnum) is
+    # nonsense at that end of the range.
+    with pytest.raises(ob.BootstrapError) as excinfo:
+        ob.detect_supported_python(current_version=(3, 13), which=lambda _n: None)
+    msg = str(excinfo.value)
+    assert "not supported" in msg
+    assert "3.11" in msg and "3.12" in msg
+    assert "newer than the tested range" in msg
+    assert "datetime.UTC" not in msg  # that is the below-floor failure, not this one
+    assert len(msg.splitlines()) <= 4  # short, never a traceback
+
+
+@pytest.mark.parametrize("version", ob.SUPPORTED_PYTHONS)
+def test_every_declared_interpreter_is_accepted(version):
+    # The range has to be provably inclusive, not only provably exclusive:
+    # nothing may narrow SUPPORTED_PYTHONS without this failing.
+    choice = ob.detect_supported_python(
+        current_version=_key(version),
+        current_executable=f"/usr/bin/python{version}",
+        which=lambda _n: None,
+    )
+    assert choice.is_current and choice.version == version
+
+
+def test_packaging_metadata_matches_the_declared_interpreters():
+    # The support range is asserted in three places — SUPPORTED_PYTHONS, the
+    # requires-python bound, and the classifiers — and the CI clean-install
+    # matrix only proves the first. This pins the other two to it so a future
+    # interpreter can only be claimed by actually adding it to the matrix.
+    project = tomllib.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+
+    oldest = min(ob.SUPPORTED_PYTHONS, key=_key)
+    ceiling_major, ceiling_minor = max(_key(v) for v in ob.SUPPORTED_PYTHONS)
+    assert project["requires-python"] == f">={oldest},<{ceiling_major}.{ceiling_minor + 1}"
+
+    classified = {
+        c.rsplit(" :: ", 1)[-1]
+        for c in project["classifiers"]
+        if c.startswith("Programming Language :: Python :: ")
+    }
+    assert classified == set(ob.SUPPORTED_PYTHONS)
 
 
 @pytest.mark.parametrize(
