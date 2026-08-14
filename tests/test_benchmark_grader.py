@@ -37,12 +37,15 @@ from router.pricing import PricingTable
 from router.run_plan import LocalRunConfig, execute_benchmark, resolve_run_plan
 
 BENCH = Path("benchmarks/original-coding")
-# 03D-2 re-run plan hash. Supersedes the void run's
-# sha256:9474b9801e9cdf9edfb84ac8ac048eb2726d849ec42b840c5ff51f0db474acb6, whose
-# rate card pinned grok-4-1-fast cached: null and used max_output_tokens=2048.
-# The re-run pins Grok cached=input (0.2) and max_output_tokens=8192, and binds a
-# new prereg (prereg-03d2-router-modes.md) — all three change the plan hash.
-APPROVED_PLAN_HASH = "sha256:d640dc07a0a2dd62871b7fddba552f34c64c0c54affe7a7fcbe475ec91d2921e"
+# 03D-3 Fix C re-run plan hash. Supersedes the 03D-2 re-run's
+# sha256:d640dc07a0a2dd62871b7fddba552f34c64c0c54affe7a7fcbe475ec91d2921e (which
+# itself superseded the void run's sha256:9474b980…: that one pinned
+# grok-4-1-fast cached: null and used max_output_tokens=2048, while 03D-2 pinned
+# Grok cached=input (0.2) and max_output_tokens=8192).
+# 03D-3 changes two things: the transport cutoffs (read 90 -> 180, overall
+# 120 -> 240, per fix-c-timeout-proposal.md) and the bound prereg
+# (prereg-03d3-router-modes.md) — both feed the plan hash.
+APPROVED_PLAN_HASH = "sha256:33821119558063e83d9d255fb3fd72130519fe597288e11fdce909e6346b0b50"
 
 
 def _fixture(task_id: str, kind: str) -> str:
