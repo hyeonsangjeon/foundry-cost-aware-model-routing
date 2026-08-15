@@ -1,10 +1,14 @@
 # Fix C — transport read/overall timeout proposal (03D-2 follow-up)
 
-> **Status: PROPOSAL ONLY — not applied.** Raising the timeout changes
-> `benchmark.retry`, which is part of the resolved run plan, so it **changes
-> `plan_hash`** and therefore requires a **new preregistration + re-approval**
-> (the same discipline used for Fix A / Fix B). This document proposes values and
-> records the evidence; the operator decides whether and how to apply it.
+> **Status: APPLIED** in PR #101 (`experiment/03d3-fix-c-timeout-rerun`), at the
+> proposed values — `read 180 / overall 240`. Raising the timeout changes
+> `benchmark.retry`, which is part of the resolved run plan, so it **changed
+> `plan_hash`** and therefore required a **new preregistration + re-approval**
+> (the same discipline used for Fix A / Fix B). That is `454c8159`, and the run it
+> approved is [experiment 13](../../docs/en/lab-notebook/13-router-modes-rate-card-gap.md)
+> (`plan_hash sha256:33821119…6b0b50`). **Everything below this banner is the
+> proposal as written before the run** — the evidence and the predictions are kept
+> unedited so they can be read against what actually happened.
 
 ## Problem — the 8192 cap surfaced a fixed-timeout constraint
 
@@ -100,3 +104,28 @@ is **not** proposed here — the minimal, low-risk fix is raising the two timeou
    *before* seeing results — gates stay: coverage 90%, min_pass 0.60, max_drop
    10 pp, budget $20) and re-approve.
 4. Re-run under the new approved `plan_hash`.
+
+---
+
+## What actually happened (added after the run)
+
+All four steps above were carried out in PR #101, at the proposed values rather
+than the conservative alternative. Applying them exposed a second defect first:
+the resolved plan's transport timeouts were never handed to the live client
+(`eafc1a1`), so raising them in config alone would have changed nothing.
+
+| | 03D-2 (read 90 s) | 03D-3 (read 180 s) |
+| --- | --- | --- |
+| timeout cells | 11 / 288 | **1 / 288** |
+| aggregate grading coverage | 96.18% | **99.65%** |
+| lowest arm pass rate | 0.958 (23/24) | **1.000 (24/24)** |
+
+The prediction above — that the 4.17 pp router-vs-premium pass-rate gap was the
+timeouts and not code quality — held: with the ceiling raised, every arm solved
+every task. The one remaining timeout recorded `latency_ms 180096.8`, i.e. it hit
+the new read ceiling and not the 240 s overall budget, the same shape the 90 s
+cells showed at 90.0–90.7 s. Streaming stays out of scope and unproposed.
+
+This document is **not** amended to reflect the outcome anywhere above this
+section. The 03D-2 latency evidence and the reasoning that followed from it are
+the record of what was known at proposal time.

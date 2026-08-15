@@ -335,6 +335,17 @@ byte-identical replay). The three 03D charts below are this run's evidence.
 ![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.en.svg)
 → [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · full charts: [03D measured results](03d-results.md)
 
+### `13` · the paid router-mode run that audited the rate card
+
+Run the same four arms a third time with the raised transport timeouts, and the measurement comes out
+clean: grading coverage **96.18% → 99.65%**, every arm at pass rate 1.0, and
+`cost < balanced < premium ≤ quality` still holding (**$4.20 / $20**). What the run exposes is ours,
+not the router's — 12 of the Balanced arm's 72 calls were served by `gpt-5.6-terra`, a model with no
+row in the rate card, so those cells failed closed and that arm is **cost-incomplete**: it reports,
+but it carries no savings claim. The card was re-captured as a **new dated file** rather than edited,
+because two sealed preregistrations pin the old one's digest.
+→ [Lab-notebook 13](../lab-notebook/13-router-modes-rate-card-gap.md)
+
 ---
 
 ## What is measured, and what is not

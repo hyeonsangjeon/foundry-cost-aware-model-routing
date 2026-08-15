@@ -329,6 +329,17 @@ Router의 Balanced 모드) · `router-quality`(Model Router의 Quality 모드) �
 ![arm별 실제 라우팅된 백엔드 스택 막대: router-cost는 100% grok-4-1-fast-reasoning, router-quality는 gpt-5과 gpt-5.5로 분할되고 grok 없음, direct-premium은 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.svg)
 → [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · 전체 차트: [03D 실측 결과](03d-results.md)
 
+### `13` · 요율 카드를 감사하게 된 유료 라우터-모드 런
+
+같은 네 arm을 타임아웃을 올려 세 번째로 돌립니다. 측정은 깨끗하게 나왔습니다: 채점 커버리지
+**96.18% → 99.65%**, 네 arm 모두 통과율 1.0, `cost < balanced < premium ≤ quality`도 유지
+(**$4.20 / $20**). 이 런이 드러낸 것은 라우터가 아니라 우리 쪽입니다 — Balanced arm의 72개 호출 중
+12개를 `gpt-5.6-terra`가 처리했는데 요율 카드에 그 행이 없어 fail-closed로 금액이 보류됐고, 그
+arm은 **cost-incomplete**가 됐습니다: 보고는 하되 절감 주장은 싣지 않습니다. 봉인된 사전등록 두
+건이 기존 카드의 다이제스트를 못박고 있으므로, 정정은 파일을 고치는 대신 **새 날짜 파일**로
+냈습니다.
+→ [Lab-notebook 13](../lab-notebook/13-router-modes-rate-card-gap.md)
+
 ---
 
 ## 무엇이 측정되고, 무엇이 아닌가

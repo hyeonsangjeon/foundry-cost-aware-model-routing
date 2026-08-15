@@ -21,8 +21,8 @@ Rules enforced:
   B. No docs line re-introduces the collapse by defining "커버리지" as a
      *task* pass ratio. A reconciliation line that also uses "통과율" (i.e. it
      is mapping 커버리지 → 통과율 on purpose) is allowed.
-  C. Every measured page (03D, 실험 11, 실험 12) — where the grading figure is
-     read next to the pass rate — must use the qualified "채점 커버리지" and must
+  C. Every measured page (03D, 실험 11, 실험 12, 실험 13) — where the grading figure
+     is read next to the pass rate — must use the qualified "채점 커버리지" and must
      not carry a bare ``| 커버리지 |`` table column.
 
 Run standalone::
@@ -48,6 +48,7 @@ MEASURED_PAGES = (
     "manual/03d-results.md",
     "lab-notebook/11-router-modes-void.md",
     "lab-notebook/12-router-modes-measured.md",
+    "lab-notebook/13-router-modes-rate-card-gap.md",
 )
 
 # The glossary must name both canonical concepts, in Korean and English, so a

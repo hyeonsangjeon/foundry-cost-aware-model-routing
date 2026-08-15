@@ -10,19 +10,25 @@
 | --- | --- | --- |
 | 오프라인 before/after | 합성 데이터에 대한 투영 | `measured = false` |
 | 실험 스포트라이트/절감률 | 합성 데이터에 대한 투영 | `measured = false` |
-| 실측 실험 09·10·11·12 (커밋됨) | 실제 Foundry 호출 · `evidence_tier = directional` (11은 사전등록 미달 VOID) | `measured = true` |
+| 실측 실험 09·10·11·12·13 (커밋됨) | 실제 Foundry 호출 · `evidence_tier = directional` (11은 사전등록 미달 VOID, 13은 한 arm이 cost-incomplete) | `measured = true` |
 | 여러분 테넌트의 라이브 eval | 실제 측정 (범위: 측정한 워크로드) | `measured = true` |
 
 오프라인 `hero`와 투영 번들은 합성 데이터를 씁니다(`measured = false`). 여기서 나온 숫자는
 측정된 절감이 아닙니다.
 
-실험 09·10·11·12는 실제 Azure Foundry 호출을 사용한 `measured = true` 결과입니다. 이 가운데
-09·10·12도 근거 수준은 `evidence_tier = directional`입니다. 24과제·단일 테넌트·1회 측정에서
+실험 09·10·11·12·13은 실제 Azure Foundry 호출을 사용한 `measured = true` 결과입니다. 이 가운데
+09·10·12·13도 근거 수준은 `evidence_tier = directional`입니다. 24과제·단일 테넌트·1회 측정에서
 무슨 일이 있었는지는 보여 주지만 모든 워크로드에 같은 결과가 난다는 뜻은 아닙니다.
 
 실험 11도 `measured = true`이지만 한 arm이 사전등록에서 고정한 채점 커버리지 게이트를 넘지
 못했습니다. 그래서 결과는 **무효(VOID)**입니다. 측정 기록은 실측 트랙에 남지만 계획했던 비교의
 근거로는 쓸 수 없습니다.
+
+[실험 13](lab-notebook/13-router-modes-rate-card-gap.md)은 게이트를 전부 통과했지만, 한 arm의
+12개 호출을 요율 카드에 행이 없는 모델이 처리했습니다. 그 셀들은 추정 요율로 채워 넣는 대신
+fail-closed로 금액을 보류했고, 그래서 그 arm은 **cost-incomplete**입니다: 합계는 라벨과 함께
+보고하되 절감 주장은 싣지 않습니다. 나중에 카드를 정정할 때도 앞선 런의 수치는 하나도
+재계산하지 않았습니다.
 
 [라이브 실측 브릿지](manual/foundry-live.md)는 이 경로를 구현합니다. 실제 Azure Model Router
 호출의 토큰 usage로 비용을 계산하고 라이브 호출에만 `measured = true`를 부여합니다. 여러분의

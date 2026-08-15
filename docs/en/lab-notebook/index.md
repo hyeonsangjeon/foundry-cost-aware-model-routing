@@ -75,8 +75,8 @@ Each experiment page ends with the exact command that reproduces it.
 
 ## Experiment list
 
-This repository holds **12 experiments (01–12)** — a projection track (01–08) and a
-measured track (09–12). The canonical figures for the projection track are collected
+This repository holds **13 experiments (01–13)** — a projection track (01–08) and a
+measured track (09–13). The canonical figures for the projection track are collected
 in [offline experiment results](../manual/projection-results.md).
 
 - [Experiment 01 · Flagship](01-hero.md) — 100 synthetic tasks; 25.5% saved while holding coverage
@@ -91,3 +91,4 @@ in [offline experiment results](../manual/projection-results.md).
 - [Experiment 10 · Measured ledger](10-measured-ledger.md) — the live run is written to a hash-chained ledger with a sealed rate card; one command re-verifies `PASS`, and **a single edited byte fails**
 - [Experiment 11 · Paid router-mode run](11-router-modes-void.md) — the first **paid 4-arm comparison ($3.47/$20)** is **VOID** because quality grading coverage was 79.2% < 90%; it also recorded quality > premium, Grok 100% (not Claude), and reasoning consuming the output
 - [Experiment 12 · Paid router-mode re-run](12-router-modes-measured.md) — Fix A/B from experiment 11 are applied and the same gate is used again; grading coverage rises 79.2% → **96.18%**, **all four arms PASS → publishable**, `cost < balanced < premium ≤ quality` holds, and Cost is 100% Grok across two runs. $3.27/$20, byte-identical replay, unpriced 0%
+- [Experiment 13 · Paid router-mode run 3](13-router-modes-rate-card-gap.md) — the raised timeout does what its proposal predicted (grading coverage **96.18% → 99.65%**, every arm at pass rate 1.0, cost order still holds), and the run instead exposes **our own rate card**: 12 Balanced-arm calls were served by `gpt-5.6-terra`, which had no priced row, so that arm is **cost-incomplete** and carries no savings claim. $4.20/$20, unpriced 12
