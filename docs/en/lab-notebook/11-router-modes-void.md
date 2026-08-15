@@ -14,7 +14,10 @@
     Unlike experiments 01–10, which were offline projections or re-seals of already-captured
     usage, this experiment is **a real Azure inference run executed after passing explicit
     approval gates (STOP 1 · STOP 2)**. Total spend **$3.467533 / budget $20.00**, keyless
-    Entra, sequential execution, fixed seed. The prompt and response **text is not published**
+    Entra, sequential execution in a deterministic dispatch order (task-major → repeat → arm).
+    `max_output_tokens` is the only request parameter that comes from the plan; sampling
+    temperature is the service default, which this repository neither sets nor records.
+    The prompt and response **text is not published**
     — the sealed snapshot stays local (gitignored), and only `output_sha256` (grading
     evidence) rides in the public trail (the same source-preservation contract as
     [experiment 10](10-measured-ledger.md)).

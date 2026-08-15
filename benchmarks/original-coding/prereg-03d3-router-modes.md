@@ -217,3 +217,97 @@ approval binds them; **not weakened** after two prior runs.
 4. Final `plan_hash` recomputed with the committed preregistration evidence bound
    into the resolved plan; that hash is what `benchmark run --approve-plan` checks.
 5. Plan + hash presented for human approval. **No paid call before that approval.**
+
+## Errata — implementation facts, appended after the run (2026-08-15)
+
+**This section is an append. Not one character above it was changed.** The
+predictions, gates, and invalidation criteria stand exactly as committed before
+the results existed.
+
+The header of this document says: *"the plan hash binds this file's blob and
+commit; a modification after approval invalidates the run."* That clause is about
+altering what was predicted and presenting it as the original. This append does
+not do that, and the binding still checks out:
+
+- The approved plan pinned blob `8584e1f8c6031d7be6b03d01a9e292c83d57bab5` at
+  commit `454c8159e6e3666a6b24982ef30766ea73059f22`. Both are content-addressed
+  git objects; this append cannot reach either. The approved text is retrievable
+  and re-verifiable at any time:
+
+  ```
+  git show 454c8159e6e3666a6b24982ef30766ea73059f22:benchmarks/original-coding/prereg-03d3-router-modes.md | git hash-object --stdin
+  # -> 8584e1f8c6031d7be6b03d01a9e292c83d57bab5
+  ```
+
+- The run's `plan_hash`, `sha256:33821119558063e83d9d255fb3fd72130519fe597288e11fdce909e6346b0b50`,
+  is computed over the resolved `execution` mapping, whose `preregistration` block
+  holds that pinned `{path, blob, commit}` **as literal values from the run
+  config** — it is not recomputed from this file's current contents. Resolving the
+  same config after this append still yields the same `plan_hash`, and it still
+  matches the sealed manifest.
+
+Appending does change the *working-tree* blob of this file. The pinned object is
+the record; this file is the record plus a note. If the two must be the same
+object for some future check, use the pinned one.
+
+### What this document claimed
+
+Line 83, verbatim:
+
+```yaml
+random_seed: 20260729        # fixed seed, sequential dispatch
+```
+
+Note that this third preregistration had already dropped the "counterbalanced arm
+order" wording carried by
+[`prereg-03d-router-modes.md`](prereg-03d-router-modes.md) and
+[`prereg-03d2-router-modes.md`](prereg-03d2-router-modes.md). Those two documents
+have their own errata. Nothing about counterbalancing was claimed here.
+
+### What the implementation actually was
+
+Verified at commit `f2d6f08694e4eabd46d111c7d9d53e48a4802ec6`.
+
+| The comment said | What the code does |
+|---|---|
+| *fixed seed* | **No seed reaches the model API.** `random_seed` has exactly one writer (`run_plan.py:909`) and no reader on the execution path; its only effect is that it sits in `execution`, so it salts `plan_hash` — which is why changing it would have forced a new approval while changing nothing about the requests sent. Neither request surface carries a seed: `foundry_live.py:565-568` sends `model`, `messages`, `max_completion_tokens`; `foundry_live.py:586-589` sends `model`, `messages`, `max_tokens`. |
+| *sequential dispatch* | **Accurate.** `measure.py:1404-1407` dispatches one cell at a time, task-major → then repeat → then arm. That order is deterministic, it never consults `random_seed`, and `measure.py:1407` walks `candidates` in the order the `arms:` list gives them, identically on every task and every repeat. |
+
+Two further facts the comment implies but that do not hold:
+
+- **This repository does not fix the sampling temperature.**
+  `AzureModelRouterClient.temperature` defaults to `None` (`foundry_live.py:520`)
+  and the kwarg is sent only when it is not `None` (`foundry_live.py:570-571`).
+  No construction site in `src/`, `scripts/`, or `tests/` sets it, so the
+  parameter is never sent: the service default applies, and this repository
+  neither pins that value nor records what it was.
+- **`max_output_tokens` is the only request parameter that comes from the plan**
+  (`run_plan.py:900`, read at `cli.py:2722`).
+
+### Does any recorded figure change?
+
+**No.** The spend, the per-arm costs, the 99.65% grading coverage, the pass rates,
+the timeout count, and the preregistered cost ordering are all unchanged.
+
+- Each is a direct measurement of executed cells, or a ratio of such
+  measurements. No seed enters any of those computations, so there is nothing to
+  recompute.
+- The change this run was designed to test — the transport cutoffs, read 90 → 180
+  and overall 120 → 240 — is unaffected by this errata. Those values are real,
+  they are in `execution["retry"]`, and the read cutoff is enforced on the socket.
+  (`overall` is not enforced by anything: `to_httpx()` builds only the connect,
+  read, write, and pool cutoffs, and no runner-side deadline exists. That is a
+  separate, separately documented fact, not part of this correction.)
+- The rate-card finding this run produced — `gpt-5.6-terra` having no priced row,
+  and the fail-closed withholding that followed — has no dependency on a seed or
+  a dispatch order either.
+
+**What was actually lost is a property, not a number.** "Fixed seed" asserted a
+reproducibility guarantee this stack cannot deliver: with no seed on the wire, the
+service choosing the backend, and the sampling temperature left at the service
+default, re-executing this plan is not expected to reproduce these outputs. This
+run is in fact the sharpest evidence of that — the same workload, the same
+deployments, and the same deterministic dispatch order sent Balanced's cells to an
+entirely different backend mix than experiment 12 did. What *is* byte-reproducible
+is the sealed artifact set, and `measure replay` re-verifies it against the
+recorded fingerprints.

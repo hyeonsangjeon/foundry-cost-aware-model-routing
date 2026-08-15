@@ -16,14 +16,17 @@
 !!! warning "This page also records a real paid run — spend the operator approved"
     Just like experiment 11, this re-run is **a real Azure inference run executed after passing
     explicit approval gates**. Total spend **$3.269553 / budget $20.00**, keyless Entra,
-    sequential execution, counterbalanced arm order, fixed seed. The prompt and response **text
+    sequential execution in a deterministic dispatch order (task-major → repeat → arm; the arm
+    order is the same on every task and every repeat). `max_output_tokens` is the only request
+    parameter that comes from the plan; sampling temperature is the service default, which this
+    repository neither sets nor records. The prompt and response **text
     is not published** — the sealed snapshot stays local (gitignored), and only `output_sha256`
     (grading evidence) rides in the public trail.
 
 ## What was fixed — only the two causes the negative result pointed to
 
 Experiment 11 produced three findings, and this re-run fixed **the two causes that voided the
-run**. The gate, estimand, workload, and seed were **not changed at all.**
+run**. The gate, estimand, workload, and dispatch order were **not changed at all.**
 
 | Fixed | Why it was a problem in experiment 11 | Effect in this re-run |
 | --- | --- | --- |

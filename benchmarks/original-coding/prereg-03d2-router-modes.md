@@ -178,3 +178,79 @@ here verbatim so approval binds them; **not weakened** after the void.
 3. Clean tracked blob + commit resolved from git.
 4. Final `plan_hash` recomputed with the committed preregistration evidence bound
    into the resolved plan; that hash is what `benchmark run --approve-plan` checks.
+
+## Errata — implementation facts, appended after the run (2026-08-15)
+
+**This section is an append. Not one character above it was changed.** The
+predictions, gates, and invalidation criteria stand exactly as committed before
+the results existed. This document is the preregistration of the **publishable**
+re-run, so it is the one whose figures reach the site; that is the reason to add
+the note here rather than quietly fix a comment. The approved bytes stay
+retrievable:
+
+```
+git show ea3a55165dd0cfaccbe965019b7197e4675b78ca:benchmarks/original-coding/prereg-03d2-router-modes.md
+```
+
+That is blob `4158ca8ab1b5cda4290e289c1d27a68114e58e9a` — the object the approved
+plan pinned. Git blobs are content-addressed, so this append cannot reach it. It
+does change the *working-tree* blob of this file: the pinned object is the record,
+this file is the record plus a note.
+
+### What this document claimed
+
+Line 64, verbatim:
+
+```yaml
+random_seed: 20260729        # counterbalanced arm order, fixed seed, sequential dispatch
+```
+
+### What the implementation actually was
+
+Verified at commit `f2d6f08694e4eabd46d111c7d9d53e48a4802ec6`.
+
+| The comment said | What the code does |
+|---|---|
+| *counterbalanced arm order* | **No counterbalancing exists.** No rotation, Latin square, or per-task arm permutation appears anywhere in the repository. `measure.py:1407` walks `candidates` in the order the `arms:` list gives them (`run_plan.py` `candidates()` builds that list in plan order and never sorts it), identically on every task and every repeat. |
+| *fixed seed* | **No seed reaches the model API.** `random_seed` has exactly one writer (`run_plan.py:909`) and no reader on the execution path; its only effect is that it sits in `execution`, so it salts `plan_hash`. Neither request surface carries a seed — `foundry_live.py:565-568` sends `model`, `messages`, `max_completion_tokens`; `foundry_live.py:586-589` sends `model`, `messages`, `max_tokens`. |
+| *sequential dispatch* | **Accurate.** `measure.py:1404-1407` dispatches one cell at a time, task-major → then repeat → then arm. That order is deterministic, and it never consults `random_seed`. |
+
+Two further facts the comment implies but that do not hold:
+
+- **This repository does not fix the sampling temperature.**
+  `AzureModelRouterClient.temperature` defaults to `None` (`foundry_live.py:520`)
+  and the kwarg is sent only when it is not `None` (`foundry_live.py:570-571`).
+  No construction site in `src/`, `scripts/`, or `tests/` sets it, so the
+  parameter is never sent: the service default applies, and this repository
+  neither pins that value nor records what it was.
+- **`max_output_tokens` is the only request parameter that comes from the plan**
+  (`run_plan.py:900`, read at `cli.py:2722`). This run did change that value
+  (2048 → 8192, change 2 above), and that change is real and did reach the wire.
+
+### Does any recorded or published figure change?
+
+**No.** The published savings figure from this run and every per-arm cost,
+coverage, and pass-rate number are unchanged.
+
+- Those numbers are direct measurements of executed cells, divided by other
+  direct measurements. Neither counterbalancing nor a seed appears anywhere in
+  how a cost, a coverage ratio, or a pass rate is computed, so there is no
+  recomputation to do.
+- The dispatch order that executed was the deterministic task-major order. No
+  result was derived by assuming a different one.
+- The gate outcomes and the pass/fail verdict of this preregistration are decided
+  by the coverage, pass-rate, and cost-order criteria fixed above. None of them
+  reads a seed or an arm ordering.
+
+**What was actually lost is a control, not a number.** "Counterbalanced arm order"
+asserted that order effects were neutralized by design. They were not: arm
+position was constant across every task and every repeat, so an order effect in
+this run is *uncontrolled* rather than *balanced out*. "Fixed seed" asserted a
+reproducibility property this stack cannot deliver: with no seed on the wire, the
+service choosing the backend, and the sampling temperature left at the service
+default, re-executing this plan is not expected to reproduce these outputs. The
+published pages for this run already say the routing mix is not a fixed property
+of a mode and varies run to run — that caveat is the honest form of what the
+"fixed seed" comment wrongly promised. What *is* byte-reproducible is the sealed
+artifact set, and `measure replay` re-verifies it against the recorded
+fingerprints.

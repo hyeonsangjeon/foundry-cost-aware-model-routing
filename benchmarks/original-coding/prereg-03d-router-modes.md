@@ -141,3 +141,71 @@ The run is reported regardless of direction. The following bound what may be
 3. Clean tracked blob + commit resolved from git.
 4. Final `plan_hash` recomputed with the committed preregistration evidence bound
    into the resolved plan; that hash is what `benchmark run --approve-plan` checks.
+
+## Errata — implementation facts, appended after the run (2026-08-15)
+
+**This section is an append. Not one character above it was changed.** The
+predictions, gates, and invalidation criteria stand exactly as committed before
+the results existed, for the same reason experiment 11's VOID verdict was never
+deleted. The approved bytes stay retrievable:
+
+```
+git show 1f0a334104d50dc74116a20071dffb3fa4b3d66a:benchmarks/original-coding/prereg-03d-router-modes.md
+```
+
+That is blob `2b9afe6706c7070ecdd4dffbe7e39814ff481e7a` — the object the approved
+plan pinned. Git blobs are content-addressed, so this append cannot reach it. It
+does change the *working-tree* blob of this file: the pinned object is the record,
+this file is the record plus a note.
+
+### What this document claimed
+
+Line 35, verbatim:
+
+```yaml
+random_seed: 20260729        # counterbalanced arm order, fixed seed, sequential dispatch
+```
+
+### What the implementation actually was
+
+Verified at commit `f2d6f08694e4eabd46d111c7d9d53e48a4802ec6`.
+
+| The comment said | What the code does |
+|---|---|
+| *counterbalanced arm order* | **No counterbalancing exists.** No rotation, Latin square, or per-task arm permutation appears anywhere in the repository. `measure.py:1407` walks `candidates` in the order the `arms:` list gives them (`run_plan.py` `candidates()` builds that list in plan order and never sorts it), identically on every task and every repeat. |
+| *fixed seed* | **No seed reaches the model API.** `random_seed` has exactly one writer (`run_plan.py:909`) and no reader on the execution path; its only effect is that it sits in `execution`, so it salts `plan_hash`. Neither request surface carries a seed — `foundry_live.py:565-568` sends `model`, `messages`, `max_completion_tokens`; `foundry_live.py:586-589` sends `model`, `messages`, `max_tokens`. |
+| *sequential dispatch* | **Accurate.** `measure.py:1404-1407` dispatches one cell at a time, task-major → then repeat → then arm. That order is deterministic, and it never consults `random_seed`. |
+
+Two further facts the comment implies but that do not hold:
+
+- **This repository does not fix the sampling temperature.**
+  `AzureModelRouterClient.temperature` defaults to `None` (`foundry_live.py:520`)
+  and the kwarg is sent only when it is not `None` (`foundry_live.py:570-571`).
+  No construction site in `src/`, `scripts/`, or `tests/` sets it, so the
+  parameter is never sent: the service default applies, and this repository
+  neither pins that value nor records what it was.
+- **`max_output_tokens` is the only request parameter that comes from the plan**
+  (`run_plan.py:900`, read at `cli.py:2722`).
+
+### Does any recorded figure change?
+
+**No. No number moves, and no number was ever derived from either claim.**
+
+- Every recorded cell outcome, cost, and coverage figure is a direct measurement
+  of what actually executed. What executed was the deterministic task-major
+  order — the same order a reader would infer from "sequential dispatch" alone.
+  Nothing was recomputed under an assumption of counterbalancing or of a seeded
+  RNG, because no code path reads either.
+- This run was **VOID** for an unrelated, separately recorded reason (43.4% of
+  cells unpriced under the fail-closed pricing guard). This errata neither
+  revives the run nor changes why it was voided.
+
+**What was actually lost is a control, not a number.** "Counterbalanced arm order"
+asserted that order effects were neutralized by design. They were not: arm
+position was constant across every task and every repeat, so an order effect here
+is *uncontrolled* rather than *balanced out*. "Fixed seed" asserted a
+reproducibility property this stack cannot deliver: with no seed on the wire, the
+service choosing the backend, and the sampling temperature left at the service
+default, re-executing this plan is not expected to reproduce these outputs. What
+*is* byte-reproducible is the sealed artifact set, and `measure replay` re-verifies
+it against the recorded fingerprints.
