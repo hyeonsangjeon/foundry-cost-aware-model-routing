@@ -51,6 +51,7 @@ from .foundry_arena import (
     run_live_arena,
 )
 from .foundry_live import (
+    COMMITTED_TRANSPORT_DEFAULTS,
     DEFAULT_API_VERSION,
     AzureModelRouterClient,
     FoundryConfig,
@@ -2272,6 +2273,85 @@ def _print_plan(plan) -> None:
         print(f"  ⚠ {warning}")
 
 
+#: Mandatory label on any printed ``overall_timeout_seconds``.
+#:
+#: ``overall`` is resolved, validated and sealed into ``plan_hash`` like the
+#: other four cutoffs, but nothing dispatches it:
+#: :meth:`TransportTimeouts.to_httpx` builds the live client from
+#: connect/read/write/pool only, and the runner has no whole-attempt deadline.
+#: Printing the number unlabelled on an approval screen would therefore assert a
+#: cutoff that does not exist. Enforcing it is a runtime change and is out of
+#: scope here; labelling it is not.
+_OVERALL_NOT_ENFORCED = "NOT ENFORCED: no runner deadline"
+
+#: How ``plan.sources`` words an origin, glossed for the approval screen.
+_SOURCE_GLOSS = {
+    "yaml": "run config",
+    "env": "environment",
+    "cli": "CLI flag",
+    "default": "committed default",
+    "unset": "unset",
+}
+
+
+def _secs(value: object) -> str:
+    """Render a resolved timeout as seconds (``90`` and ``90.0`` both -> ``90s``)."""
+
+    if isinstance(value, int | float) and not isinstance(value, bool):
+        return f"{value:g}s"
+    return "(unset)"
+
+
+def _transport_cutoff_summary(plan) -> str:
+    """The one-line read/overall echo shared by the approval view and dispatch."""
+
+    retry = plan.execution.get("retry") or {}
+    return (
+        f"read {_secs(retry.get('read_timeout_seconds'))}, "
+        f"overall {_secs(retry.get('overall_timeout_seconds'))} ({_OVERALL_NOT_ENFORCED})"
+    )
+
+
+def _print_transport_and_endpoint_view(plan) -> None:
+    """Show the transport cutoffs and endpoint modes the operator is approving.
+
+    Display only. Every value printed here is already resolved and already inside
+    ``plan_hash``; this surfaces it on the approval screen instead of leaving it
+    readable only as a digest. Where the plan departs from
+    :data:`COMMITTED_TRANSPORT_DEFAULTS` the delta is spelled out and the file
+    that moved it is named, so "a fresh clone does not run these numbers" is
+    visible before the spend rather than after it.
+    """
+
+    retry = plan.execution.get("retry") or {}
+    drift = [
+        (key, retry.get(key), committed)
+        for key, committed in COMMITTED_TRANSPORT_DEFAULTS.items()
+        if retry.get(key) != committed
+    ]
+    summary = _transport_cutoff_summary(plan)
+    if not drift:
+        print(f"    transport cutoffs : {summary} — committed default")
+    else:
+        deltas = ", ".join(
+            f"{key.removesuffix('_timeout_seconds')} {_secs(committed)} → {_secs(value)}"
+            for key, value, committed in drift
+        )
+        origins = sorted(
+            {_SOURCE_GLOSS.get(plan.sources.get(f"retry.{key}", ""), "?") for key, _, _ in drift}
+        )
+        print(f"    transport cutoffs : {summary}")
+        print(f"                        differs from committed default: {deltas}")
+        print(f"                        set in {plan.config_source} ({', '.join(origins)}) — "
+              "a fresh clone does not inherit these")
+
+    endpoint = plan.execution.get("endpoint") or {}
+    api_origin = _SOURCE_GLOSS.get(plan.sources.get("api_version", ""), "?")
+    auth_origin = _SOURCE_GLOSS.get(plan.sources.get("auth", ""), "?")
+    print(f"    endpoint modes    : api_version {endpoint.get('api_version')} ({api_origin}), "
+          f"auth {endpoint.get('auth_mode')} ({auth_origin})  [display only]")
+
+
 def _print_approval_view(plan) -> None:
     view = plan.approval_view()
     print("  — approval summary —")
@@ -2281,6 +2361,7 @@ def _print_approval_view(plan) -> None:
           "(retries may dispatch anywhere in [base, max] — not an exact call count)")
     print(f"    worst-case reservation : {format_usd(view['worst_case_reservation_usd'])} "
           f"({plan.execution['budget']['reservation_basis']})")
+    _print_transport_and_endpoint_view(plan)
     print(f"    approve with    : --approve-plan {plan.plan_hash}")
 
 
@@ -2688,7 +2769,9 @@ def _benchmark_preview_or_dispatch(args: argparse.Namespace, *, kind: str) -> in
     run_dir.mkdir(parents=True, exist_ok=True)  # pragma: no cover - live path
     progress_path = run_dir / "progress.json"  # pragma: no cover - live path
     print(  # pragma: no cover - live path
-        f"{label} --live: dispatching plan_hash {plan.plan_hash} → {run_dir}", flush=True
+        f"{label} --live: dispatching plan_hash {plan.plan_hash} → {run_dir}"
+        f"  [transport cutoffs {_transport_cutoff_summary(plan)}]",
+        flush=True,
     )
 
     def _live_progress(ev: Mapping[str, Any]) -> None:  # pragma: no cover - live path
