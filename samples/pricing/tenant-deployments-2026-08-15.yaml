@@ -1,0 +1,125 @@
+# Control-plane capture of what is actually DEPLOYED on the tenant this rate
+# card prices — the set that can bill us.
+#
+# WHY THIS FILE EXISTS: 03D-3 returned `gpt-5.6-terra` from a Model Router
+# deployment, the card had no row for it, and 12 calls went unpriced. The first
+# fix pinned the 5.6 family. Diffing the card against this capture then found
+# five MORE deployments with no row at all — including `DeepSeek-V4-Pro`, where
+# the card pinned V3.1/V3.2 while the deployed model was V4-Pro. Every one of
+# those was found by hand. This file turns that diff into a test
+# (`tests/test_deployed_set_coverage.py`), so "deployed but unpriced" fails in
+# CI instead of surfacing in a paid run's traces.
+#
+# WHAT IT IS NOT: not an inventory of what the Model Router can serve. The
+# router serves from its own managed roster, which is not enumerable before
+# dispatch — `gpt-5.6-terra` was never deployed here and was served anyway. This
+# capture is a LOWER BOUND on the billable model set. Passing the coverage test
+# means no *deployed* model is unpriced; it can never mean the card is complete.
+#
+# HOW TO REFRESH (read-only, no inference, no cost):
+#   az cognitiveservices account deployment list -n <account> -g <rg> \
+#     --query "[].{name:name, model:properties.model.name,
+#                  version:properties.model.version, sku:sku.name}" -o tsv
+# then re-run the coverage test and pin any new row from its retail meter.
+#
+# No endpoint, key, or subscription id appears here — deployment and model names
+# only.
+
+source: az cognitiveservices account deployment list
+account: aoai-foundry-iq-demo-ext
+region: eastus
+captured: "2026-08-15"
+
+deployments:
+  # --- OpenAI surface ---
+  - deployment: model-router
+    model: model-router
+    version: "2025-11-18"
+    sku: GlobalStandard
+    kind: router
+  - deployment: model-router-cost
+    model: model-router
+    version: "2025-11-18"
+    sku: GlobalStandard
+    kind: router
+  - deployment: model-router-quality
+    model: model-router
+    version: "2025-11-18"
+    sku: GlobalStandard
+    kind: router
+  - deployment: gpt-4o
+    model: gpt-4o
+    version: "2024-11-20"
+    sku: GlobalStandard
+    kind: chat
+  - deployment: gpt-5.4-mini
+    model: gpt-5.4-mini
+    version: "2026-03-17"
+    sku: GlobalStandard
+    kind: chat
+  - deployment: gpt-5.4-nano
+    model: gpt-5.4-nano
+    version: "2026-03-17"
+    sku: GlobalStandard
+    kind: chat
+  - deployment: gpt-5.5
+    model: gpt-5.5
+    version: "2026-04-24"
+    sku: GlobalStandard
+    kind: chat
+  - deployment: gpt-5.6-sol
+    model: gpt-5.6-sol
+    version: "2026-07-09"
+    sku: GlobalStandard
+    kind: chat
+
+  # --- Foundry inference surface ---
+  - deployment: deepseek-v4-pro
+    model: DeepSeek-V4-Pro
+    version: "2026-04-23"
+    sku: GlobalStandard
+    kind: chat
+  - deployment: grok-4-1-fast-reasoning
+    model: grok-4-1-fast-reasoning
+    version: "1"
+    sku: GlobalStandard
+    kind: chat
+  - deployment: kimi-k2-6
+    model: Kimi-K2.6
+    version: "2026-04-20"
+    sku: GlobalStandard
+    kind: chat
+  - deployment: llama-4-maverick
+    model: Llama-4-Maverick-17B-128E-Instruct-FP8
+    version: "1"
+    sku: GlobalStandard
+    kind: chat
+  - deployment: mistral-large-3
+    model: Mistral-Large-3
+    version: "1"
+    sku: GlobalStandard
+    kind: chat
+  - deployment: cohere-command-a-plus
+    model: Cohere-command-a-plus-05-2026
+    version: "1"
+    sku: GlobalStandard
+    kind: chat
+  - deployment: phi-4-reasoning
+    model: Phi-4-reasoning
+    version: "1"
+    sku: GlobalStandard
+    kind: chat
+
+  # --- Embedding ---
+  # Deployed and DELIBERATELY unpriced: eastus exposes only a DataZone meter for
+  # it (the card excludes DZ), and an embedding model has no output tokens while
+  # a rate row requires both `input` and `output`. It fails closed rather than
+  # being fitted to a shape it does not have.
+  - deployment: text-embedding-3-large
+    model: text-embedding-3-large
+    version: "1"
+    sku: GlobalStandard
+    kind: embedding
+    unpriced_reason: >-
+      no GlobalStandard meter in eastus (DataZone only) and no output-token
+      dimension; cannot be represented as a v2 rate row

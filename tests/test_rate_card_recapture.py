@@ -15,9 +15,14 @@ retroactively. The re-capture is therefore a new dated file, and the tests below
 pin both halves of that contract:
 
 * the 2026-08-05 card is frozen at the bytes the preregs sealed;
-* the 2026-08-15 card differs from it only by *adding* the two missing
-  siblings — no rate moved, which is what makes it a re-capture and not a price
-  update.
+* the 2026-08-15 card differs from it only by *adding* rows — no rate moved,
+  which is what makes it a re-capture and not a price update.
+
+A second pass widened the scope again: diffing the card against the tenant's
+actual deployment list found five more models with no row at all, including a
+`DeepSeek-V4-Pro` deployment behind V3.1/V3.2 rows. Coverage of the deployed set
+is enforced separately in ``test_deployed_set_coverage``; what is pinned here is
+that the widening never repriced anything that was already there.
 
 Everything here is offline: two YAML files, a hash, and arithmetic.
 """
@@ -47,7 +52,20 @@ SEALED_CARD_SHA256 = "ff6f5378e14d4e78fa50488c6e0dafa7564dbe0293dcc9e6ea9b441194
 
 #: The two siblings of the deployed `gpt-5.6-sol` that the 2026-08-05 pass
 #: missed. terra was actually served; luna never has been.
-ADDED_KEYS = {"gpt-5.6-terra", "gpt-5.6-luna"}
+FAMILY_KEYS = {"gpt-5.6-terra", "gpt-5.6-luna"}
+
+#: Deployments on this account that no version of the card had ever priced,
+#: found by diffing it against the control-plane capture. Note DeepSeek-V4-Pro:
+#: the card pinned V3.1 and V3.2 while the *deployed* model was V4-Pro.
+DEPLOYED_SURFACE_KEYS = {
+    "DeepSeek-V4-Pro",
+    "Kimi-K2.6",
+    "Mistral-Large-3",
+    "Cohere-command-a-plus-05-2026",
+    "Phi-4-reasoning",
+}
+
+ADDED_KEYS = FAMILY_KEYS | DEPLOYED_SURFACE_KEYS
 
 #: Token totals summed over the 12 unpriced `gpt-5.6-terra` cells of the 03D-3
 #: live run (results/local/03d/run/20260814T141510Z/traces.jsonl). Reasoning
@@ -102,7 +120,6 @@ def test_recapture_adds_the_missing_siblings_and_moves_no_rate(
 ) -> None:
     assert set(recapture.rates) - set(frozen.rates) == ADDED_KEYS
     assert set(frozen.rates) - set(recapture.rates) == set()  # nothing dropped
-
     # Every carried-over row is byte-for-byte the same rate. If a price had
     # genuinely moved this test *should* fail — it would no longer be a
     # re-capture, and the header's "no rate moved" claim would be false.
@@ -115,10 +132,14 @@ def test_recapture_carries_the_dated_aliases_for_the_new_rows(
     frozen: RateCardV2, recapture: RateCardV2
 ) -> None:
     added = {k: v for k, v in recapture.alias_map.items() if k not in frozen.alias_map}
-    assert added == {
-        "gpt-5.6-terra-2026-07-09": "gpt-5.6-terra",
-        "gpt-5.6-luna-2026-07-09": "gpt-5.6-luna",
-    }
+    # Every new alias must land on a row that exists — an alias pointing at a
+    # missing key resolves to a pricing_key that then fails to price, which is
+    # harder to diagnose than no alias at all.
+    assert set(added.values()) <= set(recapture.rates)
+    assert added["gpt-5.6-terra-2026-07-09"] == "gpt-5.6-terra"
+    assert added["gpt-5.6-luna-2026-07-09"] == "gpt-5.6-luna"
+    # No alias was added for a key the card does not actually price.
+    assert set(added.values()) == ADDED_KEYS
     # The pre-existing alias map is untouched, exactly as the rates are.
     assert all(recapture.alias_map[k] == v for k, v in frozen.alias_map.items())
 
