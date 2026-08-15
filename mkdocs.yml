@@ -6,7 +6,7 @@ repo_url: https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing
 repo_name: foundry-cost-aware-model-routing
 edit_uri: edit/main/docs/
 copyright: >-
-  Experiments 01–08 are synthetic offline projections (measured=false); 09, 10, 12
+  Experiments 01–08 are synthetic offline projections (measured=false); 09, 10, 12, 13
   are measured (measured=true, evidence_tier=directional). Check each page's labels.
 
 theme:
@@ -48,6 +48,7 @@ nav:
   - Results:
       - "Routing-mode measured results (03D)": manual/03d-results.md
       - "[measured] Experiment 12 · router three modes · run 2 (measurement succeeded)": lab-notebook/12-router-modes-measured.md
+      - "[measured] Experiment 13 · router three modes · run 3 (a gap in our own rate card)": lab-notebook/13-router-modes-rate-card-gap.md
       - "Offline experiment results · synthetic data": manual/projection-results.md
   - Lab notebook:
       - Introduction and methodology: lab-notebook/index.md
@@ -105,7 +106,7 @@ plugins:
           site_name: Foundry 비용 인지 모델 라우팅
           site_description: 태스크마다 '통과하는 가장 싼 모델'로 라우팅하고, 오프라인으로 증명하는 실험 — 한국어 매뉴얼과 실험노트.
           copyright: >-
-            실험 01–08은 합성 오프라인 투영(measured=false), 09·10·12는 실측(measured=true,
+            실험 01–08은 합성 오프라인 투영(measured=false), 09·10·12·13은 실측(measured=true,
             evidence_tier=directional). 각 페이지의 라벨을 확인하세요.
           theme:
             language: ko
@@ -118,6 +119,7 @@ plugins:
             - 결과:
                 - "라우팅 모드 실측 결과 (03D)": manual/03d-results.md
                 - "[실측] 실험 12 · 라우터 세 모드 비교 · 2차 (측정 성공)": lab-notebook/12-router-modes-measured.md
+                - "[실측] 실험 13 · 라우터 세 모드 비교 · 3차 (우리 요율 카드의 구멍)": lab-notebook/13-router-modes-rate-card-gap.md
                 - "오프라인 실험 결과 · 합성 데이터": manual/projection-results.md
             - 실험노트:
                 - 소개와 방법론: lab-notebook/index.md

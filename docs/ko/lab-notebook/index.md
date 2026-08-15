@@ -67,7 +67,7 @@ cost-router experiment run hero --json     # 기계가 읽는 전체 요약
 
 ## 실험 목록
 
-이 저장소는 **12개 실험(01–12)**을 담습니다 — 투영 트랙(01–08)과 실측 트랙(09–12)입니다.
+이 저장소는 **13개 실험(01–13)**을 담습니다 — 투영 트랙(01–08)과 실측 트랙(09–13)입니다.
 투영 트랙 대표 수치의 정본은 [오프라인 실험 결과](../manual/projection-results.md)에 모았습니다.
 
 - [실험 01 · 히어로](01-hero.md) — 합성 100건, 커버리지 유지하며 25.5% 절감
@@ -82,3 +82,4 @@ cost-router experiment run hero --json     # 기계가 읽는 전체 요약
 - [실험 10 · 실측 원장](10-measured-ledger.md) — 라이브 런을 해시 체인과 봉인 요율표가 있는 원장에 기록하고 한 줄로 `PASS` 재검증; **1바이트만 고쳐도 실패**
 - [실험 11 · 라우팅 모드 유료 실측](11-router-modes-void.md) — 최초 **유료 4-arm 비교**($3.47/$20)는 quality 채점 커버리지 79.2%<90%라 사전등록에 따라 **무효(VOID)**; quality>premium, Grok 100%(Claude 아님), reasoning의 output 소진도 기록
 - [실험 12 · 라우팅 모드 유료 실측 재런](12-router-modes-measured.md) — 실험 11의 Fix A/B만 고치고 같은 게이트로 재런; 채점 커버리지 79.2%→**96.18%**, **네 arm 전부 PASS → publishable**, `cost<balanced<premium≤quality` 적중, Cost 100% Grok 두 런 연속. $3.27/$20, replay 바이트 동일, unpriced 0%
+- [실험 13 · 라우팅 모드 유료 실측 3차](13-router-modes-rate-card-gap.md) — 타임아웃 상향은 제안서가 예측한 대로 작동(채점 커버리지 **96.18%→99.65%**, 네 arm 모두 통과율 1.0, 비용 순서 유지)했고, 대신 이 런이 드러낸 것은 **우리 요율 카드**였음: Balanced arm의 12개 호출을 `gpt-5.6-terra`가 처리했는데 카드에 가격 행이 없어 그 arm은 **cost-incomplete**가 되고 절감 주장을 싣지 않음. $4.20/$20, unpriced 12

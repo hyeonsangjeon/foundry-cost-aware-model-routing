@@ -8,7 +8,7 @@
     **measurable price**. This repository meters that price offline and
     deterministically, and **never inflates it** (`labels.measured = false`).
 
-This page puts the repository's [experiments 01–12](index.md) in order. For the core
+This page puts the repository's [experiments 01–13](index.md) in order. For the core
 experiments 01–07, it states what changed, what result came out, and what question
 the next experiment answers. [Experiment 08 (arena)](08-arena.md) applies the same
 comparison to one task. Each experiment page contains the calculation and

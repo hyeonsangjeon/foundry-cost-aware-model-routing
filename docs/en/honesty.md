@@ -10,14 +10,14 @@ specification. This page also states what the project does not claim.
 | --- | --- | --- |
 | Offline before/after | Projection over synthetic data | `measured = false` |
 | Experiment spotlight / savings rate | Projection over synthetic data | `measured = false` |
-| Measured experiments 09 · 10 · 11 · 12 (committed) | Real Foundry calls · `evidence_tier = directional` (11 is VOID, below its pre-registration bar) | `measured = true` |
+| Measured experiments 09 · 10 · 11 · 12 · 13 (committed) | Real Foundry calls · `evidence_tier = directional` (11 is VOID, below its pre-registration bar; one arm of 13 is cost-incomplete) | `measured = true` |
 | A live eval in your tenant | Real measurement (scope: the workload you measured) | `measured = true` |
 
 The offline `hero` and projection bundle use synthetic data (`measured = false`).
 They do not report measured savings.
 
-Experiments 09 · 10 · 11 · 12 use real Azure Foundry calls and are
-`measured = true`. Experiments 09 · 10 · 12 still carry
+Experiments 09 · 10 · 11 · 12 · 13 use real Azure Foundry calls and are
+`measured = true`. Experiments 09 · 10 · 12 · 13 still carry
 `evidence_tier = directional`: 24 tasks · single tenant · one measurement. They show
 what happened in those runs, not what every workload will do.
 
@@ -25,6 +25,12 @@ Experiment 11 is also `measured = true`, but one arm did not clear the
 grading-coverage gate fixed by pre-registration. The result is **VOID**. The
 measurement remains in the measured track, but it cannot support the comparison
 that was planned.
+
+[Experiment 13](lab-notebook/13-router-modes-rate-card-gap.md) cleared every gate,
+but 12 calls in one arm were served by a model the rate card had no row for. Those
+cells were withheld fail-closed rather than priced at a guessed rate, so that arm is
+**cost-incomplete**: its total is reported and labelled, and it carries no savings
+claim. Nothing in an earlier run was recomputed when the card was later corrected.
 
 The [live measurement bridge](manual/foundry-live.md) implements this path. It reads
 the token usage from a real Azure Model Router call, computes the cost, and grants
