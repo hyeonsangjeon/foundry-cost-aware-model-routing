@@ -111,6 +111,7 @@ from .pipeline import (
     run_replay,
     run_route_once,
 )
+from .preregistration import prereg_dispatch_gate
 from .pricing import PricingTable, format_usd, format_usd_avg
 from .rate_card import RateCardError, RateCardV2
 from .run_plan import (
@@ -2352,6 +2353,41 @@ def _print_transport_and_endpoint_view(plan) -> None:
           f"auth {endpoint.get('auth_mode')} ({auth_origin})  [display only]")
 
 
+def _print_preregistration_view(plan) -> None:
+    """Show which preregistration object the plan pins, and what happens to it.
+
+    Declaration only — every value printed here comes out of the plan, so this
+    costs no git call and reads identically in a shallow clone, a source export
+    or a full checkout. The pinned objects are read once, at dispatch, where a
+    mismatch can still stop the spend; doing it here would make an offline
+    preview depend on how the reader happened to obtain the repository.
+    """
+
+    block = plan.execution.get("preregistration") or {}
+    path = str(block.get("path") or "").strip()
+    if not path:
+        mode = str(plan.execution.get("run_mode") or "").strip().lower()
+        if mode == "benchmark":
+            print("    preregistration   : NONE PINNED — `benchmark run --live` will "
+                  "refuse")
+            print("                        (a benchmark cannot bypass preregistration)")
+        else:
+            print("    preregistration   : none pinned (wiring smoke)")
+        return
+    blob = str(block.get("blob") or "") or "(unset)"
+    commit = str(block.get("commit") or "") or "(unset)"
+    print(f"    preregistration   : {path}")
+    print(f"                        blob {blob}")
+    print(f"                        commit {commit}")
+    print("                        checked at dispatch: `git show <commit>:<path>` "
+          "must hash to that blob,")
+    print("                        and the commit must predate the run. The "
+          "working-tree file is not")
+    print("                        compared, so an appended errata section is not a "
+          "violation.")
+
+
+
 def _print_approval_view(plan) -> None:
     view = plan.approval_view()
     print("  — approval summary —")
@@ -2362,6 +2398,7 @@ def _print_approval_view(plan) -> None:
     print(f"    worst-case reservation : {format_usd(view['worst_case_reservation_usd'])} "
           f"({plan.execution['budget']['reservation_basis']})")
     _print_transport_and_endpoint_view(plan)
+    _print_preregistration_view(plan)
     print(f"    approve with    : --approve-plan {plan.plan_hash}")
 
 
@@ -2725,6 +2762,27 @@ def _live_measure_client(plan, fconfig) -> AzureMeasureClient:
     )
 
 
+def _benchmark_prereg_gate(config, plan, *, label: str):
+    """Resolve the pinned preregistration and put it through the dispatch gate.
+
+    Separated from :func:`_benchmark_preview_or_dispatch` so a test can reach the
+    gate without going anywhere near a client, and so the path resolution — the
+    config-relative ``path`` turned into a real file — happens in exactly one
+    place for both benchmark entry points.
+    """
+
+    block = plan.execution.get("preregistration") or {}
+    ref = str(block.get("path") or "").strip()
+    resolved = config.resolve_path(ref) if ref else None
+    return prereg_dispatch_gate(
+        block,
+        resolved_path=resolved,
+        run_started_at=_utc_now(),
+        run_mode=str(plan.execution.get("run_mode") or ""),
+        label=f"{label} --live",
+    )
+
+
 def _benchmark_preview_or_dispatch(args: argparse.Namespace, *, kind: str) -> int:
     label = f"benchmark {kind}"
     live = bool(getattr(args, "live", False))
@@ -2757,6 +2815,14 @@ def _benchmark_preview_or_dispatch(args: argparse.Namespace, *, kind: str) -> in
     except ApprovalError as exc:
         print(f"{label}: {exc}")
         return 1
+
+    # The preregistration gate. Fail-closed, no bypass flag, and deliberately
+    # ahead of client construction: everything below this line can bill.
+    gate = _benchmark_prereg_gate(config, plan, label=label)
+    if not gate.allowed:
+        print(gate.refusal)
+        return 1
+    print(f"{label}: preregistration {gate.summary}")
 
     load_dotenv_file(args.env_file)
     fconfig = FoundryConfig.from_env()
