@@ -31,6 +31,7 @@ from typing import Any
 import yaml
 
 from .benchmark_grader import ExecSignalsGrader
+from .foundry_live import COMMITTED_TRANSPORT_DEFAULTS
 from .measure import (
     MeasureCandidate,
     MeasureRunResult,
@@ -790,12 +791,16 @@ def resolve_run_plan(
     retry = {
         "max_retries": max_retries,
         "provider_internal_retries_disabled": True,
-        "connect_timeout_seconds": retry_raw.get("connect_timeout_seconds", 10),
-        "read_timeout_seconds": retry_raw.get("read_timeout_seconds", 90),
-        "write_timeout_seconds": retry_raw.get("write_timeout_seconds", 30),
-        "pool_timeout_seconds": retry_raw.get("pool_timeout_seconds", 10),
-        "overall_timeout_seconds": retry_raw.get("overall_timeout_seconds", 120),
+        **{
+            key: retry_raw.get(key, committed)
+            for key, committed in COMMITTED_TRANSPORT_DEFAULTS.items()
+        },
     }
+    # Display-only provenance for the transport cutoffs. ``sources`` is a
+    # sibling of ``execution`` on the resolved plan, never a member of it, so
+    # recording this cannot move ``plan_hash`` — a test pins that.
+    for key in COMMITTED_TRANSPORT_DEFAULTS:
+        sources[f"retry.{key}"] = "yaml" if key in retry_raw else "default"
 
     base_attempts = 1
     max_attempts = 1 + max_retries

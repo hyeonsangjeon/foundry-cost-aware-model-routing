@@ -18,6 +18,7 @@ import pytest
 import yaml
 
 from router import cli
+from router.foundry_live import DEFAULT_API_VERSION
 from router.measure import AttemptResult, replay_measure
 from router.run_plan import (
     ApprovalError,
@@ -460,6 +461,10 @@ def test_direct_arm_has_no_routing_mode_key(tmp_path: Path) -> None:
         lambda m: m["benchmark"].__setitem__("budget_usd", 9.0),
         lambda m: m["benchmark"].__setitem__("repetitions", 3),
         lambda m: m["benchmark"]["retry"].__setitem__("max_retries", 5),
+        # The control for the sources work: the *value* of a cutoff is inside the
+        # hash even though the record of where it came from is not.
+        lambda m: m["benchmark"]["retry"].__setitem__("read_timeout_seconds", 180),
+        lambda m: m["benchmark"]["retry"].__setitem__("overall_timeout_seconds", 240),
         lambda m: m["arms"][0].__setitem__("deployment", "model-router-v2"),
         lambda m: m["foundry"].__setitem__("api_version", "2025-01-01"),
         lambda m: m["benchmark"].__setitem__("random_seed", 999),
@@ -785,3 +790,164 @@ def test_endpoint_is_redacted_to_host_only(tmp_path: Path) -> None:
     )
     _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
     assert plan.execution["endpoint"]["data_plane"] == "https://acme-res.example.com"
+
+
+# --------------------------------------------------------------------------- #
+# Transport cutoffs — provenance is recorded, and recording it is hash-neutral
+# --------------------------------------------------------------------------- #
+
+
+def test_retry_timeouts_default_to_the_committed_constant(tmp_path: Path) -> None:
+    from router.foundry_live import COMMITTED_TRANSPORT_DEFAULTS
+
+    mapping = _benchmark_config(tmp_path)  # retry: {max_retries: N} only
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    for key, committed in COMMITTED_TRANSPORT_DEFAULTS.items():
+        assert plan.execution["retry"][key] == committed
+        assert plan.sources[f"retry.{key}"] == "default"
+
+
+def test_retry_timeout_sources_distinguish_yaml_from_default(tmp_path: Path) -> None:
+    mapping = _benchmark_config(tmp_path)
+    mapping["benchmark"]["retry"]["read_timeout_seconds"] = 180
+    mapping["benchmark"]["retry"]["overall_timeout_seconds"] = 240
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    assert plan.sources["retry.read_timeout_seconds"] == "yaml"
+    assert plan.sources["retry.overall_timeout_seconds"] == "yaml"
+    # Untouched cutoffs keep saying "default", so the approval screen can name
+    # only the knobs the operator actually moved.
+    assert plan.sources["retry.connect_timeout_seconds"] == "default"
+    assert plan.sources["retry.write_timeout_seconds"] == "default"
+    assert plan.sources["retry.pool_timeout_seconds"] == "default"
+
+
+def test_recording_timeout_sources_does_not_move_plan_hash(tmp_path: Path) -> None:
+    """``sources`` is a sibling of ``execution``, never a member of it.
+
+    Spelling the committed defaults out in the YAML changes where every cutoff
+    came from — ``default`` becomes ``yaml`` for all five — while leaving the
+    resolved values identical. The hash must not notice, or this display-only
+    change would invalidate the approvals of the three sealed runs.
+    """
+
+    implicit_map = _benchmark_config(tmp_path)
+    explicit_map = _benchmark_config(tmp_path)
+    explicit_map["benchmark"]["retry"].update(
+        {
+            "connect_timeout_seconds": 10,
+            "read_timeout_seconds": 90,
+            "write_timeout_seconds": 30,
+            "pool_timeout_seconds": 10,
+            "overall_timeout_seconds": 120,
+        }
+    )
+    _, implicit = _resolve(tmp_path, implicit_map, require_run_ready=True)
+    _, explicit = _resolve(tmp_path, explicit_map, require_run_ready=True)
+
+    assert implicit.sources["retry.read_timeout_seconds"] == "default"
+    assert explicit.sources["retry.read_timeout_seconds"] == "yaml"
+    assert implicit.execution["retry"] == explicit.execution["retry"]
+    assert implicit.plan_hash == explicit.plan_hash
+
+    # And no `sources` key leaked into the hashed mapping.
+    assert "sources" not in implicit.execution
+    payload = json.dumps(implicit.execution, sort_keys=True)
+    assert "retry.read_timeout_seconds" not in payload
+
+
+def test_sealed_run_plan_hashes_are_unchanged_by_this_release() -> None:
+    """The three paid runs' approvals must still resolve to the same digest.
+
+    ``plan_hash`` is what an approval binds to; if it moved, every published
+    ``plan_hash sha256:…`` on the lab-notebook pages would stop matching its
+    manifest. These are the values sealed in the run manifests.
+    """
+
+    local_config = ROOT / ".foundry.local.yaml"
+    if not local_config.is_file():  # pragma: no cover - operator-only file
+        pytest.skip("operator's gitignored run config is not present")
+    plan = resolve_run_plan(
+        LocalRunConfig.from_yaml(local_config), env={}, require_run_ready=False
+    )
+    sealed = json.loads(
+        (ROOT / "results/local/03d/run/20260814T141510Z/manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )["plan_hash"]
+    assert plan.plan_hash == sealed
+
+
+# --------------------------------------------------------------------------- #
+# Approval view — the plan's cutoffs are readable before the spend
+# --------------------------------------------------------------------------- #
+
+
+def test_transport_cutoff_summary_always_labels_overall_not_enforced(
+    tmp_path: Path,
+) -> None:
+    """The label is the whole point of printing ``overall`` at all.
+
+    ``TransportTimeouts.to_httpx`` builds the live client from
+    connect/read/write/pool only and no runner-side deadline exists, so an
+    unlabelled ``overall 120s`` on an approval screen would be a fresh false
+    claim — exactly the class of defect this surface is meant to close.
+    """
+
+    mapping = _benchmark_config(tmp_path)
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    summary = cli._transport_cutoff_summary(plan)
+    assert "read 90s" in summary
+    assert "overall 120s" in summary
+    assert "NOT ENFORCED" in summary
+
+
+def test_approval_view_prints_committed_defaults_on_one_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mapping = _benchmark_config(tmp_path)
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    cli._print_approval_view(plan)
+    lines = [ln for ln in capsys.readouterr().out.splitlines() if "transport cutoffs" in ln]
+    assert len(lines) == 1
+    assert "read 90s, overall 120s" in lines[0]
+    assert "NOT ENFORCED" in lines[0]
+    assert "committed default" in lines[0]
+
+
+def test_approval_view_spells_out_a_drift_and_names_the_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mapping = _benchmark_config(tmp_path)
+    mapping["benchmark"]["retry"]["read_timeout_seconds"] = 180
+    mapping["benchmark"]["retry"]["overall_timeout_seconds"] = 240
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    cli._print_approval_view(plan)
+    out = capsys.readouterr().out
+    assert "read 180s, overall 240s" in out
+    assert "NOT ENFORCED" in out
+    assert "read 90s → 180s" in out and "overall 120s → 240s" in out
+    # The operator must be able to see *which file* moved them.
+    assert str(tmp_path / ".foundry.local.yaml") in out
+    assert "a fresh clone does not inherit these" in out
+    # Cutoffs that did not move are not listed as drift.
+    assert "connect 10s →" not in out
+
+
+def test_approval_view_shows_endpoint_modes_and_their_origin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mapping = _benchmark_config(tmp_path)  # foundry.api_version / auth are pinned in YAML
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+    cli._print_approval_view(plan)
+    out = capsys.readouterr().out
+    assert "api_version 2024-10-21 (run config)" in out
+    assert "auth entra (run config)" in out
+    assert "[display only]" in out
+
+    del mapping["foundry"]["api_version"]
+    del mapping["foundry"]["auth"]
+    _, fallback = _resolve(tmp_path, mapping, require_run_ready=True)
+    cli._print_approval_view(fallback)
+    out = capsys.readouterr().out
+    assert f"api_version {DEFAULT_API_VERSION} (committed default)" in out
+    assert "auth entra (committed default)" in out

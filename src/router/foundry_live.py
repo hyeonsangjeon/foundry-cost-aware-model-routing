@@ -133,21 +133,44 @@ def assert_provider_benchmark_safe(
         raise ProviderScopedOutError(AZURE_AI_INFERENCE_SCOPE_OUT_REASON)
 
 
+#: The transport cutoffs this repository *commits to*, in seconds — what a fresh
+#: clone gets when the run config pins nothing. Keyed by the resolved-plan
+#: ``execution["retry"]`` field names, because that mapping is the wire format
+#: between the plan resolver and the live client, so both read these values from
+#: here and cannot drift apart. ``foundry.example.yaml`` is pinned to the same
+#: numbers by a test.
+#:
+#: These are ``int`` on purpose. They land verbatim in ``execution["retry"]``,
+#: which is canonically JSON-serialised into ``plan_hash``; ``90`` and ``90.0``
+#: are different bytes there, so widening them to float would silently move the
+#: hash of every config that does not pin its own timeouts.
+COMMITTED_TRANSPORT_DEFAULTS: Mapping[str, int] = {
+    "connect_timeout_seconds": 10,
+    "read_timeout_seconds": 90,
+    "write_timeout_seconds": 30,
+    "pool_timeout_seconds": 10,
+    "overall_timeout_seconds": 120,
+}
+
+
 @dataclass(frozen=True)
 class TransportTimeouts:
     """Resolved per-transport HTTP cutoffs plus the runner's overall deadline.
 
     The four transport cutoffs are wired straight into the live HTTP client so a
     stalled connect/read/write/pool phase is bounded at the socket. ``overall``
-    is the runner-owned deadline for the whole attempt; each transport cutoff
-    must fit inside it. Values are seconds.
+    is *not* wired anywhere: :meth:`to_httpx` builds a timeout from
+    connect/read/write/pool only, and no runner-side deadline bounds a whole
+    attempt, so ``overall`` currently acts as a validation ceiling (each
+    transport cutoff must fit inside it) rather than an enforced budget. Values
+    are seconds; the defaults come from :data:`COMMITTED_TRANSPORT_DEFAULTS`.
     """
 
-    connect: float = 10.0
-    read: float = 90.0
-    write: float = 30.0
-    pool: float = 10.0
-    overall: float = 120.0
+    connect: float = float(COMMITTED_TRANSPORT_DEFAULTS["connect_timeout_seconds"])
+    read: float = float(COMMITTED_TRANSPORT_DEFAULTS["read_timeout_seconds"])
+    write: float = float(COMMITTED_TRANSPORT_DEFAULTS["write_timeout_seconds"])
+    pool: float = float(COMMITTED_TRANSPORT_DEFAULTS["pool_timeout_seconds"])
+    overall: float = float(COMMITTED_TRANSPORT_DEFAULTS["overall_timeout_seconds"])
 
     def __post_init__(self) -> None:
         for name in ("connect", "read", "write", "pool", "overall"):
@@ -168,16 +191,22 @@ class TransportTimeouts:
         """Build from a resolved-plan ``retry`` mapping (missing keys -> defaults)."""
 
         data = dict(retry or {})
+        defaults = COMMITTED_TRANSPORT_DEFAULTS
         return cls(
-            connect=float(data.get("connect_timeout_seconds", 10.0)),
-            read=float(data.get("read_timeout_seconds", 90.0)),
-            write=float(data.get("write_timeout_seconds", 30.0)),
-            pool=float(data.get("pool_timeout_seconds", 10.0)),
-            overall=float(data.get("overall_timeout_seconds", 120.0)),
+            connect=float(data.get("connect_timeout_seconds", defaults["connect_timeout_seconds"])),
+            read=float(data.get("read_timeout_seconds", defaults["read_timeout_seconds"])),
+            write=float(data.get("write_timeout_seconds", defaults["write_timeout_seconds"])),
+            pool=float(data.get("pool_timeout_seconds", defaults["pool_timeout_seconds"])),
+            overall=float(data.get("overall_timeout_seconds", defaults["overall_timeout_seconds"])),
         )
 
     def to_httpx(self) -> Any:
-        """Build an ``httpx.Timeout`` (lazy import; only on the live SDK path)."""
+        """Build an ``httpx.Timeout`` (lazy import; only on the live SDK path).
+
+        ``overall`` is deliberately absent: httpx has no whole-attempt budget in
+        this shape, and nothing else imposes one, so an approval surface that
+        prints ``overall`` must label it as not enforced.
+        """
 
         import httpx
 

@@ -15,12 +15,14 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 from policy import load_default_policy
 from router import cli
 from router.baseline import single_call_summary
 from router.foundry_live import (
     AZURE_AI_INFERENCE_RETIREMENT_DATE,
+    COMMITTED_TRANSPORT_DEFAULTS,
     DEFAULT_API_VERSION,
     AzureModelRouterClient,
     FoundryConfig,
@@ -953,3 +955,74 @@ def test_smoke_client_still_allows_partner_provider() -> None:
         provider="foundry",
     )
     assert outcome.provenance == "live" and len(inference.calls) == 1
+
+
+# --------------------------------------------------------------------------- #
+# Committed transport defaults — one constant, three readers
+# --------------------------------------------------------------------------- #
+
+
+def test_committed_transport_defaults_feed_the_dataclass() -> None:
+    """``TransportTimeouts`` must not carry a second, private copy of the numbers.
+
+    The defect this repo already recorded — an approved timeout change that never
+    reached the socket — was survivable for two paid runs precisely because the
+    same five numbers existed independently in the plan resolver, in this
+    dataclass, and in the shipped example config. One constant, read by all
+    three, is what makes a drift detectable instead of silent.
+    """
+
+    defaults = TransportTimeouts()
+    assert defaults.connect == COMMITTED_TRANSPORT_DEFAULTS["connect_timeout_seconds"]
+    assert defaults.read == COMMITTED_TRANSPORT_DEFAULTS["read_timeout_seconds"]
+    assert defaults.write == COMMITTED_TRANSPORT_DEFAULTS["write_timeout_seconds"]
+    assert defaults.pool == COMMITTED_TRANSPORT_DEFAULTS["pool_timeout_seconds"]
+    assert defaults.overall == COMMITTED_TRANSPORT_DEFAULTS["overall_timeout_seconds"]
+    # An absent or empty plan `retry` block resolves to exactly the same cutoffs.
+    assert TransportTimeouts.from_retry(None) == defaults
+    assert TransportTimeouts.from_retry({}) == defaults
+    assert TransportTimeouts.from_retry({"max_retries": 3}) == defaults
+
+
+def test_committed_transport_defaults_are_ints() -> None:
+    """These land verbatim in ``execution["retry"]``, which is hashed as JSON.
+
+    ``90`` and ``90.0`` serialise to different bytes, so widening the constant to
+    float would move ``plan_hash`` for every config that does not pin its own
+    timeouts — silently invalidating existing approvals.
+    """
+
+    for key, value in COMMITTED_TRANSPORT_DEFAULTS.items():
+        assert isinstance(value, int) and not isinstance(value, bool), key
+
+
+def test_example_config_pins_the_committed_transport_defaults() -> None:
+    """``foundry.example.yaml`` is what a fresh clone reads — it must agree.
+
+    The published record says the committed defaults are read 90 / overall 120.
+    If the example config and the constant ever disagree, that sentence becomes
+    false for whichever one the reader happens to look at.
+    """
+
+    retry = yaml.safe_load(
+        (ROOT / "foundry.example.yaml").read_text(encoding="utf-8")
+    )["benchmark"]["retry"]
+    for key, committed in COMMITTED_TRANSPORT_DEFAULTS.items():
+        assert retry[key] == committed, (
+            f"foundry.example.yaml benchmark.retry.{key} is {retry[key]!r} but the "
+            f"committed default is {committed!r} — update both or neither"
+        )
+
+
+def test_to_httpx_omits_overall_so_the_label_is_not_cosmetic() -> None:
+    """Pins *why* the approval screen must call ``overall`` NOT ENFORCED.
+
+    If a future change starts enforcing a whole-attempt deadline, this test fails
+    and the label has to be revisited rather than left behind as a stale caveat.
+    """
+
+    pytest.importorskip("httpx")
+    timeout = TransportTimeouts(connect=1, read=2, write=3, pool=4, overall=60).to_httpx()
+    assert (timeout.connect, timeout.read, timeout.write, timeout.pool) == (1, 2, 3, 4)
+    # No attribute on the httpx timeout carries the 60 s overall budget.
+    assert 60 not in (timeout.connect, timeout.read, timeout.write, timeout.pool)
