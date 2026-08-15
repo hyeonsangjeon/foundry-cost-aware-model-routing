@@ -1,0 +1,330 @@
+# Rate-card v2 — AUTHORITATIVE composite Model Router pricing for the
+# `aoai-foundry-iq-demo-ext` tenant (BOLT-03B, rate-card v2 contract).
+#
+# SUPERSEDES `foundry-ext-router.yaml` (the 2026-08-05 capture), which is now
+# FROZEN and must not be edited: `prereg-03d2-router-modes.md` and
+# `prereg-03d3-router-modes.md` bind its exact sha256
+# (ff6f5378e14d4e78fa50488c6e0dafa7564dbe0293dcc9e6ea9b4411946919c3) as
+# `rate_card_hash`, and `_resolve_pricing` folds the card's full text into
+# `plan_hash`. Editing that file in place would silently invalidate two sealed
+# preregistrations. New runs point here; sealed runs keep replaying against the
+# `pricing.snapshot.yaml` captured inside their own run directory.
+#
+# WHAT CHANGED, AND WHY IT IS A RE-CAPTURE RATHER THAN A PRICE UPDATE: no rate
+# moved. The 2026-08-05 capture was INCOMPLETE — it enumerated the 27-model
+# router candidate pool plus the direct arm, and missed two siblings of the
+# deployed `gpt-5.6-sol`. Both were already in effect at that time
+# (effectiveStartDate 2026-07-01), so this is a correction to the enumeration,
+# not a change in the prices. All 61 meterIds pinned by the previous card were
+# re-resolved against the live API on 2026-08-15 and every value matched (61/61,
+# 0 mismatches) before this file was stamped with today's capture_date.
+#
+# Unlike the ILLUSTRATIVE sibling cards (rate-card-v2.example.yaml,
+# foundry-ext-full.yaml), every rate below is pinned from a single authoritative
+# source — the public Azure Retail Prices API — captured on 2026-08-15. No rate
+# is guessed. Any candidate-pool model whose GlobalStandard on-demand meter is
+# NOT exposed by that API is OMITTED from `rates` on purpose: 03B prices it
+# `unpriced` and fails closed (see `applicability_notes`) rather than inventing a
+# number. That is the whole point — 03Z retired the legacy card precisely because
+# its markup and per-model rates could not be sourced.
+#
+# Meter discovery lesson (2026-08-05 re-audit): the Retail Prices API meter
+# NAMING is inconsistent across products and does NOT contain the model-id token.
+# Do NOT search by `contains(meterName,'gpt-5.6-sol')` — that returns 0 rows.
+# Enumerate per product and map by hand, e.g.
+#   $filter=serviceName eq 'Foundry Models'
+#           and productName eq 'Azure OpenAI GPT5'
+#           and armRegionName eq 'eastus'
+# then read the tiered/lowercase meters ("5.6 sol ShortCo Inp Std Gl",
+# "5.4 longco inp Gl") and the canonical ones ("GPT 5 Inpt Glbl 1M Tokens").
+# The router markup lives under serviceName "Foundry Tools" / productName
+# "Model Tools"; underlying models under serviceName "Foundry Models".
+#
+# Meter discovery lesson (2026-08-15 re-audit): scope the enumeration to the
+# MODEL FAMILY, not to the candidate pool. The 2026-08-05 pass priced the one
+# 5.6 model we had deployed (`gpt-5.6-sol`) and stopped there; `az
+# cognitiveservices model list -l eastus` shows the family is actually three
+# (`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, all version 2026-07-09, all
+# deployable, all with meters). Model Router then served `gpt-5.6-terra` in
+# 03D-3 and the request went unpriced. Unlike the model-id lesson above,
+# `contains(meterName,'5.6 terra')` DOES work for this product — the GPT5
+# meters carry the family token.
+#
+# Unit basis differs by product: "Azure OpenAI" / "Azure OpenAI Reasoning" /
+# "Azure Deepseek Models" / "Azure Grok Models" / "Azure Llama Models" /
+# "Azure OpenAI OSS Models" meters are per-1K tokens (converted to per-1M, x1000);
+# "Azure OpenAI GPT5" meters are already published per-"1M Tokens" (x1).
+#
+# Composite formula (the ONLY pricing path in 03B):
+#   router request cost = router input-token markup
+#                       + underlying input + output (+ pinned cached/reasoning)
+# Direct-model arms omit the markup.
+
+schema_version: 2
+currency: USD
+unit_basis: per_1m_tokens
+source: >-
+  Azure Retail Prices API (https://prices.azure.com/api/retail/prices,
+  api-version 2023-01-01-preview), captured 2026-08-15, region eastus,
+  GlobalStandard on-demand. Router input markup: meter "Model Routers GL 1M
+  Tokens" (serviceName "Foundry Tools" / productName "Model Tools"), unit 1M,
+  meterId 615a7bc2-fa4e-5b2c-b198-40a04e5a8611 (eastus2 representative; the GL
+  price is region-uniform at USD 0.14 — there is no eastus-specific meter row).
+  Underlying-model rates: serviceName "Foundry Models" across products "Azure
+  OpenAI", "Azure OpenAI GPT5", "Azure OpenAI Reasoning", "Azure OpenAI OSS
+  Models", "Azure Llama Models", "Azure Grok Models", "Azure Deepseek Models".
+  Exact meterName / meterId / effectiveStartDate per rate row are in the comments
+  beside each row below.
+effective_date: "2026-08-15"
+capture_date: "2026-08-15"
+region: eastus
+sku_meter_basis: >-
+  GlobalStandard on-demand, per 1,000,000 tokens by token kind. Std (standard)
+  priority is used where a Std/PP (Priority Processing) split exists; Batch,
+  DataZone (DZ), regional, fine-tuning (-ft), and provisioned (PTU) meters are
+  excluded. Azure prices the gpt-4o family uniformly across its dated snapshots,
+  so gpt-4o-0806 / gpt-4o-mini-0718 are authoritative for the deployed
+  2024-11-20 / 2024-07-18 snapshots. Individual meter effectiveStartDates span
+  2024-07 to 2026-07; the card is a single 2026-08-15 snapshot.
+applicability_notes: >-
+  COUNT: 22 of the 27 router candidate-pool models are priced here; 5 are
+  unpriced (omitted from `rates`, fail-closed): claude-haiku-4-5,
+  claude-sonnet-4-5, claude-opus-4-1, claude-opus-4-6, claude-opus-4-7 —
+  Anthropic models are not sold through Azure and appear in NO Foundry Models
+  product in the Retail Prices API (0 rows for "Claude"/"Anthropic" in eastus).
+  Pin them from another authoritative source if the pool must price them.
+  THE POOL DOES NOT BOUND WHAT THE ROUTER SERVES — this is measured, not
+  assumed: in the 03D-3 live run the balanced `model-router` deployment returned
+  `gpt-5.6-terra` on 12 of its 72 calls, a model that is in NO version of the
+  27-model candidate pool and was never deployed on this account. The previous
+  card had no row for it, so `pricing_key` resolved to null and all 12 calls
+  went unpriced (fail-closed), leaving that arm cost-incomplete. The whole 5.6
+  family is therefore pinned here — sol, terra and luna — even though only sol
+  is deployed. Treat the pool as a lower bound on the billable model set, never
+  as its definition.
+  Separately, the DIRECT-PREMIUM arm gpt-5.6-sol (NOT one of the 27 pool models)
+  IS priced here from product "Azure OpenAI GPT5". The Model Router input-token
+  markup (USD 0.14 / 1M input tokens) is charged on the request input tokens IN
+  ADDITION to the resolved underlying model charges; direct-model arms
+  (gpt-5.6-sol) omit it. A null cached/reasoning rate is an EXPLICIT
+  "unsupported" marker: if such tokens appear at pricing time the request fails
+  closed (unpriced), never silently discounted. reasoning is pinned to the
+  model's output rate for reasoning-capable backends (o4-mini, gpt-oss-120b,
+  grok-4, grok-4-1-fast, gpt-5, gpt-5-mini, gpt-5-nano, gpt-5.2, gpt-5.4,
+  gpt-5.4-mini, gpt-5.4-nano, gpt-5.5, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna,
+  DeepSeek-V3.1, DeepSeek-V3.2)
+  because Azure bills reasoning tokens at the output rate; it is null for
+  non-reasoning backends (gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini,
+  gpt-4.1-nano, gpt-5.2-chat, gpt-5.3-chat, Llama-4-Maverick). cached is pinned
+  ONLY where a base GlobalStandard cached meter is exposed; for gpt-4o /
+  gpt-4o-mini / gpt-oss-120b / Llama-4-Maverick / grok-4 / grok-4-1-fast /
+  DeepSeek-V3.1 / DeepSeek-V3.2 the API exposes no base GL cached meter in this
+  snapshot, so cached is null and those requests fail closed if cached tokens
+  appear. CONTEXT TIERS: gpt-5.4, gpt-5.5, and the whole 5.6 family (sol, terra,
+  luna) are context-tiered
+  (short vs long context; the retail meters split ShortCo/LongCo, long ~= 2x
+  short). RateCardV2 pins ONE rate per pricing_key and the resolver cannot know
+  the tier (it depends on request/context length, and the provider returns NO
+  tier label in its `model` field), so the card stores the LONG-context
+  (expensive) tier: reservations therefore never under-reserve, and a request
+  that is actually short-context over-charges in the fail-safe direction. The
+  short-context rates are recorded in the comment beside each tiered row. The
+  short/long token boundary is NOT authoritatively sourced — the retail meters
+  give only ShortCo/LongCo with no token number, and third-party aggregators
+  disagree (~128k-272k); tier-aware settlement (charging the short rate and
+  returning headroom) is deferred future code work in `composite_cost`, not a
+  data change. GROK mapping: the catalog exposes Grok 4 as grok-4-20-reasoning /
+  grok-4-20-non-reasoning (aliased to pricing_key `grok-4`) and the fast tier as
+  grok-4-1-fast-reasoning / grok-4-1-fast-non-reasoning (aliased to
+  `grok-4-1-fast`); "Grok4 Fast" and "Grok 4.1" meters independently agree at
+  0.20/0.50.
+
+# Model Router input-token markup, per 1M input tokens.
+# meter "Model Routers GL 1M Tokens" | Foundry Tools/Model Tools | unit 1M
+# | USD 0.14 | GL region-uniform | e.g. meterId 615a7bc2-fa4e-5b2c-b198-40a04e5a8611
+router_input_markup: 0.14
+
+# Exact provider-model string (version suffix intact) -> pricing_key. Bare model
+# names resolve directly against `rates`, so only versioned/alternate forms need
+# an entry. Carries its own version for independent auditing.
+alias_map:
+  version: 2
+  entries:
+    gpt-4o-2024-11-20: gpt-4o
+    gpt-4o-2024-08-06: gpt-4o
+    gpt-4o-2024-05-13: gpt-4o
+    gpt-4o-mini-2024-07-18: gpt-4o-mini
+    gpt-4.1-2025-04-14: gpt-4.1
+    gpt-4.1-mini-2025-04-14: gpt-4.1-mini
+    gpt-4.1-nano-2025-04-14: gpt-4.1-nano
+    o4-mini-2025-04-16: o4-mini
+    gpt-5-2025-08-07: gpt-5
+    gpt-5-mini-2025-08-07: gpt-5-mini
+    gpt-5-nano-2025-08-07: gpt-5-nano
+    gpt-5.2-2025-12-11: gpt-5.2
+    gpt-5.2-chat-2025-12-11: gpt-5.2-chat
+    gpt-5.2-chat-2026-02-10: gpt-5.2-chat
+    gpt-5.3-chat-2026-03-03: gpt-5.3-chat
+    gpt-5.4-2026-03-05: gpt-5.4
+    gpt-5.4-mini-2026-03-17: gpt-5.4-mini
+    gpt-5.4-nano-2026-03-17: gpt-5.4-nano
+    gpt-5.5-2026-04-24: gpt-5.5
+    gpt-5.6-sol-2026-07-09: gpt-5.6-sol
+    gpt-5.6-terra-2026-07-09: gpt-5.6-terra
+    gpt-5.6-luna-2026-07-09: gpt-5.6-luna
+    gpt-oss-120b-1: gpt-oss-120b
+    llama-4-maverick: Llama-4-Maverick-17B-128E-Instruct-FP8
+    Llama-4-Maverick-17B-128E-Instruct-FP8-1: Llama-4-Maverick-17B-128E-Instruct-FP8
+    grok-4-20-reasoning: grok-4
+    grok-4-20-non-reasoning: grok-4
+    grok-4-1-fast-reasoning: grok-4-1-fast
+    grok-4-1-fast-non-reasoning: grok-4-1-fast
+
+rates:
+  # --- GPT-4o family (Foundry Models / Azure OpenAI; no base GL cached meter -> cached null) ---
+  # in  gpt-4o-0806-Inp-glbl Tokens  id=babc1534-2115-5f32-98cb-29d58a11eb80  start=2024-08-01
+  # out gpt-4o-0806-Outp-glbl Tokens  id=cd976e6c-41ab-5881-a90f-eff2e0c1d9b0
+  gpt-4o: { input: 2.5, output: 10.0, cached: null, reasoning: null }
+
+  # in  gpt-4o-mini-0718-Inp-glbl Tokens  id=932a4ba7-9944-5dd6-a3ef-f8e18f36eeae  start=2024-07-01
+  # out gpt-4o-mini-0718-Outp-glbl Tokens  id=8a5a8abb-6dbf-530a-9f40-7b17658df0f2
+  gpt-4o-mini: { input: 0.15, output: 0.6, cached: null, reasoning: null }
+
+  # --- GPT-4.1 family (Azure OpenAI; base cached meter exposed; non-reasoning -> reasoning null) ---
+  # in  gpt 4.1 Inp glbl Tokens  id=b002db8d-b0c5-5ff8-b1fc-b53d3ad3cf56  start=2025-04-01
+  # out gpt 4.1 Outp glbl Tokens  id=d7167765-f397-5912-8587-7a6b8a786c14
+  # cached gpt 4.1 cached Inp glbl Tokens  id=51d8fc45-d360-530f-945a-bcf7c925df8d
+  gpt-4.1: { input: 2.0, output: 8.0, cached: 0.5, reasoning: null }
+
+  # in  gpt 4.1 mini Inp glbl Tokens  id=668bbda9-4f08-5014-8f66-98a8b95d512a  start=2025-04-01
+  # out gpt 4.1 mini Outp glbl Tokens  id=d044f3ff-779c-53e7-880d-3fcdc607e499
+  # cached gpt 4.1 mini cached Inp glbl Tokens  id=b25748c8-a784-5560-908c-02cbde1c8aab
+  gpt-4.1-mini: { input: 0.4, output: 1.6, cached: 0.1, reasoning: null }
+
+  # in  gpt 4.1 nano Inp glbl Tokens  id=73ccfec2-fbd8-58bb-8b84-a6933a88fc8a  start=2025-04-01
+  # out gpt 4.1 nano Outp glbl Tokens  id=6b5cbe1b-f23c-51c7-b0b6-754fa20d6123
+  # cached gpt 4.1 nano cached Inp glbl Tokens  id=8ceb9a17-486d-5a2b-8b0a-426b1108c962
+  gpt-4.1-nano: { input: 0.1, output: 0.4, cached: 0.025, reasoning: null }
+
+  # --- Reasoning (Azure OpenAI Reasoning; reasoning bills at output rate) ---
+  # in  o4-mini 0416 Inp glbl Tokens  id=0c3328c3-8fc3-5f31-9ddb-ddad7ee7ace0  start=2025-04-01
+  # out o4-mini 0416 Outp glbl Tokens  id=876029e5-746c-5a00-9c43-30c953652e7e
+  # cached o4-mini 0416 cached Inp glbl Tokens  id=5f3ff2bc-8aef-55a4-a3ce-8b5d00d25549
+  o4-mini: { input: 1.1, output: 4.4, cached: 0.275, reasoning: 4.4 }
+
+  # --- GPT-5 family, single context tier (Azure OpenAI GPT5; unit already 1M) ---
+  # in  GPT 5 Inpt Glbl 1M Tokens  id=e7222fd0-96a7-575a-8bb8-10741a7046e3  start=2025-08-01
+  # out GPT 5 outpt Glbl 1M Tokens  id=a67b1761-54c8-51ba-907f-97f1eee13372
+  # cached GPT 5 cchd Inpt Glbl 1M Tokens  id=aea13c52-6966-5c5e-bead-57166b28f04e
+  gpt-5: { input: 1.25, output: 10.0, cached: 0.125, reasoning: 10.0 }
+
+  # in  GPT 5 Mini Inpt Glbl 1M Tokens  id=6d4c4956-4f18-535d-a63a-d56d74b1327b  start=2025-08-01
+  # out GPT 5 Mini outpt Glbl 1M Tokens  id=2d33aaf7-838f-5765-8a56-d7a7537125f5
+  # cached GPT 5 Mini cchd Inpt Glbl 1M Tokens  id=4b63ead2-cde6-5970-ae20-417a7dbbfc06
+  gpt-5-mini: { input: 0.25, output: 2.0, cached: 0.025, reasoning: 2.0 }
+
+  # in  GPT 5 Nano Inpt Glbl 1M Tokens  id=65eb1f70-a254-5721-81b9-1bada097390e  start=2025-08-01
+  # out GPT 5 Nano outpt Glbl 1M Tokens  id=797b54ba-697f-5738-b48c-f902a5e2b169
+  # cached GPT 5 Nano cchd Inpt Glbl 1M Tokens  id=3ca2927d-5610-5b20-8cb2-df7e74adbfb3
+  gpt-5-nano: { input: 0.05, output: 0.4, cached: 0.005, reasoning: 0.4 }
+
+  # in  GPT 5.2 inp Gl 1M Tokens  id=540bdec7-af60-5276-a0d1-7f88dee0a94d  start=2025-12-01
+  # out GPT 5.2 opt Gl 1M Tokens  id=55fbbef2-987a-5f61-a64d-43a072ef9b49
+  # cached GPT 5.2 cd inp Gl 1M Tokens  id=943a12d2-4dd5-5a5d-8471-14b0e514af64
+  gpt-5.2: { input: 1.75, output: 14.0, cached: 0.175, reasoning: 14.0 }
+
+  # in  GPT 5.2 chat inp Gl 1M Tokens  id=dfd2b63f-a980-52d3-9c81-73868e30dd75  start=2025-12-01
+  # out GPT 5.2 chat opt Gl 1M Tokens  id=a63b94e5-783d-5cfe-ad3d-61efb181da9e
+  # cached GPT 5.2 chat cd inp Gl 1M Tokens  id=b02854bd-d006-585b-a8fe-60258206b69b
+  gpt-5.2-chat: { input: 1.75, output: 14.0, cached: 0.175, reasoning: null }
+
+  # in  5.3 chat inp Gl 1M Tokens  id=bb74d0e7-6de7-52c3-9343-bdec817135a1  start=2026-03-01
+  # out 5.3 chat opt Gl 1M Tokens  id=4198b0ee-beca-5040-89e2-a69a7c996e48
+  # cached 5.3 chat cd inp Gl 1M Tokens  id=d65ad2f3-fc30-55b7-b0b6-032cc7e9fc35
+  gpt-5.3-chat: { input: 1.75, output: 14.0, cached: 0.175, reasoning: null }
+
+  # in  5.4 mini Inp Gl 1M Tokens  id=516ef4f1-f681-5acc-87fe-54943f9a8d2d  start=2026-03-01
+  # out 5.4 mini Opt Gl 1M Tokens  id=c2388b1d-c5cb-5be4-9ae7-3c3393914873
+  # cached 5.4 mini cd Inp Gl 1M Tokens  id=e137d7ed-9c8c-52af-9c76-cb99e5e48d2d
+  gpt-5.4-mini: { input: 0.75, output: 4.5, cached: 0.075, reasoning: 4.5 }
+
+  # in  5.4 nano Inp Gl 1M Tokens  id=2cd37775-6bd8-5b5e-a794-c7f531d5a530  start=2026-03-01
+  # out 5.4 nano Opt Gl 1M Tokens  id=282fd87e-eb63-5140-aa12-609fd475abc9
+  # cached 5.4 nano cd Inp Gl 1M Tokens  id=39a99358-3ab0-5ac9-abe3-53d748de8004
+  gpt-5.4-nano: { input: 0.2, output: 1.25, cached: 0.02, reasoning: 1.25 }
+
+  # --- GPT-5 family, context-tiered (stores LONG tier; see applicability_notes) ---
+  # TWO-TIER (context length). Card stores the LONG-context tier (conservative reservation). SHORT-context tier: input 2.5 / output 15.0 / cached 0.25 (id in=47f0cadd-c117-5d35-a4ae-8188060f6c98)
+  # in  5.4 longco inp Gl 1M Tokens  id=974bd2e8-f5ff-5c82-b483-31fb6a77a6e3  start=2026-03-01
+  # out 5.4 longco opt Gl 1M Tokens  id=840d3217-ca2e-54dd-b672-626f6a29c8b5
+  # cached 5.4 longco cd inp Gl 1M Tokens  id=27b2904d-df40-5124-a8f3-a3376b2b4001
+  gpt-5.4: { input: 5.0, output: 22.5, cached: 0.5, reasoning: 22.5 }
+
+  # TWO-TIER (context length). Card stores the LONG-context tier (conservative reservation). SHORT-context tier: input 5.0 / output 30.0 / cached 0.5 (id in=ce96867d-d727-5593-87a9-c89eaadd4de5)
+  # in  5.5 LongCo inp Gl 1M Tokens  id=19071fdb-ad6f-53b7-b0df-6188b2c35726  start=2026-05-01
+  # out 5.5 LongCo opt Gl 1M Tokens  id=2d7b8d16-2c80-523e-803c-748dcb4a0d9d
+  # cached 5.5 LongCo cd inp Gl 1M Tokens  id=92b74049-a86d-5dec-83b2-8ca1e6f29f9f
+  gpt-5.5: { input: 10.0, output: 45.0, cached: 1.0, reasoning: 45.0 }
+
+  # --- Open-weight / partner single-tier (respective Foundry Models products) ---
+  # in  gpt-oss-120B Inp glbl Tokens  id=a89cc243-c925-5e8d-8f0a-c31add310ac3  start=2026-03-01
+  # out gpt-oss-120B Outp glbl Tokens  id=dea703cf-e6dc-5d23-9662-8d452802e0c6
+  gpt-oss-120b: { input: 0.15, output: 0.6, cached: null, reasoning: 0.6 }
+
+  # in  Llama 4 Maverick 17B Inp glbl Tokens  id=7667e67e-1c6a-50e4-adfd-bd1159a709a8  start=2025-06-01
+  # out Llama 4 Maverick 17B Outp glbl Tokens  id=8edb029f-3218-510f-8dca-4f2a040c1c6d
+  Llama-4-Maverick-17B-128E-Instruct-FP8: { input: 0.25, output: 1.0, cached: null, reasoning: null }
+
+  # in  Grok-4 Inp glbl Tokens  id=585cf001-3004-5211-827e-ebff202e3b08  start=2026-01-01
+  # out Grok-4 Outp glbl Tokens  id=23d4a1f8-6a6f-506d-ad8b-79b0514ba8d0
+  grok-4: { input: 3.0, output: 15.0, cached: null, reasoning: 15.0 }
+
+  # in  Grok4 Fast Inp glbl Tokens  id=f6b60e45-54c5-5949-84f2-5794386b912a  start=2025-11-01
+  # out Grok4 Fast Outp glbl Tokens  id=4e093105-0e90-5016-91eb-05568933108d
+  # cached: NO Grok cache-discount meter exists in Azure Retail. A lookup on
+  #   2026-08-06 with $filter contains(meterName,'Grok') AND contains(meterName,
+  #   'Cach') returned 0 rows across ALL regions/services (only Inp/Outp meters
+  #   exist for Grok). Absence of a discount SKU means cached input tokens bill at
+  #   the standard input meter, so cached = input (0.2) — sourced from "no discount
+  #   SKU = no discount", NOT a guessed rate. (03D live run: 100% of grok-4-1-fast
+  #   cells returned cached input tokens; with cached:null the composite-cost
+  #   cached-token fail-closed guard withheld cost on all 125 cells.)
+  grok-4-1-fast: { input: 0.2, output: 0.5, cached: 0.2, reasoning: 0.5 }
+
+  # in  V3.1 Inp glbl Tokens  id=c953f4b5-f673-5147-8d85-46565608c071  start=2025-09-01
+  # out V3.1 Outp glbl Tokens  id=8e8fbea0-42ba-5ad1-a0bd-cf4f24dff932
+  DeepSeek-V3.1: { input: 1.23, output: 4.94, cached: null, reasoning: 4.94 }
+
+  # in  V3.2 Inp glbl Tokens  id=f7f0f425-8d3e-5200-a5fe-f594a90cb479  start=2026-05-01
+  # out V3.2 Outp glbl Tokens  id=9ecc86dd-140d-5fe4-b291-de4e390abf30
+  DeepSeek-V3.2: { input: 0.58, output: 1.68, cached: null, reasoning: 1.68 }
+
+  # --- DIRECT-PREMIUM ARM (not a router candidate; markup omitted at call time; two-tier, stores LONG) ---
+  # TWO-TIER (context length). Card stores the LONG-context tier (conservative). SHORT-context tier: input 5.0 / output 30.0 / cached 0.5
+  # in  5.6 sol LongCo Inp Std Gl 1M Tokens  id=2a405c70-47be-5b00-bd01-cfaabdea502f  start=2026-07-01
+  # out 5.6 sol LongCo Opt Std Gl 1M Tokens  id=98faffbd-fd5b-5133-9f8e-6a5e5c27260a
+  # cached 5.6 sol LongCo Cd Inp Std Gl 1M Tokens  id=cb6c2174-02bc-5e09-acb8-181951e32299
+  gpt-5.6-sol: { input: 10.0, output: 45.0, cached: 1.0, reasoning: 45.0 }
+
+  # --- Rest of the 5.6 family: NOT deployed here, but the Model Router serves
+  # them anyway. Added 2026-08-15 after 03D-3 returned gpt-5.6-terra on 12 of
+  # the balanced arm's 72 calls and the previous card had no row for it. Same
+  # product, same version (2026-07-09), same two-tier shape as sol; card stores
+  # the LONG-context tier for the same fail-safe reason. ---
+  # TWO-TIER (context length). Card stores the LONG-context tier (conservative). SHORT-context tier: input 2.5 / output 15.0 / cached 0.25 (id in=fc3de47b-3409-5e19-93be-d06322121a14)
+  # in  5.6 terra LongCo Inp Std Gl 1M Tokens  id=c3b440cc-3e89-5bb9-b19c-e4c99e4b16f0  start=2026-07-01
+  # out 5.6 terra LongCo Opt Std Gl 1M Tokens  id=294a3d00-a861-56a0-af5b-2d55ac7272d3
+  # cached 5.6 terra LongCo Cd Inp Std Gl 1M Tokens  id=f5259d49-cebb-520a-a3db-d400bf8ef0a8
+  # reasoning: pinned to output per the billing rule above, and CONFIRMED in use —
+  #   the 12 unpriced 03D-3 cells reported 96 reasoning tokens from this backend.
+  gpt-5.6-terra: { input: 5.0, output: 22.5, cached: 0.5, reasoning: 22.5 }
+
+  # TWO-TIER (context length). Card stores the LONG-context tier (conservative). SHORT-context tier: input 1.0 / output 6.0 / cached 0.1 (id in=c0ad6daa-c7f6-5d15-86b3-ee2489ef209a)
+  # in  5.6 luna LongCo Inp Std Gl 1M Tokens  id=a9919ba0-9645-5ead-b7f2-1cdc036b3e88  start=2026-07-01
+  # out 5.6 luna LongCo Opt Std Gl 1M Tokens  id=362b6785-f449-54ee-89af-fb24a2328a2e
+  # cached 5.6 luna LongCo Cd Inp Std Gl 1M Tokens  id=f4eb13a4-5e18-5dc6-bd6b-76cfe440e3a8
+  # reasoning: pinned to output per the same billing rule, but NEVER OBSERVED —
+  #   luna has not been served to us. The rate is the meter's, not a guess; only
+  #   the assumption that luna emits reasoning tokens at all is untested, and if
+  #   it never does the field is simply never read.
+  gpt-5.6-luna: { input: 2.0, output: 9.0, cached: 0.2, reasoning: 9.0 }
