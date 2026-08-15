@@ -14,8 +14,11 @@
 
 !!! danger "This page records a real paid run"
 
-    Total spend **$4.196595 / budget $20.00**, keyless Entra, sequential execution,
-    fixed seed. Preregistration `454c8159` committed **before** the results;
+    Total spend **$4.196595 / budget $20.00**, keyless Entra, sequential execution in a
+    deterministic dispatch order (task-major → repeat → arm). `max_output_tokens` is the only
+    request parameter that comes from the plan; sampling temperature is the service default,
+    which this repository neither sets nor records.
+    Preregistration `454c8159` committed **before** the results;
     `plan_hash sha256:33821119…6b0b50` matches the run manifest. Prompt and response
     text is not published — the sealed snapshot stays local (gitignored), and only
     `output_sha256` rides in the public trail.
