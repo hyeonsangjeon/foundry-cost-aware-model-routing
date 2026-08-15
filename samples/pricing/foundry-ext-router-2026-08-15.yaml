@@ -50,6 +50,17 @@
 # `contains(meterName,'5.6 terra')` DOES work for this product — the GPT5
 # meters carry the family token.
 #
+# Meter discovery lesson (2026-08-15, second pass): the family scope was STILL
+# too narrow. Diffing this card against `az cognitiveservices account deployment
+# list` — the set that can actually bill us — found six more deployments with no
+# row here at all: DeepSeek-V4-Pro, Kimi-K2.6, Mistral-Large-3,
+# Cohere-command-a-plus-05-2026, Phi-4-reasoning, text-embedding-3-large. Note
+# `DeepSeek-V4-Pro`: this card pinned V3.1 and V3.2, but the model actually
+# DEPLOYED is V4-Pro, which no version of the card has ever priced. The right
+# enumeration scope is therefore the DEPLOYED SET, and it is now checked
+# mechanically (`tests/test_deployed_set_coverage.py`) against a committed
+# control-plane capture rather than rediscovered by reading traces.
+#
 # Unit basis differs by product: "Azure OpenAI" / "Azure OpenAI Reasoning" /
 # "Azure Deepseek Models" / "Azure Grok Models" / "Azure Llama Models" /
 # "Azure OpenAI OSS Models" meters are per-1K tokens (converted to per-1M, x1000);
@@ -72,7 +83,8 @@ source: >-
   price is region-uniform at USD 0.14 — there is no eastus-specific meter row).
   Underlying-model rates: serviceName "Foundry Models" across products "Azure
   OpenAI", "Azure OpenAI GPT5", "Azure OpenAI Reasoning", "Azure OpenAI OSS
-  Models", "Azure Llama Models", "Azure Grok Models", "Azure Deepseek Models".
+  Models", "Azure Llama Models", "Azure Grok Models", "Azure Deepseek Models",
+  "Azure Kimi", "Azure Mistral Models", "Cohere Models", "Azure Phi Models".
   Exact meterName / meterId / effectiveStartDate per rate row are in the comments
   beside each row below.
 effective_date: "2026-08-15"
@@ -102,6 +114,18 @@ applicability_notes: >-
   family is therefore pinned here — sol, terra and luna — even though only sol
   is deployed. Treat the pool as a lower bound on the billable model set, never
   as its definition.
+  DEPLOYED SET: the pool is not the scope; what can bill us is. Every
+  chat-completion deployment on this account is priced here, including the five
+  that live on the Foundry inference surface rather than the OpenAI one
+  (DeepSeek-V4-Pro, Kimi-K2.6, Mistral-Large-3, Cohere-command-a-plus-05-2026,
+  Phi-4-reasoning). None of them is a router candidate and none was measured in
+  03D, but an arm pointed at any of them would have failed closed exactly as
+  gpt-5.6-terra did. ONE DEPLOYED MODEL IS DELIBERATELY LEFT UNPRICED:
+  text-embedding-3-large cannot be represented honestly here — eastus exposes
+  only a DataZone meter for it (no GlobalStandard row, and this card excludes
+  DZ), and an embedding model has no output tokens while a rate row requires
+  both `input` and `output`. It stays unpriced and fails closed rather than
+  being fitted to a shape it does not have.
   Separately, the DIRECT-PREMIUM arm gpt-5.6-sol (NOT one of the 27 pool models)
   IS priced here from product "Azure OpenAI GPT5". The Model Router input-token
   markup (USD 0.14 / 1M input tokens) is charged on the request input tokens IN
@@ -112,15 +136,17 @@ applicability_notes: >-
   model's output rate for reasoning-capable backends (o4-mini, gpt-oss-120b,
   grok-4, grok-4-1-fast, gpt-5, gpt-5-mini, gpt-5-nano, gpt-5.2, gpt-5.4,
   gpt-5.4-mini, gpt-5.4-nano, gpt-5.5, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna,
-  DeepSeek-V3.1, DeepSeek-V3.2)
+  DeepSeek-V3.1, DeepSeek-V3.2, DeepSeek-V4-Pro, Kimi-K2.6, Phi-4-reasoning)
   because Azure bills reasoning tokens at the output rate; it is null for
   non-reasoning backends (gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini,
-  gpt-4.1-nano, gpt-5.2-chat, gpt-5.3-chat, Llama-4-Maverick). cached is pinned
+  gpt-4.1-nano, gpt-5.2-chat, gpt-5.3-chat, Llama-4-Maverick, Mistral-Large-3,
+  Cohere-command-a-plus-05-2026). cached is pinned
   ONLY where a base GlobalStandard cached meter is exposed; for gpt-4o /
   gpt-4o-mini / gpt-oss-120b / Llama-4-Maverick / grok-4 / grok-4-1-fast /
-  DeepSeek-V3.1 / DeepSeek-V3.2 the API exposes no base GL cached meter in this
-  snapshot, so cached is null and those requests fail closed if cached tokens
-  appear. CONTEXT TIERS: gpt-5.4, gpt-5.5, and the whole 5.6 family (sol, terra,
+  DeepSeek-V3.1 / DeepSeek-V3.2 / Mistral-Large-3 /
+  Cohere-command-a-plus-05-2026 / Phi-4-reasoning the API exposes no base GL
+  cached meter in this snapshot, so cached is null and those requests fail
+  closed if cached tokens appear. CONTEXT TIERS: gpt-5.4, gpt-5.5, and the whole 5.6 family (sol, terra,
   luna) are context-tiered
   (short vs long context; the retail meters split ShortCo/LongCo, long ~= 2x
   short). RateCardV2 pins ONE rate per pricing_key and the resolver cannot know
@@ -179,6 +205,20 @@ alias_map:
     grok-4-20-non-reasoning: grok-4
     grok-4-1-fast-reasoning: grok-4-1-fast
     grok-4-1-fast-non-reasoning: grok-4-1-fast
+    # Foundry inference-surface deployments. The left-hand forms are the
+    # DEPLOYMENT names and the catalog's dated/versioned ids — not strings we
+    # have observed in a live `model` field, since no arm has yet been pointed
+    # at these. The map is exact, so an unmatched form still fails closed.
+    deepseek-v4-pro: DeepSeek-V4-Pro
+    DeepSeek-V4-Pro-2026-04-23: DeepSeek-V4-Pro
+    kimi-k2-6: Kimi-K2.6
+    Kimi-K2.6-2026-04-20: Kimi-K2.6
+    mistral-large-3: Mistral-Large-3
+    Mistral-Large-3-1: Mistral-Large-3
+    cohere-command-a-plus: Cohere-command-a-plus-05-2026
+    Cohere-command-a-plus-05-2026-1: Cohere-command-a-plus-05-2026
+    phi-4-reasoning: Phi-4-reasoning
+    Phi-4-reasoning-1: Phi-4-reasoning
 
 rates:
   # --- GPT-4o family (Foundry Models / Azure OpenAI; no base GL cached meter -> cached null) ---
@@ -328,3 +368,44 @@ rates:
   #   the assumption that luna emits reasoning tokens at all is untested, and if
   #   it never does the field is simply never read.
   gpt-5.6-luna: { input: 2.0, output: 9.0, cached: 0.2, reasoning: 9.0 }
+
+  # --- FOUNDRY INFERENCE-SURFACE DEPLOYMENTS (not router candidates, not 03D
+  # arms — but deployed on this account and therefore billable). Added
+  # 2026-08-15 by diffing this card against `az cognitiveservices account
+  # deployment list`. All per-1K meters, converted x1000. ---
+  # NOTE: this card pins DeepSeek V3.1 and V3.2, but the DEPLOYED DeepSeek is
+  #   V4-Pro, which no version of the card had ever priced.
+  # in  V4 Pro Inp glbl Tokens  id=5e69a79f-e8c2-5476-b655-373121a4a903  start=2026-05-01
+  # out V4 Pro Outp glbl Tokens  id=634eeace-ef2b-5550-8144-32a5b26981ae
+  # cached V4 Pro cached glbl Tokens  id=84d43ab7-2cf2-5423-9da3-fe3e9a1d4193  start=2026-07-01
+  # reasoning: pinned to output by the same billing rule and the V3.1/V3.2
+  #   precedent in this card; NEVER OBSERVED — no arm has been pointed here.
+  DeepSeek-V4-Pro: { input: 1.74, output: 3.48, cached: 0.145, reasoning: 3.48 }
+
+  # in  K2.6 Thinking Inp glbl Tokens  id=1b0e81c0-8707-5f51-aae5-b32e9b4102c8  start=2026-05-01
+  # out K2.6 Thinking Outp glbl Tokens  id=25869377-0946-5d07-8ec6-1717cb2d222e
+  # cached K2.6 cached glbl Tokens  id=531f0a72-a9a6-5f4d-8089-3f758a02f573  start=2026-07-01
+  # reasoning: Azure's own meter name says "Thinking", so the reasoning-capable
+  #   rule applies; pinned to output. NEVER OBSERVED.
+  Kimi-K2.6: { input: 0.95, output: 4.0, cached: 0.16, reasoning: 4.0 }
+
+  # in  Large 3 Inp glbl Tokens  id=d345920e-dc1d-57c0-b608-a8e78fd46351  start=2025-12-01
+  # out Large 3 Outp glbl Tokens  id=13829e1a-906f-555c-b0e0-0c512fe9ba8d
+  Mistral-Large-3: { input: 0.5, output: 1.5, cached: null, reasoning: null }
+
+  # in  Command A Plus Inp Glbl 1M Tokens  id=ba9c4386-b0be-5c63-953a-d57e4a7c9ebe  start=2026-07-01
+  # out Command A Plus Outp Glbl 1M Tokens  id=aede2296-cd0a-52a0-82a0-0f05b23b18b7
+  # (unit already 1M for this product — no x1000 conversion)
+  Cohere-command-a-plus-05-2026: { input: 0.8, output: 3.2, cached: null, reasoning: null }
+
+  # in  Phi-4-reasoning-Input Tokens  id=5aa86cde-36b7-53e7-8687-5b6827b24d4f  start=2025-05-01
+  # out Phi-4-reasoning-Output Tokens  id=9fa2e150-0c66-5acc-85e8-a349fae4b6bd
+  # Phi meters carry no Gl/DZ split — one global meter per token kind.
+  # reasoning: the model name is the source; pinned to output. NEVER OBSERVED.
+  Phi-4-reasoning: { input: 0.125, output: 0.5, cached: null, reasoning: 0.5 }
+
+  # text-embedding-3-large is DEPLOYED and DELIBERATELY ABSENT — eastus exposes
+  # only "text embedding 3 large DZ Tokens" (id=a2cbacb8-1b6e-5510-9485-e0bba4b842eb,
+  # start=2026-02-01), a DataZone meter this card excludes by its own
+  # sku_meter_basis, and an embedding model has no output tokens while a rate row
+  # requires both. It fails closed. See applicability_notes.
