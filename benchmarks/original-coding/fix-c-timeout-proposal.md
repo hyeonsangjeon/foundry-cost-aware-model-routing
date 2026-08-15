@@ -1,11 +1,19 @@
 # Fix C — transport read/overall timeout proposal (03D-2 follow-up)
 
-> **Status: APPLIED** in PR #101 (`experiment/03d3-fix-c-timeout-rerun`), at the
-> proposed values — `read 180 / overall 240`. Raising the timeout changes
-> `benchmark.retry`, which is part of the resolved run plan, so it **changed
-> `plan_hash`** and therefore required a **new preregistration + re-approval**
-> (the same discipline used for Fix A / Fix B). That is `454c8159`, and the run it
-> approved is [experiment 13](../../docs/en/lab-notebook/13-router-modes-rate-card-gap.md)
+> **Status: APPLIED for the 03D-3 run — but not as a repo default.** The proposed
+> values (`read 180 / overall 240`) were set in the operator's `.foundry.local.yaml`,
+> which is gitignored (`.gitignore:98`); the committed defaults in
+> `src/router/run_plan.py`, `src/router/foundry_live.py` and `foundry.example.yaml`
+> are still **90 / 120**, so a fresh clone does not inherit this run's timeouts. What
+> shipped in the repo is the **plumbing**: PR #101 makes the resolved plan's timeouts
+> actually reach the socket (`eafc1a1`) — before it, an operator-approved timeout
+> change was a silent no-op that the sealed manifest nonetheless reported as applied.
+>
+> Raising the timeout changes `benchmark.retry`, which is part of the resolved run
+> plan, so it **changed `plan_hash`** and therefore required a **new preregistration +
+> re-approval** (the same discipline used for Fix A / Fix B). That is `454c8159`, and
+> the run it approved is
+> [experiment 13](../../docs/en/lab-notebook/13-router-modes-rate-card-gap.md)
 > (`plan_hash sha256:33821119…6b0b50`). **Everything below this banner is the
 > proposal as written before the run** — the evidence and the predictions are kept
 > unedited so they can be read against what actually happened.
@@ -109,10 +117,14 @@ is **not** proposed here — the minimal, low-risk fix is raising the two timeou
 
 ## What actually happened (added after the run)
 
-All four steps above were carried out in PR #101, at the proposed values rather
-than the conservative alternative. Applying them exposed a second defect first:
-the resolved plan's transport timeouts were never handed to the live client
-(`eafc1a1`), so raising them in config alone would have changed nothing.
+All four steps above were carried out at the proposed values rather than the
+conservative alternative — but **only steps 2–4 are in the repo**. Step 1 (the
+values themselves) was done in the operator's gitignored `.foundry.local.yaml`;
+steps 2–4 (new `plan_hash`, new preregistration `454c8159`, re-run) are PR #101
+and the run it approved. Doing step 1 first exposed a second defect: the resolved
+plan's transport timeouts were never handed to the live client, so raising them in
+config alone changed nothing. That plumbing fix (`eafc1a1`) is the part of Fix C
+that is actually committed.
 
 | | 03D-2 (read 90 s) | 03D-3 (read 180 s) |
 | --- | --- | --- |

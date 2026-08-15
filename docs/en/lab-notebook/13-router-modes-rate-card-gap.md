@@ -31,10 +31,13 @@
   Quality mode) · `direct-premium` (calling the premium model directly · `gpt-5.6-sol`)
   — on the same 24 curated coding tasks. `24 tasks × 4 arms × n=3 = 288 cells`,
   deterministic exec-signal grading.
-- **Changed from run 2:** transport timeouts **read 90 → 180 s, overall 120 → 240 s**
-  (wired to the live client in PR #101). Nothing else. The change moves `plan_hash`,
-  so it required a new preregistration and a new approval — which is why this is a
-  separate experiment and not an edit to experiment 12.
+- **Changed from run 2:** transport timeouts **read 90 → 180 s, overall 120 → 240 s**, set in
+  the operator's local run config — the repo's committed defaults are still 90/120, so a fresh
+  clone does not inherit them. PR #101 is what makes such a setting reach the socket at all:
+  before it, the plan's timeouts were sealed into the manifest while the client quietly kept
+  its own. Nothing else changed. The change moves `plan_hash`, so it required a new
+  preregistration and a new approval — which is why this is a separate experiment and not an
+  edit to experiment 12.
 
 ## Result — grading coverage · pass rate · cost per arm
 
@@ -139,7 +142,7 @@ correction is therefore a **new dated file**, and the old one stays exactly as i
   time rather than in a cost column after a paid run.
 
 Both halves shipped as PRs: the dated card and the 5.6 family in **#104**, the
-deployed-set audit and its CI gate in **#105**.
+deployed-set capture and the test that fails CI without it in **#105**.
 
 !!! warning "The new check is a floor, not full coverage"
 
