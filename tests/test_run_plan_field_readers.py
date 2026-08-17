@@ -102,11 +102,6 @@ READER_LESS_EXECUTION_FIELDS: dict[str, str] = {
         "Same contract, same reason: it fixes how repeats collapse to one number, "
         "and the runner stores every repeat rather than aggregating them."
     ),
-    "preregistration.blob": (
-        "The git blob the plan pins for the preregistration. verify_unmodified() "
-        "exists to compare it against the file on disk but is called from nowhere "
-        "outside its own tests; the enforced check is the commit timestamp."
-    ),
     "pricing.pricing_basis": (
         "Records whether the rate card prices per-token or per-1K. The pricing "
         "engine reads the basis off the rate card itself, not off the plan."

@@ -1135,13 +1135,19 @@ def git_committed_at(path: Path | str) -> tuple[str, str] | None:
     ``None`` when the file is untracked / never committed. Used by the prereg
     gate so a live run cannot start unless its pre-registration was committed
     beforehand (a tamper-evident timestamp).
+
+    The path is normalized to an absolute one first: git runs with ``cwd`` set to
+    the file's own directory, so a repo-relative path would be resolved twice and
+    silently return ``None`` — reading as "never committed" when it was.
     """
 
-    file_path = Path(path)
+    from .preregistration import git_dir_and_path
+
+    cwd, file_path = git_dir_and_path(path)
     try:
         out = subprocess.run(
             ["git", "log", "-1", "--format=%H%x00%cI", "--", str(file_path)],
-            cwd=file_path.parent if file_path.parent.exists() else None,
+            cwd=cwd,
             capture_output=True,
             text=True,
             check=False,
