@@ -82,6 +82,11 @@ offline, right away; the `measured = true` measurements run after you set up `.e
    `workload_fingerprint` changes too, so it is **honestly recorded as a
    different experiment**.
 
+   Note the seam: steps 3–4 configure the pre-plan path (experiment YAML,
+   `FOUNDRY_*` env vars), but `benchmark plan` reads neither — it takes its arms
+   and its rate card from the run config alone. The workload is the one thing you
+   name twice.
+
 !!! tip "Everything is visible before the run"
     You can see what goes out **before** the run — `cost-router measure catalog`
     shows the task list, each full prompt, the validation rules, the candidate
@@ -119,12 +124,17 @@ cost-router dashboard --live  # 127.0.0.1-only + random port + a session-token U
   honestly refuses and shows the reason.
 - **Live progress · snapshot.** The progress and the cumulative-spend-vs-budget
   gauge stream, and it stops the instant the budget is reached (`partial=true`).
-  When it finishes it **re-reads and renders** `results/measured/<exp>/<run-id>/`
+  When it finishes it **re-reads and renders** `results/cockpit/<run-id>/`
   (the replay path is the verification).
 
 When measurement finishes, tidy it into the shape the public mock-up consumes
 (tenant rates masked; a human does the commit):
 
 ```bash
-cost-router measure publish --run results/measured/<exp>/<run-id>
+cost-router measure publish --run results/cockpit/<run-id>
 ```
+
+`--run` takes the snapshot directory the run actually sealed: `results/cockpit/<run-id>`
+for the cockpit above, `<artifacts.local_root>/run/<run-id>` for a `benchmark run --live`
+sweep (see [Measurement protocol](measurement-protocol.md) §3). The published JSON lands
+under `results/published/` regardless.

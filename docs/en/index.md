@@ -129,7 +129,7 @@ cost-router dashboard --live  # prints a 127.0.0.1 + random-port + session-token
 
 The same UI first checks the connection, then shows the outgoing prompts and dry-run
 cost. Nothing runs until a person chooses **approve and run** (the human gate). It
-then shows live progress and replays the `results/measured/<exp>/<run-id>` snapshot.
+then shows live progress and replays the `results/cockpit/<run-id>` snapshot.
 For the full setup, follow [Foundry setup](manual/foundry-setup.md) →
 [Customize · cockpit](manual/customize.md) → [audit ledger](manual/ledger.md) in order.
 

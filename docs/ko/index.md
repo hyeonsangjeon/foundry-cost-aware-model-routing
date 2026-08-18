@@ -117,7 +117,7 @@ cost-router dashboard --live  # 127.0.0.1 + 임의 포트 + 세션 토큰 URL �
 
 같은 UI에서 먼저 연결을 확인하고 나갈 프롬프트와 dry-run 비용을 보여 줍니다. 사람이
 **승인하고 실행**(사람 게이트)을 선택하기 전에는 실행하지 않습니다. 그다음 실시간 진행 상황을
-보여 주고 `results/measured/<exp>/<run-id>` 스냅샷을 재생합니다. 전체 설정은
+보여 주고 `results/cockpit/<run-id>` 스냅샷을 재생합니다. 전체 설정은
 [Foundry 실전 구성](manual/foundry-setup.md) → [커스터마이징·콕핏](manual/customize.md) →
 [감사 원장](manual/ledger.md) 순서로 진행하면 됩니다.
 
