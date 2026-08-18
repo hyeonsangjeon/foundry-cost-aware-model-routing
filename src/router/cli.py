@@ -58,6 +58,7 @@ from .foundry_live import (
     RecordedRouterClient,
     TransportTimeouts,
     capture_recorded_usage,
+    is_benchmark_run_mode,
     load_dotenv_file,
     load_recorded_usage,
     measured_router_summary,
@@ -2751,6 +2752,16 @@ def _live_measure_client(plan, fconfig) -> AzureMeasureClient:
     wired, the client fell back to :class:`TransportTimeouts` defaults
     (read 90 / overall 120) and an operator-approved timeout change was a
     silent no-op that the sealed manifest still reported as applied.
+
+    ``run_mode`` is the same class of defect and is wired here for the same
+    reason. The client decides whether a scoped-out provider may dispatch by
+    reading its own ``benchmark_mode``; nothing set it, so it stayed ``False``
+    and :func:`assert_provider_benchmark_safe` was evaluated as a smoke on every
+    benchmark run. A fail-closed gate that is never handed the fact it gates on
+    is fail-open, and it fails open silently — the refusal simply never happens.
+    The plan's ``run_mode`` is the authoritative answer: it is validated at
+    resolution, hashed into ``plan_hash``, and approved by a human before this
+    function is ever reached.
     """
 
     return AzureMeasureClient(
@@ -2758,6 +2769,7 @@ def _live_measure_client(plan, fconfig) -> AzureMeasureClient:
             config=fconfig,
             max_output_tokens=plan.execution["request"]["max_output_tokens"],
             timeouts=TransportTimeouts.from_retry(plan.execution.get("retry")),
+            benchmark_mode=is_benchmark_run_mode(plan.execution.get("run_mode")),
         )
     )
 

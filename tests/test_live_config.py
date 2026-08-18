@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -427,6 +428,167 @@ def test_plan_transport_timeouts_reach_the_live_client(tmp_path: Path) -> None:
     assert timeouts is not None, "live client must carry the plan's timeouts"
     assert (timeouts.read, timeouts.overall) == (180.0, 240.0)
     assert (timeouts.connect, timeouts.write, timeouts.pool) == (10.0, 30.0, 10.0)
+
+
+# --------------------------------------------------------------------------- #
+# run_mode → the provider scope-out gate
+#
+# Same defect class as the transport timeouts above, and as preregistration.blob:
+# a field the plan carries, hashes, and gets approved on, which never reached the
+# code that acts on it. Here the consequence is worse than a silent no-op — the
+# unreached field is the one a *fail-closed* gate branches on, so the gate could
+# only ever evaluate a smoke, and its refusal never fired on a benchmark run.
+# --------------------------------------------------------------------------- #
+
+
+def _credentialed_config():
+    """A config that passes ``credentialed`` so ``complete`` reaches the gate.
+
+    ``complete`` raises on an uncredentialed config *before* it consults the
+    scope-out gate, so a test that used the default config would pass whether or
+    not the gate was wired at all.
+    """
+
+    from router.foundry_live import FoundryConfig
+
+    return FoundryConfig.from_env(
+        {
+            "AZURE_AI_FOUNDRY_ENDPOINT": "https://acme-res.example.com/",
+            "AZURE_AI_FOUNDRY_MODEL_ROUTER": "model-router",
+            "AZURE_AI_FOUNDRY_AUTH": "entra",
+        }
+    )
+
+
+class _RecordingClient:
+    """Stands in for either SDK surface and records every dispatch it receives."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+
+    def _usage(self):
+        return SimpleNamespace(
+            prompt_tokens=120,
+            completion_tokens=30,
+            prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+            completion_tokens_details=SimpleNamespace(reasoning_tokens=0),
+        )
+
+    def _create(self, **kwargs):  # Azure OpenAI chat/completions surface
+        self.calls.append(kwargs)
+        return SimpleNamespace(
+            model=kwargs.get("model"),
+            usage=self._usage(),
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
+        )
+
+    def complete(self, *, model, messages, **kwargs):  # partner inference surface
+        self.calls.append({"model": model, "messages": messages, **kwargs})
+        return SimpleNamespace(model=model, usage=self._usage())
+
+
+def test_benchmark_run_mode_reaches_the_provider_scope_out_gate(tmp_path: Path) -> None:
+    """benchmark + a scoped-out provider must fail closed, before any dispatch.
+
+    The tripwire for the wiring itself. With ``benchmark_mode`` left at its
+    default the call below succeeds and bills a measured cost on the retiring
+    azure-ai-inference SDK — which is the exact outcome
+    ``assert_provider_benchmark_safe`` exists to make impossible.
+    """
+
+    from router.cli import _live_measure_client
+    from router.foundry_live import ProviderScopedOutError
+
+    _, plan = _resolve(tmp_path, _benchmark_config(tmp_path), require_run_ready=True)
+    assert plan.execution["run_mode"] == "benchmark"
+
+    client = _live_measure_client(plan, _credentialed_config())
+    assert client.client.benchmark_mode is True, (
+        "the plan's run_mode must reach the client, or the scope-out gate can "
+        "only ever see a smoke"
+    )
+
+    partner = _RecordingClient()
+    client.client.inference_client = partner
+    with pytest.raises(ProviderScopedOutError):
+        client.client.complete(
+            {"task_id": "t", "prompt": "hi"},
+            deployment="deepseek-v4-pro",
+            provider="foundry",
+        )
+    assert partner.calls == [], "the gate must refuse before anything is dispatched"
+
+
+def test_benchmark_run_mode_still_allows_the_openai_surface(tmp_path: Path) -> None:
+    """The golden path is untouched — this is what the three sealed runs used.
+
+    Every arm of every sealed 03D run is ``provider: openai``, so wiring the gate
+    must not change a single one of their cells. If this test ever fails, the fix
+    stopped being a scope-out and became a new restriction on measured runs.
+    """
+
+    from router.cli import _live_measure_client
+
+    _, plan = _resolve(tmp_path, _benchmark_config(tmp_path), require_run_ready=True)
+    assert [arm["provider"] for arm in plan.execution["arms"]] == ["openai", "openai"]
+
+    client = _live_measure_client(plan, _credentialed_config())
+    golden = _RecordingClient()
+    client.client.sdk_client = golden
+
+    outcome = client.client.complete(
+        {"task_id": "t", "prompt": "hi"}, deployment="model-router", provider="openai"
+    )
+    assert outcome.provenance == "live"
+    assert len(golden.calls) == 1, "the openai surface must dispatch exactly as before"
+
+
+def test_smoke_run_mode_keeps_the_partner_surface_available(tmp_path: Path) -> None:
+    """An opt-in wiring smoke on the partner surface stays allowed, as documented.
+
+    The scope-out is about measured cost claims, not about the SDK being
+    unusable. Wiring run_mode must not turn the gate into a blanket ban.
+    """
+
+    from router.cli import _live_measure_client
+
+    mapping = _benchmark_config(tmp_path)
+    mapping["run_mode"] = "smoke"
+    _, plan = _resolve(tmp_path, mapping)
+    assert plan.execution["run_mode"] == "smoke"
+
+    client = _live_measure_client(plan, _credentialed_config())
+    assert client.client.benchmark_mode is False
+
+    partner = _RecordingClient()
+    client.client.inference_client = partner
+    outcome = client.client.complete(
+        {"task_id": "t", "prompt": "hi"},
+        deployment="deepseek-v4-pro",
+        provider="foundry",
+    )
+    assert outcome.provenance == "live"
+    assert len(partner.calls) == 1
+
+
+def test_wiring_run_mode_does_not_move_plan_hash() -> None:
+    """Adding a *reader* cannot change ``plan_hash``; this pins that it did not.
+
+    ``plan_hash`` is computed over the whole ``execution`` mapping, and
+    ``run_mode`` has always been in it — that is precisely why the field could be
+    approved, sealed, and still never reach the socket. So giving it a consumer
+    moves nothing, and every sealed run stays replayable against its recorded
+    hash. The literal below is the shipped template's hash; if a future change
+    adds to the hashed surface instead of merely reading from it, this fails and
+    says so rather than quietly invalidating an approval.
+    """
+
+    plan = resolve_run_plan(LocalRunConfig.from_yaml(TEMPLATE), env={})
+    assert "run_mode" in plan.execution, "run_mode must already be part of the hash"
+    assert plan.plan_hash == (
+        "sha256:d16947f4716bfa8421722ada9dd49fea5ab24a0241630035f802d1ec81b68569"
+    )
 
 
 def test_router_arm_routing_mode_survives_resolution(tmp_path: Path) -> None:

@@ -114,6 +114,27 @@ class ProviderScopedOutError(RuntimeError):
     """Raised when a scoped-out provider is used on a benchmark/publishable path."""
 
 
+def is_benchmark_run_mode(run_mode: str | None) -> bool:
+    """Whether a plan's ``run_mode`` puts its calls on the measured benchmark path.
+
+    One predicate with one spelling, because more than one place has to make this
+    decision: the scope-out gate below, and every site that builds a live client
+    from a resolved plan and has to tell that client which path it is on. Those
+    sites are wired in separately (``cli._live_measure_client`` today; the
+    ``measure run --live``, cockpit, and server builders still to come), and the
+    failure this guards against is precisely that one of them decides
+    differently. A bare ``== "benchmark"`` in each caller is how ``run_mode``
+    ends up meaning one thing in the accounting layer and another at the socket.
+
+    ``run_mode`` is validated against :data:`router.run_plan.RUN_MODES` when the
+    plan resolves, so anything unrecognised has already been rejected upstream;
+    the normalising here is for callers that read the raw ``execution`` mapping,
+    where the value can still be ``None``.
+    """
+
+    return str(run_mode or "").strip().lower() == "benchmark"
+
+
 def assert_provider_benchmark_safe(
     provider: str | None, *, run_mode: str | None = None, publishable: bool = False
 ) -> None:
@@ -129,7 +150,7 @@ def assert_provider_benchmark_safe(
     label = str(provider or "").strip().lower()
     if label not in FOUNDRY_PROVIDER_ALIASES:
         return
-    if publishable or str(run_mode or "").strip().lower() == "benchmark":
+    if publishable or is_benchmark_run_mode(run_mode):
         raise ProviderScopedOutError(AZURE_AI_INFERENCE_SCOPE_OUT_REASON)
 
 
@@ -519,6 +540,11 @@ class AzureModelRouterClient:
     max_output_tokens: int = 512
     temperature: float | None = None
     timeouts: TransportTimeouts | None = None
+    #: Whether this client is dispatching a measured benchmark. It selects which
+    #: run_mode :func:`assert_provider_benchmark_safe` is evaluated against, so
+    #: every builder that constructs this client from a resolved plan must set it
+    #: from that plan's ``run_mode`` via :func:`is_benchmark_run_mode`. Left at
+    #: the default, the scope-out gate below can only ever see a smoke.
     benchmark_mode: bool = False
 
     def complete(
