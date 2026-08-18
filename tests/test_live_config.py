@@ -591,6 +591,132 @@ def test_wiring_run_mode_does_not_move_plan_hash() -> None:
     )
 
 
+# --------------------------------------------------------------------------- #
+# The same wiring, one path over: the cockpit
+#
+# `benchmark run --live` was fixed first because it is the path the three sealed
+# 03D runs used. It was never the only one. The cockpit builds its own client in
+# its own factory, and until that factory was handed the plan it reproduced the
+# original defect exactly — same fail-open gate, same 512-token default, same
+# discarded cutoffs — on a surface an operator drives from a browser.
+#
+# tests/test_dispatch_field_parity.py pins the wiring statically for every such
+# path at once. These three prove the wiring has the effect it claims: the gate
+# refuses, the golden surface still dispatches, and smoke still opts in.
+# --------------------------------------------------------------------------- #
+
+
+def _cockpit_live_env(monkeypatch) -> None:
+    """Credential the process env: the cockpit factory calls ``from_env()`` itself."""
+
+    monkeypatch.setenv("AZURE_AI_FOUNDRY_ENDPOINT", "https://acme-res.example.com/")
+    monkeypatch.setenv("AZURE_AI_FOUNDRY_MODEL_ROUTER", "model-router")
+    monkeypatch.setenv("AZURE_AI_FOUNDRY_AUTH", "entra")
+    monkeypatch.delenv("AZURE_AI_FOUNDRY_API_KEY", raising=False)
+
+
+def test_cockpit_benchmark_plan_reaches_the_provider_scope_out_gate(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A cockpit-driven benchmark must fail closed on a scoped-out provider."""
+
+    from router.cockpit import _live_client_factory
+    from router.foundry_live import ProviderScopedOutError
+
+    _cockpit_live_env(monkeypatch)
+    _, plan = _resolve(tmp_path, _benchmark_config(tmp_path), require_run_ready=True)
+    assert plan.execution["run_mode"] == "benchmark"
+
+    client = _live_client_factory(plan)
+    assert client.client.benchmark_mode is True
+
+    partner = _RecordingClient()
+    client.client.inference_client = partner
+    with pytest.raises(ProviderScopedOutError):
+        client.client.complete(
+            {"task_id": "t", "prompt": "hi"},
+            deployment="deepseek-v4-pro",
+            provider="foundry",
+        )
+    assert partner.calls == [], "the gate must refuse before anything is dispatched"
+
+
+def test_cockpit_client_carries_the_plans_request_cap_and_cutoffs(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The other two defaults the factory used to swallow.
+
+    512 output tokens is the one that would not have announced itself: a plan
+    asking for 2048 would have had every completion truncated mid-answer, and the
+    truncated answers would still have been graded and priced.
+    """
+
+    from router.cockpit import _live_client_factory
+
+    _cockpit_live_env(monkeypatch)
+    mapping = _benchmark_config(tmp_path)
+    mapping["benchmark"]["max_output_tokens"] = 2048
+    mapping["benchmark"]["retry"] = {
+        "max_retries": 4,
+        "connect_timeout_seconds": 10,
+        "read_timeout_seconds": 180,
+        "write_timeout_seconds": 30,
+        "pool_timeout_seconds": 10,
+        "overall_timeout_seconds": 240,
+    }
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+
+    client = _live_client_factory(plan)
+    assert client.client.max_output_tokens == 2048
+    timeouts = client.client.timeouts
+    assert timeouts is not None, "the cockpit client must carry the plan's cutoffs"
+    assert (timeouts.read, timeouts.overall) == (180.0, 240.0)
+
+
+def test_cockpit_smoke_plan_keeps_the_partner_surface_available(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Wiring the cockpit must not ban the partner surface under smoke either."""
+
+    from router.cockpit import _live_client_factory
+
+    _cockpit_live_env(monkeypatch)
+    mapping = _benchmark_config(tmp_path)
+    mapping["run_mode"] = "smoke"
+    _, plan = _resolve(tmp_path, mapping)
+
+    client = _live_client_factory(plan)
+    assert client.client.benchmark_mode is False
+
+    partner = _RecordingClient()
+    client.client.inference_client = partner
+    outcome = client.client.complete(
+        {"task_id": "t", "prompt": "hi"},
+        deployment="deepseek-v4-pro",
+        provider="foundry",
+    )
+    assert outcome.provenance == "live"
+    assert len(partner.calls) == 1
+
+
+def test_cockpit_retry_budget_comes_from_the_plan(tmp_path: Path) -> None:
+    """The runner must spend the retry budget the approval view showed.
+
+    ``RetryPolicy()`` defaults to 5 attempts; an unspecified plan declares 0. So
+    the fallback the cockpit used was not a neutral default — it was strictly
+    more dispatch than the plan on screen authorised.
+    """
+
+    from router.run_plan import retry_policy_for
+
+    mapping = _benchmark_config(tmp_path)
+    mapping["benchmark"]["retry"] = {"max_retries": 2}
+    _, plan = _resolve(tmp_path, mapping, require_run_ready=True)
+
+    assert plan.execution["retry"]["max_retries"] == 2
+    assert retry_policy_for(plan).max_retries == 2
+
+
 def test_router_arm_routing_mode_survives_resolution(tmp_path: Path) -> None:
     # A router arm's approved routing mode is expected evidence: it must reach
     # the resolved plan so the doctor deployment probe can verify it, and it must

@@ -18,6 +18,16 @@ their runs as using a "fixed seed", and no seed has ever reached a model API; th
 value's only effect is that it salts ``plan_hash``. See the errata sections of
 ``benchmarks/original-coding/prereg-03d-router-modes.md``,
 ``prereg-03d2-router-modes.md``, and ``prereg-03d3-router-modes.md``.
+
+What this module does **not** catch, and ``test_dispatch_field_parity.py`` does:
+the sweep here is field-shaped. It asks whether a field has **any** reader
+anywhere, so it fires only at zero. A field that is wired on one dispatch path
+and not another has readers, stays green here, and is still broken — which is
+precisely what happened to the ``retry.*`` transport cutoffs, to
+``preregistration.blob``, and to ``run_mode``, whose three readers in ``cli.py``
+never reached the client that the fail-closed provider gate consults. The
+sibling module is consumer-shaped: it holds every paid-dispatch path to the same
+set of forwarded plan fields. Keep both — neither sees the other's half.
 """
 
 from __future__ import annotations

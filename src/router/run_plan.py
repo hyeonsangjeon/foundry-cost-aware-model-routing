@@ -1012,6 +1012,20 @@ def write_local_config(
 # --------------------------------------------------------------------------- #
 
 
+def retry_policy_for(plan: ResolvedRunPlan) -> RetryPolicy:
+    """The retry budget ``plan`` declares, as the policy the runner consumes.
+
+    One spelling, because every surface that dispatches the plan has to build
+    this and the approval view shows a single ``retry.max_retries`` to the human
+    who signs off. A surface that quietly falls back to ``RetryPolicy()`` spends
+    against a different budget than the one on screen — the default is 5 attempts
+    where an unspecified plan declares 0, so the fallback is strictly *more*
+    dispatch than was approved.
+    """
+
+    return RetryPolicy(max_retries=int(plan.execution["retry"]["max_retries"]))
+
+
 def execute_benchmark(
     config: LocalRunConfig,
     plan: ResolvedRunPlan,
@@ -1059,7 +1073,7 @@ def execute_benchmark(
         pricing: Any = V2PricingEngine(RateCardV2.from_yaml(card_path))
     else:
         pricing = PricingTable.from_yaml(card_path)
-    retry = RetryPolicy(max_retries=int(plan.execution["retry"]["max_retries"]))
+    retry = retry_policy_for(plan)
 
     # Auto-wire the exec-signals grading bridge for a benchmark sweep so the
     # (paid) run captures each arm's code and grades it in memory (spec §10).

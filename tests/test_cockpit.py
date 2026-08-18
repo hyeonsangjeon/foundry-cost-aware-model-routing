@@ -546,3 +546,46 @@ def test_scenario_12_abort_completion_race_repeated_and_sigint(tmp_path):
     )
     assert run2.state is RunState.ABORTED
     assert run2.cells_done < run2.cells_total
+
+
+# --------------------------------------------------------------------------- #
+# The plan's retry budget must be the one the sweep spends
+#
+# Every other test here injects ``retry=FAST_RETRY`` to keep backoff out of the
+# suite, which is exactly why the fallback went unnoticed: no test ever exercised
+# the branch a real cockpit takes. ``RetryPolicy()`` defaults to 5 attempts and
+# an unspecified plan declares 0, so the fallback authorised more dispatch than
+# the approval view showed.
+# --------------------------------------------------------------------------- #
+
+
+def test_sweep_spends_the_plans_retry_budget_not_the_library_default(tmp_path, monkeypatch):
+    import router.cockpit as cockpit_module
+
+    seen: dict[str, Any] = {}
+    real_run_measure = cockpit_module.run_measure
+
+    def capturing(*args: Any, **kwargs: Any):
+        seen["retry"] = kwargs.get("retry")
+        return real_run_measure(*args, **kwargs)
+
+    monkeypatch.setattr(cockpit_module, "run_measure", capturing)
+
+    config, plan = _plan(tmp_path, budget_usd=50.0, max_retries=2)
+    assert plan.execution["retry"]["max_retries"] == 2
+
+    client = OkClient()
+    # Deliberately no retry= — this is the production construction, and the
+    # branch every other test in this file skips.
+    ctrl = CockpitController(
+        plan, config, client_factory=lambda: client, results_root=tmp_path / "cockpit"
+    )
+    run = ctrl.approve_and_start(
+        plan_hash=ctrl.plan_hash, idempotency_key="k", inline=True
+    )
+    assert run.state is RunState.REPLAY_VERIFIED
+
+    assert seen["retry"] is not None
+    assert seen["retry"].max_retries == 2, (
+        "the sweep must spend the plan's retry budget; RetryPolicy() defaults to 5"
+    )
