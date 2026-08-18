@@ -9,6 +9,11 @@ name: release-smoke
 # GitHub Star, and FAILS at 600s end-to-end (the release ceiling from §2.1). Until
 # an owner's manual eligible-user release check passes under 600s, the Track B
 # "10-minute" wording in the README stays "target / in progress".
+#
+# Traffic caveat: this job clones the public repository, so the repo's own clone
+# count includes this automation — and the matrix below makes it two clones per
+# run, not one. Read `clones_14d` with that subtracted before attributing a change
+# to anything a human did.
 
 on:
   schedule:
@@ -20,21 +25,42 @@ permissions:
 
 jobs:
   offline-clone-smoke:
+    name: offline clone smoke (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 12  # hard ceiling; the 600s budget is enforced inline below
+    strategy:
+      # Report both interpreters on every run. The whole point of the matrix is
+      # to learn *which* one broke, and cancelling the sibling would hide that.
+      fail-fast: false
+      matrix:
+        # The declared support range (onboarding.SUPPORTED_PYTHONS). No OS matrix:
+        # the claim this job backs is Linux-only, and widening it here would
+        # assert a portability the project does not test.
+        python-version: ["3.11", "3.12"]
     steps:
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
       - name: Clone the PUBLIC repo into a throwaway dir and run the offline journey
         env:
           REPO_URL: https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing.git
         run: |
           set -euo pipefail
+          # The matrix only means anything if `python3` really is the matrix
+          # interpreter. quickstart.py bootstraps its venv from whichever
+          # interpreter invoked it (onboarding.detect_supported_python prefers the
+          # current one when it qualifies), so a `python3` that ignored
+          # setup-python would quietly run 3.11 twice and prove half of what this
+          # job's name claims. Assert it instead of trusting PATH order.
+          actual="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+          if [ "$actual" != "${{ matrix.python-version }}" ]; then
+            echo "python3 resolves to $actual, expected ${{ matrix.python-version }}" >&2
+            exit 1
+          fi
           workdir="$(mktemp -d)"
-          echo "cloning $REPO_URL -> $workdir/clone"
+          echo "cloning $REPO_URL -> $workdir/clone  (python3 $actual)"
           git clone --depth 1 "$REPO_URL" "$workdir/clone"
           cd "$workdir/clone"
           # Fail at the 600s end-to-end release ceiling (§2.1). `timeout` exits 124

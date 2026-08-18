@@ -167,4 +167,8 @@ The narrative record of the same run is in the lab notebook —
 [Experiment 12 · Routing-mode paid measured re-run](../lab-notebook/12-router-modes-measured.md).
 Read alongside the prior
 [Experiment 11 · prereg VOID](../lab-notebook/11-router-modes-void.md) to see what was
-fixed (rate coverage · output ceiling) and what changed.
+fixed (rate coverage · output ceiling) and what changed. A third run followed with the
+raised transport timeouts —
+[Experiment 13 · router three modes · run 3](../lab-notebook/13-router-modes-rate-card-gap.md).
+Every figure on this page remains run 2's; run 3 reports its own summary savings against a
+different baseline, which is the second of the two baselines flagged above.

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "foundry-cost-router"
 version = "0.1.0"
-description = "Model-routing experiment scaffold."
+description = "Cost-aware model routing with budget gates, deterministic offline experiments, and replayable ledgers."
 readme = "README.md"
 # Upper bound = the range CI actually proves. The clean-install matrix runs a
 # non-editable `pip install .` plus an outside-the-checkout console-script smoke

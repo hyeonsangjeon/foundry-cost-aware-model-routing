@@ -2,6 +2,7 @@
 
 [![ci](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/ci.yml/badge.svg)](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/ci.yml)
 [![docs](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/docs.yml/badge.svg)](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/)
+[![release-smoke](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/release-smoke.yml/badge.svg)](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/actions/workflows/release-smoke.yml)
 [![python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -63,7 +64,11 @@ nothing is published to PyPI; `git clone` is still the install path.
   and [core concepts](docs/ko/manual/concept.md).
 - **Benchmark evidence** — the [ten experiments](#the-experiment-arc--honest-by-construction)
   below, and the [experiment atlas](docs/ko/manual/experiment-atlas.md) for how each
-  one is built.
+  one is built. The paid routing-mode track continues past that table:
+  [experiment 13 · rate-card gap](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/13-router-modes-rate-card-gap/)
+  is the run that found a hole in this repo's *own* rate card, withheld the affected
+  arm's cost claim fail-closed, and pinned why that run's summary savings figure is
+  not the site's published one.
 - **Full manual (한국어)** —
   <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
 - **Interactive offline demo** (no install, no account, nothing is billed) —
@@ -494,3 +499,11 @@ fallback from `repo_patch`) routes for `$1.34` vs the seed's `$1.66`, but
 coverage drops to `93%` (base `100%`). The report shows both the lower cost and lower
 coverage. The result is deterministic for a given workload, and all models
 stay generic placeholders.
+
+---
+
+**Used this somewhere real?** If you ran it in a customer meeting, a workshop, or a
+reproduction against your own tenant, please
+[file a field-use report](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/issues/new?template=field-use.md)
+— especially if it did not fit. Clone counts cannot tell a person from a CI job, so
+a two-line note about where this actually landed is worth more than the metrics are.
