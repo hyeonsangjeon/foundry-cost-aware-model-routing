@@ -96,11 +96,16 @@ cost-router dashboard --live  # 127.0.0.1 전용 + 임의 포트 + 세션 토큰
   이 버튼이 BOLT-01 §8의 **사람 승인 게이트**입니다. 자격증명·예산·승인·prereg 중 하나라도
   비면 정직하게 거부하고 이유를 표시합니다.
 - **실시간 진행 · 스냅샷.** 진척·누적 지출 대 예산 게이지가 스트리밍되고 예산 도달 시 즉시
-  중단(`partial=true`). 완료되면 `results/measured/<exp>/<run-id>/`를 **다시 읽어 렌더**합니다
+  중단(`partial=true`). 완료되면 `results/cockpit/<run-id>/`를 **다시 읽어 렌더**합니다
   (재생 경로가 곧 검증).
 
 측정이 끝나면 공개 목업이 소비할 형태로 정리합니다(테넌트 단가 마스킹, 커밋은 사람이):
 
 ```bash
-cost-router measure publish --run results/measured/<exp>/<run-id>
+cost-router measure publish --run results/cockpit/<run-id>
 ```
+
+`--run`에는 그 런이 실제로 봉인한 스냅샷 디렉터리를 넣습니다. 위 콕핏이면
+`results/cockpit/<run-id>`, `benchmark run --live` 스윕이면
+`<artifacts.local_root>/run/<run-id>`입니다([측정 프로토콜](measurement-protocol.md) §3).
+발행된 JSON은 어느 쪽이든 `results/published/` 아래에 떨어집니다.

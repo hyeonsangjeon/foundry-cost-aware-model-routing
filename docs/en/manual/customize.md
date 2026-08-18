@@ -119,12 +119,17 @@ cost-router dashboard --live  # 127.0.0.1-only + random port + a session-token U
   honestly refuses and shows the reason.
 - **Live progress · snapshot.** The progress and the cumulative-spend-vs-budget
   gauge stream, and it stops the instant the budget is reached (`partial=true`).
-  When it finishes it **re-reads and renders** `results/measured/<exp>/<run-id>/`
+  When it finishes it **re-reads and renders** `results/cockpit/<run-id>/`
   (the replay path is the verification).
 
 When measurement finishes, tidy it into the shape the public mock-up consumes
 (tenant rates masked; a human does the commit):
 
 ```bash
-cost-router measure publish --run results/measured/<exp>/<run-id>
+cost-router measure publish --run results/cockpit/<run-id>
 ```
+
+`--run` takes the snapshot directory the run actually sealed: `results/cockpit/<run-id>`
+for the cockpit above, `<artifacts.local_root>/run/<run-id>` for a `benchmark run --live`
+sweep (see [Measurement protocol](measurement-protocol.md) §3). The published JSON lands
+under `results/published/` regardless.
