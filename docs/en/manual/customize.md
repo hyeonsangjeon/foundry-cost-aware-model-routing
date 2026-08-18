@@ -82,6 +82,11 @@ offline, right away; the `measured = true` measurements run after you set up `.e
    `workload_fingerprint` changes too, so it is **honestly recorded as a
    different experiment**.
 
+   Note the seam: steps 3–4 configure the pre-plan path (experiment YAML,
+   `FOUNDRY_*` env vars), but `benchmark plan` reads neither — it takes its arms
+   and its rate card from the run config alone. The workload is the one thing you
+   name twice.
+
 !!! tip "Everything is visible before the run"
     You can see what goes out **before** the run — `cost-router measure catalog`
     shows the task list, each full prompt, the validation rules, the candidate

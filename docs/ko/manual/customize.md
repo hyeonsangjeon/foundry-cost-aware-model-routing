@@ -67,6 +67,10 @@
    승인 실행. 프롬프트가 바뀌면 manifest의 `workload_fingerprint`가
    달라져 **다른 실험으로 정직하게 기록**됩니다.
 
+   이음매 주의: 3–4단계는 플랜 이전 경로(experiment YAML, `FOUNDRY_*` 환경변수)를
+   설정하지만 `benchmark plan`은 둘 다 읽지 않는다 — arms와 단가표를 run config에서만
+   가져온다. 두 번 적어야 하는 것은 워크로드 하나다.
+
 !!! tip "실행 전에 다 보인다"
     무엇이 나가는지는 실행 **전에** 확인할 수 있습니다 — `cost-router measure catalog`가
     태스크 목록, 각 프롬프트 전문, 검증 규칙, 후보 모델, 추정 토큰, dry-run 비용까지
