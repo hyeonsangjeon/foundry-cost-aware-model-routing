@@ -629,10 +629,10 @@ def prereg_dispatch_gate(
        tree, so a later errata append is not a violation and a rewrite of history
        is.
     2. **Priority in time.** The same :func:`~router.measure.evaluate_prereg` that
-       ``measure run --live`` and the cockpit already enforce must agree the file
-       was committed before this run started. Sharing that function is the point:
-       three entry points that disagree about what counts as preregistered would
-       be worse than none of them checking.
+       the plan-bound cockpit already enforces must agree the file was committed
+       before this run started. Sharing that function is the point: entry points
+       that disagree about what counts as preregistered would be worse than none
+       of them checking.
 
     ``run_mode == "benchmark"`` additionally may not dispatch with no pin at all.
     A gate that a deleted YAML block switches off is not a gate; the module has

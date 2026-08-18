@@ -488,7 +488,7 @@ class RouterService:
                 200,
                 {"ran": False, "gates": gates, "reason": reason, "measured": False},
             )
-        return self._cockpit_launch(  # pragma: no cover - live path (operator-gated)
+        return self._cockpit_launch(
             parsed, experiment=experiment, budget=float(budget), config=config
         )
 
@@ -553,50 +553,38 @@ class RouterService:
             return "not approved — the operator must click 'approve & run' to spend."
         return "blocked."
 
-    def _cockpit_launch(  # pragma: no cover - live path (operator-gated)
+    def _cockpit_launch(
         self, parsed: Mapping[str, Any], *, experiment: str, budget: float,
         config: FoundryConfig,
     ) -> ServiceResponse:
-        import threading
-        from datetime import UTC, datetime
+        """Refused: the plan-less cockpit route does not run measured sweeps.
 
-        from .foundry_live import AzureModelRouterClient
-        from .measure import (
-            AzureMeasureClient,
-            RetryPolicy,
-            evaluate_prereg,
-            make_run_id,
-            run_measure,
-        )
+        This is the pre-03C route, reached only when ``self._cockpit_controller is
+        None``. It used to seal a snapshot under ``results/measured/`` from a client
+        built with nothing but a :class:`FoundryConfig` — no request cap, no
+        transport cutoffs, and a ``benchmark_mode`` left at its default, so the
+        provider scope-out gate saw a smoke on every dispatch and the fleet's
+        ``provider: foundry`` models could carry a measured cost.
 
-        workload_path = Path(parsed.get("workload") or self._cockpit_workload_path(""))
-        workload = load_prompt_workload(workload_path)
-        candidates = self._cockpit_candidates()
-        run_id = make_run_id()
-        out_root = Path("results/measured") / experiment / run_id
-        prereg = evaluate_prereg(
-            Path("results/measured") / experiment / "prereg.md",
-            run_started_at=datetime.now(UTC),
-            allow_no_prereg=bool(parsed.get("allow_no_prereg")),
-        )
-        if not prereg.allowed:
-            return ServiceResponse(
-                200, {"ran": False, "reason": f"prereg gate: {prereg.note}", "measured": False}
-            )
-        self._cockpit_progress[run_id] = {"cells_done": 0, "cells_total": 0, "event": "starting"}
+        It is refused rather than wired because it has no plan to be wired *from*,
+        and the supported route already exists: bind a plan and
+        :class:`~router.cockpit.CockpitController` handles the sweep instead, with
+        the plan-hash approval, idempotency key and spend ledger this one never had.
+        """
 
-        def _worker() -> None:
-            client = AzureMeasureClient(AzureModelRouterClient(config=config))
-            run_measure(
-                workload, candidates, client=client, pricing=self.pricing,
-                exp_id=experiment, run_dir=out_root, run_id=run_id, budget_usd=budget,
-                retry=RetryPolicy(), prereg=prereg,
-                progress=lambda ev: self._cockpit_progress.__setitem__(run_id, ev),
-            )
+        from .measure import unsupported_measured_route_refusal
 
-        threading.Thread(target=_worker, daemon=True).start()
         return ServiceResponse(
-            200, {"ran": True, "run_id": run_id, "run_dir": str(out_root), "measured": True}
+            200,
+            {
+                "ran": False,
+                "measured": False,
+                "reason": unsupported_measured_route_refusal(
+                    "cockpit run (no plan bound)",
+                    successor="the plan-bound cockpit — start the dashboard with "
+                    "--config so a ResolvedRunPlan is bound",
+                ),
+            },
         )
 
     def cockpit_progress(self, path: str) -> ServiceResponse:

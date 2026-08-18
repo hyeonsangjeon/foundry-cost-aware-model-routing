@@ -37,25 +37,32 @@ advance in the prereg**.
 # 1) Print only the dry-run cost-estimate table and exit (exit 2) — no live calls
 cost-router measure run <experiment>
 
-# 2) Only after operator approval: a measured sweep → the §3 snapshot
-cost-router measure run <experiment> --live --budget-usd <cap> --yes
+# 2) Resolve the run plan and print its plan_hash. Offline — sends nothing
+cost-router benchmark plan --config .foundry.local.yaml
 
-# 3) Recompute the summary byte-identically from the snapshot alone, no credentials (CI checks this)
-cost-router measure replay --run results/measured/<exp>/<run-id>
+# 3) Only after operator approval: a measured sweep → the §3 snapshot
+cost-router benchmark run --config .foundry.local.yaml --live --approve-plan sha256:<...>
 
-# 4) Check a measured snapshot against a range/floor contract (deterministic)
-cost-router measure verify --run results/measured/<exp>/<run-id> --contract <contract.yaml>
+# 4) Recompute the summary byte-identically from the snapshot alone, no credentials (CI checks this)
+cost-router measure replay --run <artifacts.local_root>/run/<run-id>
+
+# 5) Check a measured snapshot against a range/floor contract (deterministic)
+cost-router measure verify --run <artifacts.local_root>/run/<run-id> --contract <contract.yaml>
 ```
 
 Without `--live`, `measure run` **always prints only the estimate table and exits 2** (the same
 safe default as `foundry arena`). Candidates come from `--candidates` or the fleet's ensemble slate,
 and unit prices resolve in the order `--pricing` > `FOUNDRY_PRICING_PATH` > the bundled default.
 
+`measure run --live` is **not** the measured path. It resolves no plan, so it refuses before
+dispatch and names `benchmark run --live` instead; the measured route is `benchmark plan` →
+`--approve-plan` → `benchmark run --live` (§9).
+
 ---
 
 ## 3. Snapshot specification (§3)
 
-A live run writes **five files** under `results/measured/<exp>/<run-id>/`.
+A live run writes **five files** under `<artifacts.local_root>/run/<run-id>/`.
 
 ```
 manifest.json          # run metadata + SHA-256 fingerprints of every file
@@ -165,7 +172,7 @@ This repository deliberately lets **two rate-card schemas** coexist. Which path 
 | Path | Schema | Billing method | Unconfirmed backend |
 | --- | --- | --- | --- |
 | Offline experiments 01–08 (`replay` · `evals` · `hero` · `compare` · `experiment`) | v1 `PricingTable` (`samples/pricing/*.yaml`) | simple per-table in/out prices, no markup | **fail-open** via the `default` fallback (fine for synthetic experiments) |
-| Bench/paid measurement (`benchmark plan` · `benchmark run --live` · `measure run --live` · the live cockpit) | v2 `RateCardV2` (`schema_version: 2`, e.g. `samples/pricing/foundry-ext-router.yaml`) | exact alias map + Model Router **input-token markup** (router arm) + sub-model in/out composed | if not in rates, **fail-closed**: `cost_usd=null`, `cost_complete=false`, excluded from savings claims |
+| Bench/paid measurement (`benchmark plan` · `benchmark run --live` · the live cockpit) | v2 `RateCardV2` (`schema_version: 2`, e.g. `samples/pricing/foundry-ext-router.yaml`) | exact alias map + Model Router **input-token markup** (router arm) + sub-model in/out composed | if not in rates, **fail-closed**: `cost_usd=null`, `cost_complete=false`, excluded from savings claims |
 
 - **Schema decision**: if the card has a top-level `schema_version` key it's read as v2, otherwise v1.
   v1's `version:` is a free revision integer, preserved as-is with no effect on `plan_hash`.
@@ -228,11 +235,24 @@ The contract YAML checks **ranges/floors, not exact values** (the same conventio
 ## 9. Live-run procedure (operator gate)
 
 1. Confirm `cost-router foundry status` reports `credentialed: yes` (keyless Entra).
-2. Pull the dry-run estimate table with `measure run <exp>` and set the **budget cap**.
-3. Commit `results/measured/<exp>/prereg.md` **before the run starts** (the D8 gate).
-4. After operator approval, run `measure run <exp> --live --budget-usd <cap> --yes`.
-5. Replay byte-identically with `measure replay`, check against the contract with `measure verify`,
-   then commit the snapshot.
+2. Write the preregistration, **commit it**, then pin it into the run config's
+   `benchmark.preregistration` block by `path` · `blob` · `commit`. The D8 gate re-reads the
+   committed blob and compares, so an uncommitted file — or one edited after its commit — is
+   refused before dispatch. Pinning changes the plan, so this comes **before** step 3.
+3. Resolve the plan offline with `cost-router benchmark plan --config <file>`. This sends
+   nothing. Read the approval summary — planned cells, the transport-attempt range, and the
+   **worst-case reservation** — and set the **budget cap** in `benchmark.budget_usd`
+   (or override it with `--budget-usd`).
+4. After operator approval, copy the printed `plan_hash` verbatim and run
+   `cost-router benchmark run --config <file> --live --approve-plan sha256:<...>`.
+   A hash that differs by one character is rejected before credentials are looked up, so a
+   stale approval sends nothing.
+5. Replay byte-identically with `measure replay --run <artifacts.local_root>/run/<run-id>`,
+   check against the contract with `measure verify`, then commit the snapshot.
+
+`measure run --live` is not a step in this procedure: it resolves no plan, so it refuses and
+names `benchmark run --live` instead. See [Resolved Run Plan](run-plan.md) for the plan and
+approval contract in full.
 
 ## 10. Live progress indicators are diagnostic (not a verdict)
 

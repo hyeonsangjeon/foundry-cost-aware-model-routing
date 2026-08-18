@@ -54,10 +54,12 @@ offline, right away; the `measured = true` measurements run after you set up `.e
   conversion use the **same rate card**.
 
 ### 5. Repetitions · budget (`n` · budget)
-- **Where:** CLI flags — `cost-router measure run --n <reps> --budget-usd <cap>`.
-- `--n` is repetitions per cell (to check variance); `--budget-usd` is a **hard
-  cap**. A live run is refused without `--budget-usd`, and when the cap is reached
-  it stops immediately and leaves a `partial = true` snapshot.
+- **Where:** the run config — `benchmark.repetitions` · `benchmark.budget_usd`
+  (`benchmark plan` / `benchmark run` override the cap with `--budget-usd`).
+  `cost-router measure run --n <reps>` still sizes the dry-run estimate.
+- `repetitions` is repetitions per cell (to check variance); the budget is a **hard
+  cap**. A live run is refused without one — the plan does not resolve — and when the
+  cap is reached it stops immediately and leaves a `partial = true` snapshot.
 
 ## The five-step recipe — swap in my workload
 
@@ -73,9 +75,11 @@ offline, right away; the `measured = true` measurements run after you set up `.e
 5. **Preview with the catalog first, then the approved run.** Use `cost-router
    measure catalog --workload samples/telemetry/my-workload.jsonl` to see, up front,
    **the full outgoing prompts · the validation rules · the candidate models · the
-   estimated tokens · the projected cost** → if it looks right, run it with
-   `cost-router measure run --live --budget-usd <cap>`. If a prompt changes, the
-   manifest's `workload_fingerprint` changes too, so it is **honestly recorded as a
+   estimated tokens · the projected cost** → if it looks right, point the run config's
+   `benchmark.workload` at the same file, hash the plan with `cost-router benchmark plan
+   --config <file>`, and run it with `cost-router benchmark run --config <file> --live
+   --approve-plan sha256:<...>`. If a prompt changes, the manifest's
+   `workload_fingerprint` changes too, so it is **honestly recorded as a
    different experiment**.
 
 !!! tip "Everything is visible before the run"

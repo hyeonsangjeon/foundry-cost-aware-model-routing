@@ -34,25 +34,32 @@
 # 1) dry-run 비용 추정표만 출력하고 종료(exit 2) — 라이브 호출 없음
 cost-router measure run <experiment>
 
-# 2) operator 승인 후에만: 실측 스윕 → §3 스냅샷
-cost-router measure run <experiment> --live --budget-usd <cap> --yes
+# 2) 런 플랜을 해석해 plan_hash를 출력. 오프라인 — 아무것도 보내지 않음
+cost-router benchmark plan --config .foundry.local.yaml
 
-# 3) 자격 없이 스냅샷만으로 summary를 byte-동일하게 재계산(CI가 검사)
-cost-router measure replay --run results/measured/<exp>/<run-id>
+# 3) operator 승인 후에만: 실측 스윕 → §3 스냅샷
+cost-router benchmark run --config .foundry.local.yaml --live --approve-plan sha256:<...>
 
-# 4) 실측 스냅샷을 범위/하한 계약에 대조(결정론)
-cost-router measure verify --run results/measured/<exp>/<run-id> --contract <contract.yaml>
+# 4) 자격 없이 스냅샷만으로 summary를 byte-동일하게 재계산(CI가 검사)
+cost-router measure replay --run <artifacts.local_root>/run/<run-id>
+
+# 5) 실측 스냅샷을 범위/하한 계약에 대조(결정론)
+cost-router measure verify --run <artifacts.local_root>/run/<run-id> --contract <contract.yaml>
 ```
 
 `measure run`은 `--live` 없이는 **항상 추정표만 출력하고 exit 2**로 끝납니다(`foundry arena`와
 동일한 안전 기본값). 후보는 `--candidates` 또는 fleet의 ensemble 슬레이트에서, 단가는
 `--pricing` > `FOUNDRY_PRICING_PATH` > 번들 기본값 순으로 해석합니다.
 
+`measure run --live`는 실측 경로가 **아닙니다**. 플랜을 해석하지 않으므로 디스패치 전에
+거부하고 `benchmark run --live`를 안내합니다. 실측 경로는 `benchmark plan` → `--approve-plan`
+→ `benchmark run --live`입니다(§9).
+
 ---
 
 ## 3. 스냅샷 규격 (§3)
 
-라이브 런은 `results/measured/<exp>/<run-id>/` 아래 **5개 파일**을 씁니다.
+라이브 런은 `<artifacts.local_root>/run/<run-id>/` 아래 **5개 파일**을 씁니다.
 
 ```
 manifest.json          # 실행 메타 + 모든 파일의 SHA-256 지문
@@ -156,7 +163,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 | 경로 | 스키마 | 과금 방식 | 미확인 백엔드 |
 | --- | --- | --- | --- |
 | 오프라인 실험 01–08 (`replay`·`evals`·`hero`·`compare`·`experiment`) | v1 `PricingTable` (`samples/pricing/*.yaml`) | 표당 단순 in/out 단가, 마크업 없음 | `default` 폴백으로 **fail-open** (합성 실험이라 무방) |
-| 벤치/유료 측정 (`benchmark plan`·`benchmark run --live`·`measure run --live`·라이브 콕핏) | v2 `RateCardV2` (`schema_version: 2`, 예: `samples/pricing/foundry-ext-router.yaml`) | 정확한 alias map + Model Router **input-token 마크업**(라우터 arm) + 하위모델 in/out 합성 | rates에 없으면 **fail-closed**: `cost_usd=null`, `cost_complete=false`, 절감 주장에서 제외 |
+| 벤치/유료 측정 (`benchmark plan`·`benchmark run --live`·라이브 콕핏) | v2 `RateCardV2` (`schema_version: 2`, 예: `samples/pricing/foundry-ext-router.yaml`) | 정확한 alias map + Model Router **input-token 마크업**(라우터 arm) + 하위모델 in/out 합성 | rates에 없으면 **fail-closed**: `cost_usd=null`, `cost_complete=false`, 절감 주장에서 제외 |
 
 - **스키마 판정**: 카드에 최상위 `schema_version` 키가 있으면 v2, 없으면 v1로 해석합니다.
   v1의 `version:`은 자유 리비전 정수라 `plan_hash`에 영향 없이 그대로 보존됩니다.
@@ -216,10 +223,22 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 ## 9. 라이브 런 절차 (operator 게이트)
 
 1. `cost-router foundry status`가 `credentialed: yes`(키리스 Entra)인지 확인.
-2. `measure run <exp>`로 dry-run 추정표를 뽑아 **예산 상한**을 정한다.
-3. `results/measured/<exp>/prereg.md`를 **런 시작 전에 커밋**한다(D8 게이트).
-4. operator 승인 후 `measure run <exp> --live --budget-usd <cap> --yes` 실행.
-5. `measure replay`로 byte-동일 재생, `measure verify`로 계약 대조 후 스냅샷을 커밋.
+2. prereg를 작성해 **커밋한 뒤**, 그 `path`·`blob`·`commit`을 런 설정의
+   `benchmark.preregistration`에 못박는다. D8 게이트는 커밋된 blob을 다시 읽어 대조하므로
+   커밋 전이거나 커밋 뒤에 고친 파일은 디스패치 전에 거부된다. 못박는 순간 플랜이
+   달라지므로 이 단계가 3번보다 **앞**이다.
+3. `cost-router benchmark plan --config <파일>`로 플랜을 오프라인 해석한다. 아무것도 보내지
+   않는다. 승인 요약의 계획 셀 수·전송 시도 범위·**최악 예약액**을 보고
+   `benchmark.budget_usd`에 **예산 상한**을 정한다(`--budget-usd`로 덮어써도 된다).
+4. operator 승인 후 출력된 `plan_hash`를 그대로 옮겨
+   `cost-router benchmark run --config <파일> --live --approve-plan sha256:<...>` 실행.
+   해시가 한 글자만 달라도 자격 조회 이전에 거부되므로 낡은 승인으로는 아무것도 나가지 않는다.
+5. `measure replay --run <artifacts.local_root>/run/<run-id>`로 byte-동일 재생,
+   `measure verify`로 계약 대조 후 스냅샷을 커밋.
+
+`measure run --live`는 이 절차의 단계가 아니다. 플랜을 해석하지 않으므로 거부하고
+`benchmark run --live`를 대신 안내한다. 플랜·승인 계약 전체는
+[해석된 런 플랜](run-plan.md) 참고.
 
 ## 10. 라이브 진행률 지표는 진단용이다 (판정 아님)
 
