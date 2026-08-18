@@ -54,6 +54,7 @@ from .run_plan import (
     LocalRunConfig,
     ResolvedRunPlan,
     check_approval,
+    retry_policy_for,
 )
 from .spend_gate import SpendLedger
 
@@ -390,7 +391,13 @@ class CockpitController:
             # Building the live client is the authentication step; a failure here
             # (bad token / RBAC) fails the run closed BEFORE any dispatch, with
             # no billable cost and the active-run lock released in ``finally``.
-            client = (self._client_factory or _live_client_factory)()
+            # An injected factory (tests) stays zero-arg; the live one is handed
+            # the plan so the client it builds carries the plan's own request cap,
+            # transport cutoffs, and run_mode instead of constructor defaults.
+            client = (
+                self._client_factory() if self._client_factory is not None
+                else _live_client_factory(self.plan)
+            )
 
             def before_cell(cell: CellId) -> str | None:
                 # Abort admission first: once cancellation commits, no later cell
@@ -427,7 +434,7 @@ class CockpitController:
                 run_id=run.run_id,
                 n=self.plan.repetitions,
                 budget_usd=self.plan.budget_usd,
-                retry=self._retry or RetryPolicy(),
+                retry=self._retry or retry_policy_for(self.plan),
                 grader=self._grader,
                 prereg=self._prereg,
                 plan_hash=self.plan_hash,
@@ -576,10 +583,34 @@ class CockpitController:
         }
 
 
-def _live_client_factory() -> Any:  # pragma: no cover - operator-gated live egress
-    """Build the live Azure measure client. Only ever reached on the operator path."""
+def _live_client_factory(plan: ResolvedRunPlan) -> Any:  # pragma: no cover - live egress
+    """Build the live Azure measure client for ``plan``. Only reached on the operator path.
 
-    from .foundry_live import AzureModelRouterClient, FoundryConfig
+    Every field here comes off the approved plan rather than a constructor
+    default, because the default is not neutral: ``max_output_tokens`` falls back
+    to 512 (a plan asking for 2048 would silently truncate every completion and
+    the truncated answers would still be scored), ``timeouts`` falls back to the
+    committed cutoffs (so a plan that pinned its own would not get them), and
+    ``benchmark_mode`` falls back to ``False``, which is the one that matters —
+    it makes :func:`~router.foundry_live.assert_provider_benchmark_safe` evaluate
+    every dispatch as a smoke and lets a scoped-out provider through a measured
+    run. See ``tests/test_dispatch_field_parity.py``.
+    """
+
+    from .foundry_live import (
+        AzureModelRouterClient,
+        FoundryConfig,
+        TransportTimeouts,
+        is_benchmark_run_mode,
+    )
     from .measure import AzureMeasureClient
 
-    return AzureMeasureClient(AzureModelRouterClient(config=FoundryConfig.from_env()))
+    execution = plan.execution
+    return AzureMeasureClient(
+        AzureModelRouterClient(
+            config=FoundryConfig.from_env(),
+            max_output_tokens=int(execution["request"]["max_output_tokens"]),
+            timeouts=TransportTimeouts.from_retry(execution.get("retry")),
+            benchmark_mode=is_benchmark_run_mode(execution.get("run_mode")),
+        )
+    )
