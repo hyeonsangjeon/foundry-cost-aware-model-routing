@@ -50,7 +50,7 @@ RE_DECIDERS: dict[str, str] = {
         "canonical run_mode from yet; it sees raw YAML or a --run-mode override."
     ),
     "router/preregistration.py::prereg_dispatch_gate": (
-        "A shared gate whose whole premise is that three entry points cannot disagree "
+        "A shared gate whose whole premise is that entry points cannot disagree "
         "about what counts as preregistered; its one shipped caller (``cli.py``'s "
         "``_resolve_prereg_gate``) hands it ``str(plan.execution.get('run_mode') or "
         "'')``, a stringify rather than a normalization, so the gate does its own."

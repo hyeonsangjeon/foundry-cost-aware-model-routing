@@ -1587,8 +1587,9 @@ def _cmd_measure_run(args: argparse.Namespace) -> int:
 
     if not args.live:
         print("measure run: this printed ESTIMATES only — no live calls were made.")
-        print("  Re-run with --live (and --budget-usd) once an operator approves the spend.")
-        print("  `cost-router foundry status` must show credentialed: yes (az login / Entra ID).")
+        print("  This command has no measured path: `--live` refuses, because it resolves")
+        print("  no run plan. For a measured sweep use `benchmark plan --config <file>` to")
+        print("  get a plan_hash, then `benchmark run --config <file> --live --approve-plan`.")
         return 2
 
     # --- live path: refused (BOLT-03B) ---------------------------------------
@@ -1611,7 +1612,6 @@ def _cmd_measure_run(args: argparse.Namespace) -> int:
         )
     )
     return 1
-    return 0
 
 
 def _cmd_measure_catalog(args: argparse.Namespace) -> int:
@@ -1641,7 +1641,8 @@ def _cmd_measure_catalog(args: argparse.Namespace) -> int:
           f"fleet '{source}'")
     print(format_catalog(catalog, budget_usd=args.budget_usd))
     print("")
-    print("measure catalog: preview only — no live calls. Run `measure run --live` to spend.")
+    print("measure catalog: preview only — no live calls. To spend, resolve a plan with "
+          "`benchmark plan --config <file>` and run `benchmark run --live --approve-plan`.")
     return 0
 
 

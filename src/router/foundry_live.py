@@ -120,9 +120,9 @@ def is_benchmark_run_mode(run_mode: str | None) -> bool:
     One predicate with one spelling, because more than one place has to make this
     decision: the scope-out gate below, and every site that builds a live client
     from a resolved plan and has to tell that client which path it is on. Those
-    sites are wired in separately (``cli._live_measure_client`` today; the
-    ``measure run --live``, cockpit, and server builders still to come), and the
-    failure this guards against is precisely that one of them decides
+    sites are wired in separately (``cli._live_measure_client`` and the cockpit's
+    ``_live_client_factory``; the plan-less routes refuse rather than dispatch), and
+    the failure this guards against is precisely that one of them decides
     differently. A bare ``== "benchmark"`` in each caller is how ``run_mode``
     ends up meaning one thing in the accounting layer and another at the socket.
 

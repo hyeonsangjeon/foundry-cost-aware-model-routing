@@ -291,11 +291,14 @@ def test_the_backstop_leaves_every_injected_client_alone(tmp_path: Path) -> None
 # --------------------------------------------------------------------------- #
 
 
-def test_measure_run_without_live_is_completely_unchanged(capsys: Any) -> None:
+def test_measure_run_without_live_still_prints_the_estimate(capsys: Any) -> None:
     """The estimate surface is how an operator sizes a spend before approving it.
 
-    Pinned verbatim — exit 2 and both strings — because this is the half of the
-    command that must survive the refusal, and the documented contract says so.
+    Exit 2 and both strings are pinned because this is the half of the command that
+    must survive the refusal, and the documented contract says so. The *guidance*
+    printed underneath is not pinned — it now points at `benchmark plan` rather than
+    at `--live`, which is the whole point — so this asserts the contract, not the
+    prose.
     """
 
     code = cli.main(

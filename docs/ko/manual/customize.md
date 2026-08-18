@@ -44,9 +44,12 @@
 - dry-run 추정과 실측 비용 환산이 **같은 단가표**를 쓰도록 `measure`가 이 경로를 존중합니다.
 
 ### 5. 반복수 · 예산 (`n` · budget)
-- **어디:** CLI 플래그 — `cost-router measure run --n <반복> --budget-usd <상한>`.
-- `--n`은 셀당 반복(분산 확인용), `--budget-usd`는 **하드 상한**입니다. 라이브 실행은
-  `--budget-usd` 없이는 거부되고 상한 도달 시 즉시 멈추고 `partial = true` 스냅샷을 남깁니다.
+- **어디:** 런 설정 — `benchmark.repetitions`·`benchmark.budget_usd`
+  (`benchmark plan`/`benchmark run`에서 `--budget-usd`로 상한을 덮어쓸 수 있습니다).
+  `cost-router measure run --n <반복>`은 dry-run 추정 규모를 잡을 때 그대로 씁니다.
+- `repetitions`는 셀당 반복(분산 확인용), 예산은 **하드 상한**입니다. 상한이 없으면 플랜
+  자체가 해석되지 않아 라이브 실행이 거부되고, 상한 도달 시 즉시 멈추고 `partial = true`
+  스냅샷을 남깁니다.
 
 ## 5단계 레시피 — 내 워크로드 갈아끼우기
 
@@ -58,8 +61,10 @@
 4. **플릿·단가 지정.** `.env`에서 `FOUNDRY_FLEET_PATH`·`FOUNDRY_PRICING_PATH`를 본인 배포·단가로.
 5. **먼저 카탈로그로 확인, 그다음 승인 실행.** `cost-router measure catalog --workload
    samples/telemetry/my-workload.jsonl`로 **나갈 프롬프트 전문·검증 규칙·후보 모델·추정
-   토큰·예상 비용**을 먼저 눈으로 확인 → 문제 없으면 `cost-router measure run --live
-   --budget-usd <상한>`으로 승인 실행. 프롬프트가 바뀌면 manifest의 `workload_fingerprint`가
+   토큰·예상 비용**을 먼저 눈으로 확인 → 문제 없으면 런 설정의 `benchmark.workload`를 같은
+   파일로 지목하고 `cost-router benchmark plan --config <파일>`로 플랜을 해석한 뒤,
+   `cost-router benchmark run --config <파일> --live --approve-plan sha256:<...>`으로
+   승인 실행. 프롬프트가 바뀌면 manifest의 `workload_fingerprint`가
    달라져 **다른 실험으로 정직하게 기록**됩니다.
 
 !!! tip "실행 전에 다 보인다"
