@@ -1291,6 +1291,74 @@ class RunHooks:
     after_cell: Callable[[CellId, list[dict[str, Any]]], None] | None = None
 
 
+# --------------------------------------------------------------------------- #
+# Plan-less measured dispatch: refused
+# --------------------------------------------------------------------------- #
+#
+# What makes a dispatch *measured* is not the ``--live`` flag and not whether a
+# fleet was used — it is whether the dispatch seals a snapshot under
+# ``results/measured/``, because that snapshot is the artifact ``measure publish``
+# promotes into a cost claim. In this package that criterion is exact: writing one
+# means calling :func:`run_measure`. Four call sites do; the five wiring/demo
+# surfaces (``foundry live``, ``foundry router``, their ``--capture`` variants and
+# the arena fleet) call none of them and are untouched by everything below.
+#
+# Two of those four resolve no :class:`~router.run_plan.ResolvedRunPlan`, so every
+# field that decides what a run costs and what it may claim — the retry budget, the
+# transport cutoffs, the request cap, and the ``run_mode`` the provider scope-out
+# gate is evaluated against — came from a constructor default rather than from
+# something a human approved. They are refused here rather than wired, because
+# wiring them means resolving a plan they have no way to obtain.
+
+
+class MeasuredDispatchWithoutPlanError(RuntimeError):
+    """A live measured sweep was started with no resolved plan behind it."""
+
+
+#: Refusal for a path that *could* carry a measured run but has no plan bound.
+#: The remedy is to bring a plan, so it names the resolver-backed command.
+def plan_less_measured_refusal(label: str, *, writes: str) -> str:
+    return "\n".join(
+        [
+            f"{label}: refusing to dispatch — a measured run needs a resolved plan, "
+            "and this path has none.",
+            f"    would write   : {writes}",
+            "    plan_hash     : (none — this path never resolves a run plan)",
+            "  A measured snapshot is what `measure publish` promotes into a cost claim, so",
+            "  the retry budget, the transport cutoffs, the request cap and the run_mode that",
+            "  the provider scope-out gate is evaluated against all have to come from a plan a",
+            "  human approved. This path reads them from argparse defaults, which means the",
+            "  gate has only ever seen a smoke — including for a --fleet whose models sit on",
+            "  the retiring azure-ai-inference surface.",
+            "  This is not a credential, budget or preregistration failure: nothing here says",
+            "  the run would be refused for spend. There is simply no approved plan to run.",
+            "  Dispatch the measured sweep through the resolver instead:",
+            "      cost-router benchmark run --live --config <your-config.yaml>",
+            "  Everything else still works: this command without --live still prints the",
+            "  dry-run estimate table and exits 2, and `measure replay` / `measure verify`",
+            "  still need no credentials at all.",
+        ]
+    )
+
+
+#: Refusal for a route that is superseded and will not gain a plan. The remedy is
+#: to use the successor, not to supply anything.
+def unsupported_measured_route_refusal(label: str, *, successor: str) -> str:
+    return "\n".join(
+        [
+            f"{label}: refusing to dispatch — this route does not support measured runs.",
+            f"    successor     : {successor}",
+            "  This is a different state from a missing plan: the route was superseded, not",
+            "  left unwired, and it is reached only when no plan is bound. Supplying a plan",
+            "  here would not help, because the plan-bound cockpit does not come through this",
+            "  code path at all.",
+            "  Bind a plan and the supported route takes over automatically; nothing else",
+            "  about the cockpit changes. The read-only panels on this route — status,",
+            "  catalog, progress and snapshot replay — are unaffected and still work.",
+        ]
+    )
+
+
 def run_measure(
     workload: Mapping[str, Mapping[str, Any]],
     candidates: Sequence[MeasureCandidate],
@@ -1331,12 +1399,22 @@ def run_measure(
     never gates or mutates the run.
     """
 
+    # Fail closed before the run directory exists. The two call sites that used to
+    # arrive here plan-less now refuse upstream with an operator-facing message;
+    # this is the backstop that makes a *future* one impossible rather than merely
+    # detectable. Keyed on the live adapter because it is the only egressing
+    # client — every fake/injected client in the test suite passes no plan_hash and
+    # must keep working, which is exactly the distinction being drawn.
+    if plan_hash is None and isinstance(client, AzureMeasureClient):
+        raise MeasuredDispatchWithoutPlanError(
+            plan_less_measured_refusal("run_measure", writes=str(run_dir))
+        )
+
     retry = retry or RetryPolicy()
     started = now or datetime.now(UTC)
     run_id = run_id or make_run_id(started)
     run_path = Path(run_dir)
     run_path.mkdir(parents=True, exist_ok=True)
-
     engine = as_engine(pricing)
     already = _completed_keys(run_path) if resume else set()
     prior_rows: list[dict[str, Any]] = []

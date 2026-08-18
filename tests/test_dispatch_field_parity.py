@@ -54,42 +54,34 @@ MEASURED_CONSUMERS: dict[str, str] = {
         "The cockpit's live sweep. CockpitController._run_sweep owns the plan and "
         "hands it to this factory, so the client is built from the approved plan."
     ),
+}
+
+#: Routes that *used* to seal a measured snapshot with no resolved plan behind
+#: them, and now refuse instead. Both are pinned by name because the failure being
+#: guarded is a silent reappearance: someone restores a client construction here,
+#: it inherits ``benchmark_mode=False``, and the scope-out gate goes back to seeing
+#: a smoke on every dispatch.
+#:
+#: The previous revision of this file listed these two as *gaps* — measured
+#: consumers exempted from the parity checks because they had no plan to forward.
+#: Exempting them was the honest description of a hole, not a fix. They are closed
+#: now, so the exemption is gone and the rule below is the stricter one: these
+#: scopes must contain no client construction at all.
+REFUSED_MEASURED_ROUTES: dict[str, str] = {
     "router/cli.py::_cmd_measure_run": (
-        "`measure run --live` — writes results/measured/<exp>/<run_id>, the exact "
-        "artifact `measure publish` promotes."
+        "`measure run --live`. Legacy pre-03A path: candidates come from "
+        "--fleet/--candidates and the request cap from --max-output-tokens, never "
+        "from a resolved plan. `samples/fleet/foundry-ext-full.fleet.yaml` declares "
+        "seven `provider: foundry` models, so while this path dispatched it could "
+        "put a scoped-out provider into a measured snapshot."
     ),
-    "router/server.py::RouterService._cockpit_launch._worker": (
-        "The plan-less cockpit run route. Writes results/measured/<exp>/<run_id> "
-        "and answers `measured: true`."
+    "router/server.py::RouterService._cockpit_launch": (
+        "The plan-less cockpit run route, reached only when "
+        "`self._cockpit_controller is None`. Superseded by CockpitController, which "
+        "carries the plan-hash approval and spend ledger this route never had."
     ),
 }
 
-#: Measured consumers that resolve **no plan at all**, so there is no ``run_mode``
-#: to forward and nothing for the parity check above to compare. Pinned here with
-#: the reason, because the alternative — leaving them out of the registry — is how
-#: they stayed invisible in the first place.
-#:
-#: This is a record, not a schedule. Wiring these two is a design decision, not a
-#: mechanical change: neither path has a ``ResolvedRunPlan`` in scope, so closing
-#: the gap means either declaring a fail-closed default for a plan-less measured
-#: run, or binding both paths to the resolver (a `--config` for `measure run`, and
-#: retiring the legacy cockpit route). Delete the entry when one is chosen; the
-#: test below will then demand the full field set from it like any other sibling.
-PLAN_LESS_MEASURED_CONSUMERS: dict[str, str] = {
-    "router/cli.py::_cmd_measure_run": (
-        "Legacy pre-03A path: candidates come from --fleet/--candidates and the "
-        "request cap from --max-output-tokens, never from a resolved plan. "
-        "`samples/fleet/foundry-ext-full.fleet.yaml` declares seven "
-        "`provider: foundry` models, so this path can still dispatch a scoped-out "
-        "provider into a measured snapshot."
-    ),
-    "router/server.py::RouterService._cockpit_launch._worker": (
-        "Only reached when no plan is bound (`self._cockpit_controller is None`); "
-        "the plan-bound route goes through CockpitController instead. The "
-        "surrounding `dashboard --live` without --config already prints a "
-        "DEPRECATED warning."
-    ),
-}
 
 #: Consumers that are wiring/demo/fixture surfaces. They never write a measured
 #: snapshot, so a smoke evaluation is the correct one and the partner surface is
@@ -179,11 +171,7 @@ def _by_key() -> dict[str, _Site]:
 
 def _plan_bound_measured() -> dict[str, _Site]:
     sites = _by_key()
-    return {
-        key: sites[key]
-        for key in MEASURED_CONSUMERS
-        if key not in PLAN_LESS_MEASURED_CONSUMERS
-    }
+    return {key: sites[key] for key in MEASURED_CONSUMERS}
 
 
 # --------------------------------------------------------------------------- #
@@ -216,11 +204,43 @@ def test_every_client_construction_site_is_classified() -> None:
     )
 
 
-def test_the_plan_less_gap_list_stays_a_subset_of_the_measured_ones() -> None:
-    """Every pinned gap must still be a real, still-measured consumer."""
+def test_the_refused_routes_construct_no_live_client() -> None:
+    """The closed paths must stay closed, and closed here means *no client at all*.
 
-    orphans = sorted(set(PLAN_LESS_MEASURED_CONSUMERS) - set(MEASURED_CONSUMERS))
-    assert not orphans, f"gap entries that are not measured consumers: {orphans}"
+    A guard that returns early but still has an ``AzureModelRouterClient(...)``
+    below it is one edited condition away from dispatching again, and the client it
+    would build is the fail-open one — no request cap, no cutoffs, and a
+    ``benchmark_mode`` of False that makes the scope-out gate see a smoke. So the
+    rule is structural rather than behavioural: these scopes contain no
+    construction, which is a thing this file can prove by reading the source.
+    """
+
+    for key, reason in sorted(REFUSED_MEASURED_ROUTES.items()):
+        assert reason.strip(), f"{key} is pinned with no reason"
+        offenders = [
+            site
+            for site in _client_sites()
+            if site.key == key or site.key.startswith(key + ".")
+        ]
+        assert not offenders, (
+            f"{key} builds a live client again: {offenders}. This route was closed "
+            "because it resolves no plan; restoring the construction restores the "
+            "fail-open default. Either keep it refused, or bind it to the resolver "
+            "and move it into MEASURED_CONSUMERS so parity applies."
+        )
+
+
+def test_the_refused_routes_still_exist_to_refuse() -> None:
+    """A pin naming a function that is gone is a false claim, not a protection."""
+
+    for key in sorted(REFUSED_MEASURED_ROUTES):
+        rel, _, scope = key.partition("::")
+        source = (SRC / rel).read_text(encoding="utf-8")
+        leaf = scope.rsplit(".", 1)[-1]
+        assert f"def {leaf}(" in source, (
+            f"{key} is pinned as a refused route but {rel} has no {leaf}. If the "
+            "route was deleted outright, drop the entry; if it was renamed, update it."
+        )
 
 
 # --------------------------------------------------------------------------- #

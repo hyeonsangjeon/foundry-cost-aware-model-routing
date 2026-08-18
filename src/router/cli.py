@@ -76,18 +76,16 @@ from .measure import (
     AzureMeasureClient,
     MeasureCandidate,
     MeasuredContract,
-    RetryPolicy,
     build_catalog,
     build_publish_bundle,
     estimate_dry_run,
-    evaluate_prereg,
     format_catalog,
     format_dry_run_table,
     load_prompt_workload,
     make_run_id,
+    plan_less_measured_refusal,
     publish_bundle_json,
     replay_measure,
-    run_measure,
     verify_contract,
 )
 from .metrics import (
@@ -1550,15 +1548,6 @@ def _measure_candidates(args: argparse.Namespace) -> tuple[list[MeasureCandidate
     return candidates, registry.source
 
 
-def _redact_endpoint_host(endpoint: str | None) -> str | None:
-    if not endpoint:
-        return None
-    from urllib.parse import urlsplit
-
-    parts = urlsplit(endpoint)
-    return f"{parts.scheme}://{parts.netloc}" if parts.netloc else "set"
-
-
 def _git_head() -> str | None:
     import subprocess
 
@@ -1602,53 +1591,26 @@ def _cmd_measure_run(args: argparse.Namespace) -> int:
         print("  `cost-router foundry status` must show credentialed: yes (az login / Entra ID).")
         return 2
 
-    # --- live path (operator-gated; never exercised by CI/tests) --------------
-    if args.budget_usd is None:  # pragma: no cover - live guard
-        print("measure run --live: refusing without --budget-usd (set a cap from the estimate).")
-        return 1
-    config = FoundryConfig.from_env()
-    if not config.credentialed:  # pragma: no cover - live guard
-        print(
-            "measure run --live: not credentialed; set AZURE_AI_FOUNDRY_* in .env, then `az login`."
+    # --- live path: refused (BOLT-03B) ---------------------------------------
+    # This command predates the 03A resolver and never gained one: candidates come
+    # from --fleet/--candidates and the request cap from --max-output-tokens, so
+    # there is no ResolvedRunPlan here to take a run_mode from. It used to build a
+    # live client anyway, leaving `benchmark_mode` at its default — which made
+    # assert_provider_benchmark_safe evaluate every dispatch as a smoke and let a
+    # scoped-out provider seal a measured snapshot. `samples/fleet/
+    # foundry-ext-full.fleet.yaml` declares seven such models.
+    #
+    # The refusal is deliberately here rather than deeper: above it nothing has
+    # dispatched and the estimate table has already printed, and below it
+    # everything can bill. Refusing rather than wiring is the decision recorded in
+    # tests/test_plan_less_measured_refusal.py.
+    print(
+        plan_less_measured_refusal(
+            "measure run --live",
+            writes=str(args.out_root / args.experiment / "<run_id>"),
         )
-        return 1
-
-    out_root = args.out_root
-    run_id = args.resume or args.run_id or make_run_id()
-    run_dir = out_root / args.experiment / run_id
-    prereg_path = args.prereg or (out_root / args.experiment / "prereg.md")
-    started = _utc_now()
-    decision = evaluate_prereg(
-        prereg_path, run_started_at=started, allow_no_prereg=args.allow_no_prereg
     )
-    if not decision.allowed:  # pragma: no cover - live guard
-        print(f"measure run --live: prereg gate blocked the run — {decision.note}")
-        return 1
-    if not args.yes and not _confirm_live(  # pragma: no cover - interactive
-        estimate, args.budget_usd
-    ):
-        print("measure run --live: cancelled (no --yes confirmation).")
-        return 1
-
-    client = AzureMeasureClient(
-        AzureModelRouterClient(config=config, max_output_tokens=args.max_output_tokens)
-    )
-    try:  # pragma: no cover - live path
-        result = run_measure(
-            workload, candidates, client=client, pricing=pricing,
-            exp_id=args.experiment, run_dir=run_dir, run_id=run_id, n=args.n,
-            budget_usd=args.budget_usd, retry=RetryPolicy(), prereg=decision,
-            git_commit=_git_head(), endpoint=_redact_endpoint_host(config.endpoint),
-            region=args.region, pricing_path=str(pricing_path),
-            resume=bool(args.resume), now=started,
-        )
-    except (RuntimeError, ValueError, KeyError, OSError) as exc:
-        print(f"measure run --live: {exc}")
-        return 1
-    if args.json:  # pragma: no cover - live path
-        print(json.dumps(result.summary, indent=2, sort_keys=True, ensure_ascii=False))
-    else:  # pragma: no cover - live path
-        _print_measure_summary(result)
+    return 1
     return 0
 
 
@@ -1763,34 +1725,6 @@ def _cmd_measure_verify(args: argparse.Namespace) -> int:
     ok = all(c.ok for c in hard)
     print(f"status: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1
-
-
-def _print_measure_summary(result) -> None:  # pragma: no cover - live path
-    summary = result.summary
-    labels = summary["labels"]
-    print("cost-router measure — measured snapshot")
-    print(f"  snapshot : {result.run_dir}")
-    print(f"  measured : {_yn(labels['measured'])}   partial: {_yn(labels['partial'])}   "
-          f"accuracy: {labels['accuracy']}")
-    print(f"  calls    : {summary['calls']}/{summary['attempts']} ok   tasks: {summary['tasks']}   "
-          f"n: {summary['n']}")
-    print(f"  cost     : {format_usd(summary['cost']['total_usd'])}  "
-          f"(best {summary['cost']['best_model']} vs naive {summary['cost']['naive_model']}: "
-          f"{summary['cost']['savings_pct']:.1f}% cheaper)")
-    throttle = summary["throttle"]
-    print(f"  throttle : 429×{throttle['http_429']}  retries {throttle['retries']}  "
-          f"exhausted {throttle['throttle_exhausted']}")
-    print("  replay   : cost-router measure replay --run " + str(result.run_dir))
-
-
-def _confirm_live(estimate, budget_usd: float) -> bool:  # pragma: no cover - interactive
-    import sys
-
-    if not sys.stdin.isatty():
-        return False
-    reply = input(f"Proceed with LIVE calls (est {format_usd(estimate['est_total_usd'])}, "
-                  f"cap {format_usd(budget_usd)})? [y/N] ").strip().lower()
-    return reply in {"y", "yes"}
 
 
 def _utc_now():
