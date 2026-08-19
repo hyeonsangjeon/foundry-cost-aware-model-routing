@@ -72,7 +72,7 @@ def test_charts_are_accessible(name: str, locale: str) -> None:
 
 def test_render_is_deterministic() -> None:
     # Byte-stability is what lets the committed assets be a regression target.
-    for name, render in charts.CHARTS:
+    for _name, render in charts.CHARTS:
         for locale in ("en", "ko"):
             assert render(BUNDLE, locale) == render(BUNDLE, locale)
 

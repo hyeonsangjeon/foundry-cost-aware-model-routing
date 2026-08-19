@@ -74,7 +74,8 @@ def _rows(run_dir: Path) -> list[dict]:
     path = run_dir / "traces.jsonl"
     if not path.is_file():
         raise SystemExit(f"build_prompt_cache_charts: missing sealed traces {path}")
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in lines if line.strip()]
 
 
 def _sha256(path: Path) -> str:
@@ -225,8 +226,14 @@ def _join(parts: list[str]) -> str:
 COPY: dict[str, dict[str, str]] = {
     "en": {
         "a_title": "Recorded cache ratio across the three repeats — Cost mode",
-        "a_sub": "sum(cached) / sum(input) over HTTP 200 rows · router-cost, whose rows are 100% Grok in all three runs",
-        "a_warn": "Repeat 1 is not a cold baseline: the first paid call of every run already recorded cached = 149 / input = 155 (§3-5).",
+        "a_sub": (
+            "sum(cached) / sum(input) over HTTP 200 rows · router-cost, whose rows are "
+            "100% Grok in all three runs"
+        ),
+        "a_warn": (
+            "Repeat 1 is not a cold baseline: the first paid call of every run already "
+            "recorded cached = 149 / input = 155 (§3-5)."
+        ),
         "a_rep": "Repeat {n}",
         "a_svgtitle": "Recorded cache ratio by repeat, three sealed runs, Cost mode",
         "a_svgdesc": (
@@ -236,9 +243,18 @@ COPY: dict[str, dict[str, str]] = {
             "100.00, 100.00. All three runs step up in the same shape and none falls back. "
             "Repeat 1 is not a cold baseline."
         ),
-        "b_title": "With the backend held fixed, the arm that spread its requests is not the lower one",
-        "b_sub": "Grok rows only · sum(cached) / sum(input) · gpt-family rows are excluded by construction (§3-3)",
-        "b_note": "Experiment 13 has no bar for Balanced mode: that arm recorded no Grok rows at all (§3-3).",
+        "b_title": (
+            "With the backend held fixed, the arm that spread its requests is not the "
+            "lower one"
+        ),
+        "b_sub": (
+            "Grok rows only · sum(cached) / sum(input) · gpt-family rows are excluded by "
+            "construction (§3-3)"
+        ),
+        "b_note": (
+            "Experiment 13 has no bar for Balanced mode: that arm recorded no Grok rows "
+            "at all (§3-3)."
+        ),
         "b_svgtitle": "Cost mode versus Balanced mode on the Grok slice only",
         "b_svgdesc": (
             "Grouped bar chart from 0 to 100 percent. Experiment 11 (VOID): Cost mode "
@@ -252,8 +268,14 @@ COPY: dict[str, dict[str, str]] = {
     },
     "ko": {
         "a_title": "세 번의 반복에 걸친 캐시 기록 비율 — Cost 모드",
-        "a_sub": "HTTP 200 행에 대한 sum(cached) / sum(input) · 세 런 모두 행이 100% Grok인 router-cost",
-        "a_warn": "1회차는 콜드 기준선이 아닙니다. 세 런 모두 런의 최초 유료 호출이 이미 cached = 149 / input = 155로 기록됐습니다(§3-5).",
+        "a_sub": (
+            "HTTP 200 행에 대한 sum(cached) / sum(input) · 세 런 모두 행이 "
+            "100% Grok인 router-cost"
+        ),
+        "a_warn": (
+            "1회차는 콜드 기준선이 아닙니다. 세 런 모두 런의 최초 유료 호출이 이미 "
+            "cached = 149 / input = 155로 기록됐습니다(§3-5)."
+        ),
         "a_rep": "{n}회차",
         "a_svgtitle": "봉인된 세 런의 회차별 캐시 기록 비율, Cost 모드",
         "a_svgdesc": (
@@ -263,8 +285,14 @@ COPY: dict[str, dict[str, str]] = {
             "올라가고 되돌아 내려간 런은 없습니다. 1회차는 콜드 기준선이 아닙니다."
         ),
         "b_title": "백엔드를 고정하면 요청을 나눠 보낸 쪽이 더 낮지 않습니다",
-        "b_sub": "Grok 행만 · sum(cached) / sum(input) · gpt 계열 행은 정의상 들어오지 않습니다(§3-3)",
-        "b_note": "실험 13에 Balanced 모드 막대가 없는 것은 그 arm에 Grok 행이 하나도 없었기 때문입니다(§3-3).",
+        "b_sub": (
+            "Grok 행만 · sum(cached) / sum(input) · gpt 계열 행은 정의상 "
+            "들어오지 않습니다(§3-3)"
+        ),
+        "b_note": (
+            "실험 13에 Balanced 모드 막대가 없는 것은 그 arm에 Grok 행이 하나도 "
+            "없었기 때문입니다(§3-3)."
+        ),
         "b_svgtitle": "Grok 슬라이스만 놓고 본 Cost 모드와 Balanced 모드",
         "b_svgdesc": (
             "0에서 100퍼센트까지의 묶음 막대 그래프입니다. 실험 11(무효)은 Cost 모드 93.11퍼센트, "
