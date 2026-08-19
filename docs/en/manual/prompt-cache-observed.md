@@ -1,18 +1,20 @@
 # Prompt cache observed in the sealed runs
 
-!!! note "Post-hoc observation · not a preregistered result"
-    This page is not a results dashboard. The preregistration for these runs carried
-    no cache prediction and no cache gate. Everything below comes from re-reading the
-    sealed `traces.jsonl` **after** the results were already in. Zero paid calls were
-    made, nothing under `results/` changed, and no published figure moved. Measured
-    results that passed a preregistration gate live on the
+!!! note "measured = true · post-hoc re-read · no new paid calls"
+    The data here comes from three real paid runs against Azure Foundry — the same
+    sealed snapshots behind the measured results. This page adds no new calls: it
+    re-reads `traces.jsonl` after the results were already in. The preregistration
+    carried no cache prediction and no cache gate, so this is a post-hoc observation,
+    not a preregistered result. Nothing under `results/` changed and no published
+    figure moved. Measured results that passed a preregistration gate live on the
     [Routing-mode measured results dashboard](03d-results.md); this page is
     deliberately kept out of that place because it is a different kind of claim.
 
 ## 1 · What this is
 
-- **Zero paid calls.** The only inputs are the three sealed snapshots' `traces.jsonl`
-  and the workload file that produced them.
+- **Three real paid runs, re-read at no additional cost.** The inputs are the
+  sealed `traces.jsonl` from experiments 11 · 12 · 13 — real Azure Foundry calls —
+  plus the workload file that produced them. No new request was sent for this page.
 - `tokens.cached` is present and non-null in **288 of 288 cells** in every one of the
   three runs.
 - The re-aggregation reproduces the sealed `summary.json` `cache` block to four
