@@ -83,6 +83,7 @@ nav:
           - Experiment atlas: manual/experiment-atlas.md
           - "Workload inventory · what can be measured": manual/workload-inventory.md
           - "One problem, four ways": manual/head-to-head.md
+          - "Prompt cache observed in the sealed runs": manual/prompt-cache-observed.md
   - Honesty Charter: honesty.md
 
 # Explicit plugin block — no reliance on the implicit `search` default.
@@ -155,6 +156,7 @@ plugins:
                     - 실험 아틀라스: manual/experiment-atlas.md
                     - "워크로드 인벤토리 · 실측 가능성": manual/workload-inventory.md
                     - "문제 하나, 네 가지 방법": manual/head-to-head.md
+                    - "봉인된 런에서 관측된 프롬프트 캐시": manual/prompt-cache-observed.md
             - 정직함 규약: honesty.md
   - redirects:
       redirect_maps:

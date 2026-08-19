@@ -172,3 +172,8 @@ raised transport timeouts —
 [Experiment 13 · router three modes · run 3](../lab-notebook/13-router-modes-rate-card-gap.md).
 Every figure on this page remains run 2's; run 3 reports its own summary savings against a
 different baseline, which is the second of the two baselines flagged above.
+
+The cache tokens left in the same sealed traces were re-aggregated after the fact, with
+zero paid calls — [Prompt cache observed in the sealed runs](prompt-cache-observed.md).
+It is a post-hoc observation outside the preregistration gate, and no figure on this page
+changed.

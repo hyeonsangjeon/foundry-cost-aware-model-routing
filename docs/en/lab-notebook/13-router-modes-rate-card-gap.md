@@ -213,3 +213,8 @@ solved every task.
   sealed and bound to `plan_hash`; `measure replay` re-confirms byte-for-byte identity.
 - **Invariant:** this run does not touch the bytes of the offline ledger
   (`measured = false`), experiment 10's measurement ledger, or the experiment 12 record.
+
+The cache tokens left in this run's sealed traces were re-aggregated after the fact, with
+zero paid calls — [Prompt cache observed in the sealed runs](../manual/prompt-cache-observed.md).
+It is a post-hoc observation outside the preregistration gate, and no figure on this page
+changed.
