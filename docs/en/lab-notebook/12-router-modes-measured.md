@@ -165,3 +165,8 @@ whether to apply it; this page records the proposal only.
     - **Invariant:** this paid run **does not touch** the bytes of the offline ledger
       (`measured = false`) or [experiment 10](10-measured-ledger.md)'s measurement ledger.
       Experiment 11's void verdict account is also **preserved as-is.**
+
+The cache tokens left in this run's sealed traces were re-aggregated after the fact, with
+zero paid calls — [Prompt cache observed in the sealed runs](../manual/prompt-cache-observed.md).
+It is a post-hoc observation outside the preregistration gate, and no figure on this page
+changed.
