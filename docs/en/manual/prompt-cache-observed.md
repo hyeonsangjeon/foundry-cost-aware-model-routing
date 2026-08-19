@@ -83,8 +83,8 @@ re-read that would decide it.
 
 ### 3-1 · The backend did not change between repeats
 
-For every router arm × task combination, all three repeats recorded the same
-`pricing.resolved_model`.
+For every router arm × task combination, the repeats recorded with HTTP 200 recorded
+the same `pricing.resolved_model`.
 
 | Experiment | `router-cost` | `router-balanced` | `router-quality` | Combinations that changed |
 |---|---|---|---|---|
@@ -95,6 +95,10 @@ For every router arm × task combination, all three repeats recorded the same
 **212 combinations, 0 changes.** The backend varied *by task*, but not between the
 repeated requests of one task. This is the one figure on the page that the §2
 limitation does not touch — it reads a model name, not a token count.
+
+Of those 212 combinations, 206 recorded all three repeats; the other six have fewer
+than three HTTP 200 rows — three in experiment 11, two in experiment 12, one in
+experiment 13. The count of combinations that changed backend is 0 either way.
 
 It is also an observation, not a contract. Nothing in this repository requests or
 guarantees that stability (§5).
@@ -191,11 +195,18 @@ rows are 100% Grok in all three runs:
 
 No task moved the other way:
 
-| Experiment | Tasks | repeat 2 > repeat 1 | repeat 2 = repeat 1 | repeat 2 < repeat 1 |
+| Experiment | Tasks compared | repeat 2 > repeat 1 | repeat 2 = repeat 1 | repeat 2 < repeat 1 |
 |---|---|---|---|---|
-| 11 (VOID) | 24 | 11 | 11 | **0** |
+| 11 (VOID) | 22 | 11 | 11 | **0** |
 | 12 | 23 | 10 | 13 | **0** |
-| 13 | 24 | 10 | 13 | **0** |
+| 13 | 23 | 10 | 13 | **0** |
+
+Only repeats recorded with HTTP 200 enter these counts, so a task appears here only if
+both repeat 1 and repeat 2 have one. Experiment 11 drops `toll-schedule` (repeat 1) and
+`dedupe-stable` (repeat 2); experiment 13 drops `align-frames` (repeat 1); experiment
+12's `toll-schedule` timed out on all three repeats and is absent from the arm
+entirely. Every dropped repeat is an HTTP 408 carrying `input = 0` (§1). The table
+below and §3-1 count the same way.
 
 At cell level: among task × arm combinations that resolved to the Grok backend, the
 count whose repeats 2 and 3 recorded `cached == input` — the whole prompt logged as
@@ -206,6 +217,11 @@ cached:
 | 11 (VOID) | **40** | 43 |
 | 12 | **41** | 42 |
 | 13 | **24** | 24 |
+
+The count admits a combination when every repeat it recorded among 2 · 3 has
+`cached == input`. Four combinations recorded only one of the two — three in
+experiment 11, one in experiment 12 — and three of those four met the condition on the
+repeat they did record. Requiring both repeats to be present gives 38 · 40 · 24.
 
 !!! warning "Repeat 1 is not a cold baseline"
     In all three runs the **first paid call of the run** — `span-gaps · router-cost ·
