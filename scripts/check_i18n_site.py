@@ -119,10 +119,22 @@ LANG_SELECT_RE = re.compile(
 #     pages. It is third-party tokenizer data, never surfaced as page text, so
 #     the reader-facing page scan below (which reads HTML, not JS) never sees it.
 ASSET_LANG_EXCEPTIONS = ("assets/javascripts/lunr/",)
-# The 03D result charts are shared SVG assets whose axis/legend labels are baked
-# in at generation time. English pages must reference the English ``.en.svg``
-# variants; the bare ``.svg`` files keep Korean labels for the Korean pages.
-SVG03D_REF_RE = re.compile(r"assets/03d/([\w.-]+?)\.svg", re.IGNORECASE)
+# Generated chart SVGs carry their axis/legend labels baked in, so an English
+# page that embeds a Korean-labelled chart shows Korean to an English reader even
+# when its Markdown alt-text is English. Every directory of generated charts is
+# listed here and checked the same way: an English page must reference a variant
+# whose stem ends in ``.en``, and no ``.en.svg`` may contain Hangul.
+#
+# The two directories name their locales differently because they were built
+# under different conventions: 03D commits the Korean chart as the bare
+# ``<name>.svg`` and derives ``<name>.en.svg`` from it, while prompt-cache
+# renders both locales from one generator and so labels both explicitly
+# (``<name>.ko.svg`` / ``<name>.en.svg``). The rule below only cares about the
+# ``.en`` suffix, so it covers both.
+CHART_DIRS = ("03d", "prompt-cache")
+SVG_CHART_REF_RE = re.compile(
+    r"assets/(" + "|".join(CHART_DIRS) + r")/([\w.-]+?)\.svg", re.IGNORECASE
+)
 
 
 def _reader_visible_text(html: str) -> str:
@@ -525,13 +537,14 @@ def check_hangul_leak(site: Path) -> list[str]:
 
 
 def check_localized_assets(site: Path) -> list[str]:
-    """English pages reference the English 03D chart variants, and those
-    variants are actually English.
+    """English pages reference the English chart variants, and those variants are
+    actually English.
 
     Chart labels are baked into the SVG at generation time, so an English page
-    that embeds the bare (Korean-labelled) ``assets/03d/*.svg`` shows Korean to
-    an English reader even though its Markdown alt-text is English. The English
-    pages must use the ``.en.svg`` variants; those variants must carry no Korean.
+    that embeds a Korean-labelled chart shows Korean to an English reader even
+    though its Markdown alt-text is English. The English pages must use the
+    ``.en.svg`` variants; those variants must carry no Korean. Applies to every
+    directory in ``CHART_DIRS``.
     """
     out: list[str] = []
     for html_path in sorted(site.rglob("index.html")):
@@ -539,17 +552,18 @@ def check_localized_assets(site: Path) -> list[str]:
         if key is None or key == "ko" or key.startswith("ko/") or key in DEMO_PAGES:
             continue
         text = html_path.read_text(encoding="utf-8", errors="ignore")
-        for name in SVG03D_REF_RE.findall(text):
+        for chart_dir, name in SVG_CHART_REF_RE.findall(text):
             if not name.endswith(".en"):
                 out.append("assets: English page '" + (key or "<root>")
-                           + "' embeds Korean chart 'assets/03d/" + name
+                           + "' embeds Korean chart 'assets/" + chart_dir + "/" + name
                            + ".svg' (expected the .en.svg variant)")
-    charts_dir = site / "assets" / "03d"
-    for svg in sorted(charts_dir.glob("*.en.svg")) if charts_dir.is_dir() else []:
-        hits = HANGUL_RE.findall(svg.read_text(encoding="utf-8", errors="ignore"))
-        if hits:
-            out.append("assets: English chart 'assets/03d/" + svg.name + "' leaks "
-                       + str(len(hits)) + " Korean character(s)")
+    for chart_dir in CHART_DIRS:
+        charts_dir = site / "assets" / chart_dir
+        for svg in sorted(charts_dir.glob("*.en.svg")) if charts_dir.is_dir() else []:
+            hits = HANGUL_RE.findall(svg.read_text(encoding="utf-8", errors="ignore"))
+            if hits:
+                out.append("assets: English chart 'assets/" + chart_dir + "/" + svg.name
+                           + "' leaks " + str(len(hits)) + " Korean character(s)")
     return out
 
 

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-labelledby="chart-title chart-desc">
+  <title id="chart-title">Cost mode versus Balanced mode on the Grok slice only</title>
+  <desc id="chart-desc">Grouped bar chart from 0 to 100 percent. Experiment 11 (VOID): Cost mode 93.11 percent, Balanced mode 99.41 percent. Experiment 12: Cost mode 96.47 percent, Balanced mode 99.10 percent. In both runs Balanced mode, the arm that spread its requests across backends, recorded the higher ratio once the backend is held fixed. Experiment 13 recorded no Grok rows in Balanced mode.</desc>
+  <rect x="0" y="0" width="760" height="420" fill="#ffffff"/>
+  <text x="24.0" y="34.0" font-size="15" fill="#1f2933" text-anchor="start" font-weight="700">With the backend held fixed, the arm that spread its requests is not the lower one</text>
+  <text x="24.0" y="56.0" font-size="11" fill="#7b8794" text-anchor="start">Grok rows only · sum(cached) / sum(input) · gpt-family rows are excluded by construction (§3-3)</text>
+  <line x1="76.0" y1="300.0" x2="700.0" y2="300.0" stroke="#9aa5b1" stroke-width="1"/>
+  <text x="64.0" y="304.0" font-size="11" fill="#7b8794" text-anchor="end">0%</text>
+  <line x1="76.0" y1="253.0" x2="700.0" y2="253.0" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="64.0" y="257.0" font-size="11" fill="#7b8794" text-anchor="end">25%</text>
+  <line x1="76.0" y1="206.0" x2="700.0" y2="206.0" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="64.0" y="210.0" font-size="11" fill="#7b8794" text-anchor="end">50%</text>
+  <line x1="76.0" y1="159.0" x2="700.0" y2="159.0" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="64.0" y="163.0" font-size="11" fill="#7b8794" text-anchor="end">75%</text>
+  <line x1="76.0" y1="112.0" x2="700.0" y2="112.0" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="64.0" y="116.0" font-size="11" fill="#7b8794" text-anchor="end">100%</text>
+  <line x1="76.0" y1="94.0" x2="76.0" y2="300.0" stroke="#9aa5b1" stroke-width="1.4"/>
+  <rect x="136.0" y="125.0" width="88.0" height="175.0" rx="3" fill="#2f9e44"/>
+  <text x="180.0" y="115.0" font-size="13" fill="#1f2933" text-anchor="middle" font-weight="700">93.11%</text>
+  <text x="180.0" y="320.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="600">Cost mode</text>
+  <text x="180.0" y="335.0" font-size="10" fill="#7b8794" text-anchor="middle">router-cost</text>
+  <rect x="240.0" y="113.1" width="88.0" height="186.9" rx="3" fill="#5b7089"/>
+  <line x1="240.0" y1="133.9" x2="328.0" y2="133.9" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="240.0" y1="154.6" x2="328.0" y2="154.6" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="240.0" y1="175.4" x2="328.0" y2="175.4" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="240.0" y1="196.2" x2="328.0" y2="196.2" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="240.0" y1="216.9" x2="328.0" y2="216.9" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="240.0" y1="237.7" x2="328.0" y2="237.7" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="240.0" y1="258.5" x2="328.0" y2="258.5" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="240.0" y1="279.2" x2="328.0" y2="279.2" stroke="#ffffff" stroke-width="1.4"/>
+  <text x="284.0" y="103.1" font-size="13" fill="#1f2933" text-anchor="middle" font-weight="700">99.41%</text>
+  <text x="284.0" y="320.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="600">Balanced mode</text>
+  <text x="284.0" y="335.0" font-size="10" fill="#7b8794" text-anchor="middle">router-balanced</text>
+  <text x="232.0" y="360.0" font-size="12" fill="#1f2933" text-anchor="middle" font-weight="600">Experiment 11 (VOID)</text>
+  <rect x="448.0" y="118.6" width="88.0" height="181.4" rx="3" fill="#2f9e44"/>
+  <text x="492.0" y="108.6" font-size="13" fill="#1f2933" text-anchor="middle" font-weight="700">96.47%</text>
+  <text x="492.0" y="320.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="600">Cost mode</text>
+  <text x="492.0" y="335.0" font-size="10" fill="#7b8794" text-anchor="middle">router-cost</text>
+  <rect x="552.0" y="113.7" width="88.0" height="186.3" rx="3" fill="#5b7089"/>
+  <line x1="552.0" y1="134.4" x2="640.0" y2="134.4" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="552.0" y1="155.1" x2="640.0" y2="155.1" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="552.0" y1="175.8" x2="640.0" y2="175.8" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="552.0" y1="196.5" x2="640.0" y2="196.5" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="552.0" y1="217.2" x2="640.0" y2="217.2" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="552.0" y1="237.9" x2="640.0" y2="237.9" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="552.0" y1="258.6" x2="640.0" y2="258.6" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="552.0" y1="279.3" x2="640.0" y2="279.3" stroke="#ffffff" stroke-width="1.4"/>
+  <text x="596.0" y="103.7" font-size="13" fill="#1f2933" text-anchor="middle" font-weight="700">99.10%</text>
+  <text x="596.0" y="320.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="600">Balanced mode</text>
+  <text x="596.0" y="335.0" font-size="10" fill="#7b8794" text-anchor="middle">router-balanced</text>
+  <text x="544.0" y="360.0" font-size="12" fill="#1f2933" text-anchor="middle" font-weight="600">Experiment 12</text>
+  <text x="24.0" y="386.0" font-size="11" fill="#52606d" text-anchor="start">Experiment 13 has no bar for Balanced mode: that arm recorded no Grok rows at all (§3-3).</text>
+</svg>

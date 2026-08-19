@@ -11,13 +11,23 @@
     deliberately kept out of that place because it is a different kind of claim.
 
 !!! question "The short answer"
-    **A cache hit is not guaranteed.** What these three runs over 24 coding tasks in
-    one tenant add is the next sentence: no repeated request changed backend — 0 of
-    212 combinations ([§3-1](#3-1-the-backend-did-not-change-between-repeats)) — and
-    cells that resolved to Grok logged the whole prompt as cached from repeat 2
-    ([§3-5](#3-5-within-the-three-repeats)). The gpt-family zeros remain unread: a
-    missing field is recorded as zero, so a zero cannot be read
-    ([§2](#2-read-this-before-any-table-below)).
+    **What is being asked.** Model Router chooses a model for each request on its
+    own. A prompt cache, on the other hand, only pays off when the same prompt
+    reaches the same backend again. On a workload that sends long prompts
+    repeatedly, whether the cache attaches moves the bill a great deal, so
+    customers ask directly: does a cache survive the router?
+
+    **The answer.** It is not guaranteed. Neither the product nor this repository
+    has anything that pins a request to a particular backend
+    ([§5](#5-no-cache-hint-mechanism-in-this-repository)).
+
+    **It was observed anyway.** Three runs that had already been paid for left
+    cache records, so they were re-read at no additional cost. No repeated request
+    changed backend — 0 of 212 combinations
+    ([§3-1](#3-1-the-backend-did-not-change-between-repeats)) — and cells that
+    resolved to Grok logged the whole prompt as cached from repeat 2
+    ([§3-5](#3-5-within-the-three-repeats)). The gpt-family zeros, though, cannot
+    be read ([§2](#2-read-this-before-any-table-below)).
 
 ## 1 · What this is
 
@@ -50,9 +60,10 @@ rather than deleted, which is how this repository treats a void measurement
 !!! info "The angle, stated once"
     Cache questions about a *specific model or gateway* ask whether a given model path
     reuses a prefix. This page asks something else: whether a **repeated request
-    through one router** lands on the same backend and carries a cache record across
-    repeats. Same word, different angle — do not read the numbers here as evidence
-    about any model's caching behaviour.
+    through one router** lands on the same backend (the model that actually
+    answers) and carries a cache record across repeats. Same word, different
+    angle — do not read the numbers here as evidence about any model's caching
+    behaviour.
 
 ## 2 · Read this before any table below
 
@@ -80,6 +91,11 @@ re-read that would decide it.
     about caching behaviour is outside what this data supports.
 
 ## 3 · What the traces show
+
+The arm names below are the runs' labels for Model Router's three modes plus one
+control that does not use the router: `router-cost` is **Cost mode**,
+`router-balanced` is **Balanced mode**, `router-quality` is **Quality mode**, and
+`direct-premium` is a direct call to one deployment.
 
 ### 3-1 · The backend did not change between repeats
 
@@ -156,6 +172,12 @@ Composition per arm, with the ratio **inside** each slice in the last column:
 Comparing only the Grok slices: `router-balanced` recorded 99.41% against
 `router-cost`'s 93.11% in experiment 11, and 99.10% against 96.47% in experiment 12.
 
+![Grouped bars on a 0-100% axis comparing Cost mode with Balanced mode on Grok rows only. Experiment 11 (VOID): Cost mode 93.11%, Balanced mode 99.41%. Experiment 12: Cost mode 96.47%, Balanced mode 99.10%. In both runs the arm that spread its requests recorded the higher ratio once the backend is held fixed.](/foundry-cost-aware-model-routing/assets/prompt-cache/backend-fixed.en.svg)
+
+*The same two comparisons as the table above. Grok rows only, so none of the
+unreadable gpt-family zeros of §2 are in this picture. Experiment 13 has no
+Balanced bar because that arm recorded no Grok rows at all.*
+
 The reason `router-balanced` looks lower than `router-cost` at arm level in §3-2 is
 arithmetic: rows recorded as zero sit in its denominator, and `router-cost` has none.
 Why the composition came out that way, and why the Grok slices ranked as they did, is
@@ -192,6 +214,12 @@ rows are 100% Grok in all three runs:
 | 11 (VOID) | 83.64% | 95.67% | **100.00%** |
 | 12 | 89.61% | 100.00% | **100.00%** |
 | 13 | 90.79% | 100.00% | **100.00%** |
+
+![Grouped bars, one group per run and one bar per repeat, on a 0-100% axis. Experiment 11 (VOID) reads 83.64, 95.67, 100.00. Experiment 12 reads 89.61, 100.00, 100.00. Experiment 13 reads 90.79, 100.00, 100.00. All three runs step up in the same shape and none falls back.](/foundry-cost-aware-model-routing/assets/prompt-cache/repeat-progression.en.svg)
+
+*The same three rows as the table above, drawn from zero rather than zoomed into
+an 80-100% window, so the step is not exaggerated. Repeat 1 is not a cold
+baseline — the warning at the end of this section belongs with the picture.*
 
 No task moved the other way:
 
@@ -322,6 +350,11 @@ Everything above is bounded by this population, and no wider:
   and a **single region**, observed on 2026-08-06 (two runs) and 2026-08-14 (one).
 - **Re-read on 2026-08-19** — thirteen days after the first two runs and five days
   after the third. The traces were sealed before that date.
+- **The two charts** are generated from those same sealed traces by
+  `scripts/build_prompt_cache_charts.py`, which prints every figure it draws so they
+  can be checked against the tables here. What they render is the tracked
+  aggregate [`docs/assets/prompt-cache/published.json`](/foundry-cost-aware-model-routing/assets/prompt-cache/published.json)
+  — integer token sums only, no prompt or response text.
 
 `evidence_tier = directional`. Every ratio above is a value **recorded in these 24
 tasks, this tenant and these three executions** — not an estimate of a cache hit rate
