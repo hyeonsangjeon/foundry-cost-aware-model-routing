@@ -10,6 +10,15 @@
     [Routing-mode measured results dashboard](03d-results.md); this page is
     deliberately kept out of that place because it is a different kind of claim.
 
+!!! question "The short answer"
+    **A cache hit is not guaranteed.** What these three runs over 24 coding tasks in
+    one tenant add is the next sentence: no repeated request changed backend — 0 of
+    212 combinations ([§3-1](#3-1-the-backend-did-not-change-between-repeats)) — and
+    cells that resolved to Grok logged the whole prompt as cached from repeat 2
+    ([§3-5](#3-5-within-the-three-repeats)). The gpt-family zeros remain unread: a
+    missing field is recorded as zero, so a zero cannot be read
+    ([§2](#2-read-this-before-any-table-below)).
+
 ## 1 · What this is
 
 - **Three real paid runs, re-read at no additional cost.** The inputs are the
@@ -22,6 +31,11 @@
   therefore a re-read of an already-sealed value, not a fresh computation beside it.
 - Only HTTP 200 rows are aggregated: **845 rows** of 864. The 19 non-200 rows are all
   HTTP 408 and carry `tokens.input == 0`, so they cannot move a ratio.
+
+*Cells and rows here are one population counted two ways: a cell is one
+(task × arm × sample) measurement — 24 × 4 × 3 = 288 per run
+([Glossary](glossary.md)) — and each cell recorded exactly one trace row, so the
+three runs together hold 864 rows.*
 
 **Experiment 11 is VOID, and every table below labels it so.** Experiment 11 fell
 below its preregistered **grading coverage** bar — the share of cells that returned an
@@ -69,8 +83,8 @@ re-read that would decide it.
 
 ### 3-1 · The backend did not change between repeats
 
-For every router arm × task combination, all three repeats recorded the same
-`pricing.resolved_model`.
+For every router arm × task combination, the repeats recorded with HTTP 200 recorded
+the same `pricing.resolved_model`.
 
 | Experiment | `router-cost` | `router-balanced` | `router-quality` | Combinations that changed |
 |---|---|---|---|---|
@@ -81,6 +95,10 @@ For every router arm × task combination, all three repeats recorded the same
 **212 combinations, 0 changes.** The backend varied *by task*, but not between the
 repeated requests of one task. This is the one figure on the page that the §2
 limitation does not touch — it reads a model name, not a token count.
+
+Of those 212 combinations, 206 recorded all three repeats; the other six have fewer
+than three HTTP 200 rows — three in experiment 11, two in experiment 12, one in
+experiment 13. The count of combinations that changed backend is 0 either way.
 
 It is also an observation, not a contract. Nothing in this repository requests or
 guarantees that stability (§5).
@@ -96,11 +114,16 @@ of per-row ratios.
 | `router-balanced` | 81.23% | 81.32% | 0.00% |
 | `router-quality` | 0.00% | 0.00% | 0.00% |
 | `direct-premium` | 0.00% | 0.00% | 0.00% |
-| **Whole run** | 41.24% | 42.66% | 23.02% |
+| **Whole run** — includes rows recorded as zero; not a cache-hit rate (§2) | 41.24% | 42.66% | 23.02% |
 
 Every `0.00%` in this table and the ones that follow reads as **"recorded as zero in
 the trace"** (§2) — it does not distinguish "nothing was reused" from "nothing was
 reported."
+
+In the **Whole run** row, rows recorded as zero supply **57.01% · 56.33% · 76.27%** of
+the denominator for experiments 11 · 12 · 13. Most of what that row divides by is
+therefore a value §2 says cannot be read. It is a ratio recorded over a whole run, not
+a cache-hit rate.
 
 ### 3-3 · Holding the backend fixed
 
@@ -172,11 +195,18 @@ rows are 100% Grok in all three runs:
 
 No task moved the other way:
 
-| Experiment | Tasks | repeat 2 > repeat 1 | repeat 2 = repeat 1 | repeat 2 < repeat 1 |
+| Experiment | Tasks compared | repeat 2 > repeat 1 | repeat 2 = repeat 1 | repeat 2 < repeat 1 |
 |---|---|---|---|---|
-| 11 (VOID) | 24 | 11 | 11 | **0** |
+| 11 (VOID) | 22 | 11 | 11 | **0** |
 | 12 | 23 | 10 | 13 | **0** |
-| 13 | 24 | 10 | 13 | **0** |
+| 13 | 23 | 10 | 13 | **0** |
+
+Only repeats recorded with HTTP 200 enter these counts, so a task appears here only if
+both repeat 1 and repeat 2 have one. Experiment 11 drops `toll-schedule` (repeat 1) and
+`dedupe-stable` (repeat 2); experiment 13 drops `align-frames` (repeat 1); experiment
+12's `toll-schedule` timed out on all three repeats and is absent from the arm
+entirely. Every dropped repeat is an HTTP 408 carrying `input = 0` (§1). The table
+below and §3-1 count the same way.
 
 At cell level: among task × arm combinations that resolved to the Grok backend, the
 count whose repeats 2 and 3 recorded `cached == input` — the whole prompt logged as
@@ -187,6 +217,11 @@ cached:
 | 11 (VOID) | **40** | 43 |
 | 12 | **41** | 42 |
 | 13 | **24** | 24 |
+
+The count admits a combination when every repeat it recorded among 2 · 3 has
+`cached == input`. Four combinations recorded only one of the two — three in
+experiment 11, one in experiment 12 — and three of those four met the condition on the
+repeat they did record. Requiring both repeats to be present gives 38 · 40 · 24.
 
 !!! warning "Repeat 1 is not a cold baseline"
     In all three runs the **first paid call of the run** — `span-gaps · router-cost ·
@@ -213,12 +248,15 @@ cached:
    together. Which one moved which, or whether something else moved both, is outside
    what a re-read of these traces can reach.
 
-Three further limits worth stating: the routing decision itself is not exposed in the
-response or the trace, so why the router picked a given backend is unknown; the
-stability in §3-1 is an observation about three runs and not a guarantee about future
-ones; and no cost claim is made here, because one of experiment 11's void findings was
-a missing cached rate in the rate card, and cached-rate lineage was not re-checked for
-this page.
+Three further limits worth stating:
+
+- **The routing decision itself is not exposed** in the response or the trace, so why
+  the router picked a given backend is unknown.
+- The stability in §3-1 is an observation about three runs and not a guarantee about
+  future ones.
+- No cost claim is made here, because one of experiment 11's void findings was a
+  missing cached rate in the rate card, and cached-rate lineage was not re-checked for
+  this page.
 
 !!! abstract "Framing"
     None of this says the Model Router is bad for caching, and none of the figures
@@ -282,6 +320,8 @@ Everything above is bounded by this population, and no wider:
 - **143–359 input tokens per cell** — short prompts.
 - **4 arms × 3 repeats = 288 cells per run**, over **3 runs**, in a **single tenant**
   and a **single region**, observed on 2026-08-06 (two runs) and 2026-08-14 (one).
+- **Re-read on 2026-08-19** — thirteen days after the first two runs and five days
+  after the third. The traces were sealed before that date.
 
 `evidence_tier = directional`. Every ratio above is a value **recorded in these 24
 tasks, this tenant and these three executions** — not an estimate of a cache hit rate
