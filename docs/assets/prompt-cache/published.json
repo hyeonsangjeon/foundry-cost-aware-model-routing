@@ -1,0 +1,96 @@
+{
+  "backend": "grok-4-1-fast-reasoning",
+  "grok_slice": {
+    "11": {
+      "model-router": {
+        "cached": 11220,
+        "input": 11287,
+        "rows": 56
+      },
+      "model-router-cost": {
+        "cached": 12980,
+        "input": 13941,
+        "rows": 69
+      }
+    },
+    "12": {
+      "model-router": {
+        "cached": 11446,
+        "input": 11550,
+        "rows": 57
+      },
+      "model-router-cost": {
+        "cached": 13185,
+        "input": 13667,
+        "rows": 68
+      }
+    },
+    "13": {
+      "model-router-cost": {
+        "cached": 14005,
+        "input": 14436,
+        "rows": 71
+      }
+    }
+  },
+  "note": "Integer token sums over HTTP 200 rows of the three sealed runs. Percentages are derived at render time as cached / input. No prompt or response text is carried here.",
+  "provenance": {
+    "11": {
+      "run_id": "20260806T023822Z",
+      "traces_sha256": "sha256:f4878cbc6aeeb1646e77e7e7a683db2e3de96f6e3b44768c1c8deed1fda64327"
+    },
+    "12": {
+      "run_id": "20260806T075344Z",
+      "traces_sha256": "sha256:42e2644bdbad356bbac3389c676eddb9607d75875eea26f2080ebb17ad277bb7"
+    },
+    "13": {
+      "run_id": "20260814T141510Z",
+      "traces_sha256": "sha256:ff269ed259bf499104bd7f15acb821179d9f42d33daba515ec3d4abb9d2f5e37"
+    }
+  },
+  "repeat_progression": {
+    "11": {
+      "1": {
+        "cached": 3881,
+        "input": 4640
+      },
+      "2": {
+        "cached": 4459,
+        "input": 4661
+      },
+      "3": {
+        "cached": 4640,
+        "input": 4640
+      }
+    },
+    "12": {
+      "1": {
+        "cached": 4158,
+        "input": 4640
+      },
+      "2": {
+        "cached": 4640,
+        "input": 4640
+      },
+      "3": {
+        "cached": 4387,
+        "input": 4387
+      }
+    },
+    "13": {
+      "1": {
+        "cached": 4251,
+        "input": 4682
+      },
+      "2": {
+        "cached": 4877,
+        "input": 4877
+      },
+      "3": {
+        "cached": 4877,
+        "input": 4877
+      }
+    }
+  },
+  "schema": "prompt-cache-charts/v1"
+}

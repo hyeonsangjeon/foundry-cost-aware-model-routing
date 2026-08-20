@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-labelledby="chart-title chart-desc">
+  <title id="chart-title">Recorded cache ratio by repeat, three sealed runs, Cost mode</title>
+  <desc id="chart-desc">Grouped bar chart, one group per run, one bar per repeat, on a vertical axis running from 0 to 100 percent. Experiment 11 (VOID) reads 83.64, 95.67, 100.00. Experiment 12 reads 89.61, 100.00, 100.00. Experiment 13 reads 90.79, 100.00, 100.00. All three runs step up in the same shape and none falls back. Repeat 1 is not a cold baseline.</desc>
+  <rect x="0" y="0" width="760" height="420" fill="#ffffff"/>
+  <text x="24.0" y="34.0" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">Recorded cache ratio across the three repeats — Cost mode</text>
+  <text x="24.0" y="56.0" font-size="11" fill="#7b8794" text-anchor="start">sum(cached) / sum(input) over HTTP 200 rows · router-cost, whose rows are 100% Grok in all three runs</text>
+  <line x1="76.0" y1="306.0" x2="700.0" y2="306.0" stroke="#9aa5b1" stroke-width="1"/>
+  <text x="64.0" y="310.0" font-size="11" fill="#7b8794" text-anchor="end">0%</text>
+  <line x1="76.0" y1="255.5" x2="700.0" y2="255.5" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="64.0" y="259.5" font-size="11" fill="#7b8794" text-anchor="end">25%</text>
+  <line x1="76.0" y1="205.0" x2="700.0" y2="205.0" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="64.0" y="209.0" font-size="11" fill="#7b8794" text-anchor="end">50%</text>
+  <line x1="76.0" y1="154.5" x2="700.0" y2="154.5" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="64.0" y="158.5" font-size="11" fill="#7b8794" text-anchor="end">75%</text>
+  <line x1="76.0" y1="104.0" x2="700.0" y2="104.0" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="64.0" y="108.0" font-size="11" fill="#7b8794" text-anchor="end">100%</text>
+  <line x1="76.0" y1="86.0" x2="76.0" y2="306.0" stroke="#9aa5b1" stroke-width="1.4"/>
+  <rect x="101.0" y="137.0" width="46.0" height="169.0" rx="3" fill="#a9c9e8"/>
+  <text x="124.0" y="128.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="700">83.64</text>
+  <text x="124.0" y="324.0" font-size="10" fill="#52606d" text-anchor="middle">Repeat 1</text>
+  <rect x="157.0" y="112.8" width="46.0" height="193.2" rx="3" fill="#5b9bd5"/>
+  <line x1="157.0" y1="134.2" x2="203.0" y2="134.2" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="157.0" y1="155.7" x2="203.0" y2="155.7" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="157.0" y1="177.2" x2="203.0" y2="177.2" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="157.0" y1="198.6" x2="203.0" y2="198.6" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="157.0" y1="220.1" x2="203.0" y2="220.1" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="157.0" y1="241.6" x2="203.0" y2="241.6" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="157.0" y1="263.1" x2="203.0" y2="263.1" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="157.0" y1="284.5" x2="203.0" y2="284.5" stroke="#ffffff" stroke-width="1.4"/>
+  <text x="180.0" y="103.8" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="700">95.67</text>
+  <text x="180.0" y="324.0" font-size="10" fill="#52606d" text-anchor="middle">Repeat 2</text>
+  <rect x="213.0" y="104.0" width="46.0" height="202.0" rx="3" fill="#1f5c99"/>
+  <text x="236.0" y="95.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="700">100.00</text>
+  <text x="236.0" y="324.0" font-size="10" fill="#52606d" text-anchor="middle">Repeat 3</text>
+  <text x="180.0" y="348.0" font-size="12" fill="#1f2933" text-anchor="middle" font-weight="600">Experiment 11 (VOID)</text>
+  <rect x="309.0" y="125.0" width="46.0" height="181.0" rx="3" fill="#a9c9e8"/>
+  <text x="332.0" y="116.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="700">89.61</text>
+  <text x="332.0" y="324.0" font-size="10" fill="#52606d" text-anchor="middle">Repeat 1</text>
+  <rect x="365.0" y="104.0" width="46.0" height="202.0" rx="3" fill="#5b9bd5"/>
+  <line x1="365.0" y1="126.4" x2="411.0" y2="126.4" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="365.0" y1="148.9" x2="411.0" y2="148.9" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="365.0" y1="171.3" x2="411.0" y2="171.3" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="365.0" y1="193.8" x2="411.0" y2="193.8" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="365.0" y1="216.2" x2="411.0" y2="216.2" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="365.0" y1="238.7" x2="411.0" y2="238.7" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="365.0" y1="261.1" x2="411.0" y2="261.1" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="365.0" y1="283.6" x2="411.0" y2="283.6" stroke="#ffffff" stroke-width="1.4"/>
+  <text x="388.0" y="95.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="700">100.00</text>
+  <text x="388.0" y="324.0" font-size="10" fill="#52606d" text-anchor="middle">Repeat 2</text>
+  <rect x="421.0" y="104.0" width="46.0" height="202.0" rx="3" fill="#1f5c99"/>
+  <text x="444.0" y="95.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="700">100.00</text>
+  <text x="444.0" y="324.0" font-size="10" fill="#52606d" text-anchor="middle">Repeat 3</text>
+  <text x="388.0" y="348.0" font-size="12" fill="#1f2933" text-anchor="middle" font-weight="600">Experiment 12</text>
+  <rect x="517.0" y="122.6" width="46.0" height="183.4" rx="3" fill="#a9c9e8"/>
+  <text x="540.0" y="113.6" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="700">90.79</text>
+  <text x="540.0" y="324.0" font-size="10" fill="#52606d" text-anchor="middle">Repeat 1</text>
+  <rect x="573.0" y="104.0" width="46.0" height="202.0" rx="3" fill="#5b9bd5"/>
+  <line x1="573.0" y1="126.4" x2="619.0" y2="126.4" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="573.0" y1="148.9" x2="619.0" y2="148.9" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="573.0" y1="171.3" x2="619.0" y2="171.3" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="573.0" y1="193.8" x2="619.0" y2="193.8" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="573.0" y1="216.2" x2="619.0" y2="216.2" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="573.0" y1="238.7" x2="619.0" y2="238.7" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="573.0" y1="261.1" x2="619.0" y2="261.1" stroke="#ffffff" stroke-width="1.4"/>
+  <line x1="573.0" y1="283.6" x2="619.0" y2="283.6" stroke="#ffffff" stroke-width="1.4"/>
+  <text x="596.0" y="95.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="700">100.00</text>
+  <text x="596.0" y="324.0" font-size="10" fill="#52606d" text-anchor="middle">Repeat 2</text>
+  <rect x="629.0" y="104.0" width="46.0" height="202.0" rx="3" fill="#1f5c99"/>
+  <text x="652.0" y="95.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="700">100.00</text>
+  <text x="652.0" y="324.0" font-size="10" fill="#52606d" text-anchor="middle">Repeat 3</text>
+  <text x="596.0" y="348.0" font-size="12" fill="#1f2933" text-anchor="middle" font-weight="600">Experiment 13</text>
+  <text x="24.0" y="386.0" font-size="11" fill="#52606d" text-anchor="start">Repeat 1 is not a cold baseline: the first paid call of every run already recorded cached = 149 / input = 155 (§3-5).</text>
+</svg>
