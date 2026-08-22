@@ -11,6 +11,22 @@ after a failure.** Before extra calls run, the budget check decides whether to a
 them. Every decision is recorded in a hash-chained ledger that can recalculate cost
 from the saved usage and rate card.
 
+**Start here — pick one.**
+
+- **Run it free, offline** — `python3 scripts/quickstart.py` builds a managed
+  `.venv`, reproduces the offline projection (`measured=false`), and opens the
+  dashboard on the port it actually binds. No account, no Azure call, nothing
+  billed.
+- **See it in a browser** — the
+  [interactive demo](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/)
+  ([한국어](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/ko/demo/))
+  is a read-only replay of an already-measured run, with nothing to install.
+- **Read the measured results** — the
+  [routing-mode dashboard · 03D](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/03d-results/)
+  covers four arms over 24 coding tasks at n=3 against a live Azure AI Foundry
+  deployment, scored against predictions registered before the run and sealed
+  into a replay-verified snapshot.
+
 ![Hero experiment: premium-on-everything bills $2.23 while try-cheap-first routing bills $1.66 — 25.5% lower at 100% coverage over 100 synthetic tasks](docs/assets/gif/hero.gif)
 
 <sub>Generated deterministically from this repository's own verified numbers by
