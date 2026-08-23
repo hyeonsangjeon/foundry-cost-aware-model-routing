@@ -7,7 +7,8 @@ repo_name: foundry-cost-aware-model-routing
 edit_uri: edit/main/docs/
 copyright: >-
   Experiments 01–08 are synthetic offline projections (measured=false); 09, 10, 12, 13
-  are measured (measured=true, evidence_tier=directional). Check each page's labels.
+  are measured (measured=true, evidence_tier=directional); 11 is a measured run voided
+  by its grading-coverage gate. Check each page's labels.
 
 theme:
   name: material
@@ -108,7 +109,8 @@ plugins:
           site_description: 태스크마다 '통과하는 가장 싼 모델'로 라우팅하고, 오프라인으로 증명하는 실험 — 한국어 매뉴얼과 실험노트.
           copyright: >-
             실험 01–08은 합성 오프라인 투영(measured=false), 09·10·12·13은 실측(measured=true,
-            evidence_tier=directional). 각 페이지의 라벨을 확인하세요.
+            evidence_tier=directional), 11은 실측이지만 채점 커버리지 게이트로 VOID. 각 페이지의
+            라벨을 확인하세요.
           theme:
             language: ko
           nav:
