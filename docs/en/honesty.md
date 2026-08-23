@@ -54,7 +54,7 @@ run it in your own tenant.
 - The rates in `samples/pricing/illustrative.yaml` are **dummy values** and do not
   match any published pricing. For measured numbers, copy the file to
   `your-tenant.yaml` (gitignored) and enter your real rates.
-- **Measured track (experiments 09 · 10 · 11 · 12):** uses real Azure deployment
+- **Measured track (experiments 09 · 10 · 11 · 12 · 13):** uses real Azure deployment
   names and your tenant's real rates (gitignored), not placeholders. Public
   artifacts include only aggregates and hashes. Endpoint and tenant identifiers are
   masked.
@@ -86,5 +86,5 @@ runs **in your tenant**.
   verification gate scans for them).
 - `.env.sample` carries only valueless placeholder names.
 - The projection track (experiments 01–08) reproduces offline and deterministically.
-  The measured track (experiments 09 · 10 · 11 · 12) makes real Azure Foundry calls,
+  The measured track (experiments 09 · 10 · 11 · 12 · 13) makes real Azure Foundry calls,
   so it runs in your tenant.

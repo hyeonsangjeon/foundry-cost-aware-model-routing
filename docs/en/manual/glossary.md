@@ -100,7 +100,7 @@ premium-on-every-task baseline. It is not measured performance for `gpt-5.6-sol`
     | Label | Meaning |
     | --- | --- |
     | `measured=false` (projection) | Offline calculation over synthetic data. Not measured Azure spend (experiments 01–08). |
-    | `measured=true` (measured) | Value measured from real Azure Foundry calls and usage (experiments 09 · 10 · 11 · 12). |
+    | `measured=true` (measured) | Value measured from real Azure Foundry calls and usage (experiments 09 · 10 · 11 · 12 · 13). |
     | `evidence_tier=directional` | 24 tasks · single tenant · one measurement — a directional signal, not statistical confidence. |
     | `cost_complete=true` / `unpriced 0%` | Every cell priced at pinned rates. |
     | `plan_hash` | Content-addressed hash sealing the workload, policy, and rates. The reference point for reproduction and replay. |

@@ -6,7 +6,7 @@
 
 These pages show how to install the project, run its experiments, inspect the
 results, and reproduce them. The experiments come in two kinds: one measures real
-results by calling Azure Foundry (experiments 09 · 10 · 11 · 12), and the other
+results by calling Azure Foundry (experiments 09 · 10 · 11 · 12 · 13), and the other
 validates the routing logic offline on synthetic data (experiments 01–08). The
 offline experiments make no network or external calls, so the same inputs produce
 the same results.
@@ -54,7 +54,7 @@ real calls.
     (`labels.measured = false`). It makes no real model calls, and its model names are
     generic placeholders. These numbers are not measured savings.
 
-    The **measured track (experiments 09 · 10 · 11 · 12)** uses real Azure Foundry
+    The **measured track (experiments 09 · 10 · 11 · 12 · 13)** uses real Azure Foundry
     calls (`measured = true`) and real deployment names. Its evidence is still
     `evidence_tier = directional`: 24 tasks · a single tenant · one measurement. That
     is a **directional signal**, not statistical confidence. Experiment 11 is

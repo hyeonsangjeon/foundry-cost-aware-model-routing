@@ -86,7 +86,7 @@
     | 라벨 | 뜻 |
     | --- | --- |
     | `measured=false` (투영) | 합성 데이터에 대한 오프라인 계산. 측정된 Azure 지출이 아님(실험 01–08). |
-    | `measured=true` (실측) | 실제 Azure Foundry 호출과 usage로 측정된 값(실험 09·10·11·12). |
+    | `measured=true` (실측) | 실제 Azure Foundry 호출과 usage로 측정된 값(실험 09·10·11·12·13). |
     | `evidence_tier=directional` | 24 과제·단일 테넌트·1회 측정 — 통계적 신뢰가 아니라 방향성 신호. |
     | `cost_complete=true` / `unpriced 0%` | 모든 셀이 고정(pinned) 요율로 가격화됨. |
     | `plan_hash` | 워크로드·정책·요율을 봉인한 내용 주소 해시. 재현/replay의 기준. |
