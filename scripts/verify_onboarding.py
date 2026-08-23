@@ -20,7 +20,9 @@ checking, in order:
    (the machine signal that the offline reproduction reproduced);
 4. ``scripts/quickstart.py --ci --no-install`` boots the dashboard headless,
    discovers the bound port, verifies PASS + CTA, emits a machine-readable line,
-   and tears the server down cleanly (non-zero on timeout/cleanup failure).
+   and tears the server down cleanly (non-zero on timeout/cleanup failure);
+5. the top-of-README action rail still offers its three first-visit actions —
+   run it offline, open the demo, read the measured results.
 
 A single ``VERIFY ONBOARDING: PASS`` line and exit 0 mean the contract holds.
 """
@@ -43,6 +45,24 @@ from router import onboarding as ob  # noqa: E402
 from router.dashboard import DASHBOARD_HTML  # noqa: E402
 
 _QUICKSTART = _REPO_ROOT / "scripts" / "quickstart.py"
+_README = _REPO_ROOT / "README.md"
+_STATIC_SITE = _REPO_ROOT / "scripts" / "build_static_site.py"
+
+# Published site root. `build_static_site.py` owns it, along with the decision to
+# serve English at the root and Korean under /ko/. The check below refuses to run
+# unless that file still agrees, so the rail cannot advertise a URL the build has
+# stopped publishing. Matching the full prefix also keeps `/demo/` from being
+# satisfied by the Korean `/ko/demo/` link sitting next to it.
+_SITE_URL = "https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/"
+
+# The hero image opens the long evidence blocks, and it is referenced by asset
+# path rather than by any sentence — which makes it the one boundary marker the
+# rail can be measured against without pinning a word of prose.
+_HERO_IMAGE = "docs/assets/gif/hero.gif"
+
+# Slots 2 and 3 of the rail, as destinations rather than link text. Slot 1 is the
+# quickstart command, derived from the script path so a rename cannot slip through.
+_RAIL_TARGETS = (_SITE_URL + "demo/", _SITE_URL + "manual/03d-results/")
 
 
 def _child_env() -> dict[str, str]:
@@ -155,11 +175,41 @@ def check_quickstart_ci() -> str:
     return f"headless PASS + machine-readable line + clean teardown in {elapsed:.2f}s"
 
 
+def check_readme_first_visit_contract() -> str:
+    readme = _README.read_text(encoding="utf-8")
+    assert _SITE_URL in _STATIC_SITE.read_text(encoding="utf-8"), (
+        f"{_STATIC_SITE.name} no longer publishes {_SITE_URL}, so the two rail links point at a "
+        "site root the build does not produce. Reconcile them before trusting this check"
+    )
+
+    # Everything above the hero image belongs to the rail. If the asset is ever
+    # renamed, fall back to the first section heading instead of failing on an
+    # unrelated edit.
+    cut = readme.find(_HERO_IMAGE)
+    if cut < 0:
+        heading = re.search(r"^## ", readme, re.MULTILINE)
+        assert heading, "README has no hero image and no section heading to bound the rail against"
+        cut = heading.start()
+    rail = readme[:cut]
+
+    command = f"python3 {_QUICKSTART.relative_to(_REPO_ROOT).as_posix()}"
+    assert _QUICKSTART.is_file(), f"the rail offers `{command}`, but that script is not on disk"
+    missing = [slot for slot in (command, *_RAIL_TARGETS) if slot not in rail]
+    assert not missing, (
+        "the action rail no longer carries " + ", ".join(missing) + "; every slot has to appear "
+        "above the hero image, so a first-time reader can run it, open the demo, or read the "
+        "measured results"
+    )
+    shown = ", ".join("/" + target[len(_SITE_URL):] for target in _RAIL_TARGETS)
+    return f"rail carries {command}, {shown} above the hero image; site root matches the build"
+
+
 CHECKS = (
     ("bootstrap detection", check_bootstrap_detection),
     ("success screen + Star CTA", check_success_and_cta_markup),
     ("hero reproduction PASS", check_hero_pass),
     ("quickstart --ci headless", check_quickstart_ci),
+    ("README first-visit contract", check_readme_first_visit_contract),
 )
 
 
