@@ -28,10 +28,10 @@ true`) and which are still projection only (`measured = false`)**.
 
 **The projection track (experiments 01–08) is still projection** — the 100-task telemetry
 above has no prompts, so it can only *project* routing from offline signals (`measured =
-false`). But **the measured track (experiments 09·10·11·12) has already been measured with
+false`). But **the measured track (experiments 09·10·11·12·13) has already been measured with
 `measured = true`.** Experiments 09·10 captured and sealed real Foundry routing on
 `curated-arena-live` (5 tasks) above, and `curated-24` (24 tasks) — which carries prompts
-plus machine validation — is what experiments 11·12 used to run the paid 4-arm measurement:
+plus machine validation — is what experiments 11·12·13 used to run the paid 4-arm measurement:
 experiment 11 actually spent $3.47 and experiment 12 spent $3.27 (budget $20 each). Here is
 the current state of the measured workloads:
 
@@ -59,7 +59,7 @@ rules, candidates, and estimated cost with zero paid calls.
 
 !!! note "Honesty boundary"
     This table is the **current implemented state**. `curated-24` is approved and finalized,
-    so experiments 11·12 ran as paid measurement (`measured = true`) — experiment 11 was
+    so experiments 11·12·13 ran as paid measurement (`measured = true`) — experiment 11 was
     judged **VOID** for falling short of its prereg, but a void measurement is still a
     measurement — and experiments 09·10 are `measured = true` from live routing capture. By
     contrast, `hero-100-prompts` is still a draft pending approval, so the projection track's
