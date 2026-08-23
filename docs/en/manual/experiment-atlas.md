@@ -5,7 +5,7 @@
 > *same* router over a workload and prints cost · coverage · fan-out tax under a reproducibility
 > contract. This page opens the hood: **which models** each uses, **what it processes**, **which
 > selection mechanism** (ordered escalation, fan-out, or single-call), and the **honest headline**.
-> It ends with the **measured track** (the live Foundry bridge, experiments 09–12), linking out to the full Azure setup guide so you can stand the real thing up yourself.
+> It ends with the **measured track** (the live Foundry bridge, experiments 09–13), linking out to the full Azure setup guide so you can stand the real thing up yourself.
 
 !!! tip "The diagrams animate"
     The mechanism and architecture SVGs below are animated (they loop in your browser like a GIF) —
