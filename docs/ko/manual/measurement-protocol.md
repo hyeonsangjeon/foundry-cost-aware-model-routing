@@ -12,7 +12,7 @@
     - **지출은 측정하되, 품질은 grader가 있을 때만 측정합니다.** grader가 없으면 커버리지는
       오프라인 신호 투영으로 떨어지고 그 사실이 summary에 라벨됩니다.
     - **라이브 모드는 로컬 전용입니다.** CI·자동화 파이프라인은 `measure replay`(자격 불필요)만
-      실행합니다. 라이브 호출은 operator 승인 + 예산 상한 + prereg 게이트를 모두 통과해야 합니다.
+      실행합니다. 라이브 호출은 operator 승인 + 예산 상한 + 사전등록 게이트를 모두 통과해야 합니다.
 
 ---
 
@@ -24,7 +24,7 @@
 | **실측(measured)** | `measured = true` | 실제 토큰 usage × 단가, 라이브 호출 | `measure --live` 스냅샷 |
 
 핵심 콘텐츠는 두 트랙의 **격차 자체**입니다. 실측이 투영과 어긋나면 그것을 숨기지 않고
-**prereg에 미리 적어 둔 격차 방향**과 나란히 게시합니다.
+**사전등록에 미리 적어 둔 격차 방향**과 나란히 게시합니다.
 
 ---
 
@@ -223,7 +223,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 ## 9. 라이브 런 절차 (operator 게이트)
 
 1. `cost-router foundry status`가 `credentialed: yes`(키리스 Entra)인지 확인.
-2. prereg를 작성해 **커밋한 뒤**, 그 `path`·`blob`·`commit`을 런 설정의
+2. 사전등록을 작성해 **커밋한 뒤**, 그 `path`·`blob`·`commit`을 런 설정의
    `benchmark.preregistration`에 못박는다. D8 게이트는 커밋된 blob을 다시 읽어 대조하므로
    커밋 전이거나 커밋 뒤에 고친 파일은 디스패치 전에 거부된다. 못박는 순간 플랜이
    달라지므로 이 단계가 3번보다 **앞**이다.
@@ -251,10 +251,10 @@ progress: 142/288 cells  $1.83  429×0  fail×2  cov 96.5% [gate 90%]  [cell_don
          cost 34/36 · balanced 34/35 · quality 33/36 · premium 36/36
 ```
 
-목적은 오직 하나 — **조기 중단(abort) 판단**이다. 지난 void 런에서 quality
+목적은 오직 하나 — **조기 중단(abort) 판단**이다. 지난 무효 처리된 실행에서 quality
 coverage가 79%로 무너지는 것을 30분 시점에 알았다면 abort할 수 있었다.
 
-!!! danger "중간 지표로 실험을 바꾸면 prereg 위반"
+!!! danger "중간 지표로 실험을 바꾸면 사전등록 위반"
     이 값들은 **진단용이지 판정이 아니다.** coverage 게이트(90%)와 품질 게이트
     (min_pass 0.60 / max_drop 10pp)는 **봉인된 스냅샷에 대해서만** `measure verify`
     로 판정한다. 중간 값을 보고 워크로드·arm·게이트·denominator를 바꾸면

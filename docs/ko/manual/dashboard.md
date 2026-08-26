@@ -61,7 +61,7 @@ cost-router hero --serve
 - **태스크별 라우팅 결정 애니메이션** — 클래스·선택 모델·이유·비용
 - **집계** — 클래스별 비용, 모델 사용량, 모드/이유 통계
 - **Fleet & live routing(플릿 선택)** — 등록된 배포 카탈로그를 보여주고
-  router(메인)/cheapest/premium 드롭다운과 ensemble 체크박스로 **각 아암에 어떤 모델을 넣을지**
+  router(메인)/cheapest/premium 드롭다운과 ensemble 체크박스로 **각 비교 전략(arm)에 어떤 모델을 넣을지**
   고릅니다. **Run selection**은 커밋된 measured 스냅샷을 정직하게 `measured = false` ·
   `provenance = recorded`로 재라벨해 재생하고(웹 경로는 **절대 유료 호출 안 함**), 여러분 선택을
   라이브로 측정할 정확한 터미널 명령을 출력합니다. `GET /fleet` · `POST /fleet/run`에서 읽으며
