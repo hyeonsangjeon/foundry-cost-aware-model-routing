@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Terminology-collapse guard for the "coverage" vocabulary.
+"""Terminology guards for the Korean docs.
+
+Two concerns live here. Rules A–C freeze the "커버리지" reconciliation described
+below; Rule D keeps the wording retired by BOLT-06 (#129) from drifting back in.
 
 One Korean word — "커버리지" — used to name three different quantities across
 the docs: a *task pass rate* (실험 03, 홈), a *grading coverage* (실험 12 / 03D),
@@ -24,6 +27,48 @@ Rules enforced:
   C. Every measured page (03D, 실험 11, 실험 12, 실험 13) — where the grading figure
      is read next to the pass rate — must use the qualified "채점 커버리지" and must
      not carry a bare ``| 커버리지 |`` table column.
+  D. No Korean prose line reintroduces wording retired by BOLT-06 (#129):
+     아암, prereg, pinned 요율, exec-signals, void 런, scope-out.
+
+Rule D — what it does and does not look at
+------------------------------------------
+
+The audit BOLT-06 answered was not "the docs use English technical words". It
+was a *regression*: a page settled on good Korean wording and another page drifted
+back to the raw English. Rule D exists so the drift cannot happen silently again.
+
+Rule D reports the retired string only. It deliberately does **not** propose a
+per-site rewrite, because one of the six does not have a single correct form —
+``scope-out`` landed as three different shapes in ``manual/fleet.md`` depending on
+the grammar of the sentence it sits in (PR #132)::
+
+    :83  warning 명사구   `provider: foundry`는 벤치마크 범위에서 제외 (…)
+    :85  동사             …마이그레이션하지 않고 벤치마크 범위에서 제외했습니다
+    :88  명사 주어         이 범위 제외는 코드로 강제됩니다
+
+Those three are recorded here for reference; the denylist matches the retired
+string and leaves the wording to the author.
+
+A failing line is prose. Before matching, Rule D drops every code surface, in
+this order, because each is a name rather than something a reader reads as a
+sentence — a false positive here would read as a rule defect to the next person:
+
+  1. whole fenced code blocks (``` … ```), e.g. the ``아암마다`` comment inside the
+     ``cost-router models select`` block in ``manual/fleet.md``
+  2. inline code spans, e.g. ``prereg``(commit_hash/committed_at/bypassed/note)
+     and `` `prereg.md` `` — the schema key and the filename
+  3. markdown link targets ``](…)`` and bare URLs — the four preregistration
+     filenames appear inside GitHub blob links
+  4. the preregistration filenames and the ``preregistration`` schema key by
+     name, so they survive even unbackticked
+
+Uppercase ``VOID`` is a status value, not prose, and is never matched: the
+denylist entry is ``void 런`` specifically, so both a bare ``VOID`` column and the
+first-mention pattern ``무효(VOID)`` pass untouched.
+
+``lab-notebook/devlog.md`` is excluded. It is a dated Korean journal, so it is not
+edited retroactively — BOLT-06 left it alone and Rule D must not fail on it.
+Rules A–C keep scanning it, unchanged.
 
 Run standalone::
 
@@ -68,6 +113,40 @@ COLLAPSE_DEFINITION = re.compile(
 
 # A bare "커버리지" table column (no "채점"/"집계" qualifier before it).
 BARE_COVERAGE_COLUMN = re.compile(r"\|\s*커버리지\s*\|")
+
+# Rule D — wording retired by BOLT-06 (#129), as (pattern, 퇴역어, 정답). The
+# 정답 column is what the docs settled on in PR #132; for scope-out it is the
+# shared root, since that one took three sentence-shaped forms (see module docs).
+RETIRED_TERMS = (
+    (re.compile(r"아암"), "아암", "비교 전략 (페이지 최초 등장만 '비교 전략(arm)')"),
+    (re.compile(r"prereg", re.IGNORECASE), "prereg", "사전등록"),
+    (re.compile(r"pinned\s+요율", re.IGNORECASE), "pinned 요율", "고정 요율"),
+    (re.compile(r"exec-signals", re.IGNORECASE), "exec-signals", "실행 신호"),
+    (re.compile(r"void\s+런", re.IGNORECASE), "void 런", "무효 처리된 실행"),
+    # scope-out has no single correct form — see the module docstring for the three.
+    (re.compile(r"scope-out", re.IGNORECASE), "scope-out", "범위 제외 (자리별 형태는 위 참고)"),
+)
+
+# A dated Korean journal: written at a point in time, never edited retroactively.
+# BOLT-06 skipped it, so Rule D must too. Rules A–C still read it.
+RULE_D_EXCLUDED = ("lab-notebook/devlog.md",)
+
+# Code surfaces stripped before Rule D matches. A term surviving all four is
+# being read as prose. Order matters — code spans may themselves contain URLs.
+_FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
+_CODE_SPAN = re.compile(r"`[^`]*`")
+_LINK_TARGET = re.compile(r"\]\([^)]*\)")
+_URL = re.compile(r"<?https?://[^\s>)]+>?")
+_PREREG_FILENAME = re.compile(r"prereg(?:-03d[23]?-router-modes)?\.md")
+_PREREG_SCHEMA_KEY = re.compile(r"preregistration")
+
+_CODE_SURFACES = (
+    _CODE_SPAN,
+    _LINK_TARGET,
+    _URL,
+    _PREREG_FILENAME,
+    _PREREG_SCHEMA_KEY,
+)
 
 
 def _iter_doc_lines():
@@ -128,12 +207,83 @@ def check_measured_pages_qualified() -> list[str]:
     return failures
 
 
+def fenced_line_numbers(lines: list[str]) -> set[int]:
+    """Return the 1-indexed line numbers inside fenced code blocks, fences included."""
+    inside, opener, fenced = False, "", set()
+    for lineno, text in enumerate(lines, 1):
+        match = _FENCE.match(text)
+        if match:
+            token = match.group(1)[0]
+            if not inside:
+                inside, opener = True, token
+                fenced.add(lineno)
+                continue
+            if token == opener:
+                inside = False
+                fenced.add(lineno)
+                continue
+        if inside:
+            fenced.add(lineno)
+    return fenced
+
+
+def strip_code_surfaces(text: str) -> str:
+    """Blank out the code surfaces Rule D must not read as prose.
+
+    Replaces each match with spaces rather than deleting it, so a term is never
+    formed by splicing the two sides of a removed span together.
+    """
+    for pattern in _CODE_SURFACES:
+        text = pattern.sub(lambda match: " " * len(match.group(0)), text)
+    return text
+
+
+def retired_terms_in(text: str) -> list[tuple[str, str]]:
+    """Return (퇴역어, 정답) for every retired term left after the keep-list mask."""
+    prose = strip_code_surfaces(text)
+    return [
+        (retired, replacement)
+        for pattern, retired, replacement in RETIRED_TERMS
+        if pattern.search(prose)
+    ]
+
+
+def _iter_rule_d_lines():
+    """Yield (relpath, line_number, text) for the prose lines Rule D judges.
+
+    Skips the devlog and every line inside a fenced code block. Rules A–C keep
+    using ``_iter_doc_lines`` and are unaffected.
+    """
+    for path in sorted(DOCS.rglob("*.md")):
+        rel = path.relative_to(DOCS).as_posix()
+        if rel in RULE_D_EXCLUDED:
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        fenced = fenced_line_numbers(lines)
+        for lineno, text in enumerate(lines, 1):
+            if lineno not in fenced:
+                yield rel, lineno, text
+
+
+def check_no_retired_terminology() -> list[str]:
+    """Rule D — no prose line reintroduces wording retired by BOLT-06."""
+    failures: list[str] = []
+    for rel, lineno, text in _iter_rule_d_lines():
+        for retired, replacement in retired_terms_in(text):
+            failures.append(
+                f"{rel}:{lineno} reintroduces retired '{retired}' — "
+                f"use '{replacement}':\n    {text.strip()[:200]}"
+            )
+    return failures
+
+
 def find_violations() -> list[str]:
     """Return every terminology violation across all rules."""
     return (
         check_glossary()
         + check_no_collapse_definition()
         + check_measured_pages_qualified()
+        + check_no_retired_terminology()
     )
 
 
@@ -141,7 +291,10 @@ def main() -> int:
     violations = find_violations()
     if not violations:
         pages = sum(1 for _ in DOCS.rglob("*.md"))
-        print(f"terminology: OK — glossary present, {pages} docs pages checked")
+        print(
+            f"terminology: OK — glossary present, {pages} docs pages checked, "
+            f"{len(RETIRED_TERMS)} retired terms gated"
+        )
         return 0
     print(f"terminology: {len(violations)} violation(s):\n")
     for violation in violations:
