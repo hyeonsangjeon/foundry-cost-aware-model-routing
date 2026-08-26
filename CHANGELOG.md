@@ -39,3 +39,15 @@ All notable changes to this project are documented here.
 - Router core for rule-based classification, deterministic candidate selection,
   trace construction, and offline signal fixtures.
 - Local budget gate, replay scripts, and eval summary for sample fixtures.
+
+### Changed
+- **Korean docs terminology, and a gate against it drifting back.** Six English
+  fragments in `docs/ko` prose were restored to the wording the docs already
+  used on other pages — 아암 → 비교 전략, prereg → 사전등록, pinned 요율 → 고정
+  요율, exec-signals → 실행 신호, void 런 → 무효 처리된 실행, scope-out → 범위
+  제외 — 32 occurrences over 31 lines in 8 pages. Names were deliberately left
+  alone: preregistration filenames, schema keys, code spans, link targets and
+  the uppercase `VOID` status value account for 15 kept occurrences over 10
+  lines. `scripts/check_terminology.py` gains **Rule D**, which fails the build
+  if any of the six returns to Korean prose, with `lab-notebook/devlog.md`
+  excluded as a dated journal that is not edited retroactively.
