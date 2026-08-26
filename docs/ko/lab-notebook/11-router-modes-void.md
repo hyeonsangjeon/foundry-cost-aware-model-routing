@@ -30,7 +30,7 @@
   직접 호출 · `gpt-5.6-sol`) — 을
   [`benchmarks/original-coding`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/tree/main/benchmarks/original-coding)
   의 24개 큐레이션 코딩 태스크에 물립니다. `24 태스크 × 4 arm × n=3 = 288 셀`, 결정론적
-  exec-signals 채점, v2 합성 요율표로 비용 산정.
+  실행 신호 채점, v2 합성 요율표로 비용 산정.
 - **규율(먼저 고정):** 결과를 보기 전에 품질 게이트·estimand·예상 방향·무효 판정 기준을
   [`prereg-03d-router-modes.md`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/prereg-03d-router-modes.md)
   에 커밋했습니다. **타임스탬프가 증빙**입니다 — 결과에 맞춰 나중에 고칠 수 없습니다.

@@ -47,7 +47,7 @@
 나오며, 무효 판정이 이 수치를 의심스럽게 만들지는 않습니다. 실험 11이 뒷받침할 수 없는
 것은 그 런이 계획했던 arm 비교이고, 여기서 다시 읽는 것은 그 런의 결론이 아니라 traces에
 남은 캐시 기록입니다. 무효 런을 지우지 않고 라벨을 붙여 남기는 것이 이 저장소가 무효
-측정을 다루는 방식입니다([실험 11 · prereg VOID](../lab-notebook/11-router-modes-void.md)).
+측정을 다루는 방식입니다([실험 11 · 사전등록 VOID](../lab-notebook/11-router-modes-void.md)).
 
 !!! info "각도를 한 번 밝혀 둡니다"
     특정 모델이나 게이트웨이의 캐시 이야기는 그 모델 경로가 프리픽스를 재사용하는지를
@@ -338,6 +338,6 @@ system prompt를 태스크끼리 공유한다는 점은 캐시 기록의 모양�
 이 페이지를 인용할 때 함께 따라가야 합니다.
 
 런 자체의 서술형 기록은 실험노트에 있습니다 —
-[실험 11 · prereg VOID](../lab-notebook/11-router-modes-void.md) ·
+[실험 11 · 사전등록 VOID](../lab-notebook/11-router-modes-void.md) ·
 [실험 12 · 라우팅 모드 유료 실측 재런](../lab-notebook/12-router-modes-measured.md) ·
 [실험 13 · 라우터 세 모드 비교 · 3차](../lab-notebook/13-router-modes-rate-card-gap.md).

@@ -143,7 +143,7 @@ cost-router foundry live --live --workload my-prompts.jsonl \
 크리덴셜이 없어도 경로를 볼 수 있습니다. 자세한 내용은
 [라이브 실측 브릿지](foundry-live.md)를 참고하세요.
 
-## models — 플릿 등록 & 아암 선택
+## models — 플릿 등록 & 비교 전략(arm) 선택
 
 ```bash
 cost-router models list          # 카탈로그 + 현재 slate + 라이브 준비 상태
@@ -152,7 +152,7 @@ cost-router models select        # 대화형 /model 피커 (번호나 이름 입
 cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
 ```
 
-어떤 배포 모델이 각 아암(router/cheapest/premium/ensemble)을 맡을지 등록·선택합니다. 선택은
+어떤 배포 모델이 각 비교 전략(router/cheapest/premium/ensemble)을 맡을지 등록·선택합니다. 선택은
 gitignore된 `.foundry-fleet.local.yaml`에 저장됩니다. 모든 명령은 `--fleet PATH`(또는
 `FOUNDRY_FLEET_PATH`)로 다른 플릿 파일을 읽을 수 있습니다. 그런 다음 실측 아레나를 그 플릿으로
 돌립니다:
