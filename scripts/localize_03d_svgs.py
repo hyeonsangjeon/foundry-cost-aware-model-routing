@@ -60,7 +60,7 @@ LABELS: dict[str, str] = {
     # backend-distribution.svg
     "백엔드 분포 — arm별 실제 라우팅된 모델 (graded 셀 기준)":
         "Backend distribution — models actually routed per arm (graded cells)",
-    "Cost 모드 100% Grok은 void 런과 이번 런 두 번 연속 재현됐다":
+    "Cost 모드 100% Grok은 무효 처리된 실행과 이번 런 두 번 연속 재현됐다":
         "Cost mode 100% Grok, reproduced across the void run and this run "
         "(two consecutive)",
 }
