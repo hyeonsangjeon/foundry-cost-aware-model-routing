@@ -27,18 +27,18 @@ from the saved usage and rate card.
   deployment, scored against predictions registered before the run and sealed
   into a replay-verified snapshot.
 
-![Hero experiment: premium-on-everything bills $2.23 while try-cheap-first routing bills $1.66 — 25.5% lower at 100% coverage over 100 synthetic tasks](docs/assets/gif/hero.gif)
+![Default experiment: premium-on-everything bills $2.23 while try-cheap-first routing bills $1.66 — 25.5% lower at 100% coverage over 100 synthetic tasks](docs/assets/gif/hero.gif)
 
 <sub>Generated deterministically from this repository's own verified numbers by
 [`scripts/build_experiment_gifs.py`](scripts/build_experiment_gifs.py). Offline
 projection over synthetic data — `labels.measured=false`. Reproduce with
 `cost-router experiment run hero`.</sub>
 
-> **Strongest evidence — a five-prompt wiring proof (experiment 09).** Wired to a
+> **Strongest evidence — a five-prompt end-to-end call-path check (experiment 09).** Wired to a
 > live Azure AI Foundry **Model Router** deployment over keyless Entra, one call
 > really split to `gpt-5.4` (×3) and `grok-4-1-fast-reasoning` (×2) — this repo's
 > first `measured=true` run, sealed into a hash-chained, replayable ledger.
-> **Read it as a wiring proof, not a benchmark:** five prompts is far below the
+> **Read it as a call-path check, not a benchmark:** five prompts is far below the
 > ≥100-prompt bar Microsoft gives for statistically reliable results (fewer than
 > 30 prompts is directional only), and the run measures routing, usage, latency,
 > auth and replay integrity — not savings.
@@ -122,7 +122,7 @@ diagrams stay outside Git.
 
 ## Offline preview in depth
 
-`cost-router hero` runs the flagship experiment as a **deterministic offline
+`cost-router hero` runs the default cost-and-coverage experiment as a **deterministic offline
 projection over synthetic data** (`labels.measured=false`) — a *preview*, not a
 measurement. It prints a before/after, a spotlight task, and a reproducibility
 self-check (it exits non-zero if the projection ever drifts below the contracted
@@ -175,7 +175,7 @@ gate) → live progress → snapshot replay — then seal and re-verify the spen
 `cost-router ledger measured-replay`. This is the clone → `.env` → one-button path;
 the public page linked above is an **interactive offline demo** — a read-only
 replay of an already-measured run, not a live paid dashboard. Full recipe: the
-[cockpit & customization guide](docs/ko/manual/customize.md) and the
+[local browser run screen & customization guide](docs/ko/manual/customize.md) and the
 [end-to-end Foundry setup](docs/ko/manual/foundry-setup.md).
 
 ## The experiment arc — honest by construction
@@ -187,11 +187,11 @@ Foundry Model Router:
 
 | # | Experiment | Question it answers | Result |
 | --- | --- | --- | --- |
-| 01 | [Hero](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/01-hero/) | Routing on a realistic 100-task workload? | 100% coverage, **−25.5%** cost |
+| 01 | [Try-cheap-first routing](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/01-hero/) | Routing on a realistic 100-task workload? | 100% coverage, **−25.5%** cost |
 | 02 | [Curated](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/02-curated/) | Five tasks you can follow by eye? | 100% coverage, **−56.7%** cost |
 | 03 | [Coverage cliff](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/03-coverage-cliff/) | Delete the expensive fallback to save more? | cost falls, but coverage drops **100% → 67%** |
 | 04 | [No free lunch](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/04-no-free-lunch/) | A workload where only the top model passes? | 100% coverage, **0%** saved |
-| 05 | [Ensemble fan-out tax](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% coverage, **−47%** — all candidate calls cost **3.74×** the winner |
+| 05 | [All-candidate call cost](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% coverage, **−47%** — all candidate calls cost **3.74×** the winner |
 | 06 | [Adaptive fan-out dial](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/06-fanout-dial/) | Can you keep the savings but drop the extra calls? | compared with experiment 05, one budget threshold keeps coverage/savings unchanged while the extra-call ratio falls **3.74× → $0** |
 | 07 | [Routing layer](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/07-model-router/) | Single-call routing — pick once, no escalation (the shape any per-prompt router has, including ours in ordered-only mode)? | 52% coverage; layering observe-then-escalate on top reaches 100% at ~the same cost (gain **+48%p**) — experiment 09 wires a real deployment in as this arm |
 | 08 | [Arena](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/08-arena/) *(one-task comparison)* | One problem, four ways — what does each cost, how long does it take, and does it pass? | router is the **cheapest correct** answer but the **slowest** (sequential escalation); latency is a **new illustrative projection** |
@@ -267,7 +267,7 @@ cost-router policy regression --candidate experiments/policies/cost-cut.yaml --s
 All-candidate call cost: compare mode calls every candidate on high-value tasks but
 stores only the winner in the routing bill. `src/router/metrics.py` also sums every
 candidate call and records the difference for the web app and historical dashboard
-(lab notebook: 실험 05 · 앙상블 팬아웃 세금):
+(lab notebook: 실험 05 · 전체 후보 호출 비용):
 
 ```bash
 cost-router experiment run ensemble          # 100% coverage, −47% — but fan-out is 3.74× the winner
@@ -282,7 +282,7 @@ while the extra-call ratio falls **3.74× → $0**. Experiment 06 pins this with
 `max_tax_ratio` ceiling (lab notebook: 실험 06 · 적응형 팬아웃 다이얼):
 
 ```bash
-cost-router experiment run adaptive          # 100% coverage, −47% — fan-out tax dialed to 0.00×
+cost-router experiment run adaptive          # 100% coverage, −47% — extra candidate-call cost held at 0.00×
 ```
 
 The routing layer — single-call routing picks one model per prompt, up front,

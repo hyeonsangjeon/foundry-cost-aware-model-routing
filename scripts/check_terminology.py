@@ -2,7 +2,9 @@
 """Terminology guards for the Korean docs.
 
 Two concerns live here. Rules A–C freeze the "커버리지" reconciliation described
-below; Rule D keeps the wording retired by BOLT-06 (#129) from drifting back in.
+below; Rule D keeps the wording retired by BOLT-06 (#129) from drifting back in,
+and its BOLT-10 (#137) sibling (Rule E) does the same for the plain-language home
+surfaces (README + the two ``index.md``).
 
 One Korean word — "커버리지" — used to name three different quantities across
 the docs: a *task pass rate* (실험 03, 홈), a *grading coverage* (실험 12 / 03D),
@@ -29,6 +31,10 @@ Rules enforced:
      not carry a bare ``| 커버리지 |`` table column.
   D. No Korean prose line reintroduces wording retired by BOLT-06 (#129):
      아암, prereg, pinned 요율, exec-signals, void 런, scope-out.
+  E. No first-screen prose (README, docs/en/index.md, docs/ko/index.md)
+     reintroduces the jargon BOLT-10 (#137) retired: cockpit, ensemble tax,
+     cost governor, wiring, human gate, flagship — and the Korean counterparts
+     콕핏, 앙상블 세금, 비용 거버너, 배선, 사람 게이트, 플래그십.
 
 Rule D — what it does and does not look at
 ------------------------------------------
@@ -130,6 +136,50 @@ RETIRED_TERMS = (
 # A dated Korean journal: written at a point in time, never edited retroactively.
 # BOLT-06 skipped it, so Rule D must too. Rules A–C still read it.
 RULE_D_EXCLUDED = ("lab-notebook/devlog.md",)
+
+# Rule E — jargon BOLT-10 (#137) retired from the plain-language home surfaces,
+# as (pattern, retired, replacement). These three files are the reader's first
+# screen in each language; the confirmed wording replaced the coinages in place.
+#
+# Scope is deliberately the three cleaned files, not a tree-wide sweep. The same
+# words legitimately still stand on lab-notebook page titles (BOLT-11) and the
+# 03B/03D code surfaces (BOLT-12) that later waves own — gating the whole tree
+# now would fail on out-of-scope lines and pre-empt those waves. Code surfaces
+# (the CLI ``hero`` identifier, the ``results/cockpit/<run-id>`` path token) are
+# masked before matching, exactly as Rule D masks them, so an identifier is never
+# read as prose.
+FIRST_SCREEN_SURFACES = (
+    "README.md",
+    "docs/en/index.md",
+    "docs/ko/index.md",
+)
+
+RETIRED_FIRST_SCREEN_TERMS = (
+    (re.compile(r"cockpit", re.IGNORECASE), "cockpit",
+     "the browser run screen (first mention: the local browser run screen)"),
+    (re.compile(r"콕핏"), "콕핏",
+     "브라우저 실행 화면 (최초 등장: 로컬 브라우저 실행 화면)"),
+    (re.compile(r"ensemble\s+tax", re.IGNORECASE), "ensemble tax",
+     "drop the coinage — 'extra candidate-call cost'"),
+    (re.compile(r"앙상블\s*세금"), "앙상블 세금",
+     "조어 삭제 — '후보 호출 비용'"),
+    (re.compile(r"cost\s+governor", re.IGNORECASE), "cost governor",
+     "drop the coinage — 'spending limit'"),
+    (re.compile(r"비용\s*거버너"), "비용 거버너",
+     "조어 삭제 — '지출 한도'"),
+    (re.compile(r"\bwiring\b", re.IGNORECASE), "wiring",
+     "end-to-end call-path check / measurement path"),
+    (re.compile(r"배선"), "배선",
+     "측정 경로 / 측정 반영"),
+    (re.compile(r"human\s+gate", re.IGNORECASE), "human gate",
+     "drop the coinage — 'approve and run'"),
+    (re.compile(r"사람\s*게이트"), "사람 게이트",
+     "조어 삭제 — '승인하고 실행'"),
+    (re.compile(r"flagship", re.IGNORECASE), "flagship",
+     "the default cost-and-coverage experiment"),
+    (re.compile(r"플래그십"), "플래그십",
+     "기본 비용·통과율 실험"),
+)
 
 # Code surfaces stripped before Rule D matches. A term surviving all four is
 # being read as prose. Order matters — code spans may themselves contain URLs.
@@ -277,6 +327,43 @@ def check_no_retired_terminology() -> list[str]:
     return failures
 
 
+def _iter_first_screen_lines():
+    """Yield (relpath, line_number, text) for the BOLT-10 first-screen prose lines.
+
+    Fenced code blocks are skipped and, per line, inline code / links / URLs are
+    masked by ``retired_first_screen_terms_in`` — so ``cost-router hero`` and the
+    ``results/cockpit/<run-id>`` path never register as prose.
+    """
+    for rel in FIRST_SCREEN_SURFACES:
+        lines = (REPO_ROOT / rel).read_text(encoding="utf-8").splitlines()
+        fenced = fenced_line_numbers(lines)
+        for lineno, text in enumerate(lines, 1):
+            if lineno not in fenced:
+                yield rel, lineno, text
+
+
+def retired_first_screen_terms_in(text: str) -> list[tuple[str, str]]:
+    """Return (retired, replacement) for BOLT-10 terms left after the code mask."""
+    prose = strip_code_surfaces(text)
+    return [
+        (retired, replacement)
+        for pattern, retired, replacement in RETIRED_FIRST_SCREEN_TERMS
+        if pattern.search(prose)
+    ]
+
+
+def check_no_retired_first_screen_terms() -> list[str]:
+    """Rule E — no first-screen prose reintroduces jargon retired by BOLT-10."""
+    failures: list[str] = []
+    for rel, lineno, text in _iter_first_screen_lines():
+        for retired, replacement in retired_first_screen_terms_in(text):
+            failures.append(
+                f"{rel}:{lineno} reintroduces retired '{retired}' — "
+                f"use '{replacement}':\n    {text.strip()[:200]}"
+            )
+    return failures
+
+
 def find_violations() -> list[str]:
     """Return every terminology violation across all rules."""
     return (
@@ -284,6 +371,7 @@ def find_violations() -> list[str]:
         + check_no_collapse_definition()
         + check_measured_pages_qualified()
         + check_no_retired_terminology()
+        + check_no_retired_first_screen_terms()
     )
 
 
@@ -293,7 +381,8 @@ def main() -> int:
         pages = sum(1 for _ in DOCS.rglob("*.md"))
         print(
             f"terminology: OK — glossary present, {pages} docs pages checked, "
-            f"{len(RETIRED_TERMS)} retired terms gated"
+            f"{len(RETIRED_TERMS)} retired terms gated, "
+            f"{len(RETIRED_FIRST_SCREEN_TERMS)} first-screen terms gated"
         )
         return 0
     print(f"terminology: {len(violations)} violation(s):\n")

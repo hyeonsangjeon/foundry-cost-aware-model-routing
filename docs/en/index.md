@@ -15,8 +15,9 @@ the same results.
     One real Azure Foundry measurement found that the `router-cost` arm (Model Router in
     Cost mode) cost **95.2% less** than `direct-premium` (calling the premium model
     directly · `gpt-5.6-sol`). The pass-rate gap was within **4.17%p**. This result
-    comes from 24 tasks · a single tenant · one measurement, so it is directional
-    (publishable), not statistical confidence.
+    comes from 24 tasks · a single tenant · one measurement, so it is a directional
+    signal, not statistical confidence. The run passed its pre-registered reporting
+    criteria.
     → [Routing-mode measured results dashboard](manual/03d-results.md)
 
 Before comparing results, separate what Foundry already does from what this repository adds.
@@ -26,10 +27,10 @@ Before comparing results, separate what Foundry already does from what this repo
     from one deployment, including across providers. This repo does not **replace**
     it. It adds four controls to the run: ① check the answer with execution signals
     and try a higher model only after a failure (**verify**) · ② total the extra
-    candidate-call cost (**ensemble tax**) · ③ stop at the approved spending limit
-    (**cost governor**) · ④ write every decision to a replayable record (**audit
-    ledger**). *The built-in selects the model. This repo checks the
-    result, controls spending, and records what happened.*
+    candidate-call cost · ③ stop at the approved spending limit · ④ write every
+    decision to a replayable record (**audit ledger**). *The built-in selects the
+    model. This repo checks the result, controls spending, and records what
+    happened.*
 
 [Experiment 07 · Routing layer](lab-notebook/07-model-router.md) compares one model
 choice with a process that can try again after a failure. On synthetic data, the
@@ -68,7 +69,7 @@ real calls.
 git clone https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing
 cd foundry-cost-aware-model-routing
 pip install -e .          # install the cost-router console script
-cost-router hero          # run the flagship experiment in one shot
+cost-router hero          # run the default cost-and-coverage experiment in one shot
 ```
 
 The before/after block that `cost-router hero` prints (100 synthetic-workload tasks):
@@ -107,18 +108,18 @@ cost-router hero --serve   # runs, then opens the offline dashboard
     calls, no secrets, and **it is not a billed live dashboard**. The numbers are
     generated the same way as `cost-router hero`.
 
-## Not a mockup but your own Azure — the browser cockpit
+## Not a mockup but your own Azure — the local browser run screen
 
 The offline demo above is read-only: it shows results that were already measured and
-committed. The local cockpit runs the same screen **live against your own Foundry
-deployment**. Credentials never enter the browser; it connects only to `127.0.0.1`
+committed. The local version runs the same screen live against your own Foundry
+deployment. Credentials never enter the browser; it connects only to `127.0.0.1`
 with a session token, while Entra reads the sign-in from `az login`.
 
-!!! note "The cockpit is mid-update to the latest measurement wiring (issue #55)"
-    The cockpit's run path does not yet include the latest measurement wiring (03B-2
-    v2 rates · 03D-1 grading bridge). For example, the live client does not set
+!!! note "The browser run screen is mid-update to the latest measurement path (issue #55)"
+    The browser run screen does not yet include the latest measurement path (03B-2
+    v2 rates · 03D-1 grading integration). For example, the live client does not set
     `max_output_tokens`, so it uses the default of 512. For **accurate measurement
-    right now, use the CLI path**. For wiring details, see
+    right now, use the CLI path**. For the integration details, see
     [issue #55](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/issues/55),
     and for the method see the [measurement protocol](manual/measurement-protocol.md).
 
@@ -128,10 +129,10 @@ cost-router dashboard --live  # prints a 127.0.0.1 + random-port + session-token
 ```
 
 The same UI first checks the connection, then shows the outgoing prompts and dry-run
-cost. Nothing runs until a person chooses **approve and run** (the human gate). It
+cost. Nothing runs until a person chooses **approve and run**. It
 then shows live progress and replays the `results/cockpit/<run-id>` snapshot.
 For the full setup, follow [Foundry setup](manual/foundry-setup.md) →
-[Customize · cockpit](manual/customize.md) → [audit ledger](manual/ledger.md) in order.
+[Customize · the browser run screen](manual/customize.md) → [audit ledger](manual/ledger.md) in order.
 
 ## What you'll see
 
@@ -145,13 +146,13 @@ For the full setup, follow [Foundry setup](manual/foundry-setup.md) →
     cost **95.2% less** than `direct-premium`. The pass-rate gap was within 4.17%p.
     → [Routing-mode measured results](manual/03d-results.md)
 
--   :material-rocket-launch: **Flagship run mode**
+-   :material-rocket-launch: **Default run mode**
 
     ---
 
     One command prints the before/after result, the spotlight task, and the
     reproducibility self-check.
-    → [Experiment 01 · Flagship run](lab-notebook/01-hero.md)
+    → [Experiment 01 · Try-cheap-first routing](lab-notebook/01-hero.md)
 
 -   :material-scale-balance: **Same pass rate, lower cost**
 
