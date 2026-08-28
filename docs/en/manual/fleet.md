@@ -79,7 +79,7 @@ models:
     adds an input-token markup on the router arm, plus a **fail-closed** rule that
     seals any backend with no rate as unpriced instead of filling it with an
     arbitrary rate. For the path split between the two schemas see
-    [measurement protocol §6.1](measurement-protocol.md#61-v1-vs-v2).
+    [measurement protocol §6.1](measurement-protocol.md#61-rate-card-schema-v1-offline-experiments-vs-v2-benchpaid-measurement).
 
 !!! note "Where the `provider` tag matters"
     The Model Router arm already routes many of these partner models **cross-provider,

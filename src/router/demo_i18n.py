@@ -1083,7 +1083,7 @@ MEASURED = {
         'workloadVal': 'curated-24 · 과제 {tasks}개 × arm {arms}개 × n={n} = {cells}셀',
         'runVal': 'keyless Entra · 디스패치 순서가 고정된 순차 실행(과제 → 반복 → arm) · 계획에서 받아 요청에 싣는 값은 max_output_tokens 하나이고 샘플링 온도는 서비스 기본값이다',
         'backTitle': '백엔드 분포 — 각 arm이 실제로 도달한 모델',
-        'backNote': '채점된 셀만 포함하며 백엔드가 확정되지 않은 타임아웃 셀은 제외한다. Cost 모드는 두 실측 런(직전 void 런과 이 발행 런) 모두 100%를 grok-4-1-fast-reasoning으로 보냈다. Quality 모드는 Grok으로 보낸 셀이 없다.',
+        'backNote': '채점된 셀만 포함하며 백엔드가 확정되지 않은 타임아웃 셀은 제외한다. Cost 모드는 두 실측 런(직전 무효 처리된 실행과 이 발행 런) 모두 100%를 grok-4-1-fast-reasoning으로 보냈다. Quality 모드는 Grok으로 보낸 셀이 없다.',
         'toTitle': '타임아웃 11셀 — 숨기지 않고 보여준다',
         'toNote': '11셀 모두 라우터 arm에서 난 HTTP 408 읽기 타임아웃이며 direct-premium은 0이다. 각 타임아웃은 채점 커버리지에서 제외하고 실패로도 집계한다. 이 타임아웃들이 라우터 arm과 direct-premium 사이의 통과율 차이 전부를 만든다. 4.17%p 격차는 지연 차이(라우터 백엔드 p50 ~12–16초 vs direct-premium ~4.2초)이지 코드 품질이 아니다.',
         'toByArm': 'arm별',

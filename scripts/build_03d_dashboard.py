@@ -88,6 +88,19 @@ def _mask_endpoint(value: str | None) -> str | None:
     return urlunsplit((parts.scheme, host, "", "", ""))
 
 
+def _by_share(backends: dict[str, int]) -> dict[str, int]:
+    """Order one arm's backends biggest share first, ties broken by model name.
+
+    The bundle cannot carry this order: ``published.json`` is written with
+    ``sort_keys=True``, which re-sorts every object alphabetically. So the extract
+    path (in-memory dict) and ``--charts-only`` (re-read JSON) would render the
+    same arm's segments in two different orders, and the committed chart would
+    stop being reproducible. Sorting on the way into the view model makes both
+    paths agree whatever key order the bundle happens to have.
+    """
+    return dict(sorted(backends.items(), key=lambda kv: (-kv[1], kv[0])))
+
+
 def _backends_by_arm(run_dir: Path) -> dict[str, dict[str, int]]:
     """Per-arm distribution of the router's resolved backend model (graded cells)."""
 
@@ -102,10 +115,7 @@ def _backends_by_arm(run_dir: Path) -> dict[str, dict[str, int]]:
         resolved = (row.get("pricing") or {}).get("resolved_model")
         if resolved and row["candidate_model"] in dist:
             dist[row["candidate_model"]][resolved] += 1
-    return {
-        dep: dict(sorted(counter.items(), key=lambda kv: (-kv[1], kv[0])))
-        for dep, counter in dist.items()
-    }
+    return {dep: _by_share(counter) for dep, counter in dist.items()}
 
 
 def build_masked_bundle(run_dir: Path) -> dict:
@@ -236,7 +246,7 @@ def arm_rows(bundle: dict) -> list[dict]:
                 "tasks_planned": q["tasks_planned"],
                 "cost_per_pass": q["cost_per_pass_usd"],
                 "coverage": (cov.get(dep) or {}).get("coverage"),
-                "backends": backends[dep],
+                "backends": _by_share(backends[dep]),
             }
         )
     return rows
@@ -512,7 +522,7 @@ def render_backends(rows: list[dict]) -> str:
         _txt(
             24,
             56,
-            "Cost 모드 100% Grok은 void 런과 이번 런 두 번 연속 재현됐다",
+            "Cost 모드 100% Grok은 무효 처리된 실행과 이번 런 두 번 연속 재현됐다",
             size=11,
             fill=MUTE,
         )
