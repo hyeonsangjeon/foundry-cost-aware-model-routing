@@ -2,7 +2,7 @@
 
 This page lays out, start to finish, how to run each experiment as a **real Azure AI
 Foundry run rather than a mock simulation**. It gathers resource provisioning (`az`),
-model selection, KB (grounding) setup, system prompts, the fan-out/ensemble
+model selection, KB (grounding) setup, system prompts, how to call several candidate models in parallel (fan-out) with the ensemble
 mechanism, and the per-experiment settings in one place.
 
 !!! note "What you need first — three prerequisites"
@@ -13,7 +13,7 @@ mechanism, and the per-experiment settings in one place.
     3. **The `Cognitive Services OpenAI User` role** — grant it to the calling principal (user/service principal) and calls go out with keyless **Entra** auth. No API key is used.
 
     This repository **does not create infrastructure** — it attaches to an
-    already-deployed resource and measures. To point an ensemble arm directly at a
+    already-deployed resource and measures. To point an ensemble arm — an arm is one comparison strategy in the experiment — directly at a
     specific partner model, just add that deployment name to the fleet YAML (BYO). IaC
     provisioning is a follow-up companion asset. For the full procedure see §1.
 
@@ -49,10 +49,10 @@ demo-ext resource.)
 
 | Plane | Resource | Deployments/resources | What it does |
 | --- | --- | --- | --- |
-| **Routing plane** | `aoai-foundry-iq-demo-ext` (`rg-foundry-iq-demo-ext`, eastus) | `model-router` + multi-provider fleet (`gpt-5.6-sol` · `gpt-4o` · `gpt-5.4-mini` · `gpt-5.4-nano` + 7 partners) | Per-prompt model selection · inference (arena · live experiments) |
+| **Routing plane** | `aoai-foundry-iq-demo-ext` (`rg-foundry-iq-demo-ext`, eastus) | `model-router` + multi-provider fleet (`gpt-5.6-sol` · `gpt-4o` · `gpt-5.4-mini` · `gpt-5.4-nano` + 7 partners) | Per-prompt model selection · inference (four-way comparison (the `arena` command) · live experiments) |
 | **Grounding plane** | the **same** `aoai-foundry-iq-demo-ext` + `srch-foundry-iq-demo-ext` (Azure AI Search) | `text-embedding-3-large` + a vector index | KB embedding · search (RAG grounding) |
 
-- **The arena/head-to-head experiments use the routing plane only** (inference only,
+- **The four-way comparison/head-to-head experiments use the routing plane only** (inference only,
   no KB).
 - **KB grounding is optional.** You use the grounding plane only when you want to
   attach source documents to an experiment ([§2](#2-kb)).
@@ -91,7 +91,7 @@ Model Router is a selection layer that **works on its own with a single deployme
 deploy just that one and it branches per prompt across not only the OpenAI GPT-5
 family but xAI Grok · DeepSeek · Meta Llama · gpt-oss too, **with no separate
 deployment** (only Anthropic Claude is the exception, needing a direct deployment).
-The fleet deployments below are not the router but what the arena's **direct-call /
+The fleet deployments below are not the router but what the four-way comparison's **direct-call /
 fan-out arms** (cheapest · premium · ensemble) use, reproducing exactly the
 deployments actually stood up on this demo's `aoai-foundry-iq-demo-ext`
 ([`samples/fleet/foundry-ext-full.fleet.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/fleet/foundry-ext-full.fleet.yaml) is canonical).
@@ -119,7 +119,7 @@ done
 ```
 
 The 7 partner/OSS models go on the **same resource · same Entra identity**, but their
-wire path is Azure AI Model Inference (`*.services.ai.azure.com/models`) and their
+measurement path is Azure AI Model Inference (`*.services.ai.azure.com/models`) and their
 `--model-format` differs per publisher (not OpenAI). Create the deployment names,
 models, and versions below exactly, filling in `--model-format` after checking it with
 `az cognitiveservices account list-models`:
@@ -157,10 +157,10 @@ az role assignment create \
   --scope "$SCOPE"
 ```
 
-### 1-3. Wire `.env` (no secrets)
+### 1-3. Configure `.env` (no secrets)
 
 Copy `.env.sample` to `.env` and fill in **endpoint + deployment only**. Leave the key
-box empty — when it is empty the bridge switches to Entra ID automatically.
+box empty — when it is empty the live measurement adapter switches to Entra ID automatically.
 
 ```bash
 AZURE_AI_FOUNDRY_ENDPOINT=https://aoai-foundry-iq-demo-ext.cognitiveservices.azure.com/
@@ -222,7 +222,7 @@ you embed the question, pull the top-k chunks with a kNN search, and inject them
 **context block of the system prompt** ([§3](#3-system-prompt)).
 
 !!! note "KB is honestly 'optional'"
-    The current bundled experiments (arena · curated) are **inference-only** and use no
+    The current bundled experiments (four-way comparison · curated) are **inference-only** and use no
     KB. The procedure above is the standard recipe for attaching an experiment that
     needs grounding (e.g. a repo-grounded review). Even with a KB attached, cost is
     measured as embedding + search + inference usage.
@@ -239,7 +239,7 @@ prompt is sent. Recommended system prompt per experiment:
 | --- | --- |
 | hero | "You are a senior engineer. Give an accurate, minimal answer/code; if unsure, state your assumptions." |
 | curated | "Read each problem's acceptance criteria first, and give only answers that meet them." |
-| ensemble | (the same prompt per arm for a fair comparison — the same system to every member of the fan-out slate) |
+| ensemble | (the same prompt per arm for a fair comparison — the same system to every member of the candidate set) |
 | adaptive | "For a high-value task, present the reasoning step by step; for a low-value one, be terse." |
 | limits | "Be terse. Assume retry/rate-limit conditions and answer idempotently." |
 | model-router | (no system — only the raw prompt, so the router picks the model by difficulty) |
@@ -279,7 +279,7 @@ measured. Each arm is a real deployment call.
 | `ensemble` | `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (parallel fan-out) | **sum-all-fanout** | Call all → accept only the best = the **fan-out tax** |
 | `router` | `model-router` | winner-only | Foundry selects one model per prompt |
 
-- **Fan-out** calls the whole slate in **parallel** (`ThreadPoolExecutor`), so latency
+- **Fan-out** calls the whole candidate set in **parallel** (`ThreadPoolExecutor`), so latency
   is the *slowest* call (a max, not a sum). Cost is the **sum of all** (the tax).
 - **The router** calls once and bills only the winning model's cost.
 
@@ -352,7 +352,7 @@ prompts of differing difficulty (measured):
 - **Nothing to configure** — the router selects automatically. You call once with
   `model=model-router`.
 - **Read the selection in code**: `RouterOutcome.model` (after normalization,
-  `gpt-5.4-2026-03-05` → `gpt-5.4`). The arena rates by this value and tallies it into
+  `gpt-5.4-2026-03-05` → `gpt-5.4`). The four-way comparison rates by this value and tallies it into
   `router_model_mix`.
 
 ```bash
@@ -387,25 +387,25 @@ How each of the six experiments runs — **with which model, which prompt, and h
 - Related: [experiment 02 · the curated sample](../lab-notebook/02-curated.md)
 
 ### 6-3. ensemble — the ensemble fan-out tax
-- **Model**: the fan-out slate `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (parallel).
-- **KB**: none. **system**: identical for the whole slate (fair comparison).
+- **Model**: the candidate set `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (parallel).
+- **KB**: none. **system**: identical for the whole candidate set (fair comparison).
 - **Mechanism**: [§4](#4-fanout) — calling all and summing the bill is the tax; latency
   is the max.
 - **Measured status**: ✅ tax (summed cost) · latency measured. The measured
   $0.022046 (the most expensive) makes the tax actually visible.
 - Related: [experiment 05 · the ensemble fan-out tax](../lab-notebook/05-ensemble-fanout.md)
 
-### 6-4. adaptive — the adaptive fan-out dial
+### 6-4. adaptive — the adaptive fan-out threshold
 - **Model**: a low-value task is a router single call; only a high-value task is
   promoted to fan-out.
-- **Dial**: `compare_min_value` (offline `budget.py`). Live, you branch the slate
+- **Dial**: `compare_min_value` (offline `budget.py`). Live, you branch the candidate set
   conditionally so it calls the `ensemble_arm` only when the task value is at or above
   the threshold, else the `router_arm`.
 - **KB**: none. **system**: value-based verbosity (§3).
-- **Measured status**: ⚙️ the router/fan-out arms are measurable. The dial-threshold
+- **Measured status**: ⚙️ the router/fan-out arms are measurable. The threshold
   policy is exposed as an input variable (the `FleetSlate`/value threshold in
   [§7](#7-code) below).
-- Related: [experiment 06 · the adaptive fan-out dial](../lab-notebook/06-fanout-dial.md)
+- Related: [experiment 06 · the adaptive fan-out threshold](../lab-notebook/06-fanout-dial.md)
 
 ### 6-5. limits — the rate-limit/failure wall
 - **Model**: apply concurrent load to a single tier to observe 429/throttling.

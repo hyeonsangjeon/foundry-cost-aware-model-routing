@@ -5,7 +5,7 @@
 있습니다. 03A는 그 틈을 없앱니다. 하나의 로컬 설정 파일을 **한 번** 해석해
 `ResolvedRunPlan` 이라는 **불변 객체**로 봉인하고 위 다섯 경로가 전부 그 동일한 객체를
 읽습니다. 계획에는 결정론적 `plan_hash`가 붙고 승인은 그 해시에 묶입니다. 콕핏(cockpit)도
-이제 이 계획에 연결됩니다 — `cost-router dashboard --live --config <파일>`은 정본
+이제 이 계획을 씁니다 — `cost-router dashboard --live --config <파일>`은 정본
 `ResolvedRunPlan`을 콕핏의 유일한 진실 원천으로 바인딩해 preview·승인·실행·abort·replay가
 전부 같은 `plan_hash`를 키로 씁니다(03C, §9). 콕핏은 03B의 공유 abort 게이트와 지출 원장을
 재사용하며 별도 취소·예산 경로를 만들지 않습니다.
@@ -16,7 +16,7 @@
     `benchmark plan`은 **송신하지 않습니다**. 로컬 설정과 그것이 가리키는 워크로드·요율
     카드 파일만 읽어 지문을 뜨고, 계획을 **편집(redact)** 해 출력한 뒤 `plan_hash`를
     계산합니다. 실제 Azure 호출은 `--live`에 **일치하는 `--approve-plan`** 이 붙었을
-    때만, 그것도 별도의 이음새([라이브 브릿지](foundry-live.md))에서만 일어납니다.
+    때만, 그것도 라이브 실측 어댑터([라이브 실측 어댑터](foundry-live.md))를 통해서만 일어납니다.
 
 ## 1. 세 개의 명령
 
@@ -84,11 +84,11 @@ Entra ID(`az login`)가 골든 패스입니다.
 `max` 사이 어디든 정당하게 전송할 수 있기 때문입니다(`max = 1 + retry.max_retries`).
 `planned cells = 태스크 수 × repetitions × arms 수`.
 
-!!! danger "승인은 해시에 묶인다 — 어긋나면 fail-closed"
+!!! danger "승인은 해시에 묶인다 — 어긋나면 거부"
     `--live` 실행은 `--approve-plan <plan_hash>` 를 요구하고, 그 값이 방금 해석된
     계획의 `plan_hash`와 **한 글자라도 다르면 디스패치 이전에 거부**됩니다(exit 1).
     자격증명은 그 뒤에야 조회됩니다. 오래됐거나(stale) 어긋난 승인으로는 어떤
-    유료 호출도 나가지 않습니다.
+    유료 호출도 나가지 않습니다. 요율이 없으면 값을 추정하지 않고 비용 주장을 보류합니다(fail-closed).
 
 ## 4. Model Router arm은 명시적이며 사라지지 않는다
 

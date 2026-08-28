@@ -31,7 +31,7 @@ The candidate policy that embodies this idea is [`experiments/policies/cost-cut.
 cost-router policy regression --candidate experiments/policies/cost-cut.yaml --synth
 ```
 
-## Result — the coverage cliff
+## Result — the pass-rate cliff
 
 ```text
 regression (candidate vs base):

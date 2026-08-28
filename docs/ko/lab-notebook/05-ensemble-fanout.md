@@ -3,7 +3,7 @@
 !!! abstract "한 줄 요약"
     compare 모드는 가치 높은 태스크 6건에서 모든 후보를 부릅니다. 전체 호출 비용은
     **$0.50**, 선택된 승자 비용은 **$0.13**입니다. 버린 호출이 나머지 **$0.36 (3.74×)**를
-    차지합니다. 트레이스의 `cost_usd`는 **승자만** 기록하므로 이 실험은 전체 팬아웃 비용을
+    차지합니다. 트레이스의 `cost_usd`는 **승자만** 기록하므로 이 실험은 여러 후보 모델을 병렬로 호출합니다(fan-out). 그 전체 비용을
     따로 계산합니다. 모든 수치는 `measured = false`.
 
 <figure markdown="span">
@@ -90,7 +90,7 @@ reproducibility  PASS
 
 > 정본: 앙상블 팬아웃 세금(3.74×)은 [오프라인 실험 결과](../manual/projection-results.md)에 모여 있습니다.
 
-!!! example "스포트라이트 — t-0032 (test)"
+!!! example "대표 태스크 — t-0032 (test)"
     라우팅은 `swift-coder`($0.0021)를 골랐고 나이브 프리미엄 arm은 `balanced-pro`
     ($0.01)를 씁니다 → **5.14× 저렴**. 하지만 이 한 태스크를 팬아웃하는 데는
     (mini·swift·balanced) **$0.01**가 들어 승자의 6.5배입니다. 절감과 팬아웃 추가 비용은
@@ -134,7 +134,7 @@ reproducibility  PASS
 
 대시보드에 두 패널을 추가했습니다:
 
-- **Experiments** — 실험 탭을 누르면 비용·커버리지·팬아웃 추가 비용·재현성 계약이 뜹니다.
+- **Experiments** — 실험 탭을 누르면 비용·커버리지·팬아웃 추가 비용·재현성 통과 기준이 뜹니다.
   `GET /experiments`(라이브) 또는 `experiments.json`(정적 export)에서 Foundry 형태 메트릭을
   읽습니다.
 - **Historical dashboard** — 기록된 실행 이력 테이블. 라이브 서버에서 실험을 실행할 때마다

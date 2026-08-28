@@ -68,7 +68,7 @@ cheap model fails, so the router reaches the top model on every task and spends 
 same amount as naive. Unlike [experiment 03](03-coverage-cliff.md), it does not lower
 coverage to make cost look smaller.
 
-!!! success "Two-sided reproducibility contract (`max_delta_pct`)"
+!!! success "Two-sided reproducibility criteria (`max_delta_pct`)"
     This experiment's `expect` block pins **both** sides:
 
     - `min_coverage: 1.0` — routing must hold coverage at 100% (even if it has to spend), and

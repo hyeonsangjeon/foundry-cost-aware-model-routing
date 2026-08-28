@@ -19,7 +19,7 @@
 
 - **Config file:** `experiments/curated.yaml`
 - **Data:** curated fixture (`samples/responses/routing-signals.sample.json`)
-- **Reproducibility contract:** coverage ≥ 100%, savings ≥ 30%, tasks ≥ 3
+- **Reproducibility criteria:** coverage ≥ 100%, savings ≥ 30%, tasks ≥ 3
 
 ## Run
 
@@ -44,7 +44,7 @@ before / after  (offline projection over synthetic data; labels.measured=false)
 | Routing cost | $0.06 |
 | Savings rate | 56.7% |
 
-## Spotlight
+## The representative task
 
 ```text
 spotlight  t-0005 · validate · clean-first

@@ -77,7 +77,7 @@ premium-on-every-task baseline. It is not measured performance for `gpt-5.6-sol`
     - **Offline experiments (01–08).** The code computes `coverage = accepted /
       counted` (`src/router/baseline.py`). So the `coverage` field emitted by the
       offline CLI and the experiment contract (`min_coverage`) is **the same value
-      as the pass rate**. The **"coverage cliff"** narrative in the lab notebook
+      as the pass rate**. The **"pass-rate cliff"** narrative in the lab notebook
       (experiments 03, 07, and so on) refers to this same pass rate.
     - **Measured experiment (03D).** The `pass_rate` field in the sealed snapshot —
       e.g. `router-cost` is **23/24 = 95.8%**.

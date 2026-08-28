@@ -18,17 +18,17 @@ recompute the numbers by hand.
 
 | Name | Role |
 | --- | --- |
-| `fanout_stats(traces)` | Recovers the **ensemble fan-out tax** from compare (ensemble) traces (`fanout_usd` · `winner_usd` · `ensemble_tax_usd` · `tax_ratio`) |
-| `ExperimentMetrics` | Normalized snapshot of a single run (immutable dataclass) — cost, pass rate (the `coverage` field), fan-out tax, plus `run_id` |
+| `fanout_stats(traces)` | Recovers the **ensemble cost to call several candidate models in parallel (fan-out)** from compare (ensemble) traces (`fanout_usd` · `winner_usd` · `ensemble_tax_usd` · `tax_ratio`) |
+| `ExperimentMetrics` | Normalized snapshot of a single run (immutable dataclass) — cost, pass rate (the `coverage` field), fan-out cost, plus `run_id` |
 | `ExperimentMetrics.to_metric_records()` | Renders a list of Azure Monitor / OTel metric data points |
 | `extract_experiment_metrics(result)` | `ExperimentResult` → `ExperimentMetrics` (pure and deterministic) |
 | `JsonlMetricsStore` | Append-only JSONL history store (`record` · `history` · `latest_per_experiment`) |
 | `FoundryMetricsEmitter` | Connection-string-aware Foundry emitter (offline capture + injected sink) |
-| `record_experiment_metrics(...)` | Common entry point that extracts a run and fans it out to the store and emitter |
+| `record_experiment_metrics(...)` | Common entry point that extracts a run and sends it to the store and emitter |
 
-## Ensemble fan-out tax
+## Ensemble fan-out cost
 
-Cost-aware routing fans out to every candidate in compare mode **only on high-value
+Cost-aware routing calls every candidate in compare mode **only on high-value
 tasks**, and bills only the winning model. A trace's `cost_usd` records the winner alone,
 so the fan-out cost stays hidden. `fanout_stats` recovers that hidden cost.
 
@@ -42,7 +42,7 @@ stats = fanout_stats(report.traces)
 
 `ensemble_tax_usd = fanout_usd − winner_usd` is **what the losing models cost to run**.
 For the full experiment, see
-[Experiment 05 · Ensemble fan-out tax](../lab-notebook/05-ensemble-fanout.md). The canonical
+[Experiment 05 · Ensemble fan-out cost](../lab-notebook/05-ensemble-fanout.md). The canonical
 source for the offline headline figure (3.74×) is [Offline experiment results](projection-results.md).
 
 ## Exporting in Azure Foundry shape
@@ -128,4 +128,4 @@ test-safe.
 !!! tip "Up to here it's `measured = false` — to cross into measurement"
     Every metric on this page is a projection over synthetic data. To get **measured spend**
     (`measured = true`) from the real token usage of Azure Model Router, see the
-    [live measured bridge](foundry-live.md).
+    [live measurement adapter](foundry-live.md).

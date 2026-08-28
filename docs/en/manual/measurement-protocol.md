@@ -51,7 +51,7 @@ cost-router measure verify --run <artifacts.local_root>/run/<run-id> --contract 
 ```
 
 Without `--live`, `measure run` **always prints only the estimate table and exits 2** (the same
-safe default as `foundry arena`). Candidates come from `--candidates` or the fleet's ensemble slate,
+safe default as `foundry arena`). Candidates come from `--candidates` or the fleet's ensemble candidate set,
 and unit prices resolve in the order `--pricing` > `FOUNDRY_PRICING_PATH` > the bundled default.
 
 `measure run --live` is **not** the measured path. It resolves no plan, so it refuses before
@@ -91,7 +91,7 @@ If a 429 is retried, it leaves **one line per attempt**, and when retries are ex
 matter of policy.
 
 On the v2 paid path, a cell routed to a **backend whose unit price is unconfirmed** doesn't invent an
-amount — it's recorded **fail-closed** as `cost_usd=null` + `pricing.priced=false` (with the reason)
+amount — it's recorded **when a rate is missing, withhold the cost claim rather than guess (fail-closed)** as `cost_usd=null` + `pricing.priced=false` (with the reason)
 (§6.1).
 
 ### 3.3 `prereg.md` minimum contents (D8)
@@ -127,7 +127,7 @@ So this repository attaches an `evidence_tier` to every workload:
 
 ## 4. Determinism and fingerprints
 
-- **n = 3** (default): a cell is (task × arm × sample n), and each (task × arm) combination is
+- **n = 3** (default): a cell is (task × arm — an arm is one comparison strategy in the experiment — × sample n), and each (task × arm) combination is
   measured n=3 times to report variance.
 - **Deterministic replay (§3.4)**: `measure replay` recomputes `summary.json` **byte-identically**
   from `traces.jsonl` + `pricing.snapshot.yaml` alone (no credentials needed). CI checks only this
@@ -207,7 +207,7 @@ leave headroom above the estimate to absorb output-token variance.
 | exp07 Routing layer | `model-router` 1×5×3 = 15 | $0.21 | **$1** |
 | exp03·04·06 Guardrails | 2–11 candidates ×5×3 | $0.22–$1.03 each | **$2 each** |
 | exp05 Fan-out (D2) | 11×5×3 = 165 | $1.03 | **$3** |
-| exp08 Arena | 11×5×3 = 165 | $1.03 | **$2** |
+| exp08 Four-way comparison | 11×5×3 = 165 | $1.03 | **$2** |
 | exp01 Hero (100 tasks) | ⚠ requires **authoring first** a 100-task prompt workload | ≈$20.6 | **$25** |
 
 !!! warning "The nature of these figures"

@@ -1,17 +1,17 @@
 # Fleet registration & model selection · Fleet
 
-The measured arena (`cost-router foundry arena`) and the dashboard run **four
-strategy arms** — **router (the main one)**, **cheapest (the floor)**, **premium
-(the ceiling)**, and **ensemble (the fan-out)**. Which **real deployed model** backs
+The measured four-way comparison (the `arena` command, `cost-router foundry arena`) and the dashboard run **four
+strategy arms — an arm is one comparison strategy in the experiment** — **router (the main one)**, **cheapest (the floor)**, **premium
+(the ceiling)**, and **ensemble (call several candidate models in parallel (fan-out))**. Which **real deployed model** backs
 each arm used to be hardcoded in the code. `src/router/fleet.py` promotes that
 mapping into a small **environment file (the fleet config)** that you own — this is
 exactly the "register the models you will use in an environment file" step.
 
-!!! note "Fleet = catalog + role assignment"
+!!! note "Fleet — the deployment model catalog plus role assignment"
     - **Catalog**: the list of models you have actually deployed. Each entry has the
       logical `name` used in the pricing table and reports, the Azure `deployment`
       name the live client calls, and a free-form `tier`.
-    - **Role assignment (slate)**: which catalog model backs which arm. `name` and
+    - **Role assignment**: which catalog model backs which arm. `name` and
       `deployment` are usually the same, but they are **deliberately separate** so a
       single logical model can point at a differently named deployment.
 
@@ -99,7 +99,7 @@ models:
     without changing the measured result. This scope-out is **enforced in code**: if a
     `provider=foundry` arm enters benchmark mode or a publishable path,
     `router.foundry_live.assert_provider_benchmark_safe` blocks it fail-closed
-    (opt-in wiring smoke tests are still allowed). To carry a measured cost claim
+    (opt-in integration smoke tests are still allowed). To carry a measured cost claim
     before retirement, you must first move to the OpenAI v1 surface.
 
 ## 2. Select in the terminal (the `/model` picker)
@@ -109,7 +109,7 @@ the gitignored `.foundry-fleet.local.yaml`, so real deployment names are never
 committed.
 
 ```bash
-cost-router models list            # catalog + current slate + live-readiness
+cost-router models list            # catalog + current role assignment + live-readiness
 cost-router models show            # just the resolved role -> deployment
 cost-router models select          # interactive: enter a number or a name per arm (/model style)
 ```
@@ -122,7 +122,7 @@ cost-router models select \
   --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
 ```
 
-After saving, run **the slate you chose** as a measurement:
+After saving, run **the role assignment you chose** as a measurement:
 
 ```bash
 cost-router foundry arena --fleet .foundry-fleet.local.yaml --live
@@ -140,7 +140,7 @@ selection live.
     The dashboard's `Run selection` makes no new Azure call. It replays the committed
     measured snapshot, **honestly re-labeled `measured = false` ·
     `provenance = recorded`** (a captured measurement, not a new one). So choosing a
-    different slate
+    different role assignment
     in the web does not change the offline numbers — they reflect the captured
     **reference fleet**, which is spelled out in the response's `note` and
     `recorded_fleet`. To **actually measure your selection**, use the terminal command

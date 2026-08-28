@@ -1,8 +1,7 @@
 # 라이브 실측 브릿지 · Azure Model Router
 
 저장소의 나머지 전부는 **합성 텔레메트리에 대한 오프라인 투영**(`measured = false`)입니다.
-이 페이지가 설명하는 `src/router/foundry_live.py`는 그 투영을 **실측**으로 바꾸는 **단
-하나의 격리된 이음새**입니다 — 실제 Azure AI Foundry **Model Router** 배포에 진짜 프롬프트를
+이 페이지가 설명하는 `src/router/foundry_live.py`는 그 투영을 **실측**으로 바꾸는 **라이브 실측 어댑터**입니다 — 실제 Azure AI Foundry **Model Router** 배포에 진짜 프롬프트를
 보내고 라우터가 고른 실제 모델과 **실제로 청구된 토큰 usage**를 읽어 그 usage로 비용을
 계산합니다.
 
@@ -19,14 +18,14 @@
       주입식 이음새라 CLI·CI·테스트는 순수 표준 라이브러리·결정론으로 남습니다.
 
 !!! tip "실제로 돌린 실측 결과 — [실험 09](../lab-notebook/09-live-routing-proof.md)"
-    이 브릿지로 진짜 Foundry Model Router에 큐레이션 프롬프트를 보냈더니, 단일 `model-router`
+    이 실측 어댑터로 진짜 Foundry Model Router에 큐레이션 프롬프트를 보냈더니, 단일 `model-router`
     배포가 **`gpt-5.4`(3건)와 `grok-4-1-fast-reasoning`(2건)**으로 실제 분기했습니다 —
     저장소 최초의 `measured = true` 실측 스냅샷(키리스 Entra). 태스크별 증거·정직함 경계는
     [실험 09 · 실측 라우팅](../lab-notebook/09-live-routing-proof.md)을 보세요.
 
 ## 1. Foundry 설정 처리
 
-라이브 브릿지가 읽는 환경 변수입니다. 각 항목은 Foundry 전용 이름과 일반 Azure OpenAI
+라이브 실측 어댑터가 읽는 환경 변수입니다. 각 항목은 Foundry 전용 이름과 일반 Azure OpenAI
 이름을 모두 받으며 하나라도 없으면 전부 오프라인으로 남습니다.
 
 | 변수 | 역할 | 대체 이름 |
@@ -56,7 +55,7 @@ status`·`live` 명령은 실행 시 **이 `.env`를 자동으로 로드**한 �
 - `KEY=VALUE` 줄만 읽습니다. 빈 줄·`#` 주석·앞의 `export`는 무시하고 값의 양끝 따옴표는
   벗깁니다. 셸 확장·명령 실행은 전혀 없습니다(값은 문자 그대로).
 
-다른 파일을 쓰려면 `--env-file <경로>`를 주세요(기본 `.env`). 무엇이 배선됐는지는 **시크릿을
+다른 파일을 쓰려면 `--env-file <경로>`를 주세요(기본 `.env`). 무엇이 연결됐는지는 **시크릿을
 노출하지 않고** 확인할 수 있습니다:
 
 ```bash
@@ -86,7 +85,7 @@ Azure AI Foundry — live measured Model Router bridge
 
 엔터프라이즈 테넌트는 API 키 인증을 꺼두는 경우가 많습니다(`disableLocalAuth=true`). 이때는
 키 대신 **여러분의 Azure 신원**(`az login`, 매니지드 아이덴티티, 환경 자격증명 등)에서 발급한
-베어러 토큰으로 호출합니다. 브릿지는 **API 키가 없으면 자동으로 Entra ID로 전환**하므로,
+베어러 토큰으로 호출합니다. 실측 어댑터는 **API 키가 없으면 자동으로 Entra ID로 전환**하므로,
 설정은 사실상 "키를 비워 두는 것"이 전부입니다.
 
 ```bash
@@ -124,7 +123,7 @@ cost-router foundry status              # auth method : Microsoft Entra ID (keyl
 ## 2. 실측 스코어링 경로
 
 `pricing.cost_usd(model, tokens)`에는 합성 `task.tokens` 대신 응답의 실제 usage를 넣습니다.
-오프라인 arm과 라이브 브릿지는 이 부분에서만 다릅니다.
+오프라인 arm과 라이브 실측 어댑터는 이 부분에서만 다릅니다.
 
 ```python
 from router.foundry_live import RouterOutcome, measured_router_summary
@@ -218,7 +217,7 @@ foundry live — captured 5 real outcomes → …/model-router-usage.sample.json
 
 ### 큐레이션 태스크를 실측으로 — 한 명령 (t-0001~t-0006)
 
-번들 텔레메트리에는 프롬프트가 없어 라이브로 못 보냅니다. 그래서 아레나의 큐레이션 5건을
+번들 텔레메트리에는 프롬프트가 없어 라이브로 못 보냅니다. 그래서 네 방식 비교의 큐레이션 5건을
 **보낼 수 있는 프롬프트와 함께** 담은 워크로드를 준비했습니다:
 `samples/telemetry/curated-arena-live.sample.jsonl`. 크리덴셜을 채운 뒤 이 한 명령이면
 t-0001~t-0006 **전부**가 실제 Model Router 호출로 `measured = true`가 됩니다:
@@ -250,10 +249,10 @@ cost-router foundry live --workload samples/telemetry/curated-arena-live.sample.
 
 !!! note "왜 이 워크로드만 라이브로 보낼 수 있나"
     번들 텔레메트리(`mixed-coding-workload…`)는 `task_id`·`tokens`만 있고 **프롬프트 텍스트가
-    없어** 실제 엔드포인트로 보낼 수 없습니다. `curated-arena-live…`는 아레나 5건에 **저작한
+    없어** 실제 엔드포인트로 보낼 수 없습니다. `curated-arena-live…`는 네 방식 비교 5건에 **저작한
     합성 프롬프트**(표시·전송용, `measured = false`인 입력)를 붙여 라이브 전송이 가능하게 한
     것입니다. 프롬프트는 저작-합성이지만 그걸 **실제로 보내 받은 usage·비용은 measured=true**
-    입니다 — 입력의 출처(저작)와 측정의 출처(라이브)는 별개입니다. 정확도(pass/fail)까지
+    입니다 — 결과 생성 경로(provenance)는 live·recorded·test 중 하나입니다; 입력의 출처(저작)와 측정의 출처(라이브)는 별개입니다. 정확도(pass/fail)까지
     측정하려면 `grader`를 주입하세요(없으면 커버리지는 오프라인 신호 투영으로 라벨).
 
 ### 임의 워크로드로
@@ -264,7 +263,7 @@ cost-router foundry live --workload samples/telemetry/curated-arena-live.sample.
 cost-router foundry live --live --workload my-prompts.jsonl --pricing samples/pricing/your-tenant.yaml
 ```
 
-## 4. 히스토리컬 대시보드로 연결
+## 4. 히스토리컬 대시보드로 측정 반영
 
 `--store`를 주면 실측 실행이 기존 메트릭 히스토리에 한 줄로 기록되어 웹앱의 **Historical
 dashboard** 패널과 `metrics history`가 그대로 읽습니다:
@@ -314,7 +313,7 @@ client = AzureModelRouterClient(
 전체 경로를 돌립니다.
 
 !!! tip "정직함 규약과의 관계"
-    이 브릿지는 [정직함 규약](../honesty.md)의 *"여러분 테넌트의 라이브 eval → `measured =
+    이 실측 어댑터는 [정직함 규약](../honesty.md)의 *"여러분 테넌트의 라이브 eval → `measured =
     true`"* 행을 실제로 채우는 코드입니다. 요율은 `samples/pricing/your-tenant.yaml`(gitignored)에
     **여러분의 실제 요율**을 넣어야 금액이 여러분 범위로 가까워집니다(라우터 파생 금액은 마크업
     항목이 채워지기 전까지 그와 별개로 불완전한 채입니다).

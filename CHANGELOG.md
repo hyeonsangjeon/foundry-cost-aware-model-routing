@@ -41,7 +41,33 @@ All notable changes to this project are documented here.
 - Local budget gate, replay scripts, and eval summary for sample fixtures.
 
 ### Changed
-- **Plain-language home surfaces, and a gate against the jargon returning.**
+- **Plain-language inner docs pages, and a gate against the jargon returning.**
+  The bilingual manual, lab-notebook and honesty pages (`docs/en`, `docs/ko`)
+  dropped the repo's coined vocabulary for plain wording, matching the home-page
+  pass: the measured/measurement bridge → the live measurement adapter (ko 실측
+  어댑터), wiring/배선 → measurement path/integration (측정 경로·측정 반영),
+  spotlight/스포트라이트 → the representative task (대표 태스크), coverage cliff →
+  the pass-rate cliff (통과율 절벽), the fan-out dial → the fan-out threshold
+  (팬아웃 임계값), reproducibility contract → the reproducibility criteria (재현성
+  통과 기준), authority label → claim-source label (주장 근거 라벨), arena prose →
+  the four-way comparison (네 방식 비교), centerpiece → Primary comparison (핵심
+  비교), slate → the candidate set / role assignment (후보 모델 세트·역할 배정),
+  and the "5-minute wow" phrasing was deleted. First-use plain glosses were added the first time a term appears in
+  a page (arm, preregistration, fan-out, fail-closed, provenance, post-hoc, and
+  the PTU/PAYG/APIM full forms), and the three names kept for continuity —
+  **Fleet**, the **audit ledger**, the **Experiment Atlas** — each gained a
+  self-contained one-line description. Retained deliberately: the CLI `arena`
+  command, config keys (`slate`, `compare_min_value`, `spotlight`), fixture and
+  path tokens, HTML anchors, and the dashboard `"both-win"` label. Page titles
+  and the "Related documents" footer nav are a later wave, so `foundry-live.md`
+  and `head-to-head.md` keep their retired H1s for now. `scripts/check_terminology.py`
+  gains **Rule F**, which fails the build if any retired inner-page coinage
+  returns to prose — with code spans, anchors, UI labels, H1 titles, cross-line
+  code, and the footer nav masked, and the Korean `lab-notebook/devlog.md`
+  excluded as a dated journal. Two structural guards ship alongside: a cross-page
+  anchor check in `scripts/check_i18n_site.py` (so a renamed heading cannot orphan
+  an inbound `page#fragment` link) and a test that re-renders the committed
+  Korean 03d dashboard SVGs and byte-compares them.
   The reader's first screen in each language — `README.md`, `docs/en/index.md`,
   `docs/ko/index.md` — dropped repo-coined jargon for plain product wording:
   cockpit → the (local) browser run screen, wiring proof → an end-to-end

@@ -9,9 +9,9 @@ true`) and which are still projection only (`measured = false`)**.
 
 | Workload | Tasks | Prompts? | Machine validation (`validation`)? | Experiments using it | Measurable? |
 | --- | --- | --- | --- | --- | --- |
-| `samples/telemetry/mixed-coding-workload.sample.jsonl` | 100 | ❌ none | ❌ none | 01 Hero · 02 Curated · 05 Ensemble · 06 Fan-out dial · 07 Single-call · limits · adaptive | ❌ **projection only** |
-| `samples/telemetry/curated-arena-live.sample.jsonl` | 5 | ▲ separate fixture | ❌ (human-facing `acceptance` strings) | 08 Arena · 09·10 live routing | ✅ **measured (09·10)** · coverage ungraded |
-| `samples/prompts/curated-arena.sample.json` | 5 | ✅ `{title, prompt, acceptance}` | ❌ | prompt source for the arena/live runs above | — (prompt fixture) |
+| `samples/telemetry/mixed-coding-workload.sample.jsonl` | 100 | ❌ none | ❌ none | 01 Hero · 02 Curated · 05 Ensemble · 06 Fan-out threshold · 07 Single-call · limits · adaptive | ❌ **projection only** |
+| `samples/telemetry/curated-arena-live.sample.jsonl` | 5 | ▲ separate fixture | ❌ (human-facing `acceptance` strings) | 08 Four-way comparison (the `arena` command) · 09·10 live routing | ✅ **measured (09·10)** · coverage ungraded |
+| `samples/prompts/curated-arena.sample.json` | 5 | ✅ `{title, prompt, acceptance}` | ❌ | prompt source for the four-way comparison/live runs above | — (prompt fixture) |
 
 ### How to read it
 
@@ -19,7 +19,7 @@ true`) and which are still projection only (`measured = false`)**.
   tokens}`), with no `system_prompt`/`user_prompt` to send to a model. So this workload
   **can't call a real model** and can only *project* routing from offline signals
   (`measured = false`).
-- **Human-facing `acceptance`** = the curated arena fixture has acceptance-criteria
+- **Human-facing `acceptance`** = the curated four-way comparison fixture has acceptance-criteria
   sentences a person reads, not rules a machine uses to auto-decide pass/fail. Scoring
   measured coverage needs **machine-readable `validation` rules** ([validation
   rules](customize.md) · `router.validation`).
@@ -31,13 +31,13 @@ above has no prompts, so it can only *project* routing from offline signals (`me
 false`). But **the measured track (experiments 09·10·11·12·13) has already been measured with
 `measured = true`.** Experiments 09·10 captured and sealed real Foundry routing on
 `curated-arena-live` (5 tasks) above, and `curated-24` (24 tasks) — which carries prompts
-plus machine validation — is what experiments 11·12·13 used to run the paid 4-arm measurement:
+plus machine validation — is what experiments 11·12·13 used to run the paid 4-arm measurement — an arm is one comparison strategy in the experiment:
 experiment 11 actually spent $3.47 and experiment 12 spent $3.27 (budget $20 each). Here is
 the current state of the measured workloads:
 
 | Measured workload | Size | `evidence_tier` | Target experiments | State |
 | --- | --- | --- | --- | --- |
-| `curated-24` | medium (24) | **`directional`** | 11 · 12 (03D) | ✅ **measured** (11 $3.47 · 12 $3.27; 11 fell short of its prereg and is VOID) |
+| `curated-24` | medium (24) | **`directional`** | 11 · 12 (03D) | ✅ **measured** (11 $3.47 · 12 $3.27; 11 fell short of its preregistration and is VOID) |
 | `hero-100-prompts` | 100 | first candidate for a stronger tier | 01 | 🚧 **draft, pending approval** |
 
 !!! quote "Where the sample-size threshold comes from"
@@ -60,7 +60,7 @@ rules, candidates, and estimated cost with zero paid calls.
 !!! note "Honesty boundary"
     This table is the **current implemented state**. `curated-24` is approved and finalized,
     so experiments 11·12·13 ran as paid measurement (`measured = true`) — experiment 11 was
-    judged **VOID** for falling short of its prereg, but a void measurement is still a
+    judged **VOID** for falling short of its preregistration, but a void measurement is still a
     measurement — and experiments 09·10 are `measured = true` from live routing capture. By
     contrast, `hero-100-prompts` is still a draft pending approval, so the projection track's
     (experiments 01–08) figures remain `measured = false` projections. The tasks and prompts

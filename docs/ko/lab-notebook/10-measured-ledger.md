@@ -13,9 +13,9 @@
 
 - **상황(왜):** 실험 09는 저장소 최초의 `measured = true`였지만 측정 기록은 무결성도 재생도
   없는 **평면 append-only JSONL**로만 남았습니다. 해시 체인도 비용 재생도 없었습니다. 오프라인
-  실험(01–08)은 [재현성 계약](index.md#_2)이 있지만 실측 기록은
+  실험(01–08)은 [재현성 통과 기준](index.md#_2)이 있지만 실측 기록은
   *"이 수치가 변조되지 않았고, 기록된 토큰에서 정말 유도되는가"*에 답할 수 없었습니다.
-- **작업(무엇을):** 측정 아레나 런을 **canonical 해시 체인 원장**
+- **작업(무엇을):** 측정 네 방식 비교 런을 **canonical 해시 체인 원장**
   ([`MeasuredJsonlLedger`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/src/router/ledger/measured.py))
   으로 봉인합니다. 각 행은 정규 페이로드의 `record_hash`, 앞 행을 가리키는 `previous_hash`,
   비용 계산에 쓴 요율표(`pricing_snapshot`)를 저장합니다. 검증 명령은
@@ -25,7 +25,7 @@
   일어나는가 — 셋 다 **예**.
 
 !!! note "이 페이지의 원장은 실측 usage를 재봉인한 것 — 새 지출이 아니다"
-    커밋된 샘플은 실험 09/[아레나](08-arena.md)에서 **이미 실측·커밋된 토큰 usage**
+    커밋된 샘플은 실험 09/[네 방식 비교](08-arena.md)에서 **이미 실측·커밋된 토큰 usage**
     ([`samples/responses/foundry-arena-measured.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/responses/foundry-arena-measured.json))
     를 canonical 원장 형태로 **재봉인**한 것입니다 — 검증을 보이기 위해 새 Azure 호출을 하지
     않습니다(비용 0). 봉인 로직은 라이브 경로(`foundry arena --live --ledger`)가 쓰는 것과
@@ -68,7 +68,7 @@
 
 ## 측정 원장 행 해부
 
-`arena-measured.ledger.jsonl`의 한 행(하나의 아레나 태스크 = 네 팔 전부)은 이렇게 생겼습니다:
+`arena-measured.ledger.jsonl`의 한 행(하나의 네 방식 비교 태스크 = 네 팔 전부)은 이렇게 생겼습니다:
 
 | 필드 | 뜻 |
 | --- | --- |
@@ -76,7 +76,7 @@
 | `captured_at` | 봉인 시각(ISO-8601) |
 | `pricing_version` · `pricing_hash` | 봉인된 요율표 버전과 그 SHA-256 지문 |
 | **`pricing_snapshot`** | 이 행이 채점된 요율표 통째(기본 요율 + 등장 모델별 요율) — **비용 재생의 근거** |
-| **`outcome`** | 측정 아레나 결과 하나: `task_id` · `arms{cheapest·premium·ensemble·router}` · 각 팔의 `calls[]`(모델·**실측 usage**·비용·지연) · `labels.measured = true` |
+| **`outcome`** | 측정 네 방식 비교 결과 하나: `task_id` · `arms{cheapest·premium·ensemble·router}` · 각 팔의 `calls[]`(모델·**실측 usage**·비용·지연) · `labels.measured = true` |
 | **`previous_hash`** | 앞 행의 `record_hash`(첫 행은 `null` = genesis) |
 | **`record_hash`** | 위 전부에 대한 SHA-256 — 이 행의 **변조 감지 봉인** |
 
@@ -116,7 +116,7 @@ status: PASS
 `replayed == records`는 **다섯 행 전부**에서 사슬이 온전하고 기록된 모든 호출 비용이
 봉인된 요율표로 다시 유도돼 정확히 일치했다는 뜻입니다. 마지막 두 줄은 라우터 팔이 pricing
 annotation의 적용을 받는다는 표시입니다 — 이 원장에 라우터 행이 있는데 annotation을 못 읽으면
-검증은 **`status: FAIL`로 닫힙니다**(fail-closed).
+검증은 요율이 없으면 값을 추정하지 않고 비용 주장을 보류합니다(fail-closed). 이 경우 **`status: FAIL`**입니다.
 
 ## 변조를 잡는다 — 두 개의 독립 방어선
 
@@ -151,7 +151,7 @@ annotation의 적용을 받는다는 표시입니다 — 이 원장에 라우터
 ## 정직함 경계 — 무엇이 실측이고 무엇이 아닌가
 
 !!! warning "측정된 것 · 아닌 것"
-    - **측정됨(진짜):** 라우터가 고른 **모델**과 호출별 **토큰 usage** — 실험 09/아레나에서
+    - **측정됨(진짜):** 라우터가 고른 **모델**과 호출별 **토큰 usage** — 실험 09/네 방식 비교에서
       실제 키리스 Entra 호출로 청구된 값(`provenance = live`, `spend_source = provider-usage`).
     - **비용의 요율은 예시값(list price).** 토큰은 실측이지만, 요율은 공개 리스트 가격
       ([`foundry-5series.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/pricing/foundry-5series.yaml))
@@ -171,7 +171,7 @@ annotation의 적용을 받는다는 표시입니다 — 이 원장에 라우터
 
 ## 실측 스냅샷 헤드라인 (이 원장이 봉인한 값)
 
-원장이 굳힌 아레나 스냅샷의 네 팔 총계(실측 usage × 리스트 요율):
+원장이 굳힌 네 방식 비교 스냅샷의 네 팔 총계(실측 usage × 리스트 요율):
 
 | 팔 | 전략 | 총액 | 평균 지연‡ |
 | --- | --- | ---: | ---: |

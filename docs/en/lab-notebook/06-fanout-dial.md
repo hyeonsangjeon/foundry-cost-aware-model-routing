@@ -6,12 +6,12 @@
     raises the budget gate's `compare_min_value`, so fewer tasks call every candidate.
     **Coverage (100%) and savings (47%) stay unchanged while extra-call cost falls
     `$0.36 → $0.00`.** It uses the **same** workload · signals · policy · pricing as
-    experiment 05. Experiment 06 (`adaptive`) fixes the zero-fan-out end with a
-    reproducibility contract. All numbers are `measured = false`.
+    experiment 05. Experiment 06 (`adaptive`) fixes the zero-extra-call end with
+    reproducibility criteria. All numbers are `measured = false`.
 
 <figure markdown="span">
-  ![Adaptive loop animation — a dial rises and folds the parallel fan-out into one](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
-  <figcaption>Adaptive loop — raise the threshold above every task's value, and each task uses one ordered route. Extra fan-out cost falls to zero while savings stay unchanged.</figcaption>
+  ![Adaptive loop animation — a threshold rises and folds parallel calls into one](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
+  <figcaption>Adaptive loop — raise the threshold above every task's value, and each task uses one ordered route. Extra cost to call several candidate models in parallel (fan-out) falls to zero while savings stay unchanged.</figcaption>
 </figure>
 
 ## What this experiment is
@@ -58,7 +58,7 @@ The per-task values on this workload are as follows (which is why the sweep move
 
 ## Result — extra calls fall while coverage and savings stay unchanged
 
-The result of sweeping `compare_min_value` (the very data the dashboard's **fan-out dial** panel plots, on the `cost-router` bundled workload):
+The result of sweeping `compare_min_value` (the very data the dashboard's **fan-out threshold** panel plots, on the `cost-router` bundled workload):
 
 | Threshold | Fan-out tasks | Coverage | Savings | Winner cost | Extra fan-out cost | Ratio |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -107,9 +107,9 @@ threshold is lowered and fan-out returns, CI fails this contract.
     "quietly growing fan-out cost." For the fields, see
     [experiment config (YAML)](../manual/experiments.md).
 
-## See it in the web app — the fan-out dial panel
+## See it in the web app — the fan-out threshold panel
 
-We added a **Fan-out dial** panel to the dashboard. It reads the sweep data from `GET /fanout-sweep` (live) or `fanout-sweep.json` (static export):
+We added a **Fan-out threshold** panel to the dashboard. It reads the sweep data from `GET /fanout-sweep` (live) or `fanout-sweep.json` (static export):
 
 - **purple bars** = extra fan-out cost at each threshold (3.74× → 0),
 - **green/blue dotted lines** = coverage and savings (unchanged across thresholds),

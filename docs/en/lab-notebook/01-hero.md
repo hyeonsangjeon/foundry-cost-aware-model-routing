@@ -14,12 +14,12 @@
 
 - **Situation (when):** the moment you first open the repo and want to confirm, in 30 seconds, that it "actually works." Assume a realistic coding-agent workload of mixed difficulty.
 - **Task (what):** route **100** synthetic tasks drawn from five classes — `plan`, `generate`, `test`, `validate`, `repo_patch`.
-- **Experiment (what it tests):** whether cost-aware routing lowers cost against naive (always premium) **while holding coverage at 100%**, and whether the result clears the floor of the reproducibility contract (`expect`).
+- **Experiment (what it tests):** whether cost-aware routing lowers cost against naive (always premium) **while holding coverage at 100%**, and whether the result clears the floor of the reproducibility criteria (`expect`).
 
 - **Config file:** `experiments/hero.yaml`
 - **Data:** 100 synthetic-workload tasks (`--synth`, deterministic signals)
 - **Policy / pricing:** bundled seed policy / bundled example pricing
-- **Reproducibility contract:** coverage ≥ 100%, savings ≥ 20%, tasks ≥ 100
+- **Reproducibility criteria:** coverage ≥ 100%, savings ≥ 20%, tasks ≥ 100
 
 ## Run
 
@@ -47,7 +47,7 @@ before / after  (offline projection over synthetic data; labels.measured=false)
 
 > Canonical: the headline figures for this experiment are collected in [offline experiment results](../manual/projection-results.md) — on a re-run, that page is the reference.
 
-## Spotlight — a representative task
+## The representative task
 
 The accepted task with the largest naive-to-routing ratio, chosen by `spotlight: auto`.
 
@@ -59,7 +59,7 @@ spotlight  t-0078 · validate · clean-first
 
 The `validate` task passed cleanly on the first try with the cheapest candidate (`mini-fast`). The naive approach would have spent **24.1×** more by using `deep-reasoner` on the same task.
 
-## Why not "the cheapest bill" — arm comparison
+## Why not "the cheapest bill" — arm comparison — an arm is one comparison strategy in the experiment
 
 | arm | Coverage | Cost | Note |
 | --- | --- | --- | --- |
@@ -110,7 +110,7 @@ reproducibility  PASS
 
 If it fails the contract, `cost-router hero` exits with a non-zero code.
 
-## Reproduce with the audit ledger
+## Reproduce with the audit ledger — a hash-chained record of every decision that can replay its cost
 
 ```bash
 cost-router hero --ledger reports/hero.jsonl

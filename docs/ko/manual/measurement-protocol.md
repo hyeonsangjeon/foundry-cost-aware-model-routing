@@ -48,7 +48,7 @@ cost-router measure verify --run <artifacts.local_root>/run/<run-id> --contract 
 ```
 
 `measure run`은 `--live` 없이는 **항상 추정표만 출력하고 exit 2**로 끝납니다(`foundry arena`와
-동일한 안전 기본값). 후보는 `--candidates` 또는 fleet의 ensemble 슬레이트에서, 단가는
+동일한 안전 기본값). 후보는 `--candidates` 또는 fleet의 ensemble 후보 모델 세트에서, 단가는
 `--pricing` > `FOUNDRY_PRICING_PATH` > 번들 기본값 순으로 해석합니다.
 
 `measure run --live`는 실측 경로가 **아닙니다**. 플랜을 해석하지 않으므로 디스패치 전에
@@ -87,7 +87,7 @@ pricing.snapshot.yaml  # 이 런에 쓰인 단가를 그대로 봉인
 정책상 재시도 자체는 `fail_reason="throttled_429"`로 표시합니다.
 
 v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅된 셀은 금액을 지어내지 않고
-`cost_usd=null` + `pricing.priced=false`(이유 포함)로 **fail-closed** 기록됩니다(§6.1).
+`cost_usd=null` + `pricing.priced=false`(이유 포함)로 **요율이 없으면 값을 추정하지 않고 비용 주장을 보류합니다(fail-closed)** 기록됩니다(§6.1).
 
 ### 3.3 `prereg.md` 최소 내용 (D8)
 
@@ -138,7 +138,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 - **429 백오프**: 지수 백오프(기본 `max_retries=5`, `base_backoff_ms=500`, `backoff_factor=2`,
   상한 `max_backoff_ms=30000`). 파라미터는 manifest에 봉인되어 재생이 재시도 계상을 재현합니다.
 - **캐시 토큰**: `tokens.cached`를 입력 토큰과 **분리 기록**하고 캐시 단가로 별도 과금합니다.
-- **all-calls 과금 (D2)**: 팬아웃(앙상블) 전략은 **진 후보까지 전부 합산**해 과금합니다
+- **all-calls 과금 (D2)**: 여러 후보 모델을 병렬로 호출하는(fan-out) 앙상블 전략은 **진 후보까지 전부 합산**해 과금합니다
   (`billing = sum-all-fanout`). "승자만 세는" 착시를 만들지 않습니다 — 이것이 앙상블 세금의
   실측 근거입니다.
 - **예산 가드**: 누적 실측 비용이 `--budget-usd`에 도달하면 즉시 중단하고 부분 결과를 정상
@@ -195,7 +195,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 | exp07 Routing layer | `model-router` 1×5×3 = 15 | $0.21 | **$1** |
 | exp03·04·06 Guardrails | 2–11 후보 ×5×3 | $0.22–$1.03 each | **$2 each** |
 | exp05 Fan-out (D2) | 11×5×3 = 165 | $1.03 | **$3** |
-| exp08 Arena | 11×5×3 = 165 | $1.03 | **$2** |
+| exp08 네 방식 비교 | 11×5×3 = 165 | $1.03 | **$2** |
 | exp01 Hero (100 tasks) | ⚠ 100-task prompt 워크로드 **선작성 필요** | ≈$20.6 | **$25** |
 
 !!! warning "이 수치의 성격"

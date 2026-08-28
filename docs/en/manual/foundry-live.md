@@ -2,7 +2,7 @@
 
 Everything else in the repository is an **offline projection over synthetic
 telemetry** (`measured = false`). The `src/router/foundry_live.py` this page
-describes is the **single isolated seam** that turns that projection into a
+describes is the **live measurement adapter** that turns that projection into a
 **measurement** — it sends real prompts to a real Azure AI Foundry **Model Router**
 deployment, reads the actual model the router picked and the **token usage actually
 billed**, and computes cost from that usage.
@@ -23,7 +23,7 @@ billed**, and computes cost from that usage.
       stay pure-standard-library and deterministic.
 
 !!! tip "The measurement we actually ran — [experiment 09](../lab-notebook/09-live-routing-proof.md)"
-    Sending curated prompts to a real Foundry Model Router through this bridge, a
+    Sending curated prompts to a real Foundry Model Router through this measurement adapter, a
     single `model-router` deployment actually branched to **`gpt-5.4` (3) and
     `grok-4-1-fast-reasoning` (2)** — the repository's first `measured = true`
     measurement snapshot (keyless Entra). For the per-task evidence and the honesty
@@ -31,7 +31,7 @@ billed**, and computes cost from that usage.
 
 ## 1. Handling the Foundry config
 
-The environment variables the live bridge reads. Each accepts both the
+The environment variables the live measurement adapter reads. Each accepts both the
 Foundry-specific name and the generic Azure OpenAI name; if any is missing,
 everything stays offline.
 
@@ -66,7 +66,7 @@ rules are deliberately conservative:
   or command execution at all (values are taken literally).
 
 To use a different file, pass `--env-file <path>` (default `.env`). You can check
-what is wired **without exposing secrets**:
+what is connected **without exposing secrets**:
 
 ```bash
 cost-router foundry status
@@ -96,7 +96,7 @@ Azure AI Foundry — live measured Model Router bridge
 
 Enterprise tenants often turn off API-key auth (`disableLocalAuth=true`). Then,
 instead of a key, you call with a bearer token issued from **your Azure identity**
-(`az login`, a managed identity, environment credentials, and so on). The bridge
+(`az login`, a managed identity, environment credentials, and so on). The measurement adapter
 **switches to Entra ID automatically when there is no API key**, so the setup is
 essentially "leave the key blank."
 
@@ -139,7 +139,7 @@ cost-router foundry status              # auth method : Microsoft Entra ID (keyl
 
 The heart of it is feeding `pricing.cost_usd(model, tokens)` the **response's real
 usage instead of the synthetic `task.tokens`**. That one spot is the only difference
-between an offline arm and the live bridge.
+between an offline arm — an arm is one comparison strategy in the experiment — and the live measurement adapter.
 
 ```python
 from router.foundry_live import RouterOutcome, measured_router_summary
@@ -243,7 +243,7 @@ foundry live — captured 5 real outcomes → …/model-router-usage.sample.json
 ### Curated tasks as measurements — one command (t-0001–t-0006)
 
 The bundled telemetry has no prompts, so it cannot be sent live. That is why we
-prepared a workload that carries the arena's five curated tasks **with sendable
+prepared a workload that carries the four-way comparison's five curated tasks **with sendable
 prompts**: `samples/telemetry/curated-arena-live.sample.jsonl`. Once your credentials
 are in place, this one command turns **all** of t-0001–t-0006 into real Model Router
 calls with `measured = true`:
@@ -277,9 +277,9 @@ cost-router foundry live --workload samples/telemetry/curated-arena-live.sample.
     The bundled telemetry (`mixed-coding-workload…`) has only `task_id` · `tokens` and
     **no prompt text**, so it cannot be sent to a real endpoint. `curated-arena-live…`
     attaches **authored synthetic prompts** (input for display and sending,
-    `measured = false`) to the arena's five tasks so that a live send is possible. The
+    `measured = false`) to the four-way comparison's five tasks so that a live send is possible. The
     prompts are authored-synthetic, but the usage and cost from **actually sending them
-    is measured = true** — the source of the input (authored) and the source of the
+    is measured = true** — where a result came from — live, recorded, or test (provenance) for the input (authored) and the
     measurement (live) are separate things. To measure accuracy (pass/fail) too,
     inject a `grader` (without one, coverage is labeled an offline signal projection).
 
@@ -291,7 +291,7 @@ You can also hand it a workload with your own real prompts directly:
 cost-router foundry live --live --workload my-prompts.jsonl --pricing samples/pricing/your-tenant.yaml
 ```
 
-## 4. Wiring into the historical dashboard
+## 4. Measurement integration into the historical dashboard
 
 Pass `--store` and the measured run is recorded as one line in the existing metrics
 history, which the web app's **Historical dashboard** panel and `metrics history`
@@ -346,7 +346,7 @@ In tests and offline, inject an `sdk_client` (or `RecordedRouterClient`) to run 
 whole path with no network.
 
 !!! tip "Relationship to the Honesty Charter"
-    This bridge is the code that actually fills in the *"a live eval on your tenant →
+    This measurement adapter is the code that actually fills in the *"a live eval on your tenant →
     `measured = true`"* row of the [Honesty Charter](../honesty.md). The amount gets
     closer to your range only when you put **your real rates** in
     `samples/pricing/your-tenant.yaml` (gitignored) — the router-derived amount stays

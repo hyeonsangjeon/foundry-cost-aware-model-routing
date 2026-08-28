@@ -2,7 +2,7 @@
 
 이 페이지는 **목업 시뮬레이션이 아니라 실제 Azure AI Foundry 실행**으로 각 실험을 돌리는
 방법을 처음부터 끝까지 따라 할 수 있게 정리합니다. 리소스 프로비저닝(`az`), 모델 선정,
-KB(그라운딩) 설정, system prompt, 팬아웃·앙상블 메커니즘, 그리고 실험별 세팅을 한 곳에
+KB(그라운딩) 설정, system prompt, 여러 후보 모델을 병렬로 호출하는(fan-out) 앙상블 메커니즘, 그리고 실험별 세팅을 한 곳에
 모았습니다.
 
 !!! note "먼저 필요한 것 — 선행 조건 3가지"
@@ -44,10 +44,10 @@ KB(그라운딩) 설정, system prompt, 팬아웃·앙상블 메커니즘, 그�
 
 | 플레인 | 리소스 | 배포/자원 | 하는 일 |
 | --- | --- | --- | --- |
-| **라우팅 플레인** | `aoai-foundry-iq-demo-ext` (`rg-foundry-iq-demo-ext`, eastus) | `model-router` + 멀티프로바이더 fleet(`gpt-5.6-sol`·`gpt-4o`·`gpt-5.4-mini`·`gpt-5.4-nano` + 파트너 7종) | 프롬프트별 모델 선정·추론(아레나·라이브 실험) |
+| **라우팅 플레인** | `aoai-foundry-iq-demo-ext` (`rg-foundry-iq-demo-ext`, eastus) | `model-router` + 멀티프로바이더 fleet(`gpt-5.6-sol`·`gpt-4o`·`gpt-5.4-mini`·`gpt-5.4-nano` + 파트너 7종) | 프롬프트별 모델 선정·추론(네 방식 비교(`arena` 명령)·라이브 실험) |
 | **그라운딩 플레인** | **같은** `aoai-foundry-iq-demo-ext` + `srch-foundry-iq-demo-ext` (Azure AI Search) | `text-embedding-3-large` + 벡터 인덱스 | KB 임베딩·검색(RAG 그라운딩) |
 
-- **아레나/헤드투헤드 실험은 라우팅 플레인만** 씁니다(추론 전용, KB 불필요).
+- **네 방식 비교/헤드투헤드 실험은 라우팅 플레인만** 씁니다(추론 전용, KB 불필요).
 - **KB 그라운딩은 선택**입니다. 실험에 근거 문서를 붙이고 싶을 때만 그라운딩 플레인을 씁니다
   ([§2](#2-kb)).
 
@@ -84,7 +84,7 @@ az cognitiveservices account create \
 Model Router는 **배포 하나로 알아서 되는** 선정 레이어입니다 — 그 하나만 배포하면 OpenAI
 GPT-5 계열뿐 아니라 xAI Grok · DeepSeek · Meta Llama · gpt-oss까지 **별도 배포 없이** 프롬프트마다
 분기합니다(Anthropic Claude만 예외적으로 직접 배포 필요). 아래 fleet 배포는 라우터가 아니라
-아레나의 **직접 호출/팬아웃 arm**(cheapest·premium·ensemble)이 쓰는 것으로, 이 데모의
+네 방식 비교의 **직접 호출/팬아웃 arm**(cheapest·premium·ensemble)이 쓰는 것으로, 이 데모의
 `aoai-foundry-iq-demo-ext`에 실제로 올라간 배포를 그대로 재현합니다
 ([`samples/fleet/foundry-ext-full.fleet.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/fleet/foundry-ext-full.fleet.yaml)가 정본).
 
@@ -110,7 +110,7 @@ for M in "gpt-5.6-sol:2026-07-09" "gpt-4o:2024-11-20" "gpt-5.4-mini:2026-03-17" 
 done
 ```
 
-파트너/OSS 7종은 **같은 리소스·같은 Entra 신원**에 올라가지만 와이어 경로만 Azure AI Model
+파트너/OSS 7종은 **같은 리소스·같은 Entra 신원**에 올라가지만 측정 경로만 Azure AI Model
 Inference(`*.services.ai.azure.com/models`)이고 `--model-format`은 각 퍼블리셔가 다릅니다
 (OpenAI 아님). 아래 배포명·모델·버전을 그대로 만들되 `--model-format`은
 `az cognitiveservices account list-models`로 확인해 채웁니다:
@@ -148,10 +148,10 @@ az role assignment create \
   --scope "$SCOPE"
 ```
 
-### 1-3. `.env` 배선 (시크릿 없음)
+### 1-3. `.env` 설정 (시크릿 없음)
 
 `.env.sample`을 `.env`로 복사하고 **엔드포인트+배포만** 채웁니다. 키 칸은 비워 두세요 — 비어
-있으면 브릿지가 자동으로 Entra ID로 전환합니다.
+있으면 라이브 실측 어댑터가 자동으로 Entra ID로 전환합니다.
 
 ```bash
 AZURE_AI_FOUNDRY_ENDPOINT=https://aoai-foundry-iq-demo-ext.cognitiveservices.azure.com/
@@ -211,7 +211,7 @@ az role assignment create \
 kNN 검색으로 top-k 청크를 뽑아 **system prompt의 컨텍스트 블록**으로 주입합니다([§3](#3-system-prompt)).
 
 !!! note "KB는 정직하게 '선택'"
-    현재 번들 실험(아레나·큐레이션)은 **추론 전용**이라 KB를 쓰지 않습니다. 위 절차는 근거가
+    현재 번들 실험(네 방식 비교·큐레이션)은 **추론 전용**이라 KB를 쓰지 않습니다. 위 절차는 근거가
     필요한 실험(예: repo 그라운딩 리뷰)을 붙일 때의 표준 레시피입니다. KB를 붙여도 비용은
     임베딩+검색+추론 usage로 실측됩니다.
 
@@ -226,7 +226,7 @@ system prompt는 실험의 **역할·출력계약**을 고정합니다. 코드�
 | --- | --- |
 | hero | "너는 시니어 엔지니어다. 정확하고 최소한의 코드/답을 제시하고, 불확실하면 가정을 명시하라." |
 | curated | "각 문제의 acceptance 기준을 먼저 읽고, 그 기준을 충족하는 답만 제시하라." |
-| ensemble | (arm별 동일 프롬프트로 공정 비교 — 팬아웃 슬레이트 전원에 같은 system) |
+| ensemble | (arm별 동일 프롬프트로 공정 비교 — 후보 모델 세트 전원에 같은 system) |
 | adaptive | "고가치 태스크면 근거를 단계적으로 제시하고, 저가치면 간결히." |
 | limits | "간결하게. 재시도/레이트리밋 상황을 가정하고 idempotent하게 답하라." |
 | model-router | (system 없이 — 라우터가 난이도로 모델을 고르게 순수 프롬프트만) |
@@ -266,7 +266,7 @@ task = ArenaTask(
 | `ensemble` | `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (병렬 팬아웃) | **sum-all-fanout** | 전부 호출→최고만 채택 = **팬아웃 세금** |
 | `router` | `model-router` | winner-only | Foundry가 프롬프트별 1개 모델 선정 |
 
-- **팬아웃**은 슬레이트 전원을 **병렬**(`ThreadPoolExecutor`)로 호출하므로 지연은 *가장 느린*
+- **팬아웃**은 후보 모델 세트 전원을 **병렬**(`ThreadPoolExecutor`)로 호출하므로 지연은 *가장 느린*
   호출입니다(합이 아니라 max). 비용은 **전원 합산**(세금)입니다.
 - **라우터**는 단 한 번 호출해 승자 모델 비용만 청구합니다.
 
@@ -332,7 +332,7 @@ task = ArenaTask(
 - **아무 것도 설정할 필요 없음** — 라우터가 자동 선정합니다. 여러분은 `model=model-router`로
   한 번만 호출하면 됩니다.
 - **코드에서 선정 결과 읽기**: `RouterOutcome.model`(정규화 후 `gpt-5.4-2026-03-05` →
-  `gpt-5.4`). 아레나는 이 값으로 요율을 매기고 `router_model_mix`에 집계합니다.
+  `gpt-5.4`). 네 방식 비교는 이 값으로 요율을 매기고 `router_model_mix`에 집계합니다.
 
 ```bash
 # 라우터가 프롬프트별로 무엇을 고르는지 직접 관찰 (measured)
@@ -365,20 +365,20 @@ cost-router foundry live --live \
 - 관련: [실험 02 · 큐레이션 샘플](../lab-notebook/02-curated.md)
 
 ### 6-3. ensemble — 앙상블 팬아웃 세금
-- **모델**: 팬아웃 슬레이트 `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (병렬).
-- **KB**: 없음. **system**: 슬레이트 전원 동일(공정 비교).
+- **모델**: 후보 모델 세트 `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (병렬).
+- **KB**: 없음. **system**: 후보 모델 세트 전원 동일(공정 비교).
 - **메커니즘**: [§4](#4-fanout) — 전원 호출·합산 청구가 세금, 지연은 max.
 - **실측 상태**: ✅ 세금(합산 비용)·지연 실측. 실측치 $0.022046(최고가)로 세금이 실제로 보임.
 - 관련: [실험 05 · 앙상블 팬아웃 세금](../lab-notebook/05-ensemble-fanout.md)
 
-### 6-4. adaptive — 적응형 팬아웃 다이얼
+### 6-4. adaptive — 적응형 팬아웃 임계값
 - **모델**: 저가치 태스크는 라우터 단일콜, 고가치 태스크만 팬아웃으로 승격.
-- **다이얼**: `compare_min_value`(오프라인 `budget.py`). 라이브에서는 태스크 가치가 임계 이상일
-  때만 `ensemble_arm`을, 아니면 `router_arm`을 호출하도록 슬레이트를 조건 분기하면 됩니다.
+- **임계값**: `compare_min_value`(오프라인 `budget.py`). 라이브에서는 태스크 가치가 임계 이상일
+  때만 `ensemble_arm`을, 아니면 `router_arm`을 호출하도록 후보 모델 세트를 조건 분기하면 됩니다.
 - **KB**: 없음. **system**: 가치 기반 상세도 조절(§3).
-- **실측 상태**: ⚙️ 라우터/팬아웃 arm은 실측 가능. 다이얼 임계 정책은 입력 변수로 노출
+- **실측 상태**: ⚙️ 라우터/팬아웃 arm은 실측 가능. 임계값 정책은 입력 변수로 노출
   (아래 [§7](#7-code) `FleetSlate`/가치 임계).
-- 관련: [실험 06 · 적응형 팬아웃 다이얼](../lab-notebook/06-fanout-dial.md)
+- 관련: [실험 06 · 적응형 팬아웃 임계값](../lab-notebook/06-fanout-dial.md)
 
 ### 6-5. limits — 레이트리밋/실패 벽
 - **모델**: 단일 티어에 동시 부하를 주어 429/스로틀을 관찰.
@@ -483,7 +483,7 @@ input 마크업이 빠져 **불완전**하기 때문입니다. 그런 행이 있
 ### 7-4. 한 번에 재현
 
 ```bash
-# 라이브 4-way 아레나 (비용·지연 실측) + 리포트/원장 저장
+# 라이브 네 방식 비교 (비용·지연 실측) + 리포트/원장 저장
 cost-router foundry arena --live --max-output-tokens 3000 \
   --out runs/arena-measured.json --ledger runs/arena.jsonl
 

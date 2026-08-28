@@ -2,7 +2,7 @@
 
 A **named experiment** is a small YAML file that pins the workload, the offline
 signals (fixture or synthetic), the pricing, and the policy, and adds an `expect`
-**reproducibility contract** on top. Run one and it re-derives the naive-vs-routing
+**reproducibility criteria** on top. Run one and it re-derives the naive-vs-routing
 before/after and **fails loudly** if the offline projection drops below the
 contracted floor.
 
@@ -14,7 +14,7 @@ The files live in the `experiments/` directory.
 
 !!! tip "Want to see it visually first — the Experiment Atlas"
     To see at a glance **which model** each experiment uses to do **what**, and in
-    **which way** (sequential escalation · fan-out · single call), as animated SVGs,
+    **which way** (sequential escalation · call several candidate models in parallel (fan-out) · single call), as animated SVGs,
     see the **[Experiment Atlas](experiment-atlas.md)**. It even includes a
     walkthrough of the real Azure Model Router setup (keyless Entra).
 
@@ -44,11 +44,11 @@ expect:
   min_tasks: 100
 ```
 
-!!! tip "The fan-out dial — `budget:` (optional)"
+!!! tip "The fan-out threshold — `budget:` (optional)"
     An experiment can tune the router's fan-out threshold. Raise
     `compare_min_value` and any task worth less than that goes down a **single path
     (ordered)**, reducing the cost of extra candidate calls —
-    [experiment 06](../lab-notebook/06-fanout-dial.md) uses this dial.
+    [experiment 06](../lab-notebook/06-fanout-dial.md) uses this threshold.
 
     ```yaml
     budget:
@@ -56,8 +56,8 @@ expect:
       min_compare_candidates: 2   # need at least 2 candidates to go to compare
     ```
 
-!!! tip "The measurement bridge — Azure AI Foundry Model Router (optional)"
-    The `single_call` arm is an offline proxy for a single-call routing layer. To use
+!!! tip "The live measurement adapter — Azure AI Foundry Model Router (optional)"
+    The `single_call` arm — an arm is one comparison strategy in the experiment — is an offline proxy for a single-call routing layer. To use
     the **decisions** of a real Foundry
     Model Router, give the dependency-free gate adapter
     `router.foundry_router.FoundryModelRouter` the environment variables below plus
@@ -95,17 +95,17 @@ expect:
 
 Paths are written relative to the repository root, or as absolute paths.
 
-## spotlight — highlight a representative task
+## representative task — highlight a representative task
 
-`spotlight` picks the one task where cost-aware routing beats the naive premium arm
+`spotlight` picks the representative task where cost-aware routing beats the naive premium arm
 most visibly.
 
 - `auto` — among the accepted tasks, the one with the largest
   **naive/routing cost ratio**
 - `<task_id>` — pin a specific task explicitly
-- `none` — disable the spotlight
+- `none` — disable the representative task
 
-## What the reproducibility contract does
+## What the reproducibility criteria do
 
 After the replay, `run_experiment` checks:
 

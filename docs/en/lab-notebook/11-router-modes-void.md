@@ -1,9 +1,9 @@
 # Experiment 11 · Comparing the router's three modes · run 1 (measurement failed)
 
 !!! abstract "One-line summary"
-    This first **paid 4-arm measured comparison** ran the router's Cost · Balanced ·
+    This first **paid 4-arm measured comparison** — an arm is one comparison strategy in the experiment — ran the router's Cost · Balanced ·
     Quality modes and a direct `gpt-5.6-sol` arm on the same 24 coding tasks. The
-    preregistration, committed **before** the results, required every arm to clear the
+    preregistration — the workload, hypotheses, and pass/fail criteria committed before the paid run — required every arm to clear the
     grading-coverage gate. Quality reached **79.2% < 90%**, so **the run is VOID** and
     cannot support a savings comparison. The run still recorded that quality cost more
     than premium, Cost mode used Grok, and reasoning consumed the output budget.
@@ -96,7 +96,7 @@ these 20 clustered in the quality arm, dragging quality grading coverage down to
 direct cause that voided the run**. (Grok, by contrast, used up to 5,400 reasoning tokens and
 still produced a gradable body — output accounting differed by provider.)
 
-### (3) The "missing rate" diagnosis was wrong; fail-closed withheld Grok cost
+### (3) The "missing rate" diagnosis was wrong; the missing-rate rule withheld Grok cost
 
 Seeing the router go to Grok while cost was withheld, I first suspected
 "the card is missing a Grok rate," but investigation showed that was the **wrong
@@ -107,8 +107,8 @@ diagnosis**:
 - In the measurement the Grok cells returned **100% cached input tokens**, but **Azure Retail
   has no cached meter for Grok** (0 rows across all regions and all services — confirmed
   authoritatively). So the card's `cached: null` is **correct**.
-- `composite_cost`'s **cached-token fail-closed guard** detected "there are cached tokens but no
-  cached rate" and **withheld the cost instead of guessing** — this is not a bug but the
+- `composite_cost`'s **cached-token missing-rate guard** detected "there are cached tokens but no
+  cached rate" and followed this rule: when a rate is missing, withhold the cost claim rather than guess (fail-closed) — this is not a bug but the
   [03Z-b honesty contract](10-measured-ledger.md) working as designed.
 
 ## Why the VOID result is still useful

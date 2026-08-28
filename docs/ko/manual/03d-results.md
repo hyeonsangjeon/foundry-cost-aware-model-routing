@@ -124,9 +124,9 @@ pass=False로 **실패 계상**한다. 이 타임아웃들이 라우터 arm과 d
 
 ---
 
-## 6 · 재현과 출처
+## 6 · 재현과 결과 생성 경로(provenance)
 
-- **데이터 소스**: 봉인 스냅샷을 `measure publish` 경로로 마스킹 추출한
+- **데이터 소스**: 결과 생성 경로(provenance)는 live·recorded·test 중 하나입니다. 봉인 스냅샷을 `measure publish` 경로로 마스킹 추출한
   [`docs/assets/03d/published.json`](/foundry-cost-aware-model-routing/assets/03d/published.json). **집계·arm별 수치·백엔드
   분포만** 담는다 — 프롬프트·응답 원문, 엔드포인트, 테넌트 식별자는 포함하지 않는다(엔드포인트는
   `***.cognitiveservices.azure.com`로 마스킹, 원문은 `output_sha256`만).

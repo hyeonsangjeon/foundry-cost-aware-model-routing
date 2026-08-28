@@ -32,7 +32,7 @@
   ```
 - 규칙이 틀리면(알 수 없는 타입·정규식 오류) `validate_rule`이 **실행 전에 시끄럽게 실패**합니다.
 
-### 3. 플릿 (후보 모델)
+### 3. 플릿 — 배포 모델 목록과 역할 지정을 묶어 부르는 이름입니다
 - **어디:** `samples/fleet/*.fleet.yaml` (예: `foundry-ext-full.fleet.yaml`, `foundry-5series.fleet.yaml`).
 - **고르기:** `.env`의 `FOUNDRY_FLEET_PATH`(또는 `COST_ROUTER_FLEET`).
 - arm별(cheapest/premium/router/ensemble) 어떤 배포를 부를지, provider가 무엇인지 정의합니다.

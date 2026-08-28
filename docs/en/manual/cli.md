@@ -27,8 +27,8 @@ Policy precedence: `--policy` > environment variable `COST_ROUTER_POLICY` > bund
 ## hero — the hero run
 
 Runs the flagship experiment (`experiments/hero.yaml`) end to end and prints the
-before/after, the spotlight, and the reproducibility self-check. If it fails the
-contract it exits with a **non-zero code**.
+before/after, the representative task, and the reproducibility self-check. If it fails the
+reproducibility criteria it exits with a **non-zero code**.
 
 ```bash
 cost-router hero               # text summary
@@ -39,15 +39,15 @@ cost-router hero --serve --host 0.0.0.0 --port 9000
 ```
 
 `--serve` points you at `http://127.0.0.1:8000/?run=1`. Open that address and the
-before/after animation and spotlight play **the moment it loads** — no clicking
+before/after animation and the representative task plays **the moment it loads** — no clicking
 required (about 20 seconds).
 
 ## compare — one problem, four ways
 
 Compares a **single** task four ways side by side and prints **cost · latency ·
 accuracy** as a table: the cheapest model · the premium model · the ensemble that
-fans out to everyone · the cost-aware router that climbs up from the cheapest.
-It is the CLI version of the dashboard's arena panel.
+calls several candidate models in parallel (fan-out) to everyone · the cost-aware router that climbs up from the cheapest.
+It is the CLI version of the dashboard's four-way comparison panel (the `arena` command).
 
 ```bash
 cost-router compare                    # the most instructive default task (t-0003)
@@ -135,7 +135,7 @@ cost-router ledger replay --ledger reports/routing.jsonl
 Replays the stored decisions and verifies the canonical final payload byte for
 byte. See [the audit ledger](ledger.md) for details.
 
-## foundry — the live measured bridge (opt-in)
+## foundry — the live measurement adapter (opt-in)
 
 ```bash
 cost-router foundry status              # check the wiring (secrets masked)
@@ -149,7 +149,7 @@ cost-router foundry live --live --workload my-prompts.jsonl \
 `status` summarizes the Azure Foundry environment variables **without exposing
 secrets**. `live` scores a Model Router run against **real token usage** — without
 `--live` it replays the recorded snapshot, so you can see the path even with no
-credentials. See [the live measured bridge](foundry-live.md) for details.
+credentials. See [the live measurement adapter](foundry-live.md) for details.
 
 ## models — fleet registration & arm selection
 
@@ -163,7 +163,7 @@ cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini
 Registers and selects which deployed model backs each arm
 (router/cheapest/premium/ensemble). The selection is saved to the gitignored
 `.foundry-fleet.local.yaml`. Every command can read a different fleet file with
-`--fleet PATH` (or `FOUNDRY_FLEET_PATH`). Then run the measured arena on that fleet:
+`--fleet PATH` (or `FOUNDRY_FLEET_PATH`). Then run the measured four-way comparison on that fleet:
 
 ```bash
 cost-router foundry arena --fleet .foundry-fleet.local.yaml         # preview (prints the slate)

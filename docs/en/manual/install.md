@@ -57,8 +57,8 @@ cost-router --version
 cost-router hero           # a reproducibility PASS on the last line means it's fine
 ```
 
-`cost-router hero` carries a **reproducibility contract** — coverage, savings rate,
-and task count must meet preset thresholds to pass. Fail the contract and it exits
+`cost-router hero` carries **the reproducibility criteria** — coverage, savings rate,
+and task count must meet preset thresholds to pass. Fail the criteria and it exits
 with a **non-zero exit code**. In other words, it won't quietly wave through a
 "runs, but the numbers look off" state.
 

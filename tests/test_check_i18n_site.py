@@ -195,6 +195,68 @@ def test_demo_languages_flags_identical_bodies(tmp_path: Path) -> None:
 
 
 # --------------------------------------------------------------------------
+# check_cross_page_anchors — a target#fragment link resolves on the other page
+# --------------------------------------------------------------------------
+
+
+def _anchor_site(tmp_path: Path, *, target_id: str, link_frag: str = "measurement-adapter") -> Path:
+    """Page A links to ../router/#<link_frag>; page B exposes id=<target_id>."""
+    _write(tmp_path / "lab-notebook" / "proof" / "index.html",
+           _en_page('<p>See <a href="../router/#' + link_frag + '">the adapter</a>.</p>'))
+    _write(tmp_path / "lab-notebook" / "router" / "index.html",
+           _en_page('<h2 id="' + target_id + '">Adapter</h2>'
+                    '<a name="' + target_id + '"></a><p>body</p>'))
+    return tmp_path
+
+
+def test_cross_page_anchor_resolves_passes(tmp_path: Path) -> None:
+    # The inbound link's fragment matches an id on the target page.
+    assert c.check_cross_page_anchors(_anchor_site(tmp_path, target_id="measurement-adapter")) == []
+
+
+def test_cross_page_anchor_dangling_fails(tmp_path: Path) -> None:
+    # Target page exists but the fragment does not — exactly the regression an
+    # anchor rename introduces on the *other* side. Must be caught.
+    failures = c.check_cross_page_anchors(_anchor_site(tmp_path, target_id="measured-bridge"))
+    assert len(failures) == 1
+    assert "cross-anchor" in failures[0]
+    assert "measurement-adapter" in failures[0]
+
+
+def test_cross_page_anchor_resolves_to_explicit_a_name(tmp_path: Path) -> None:
+    # The fragment resolves against an explicit <a name>, not only a heading id
+    # (the pattern BOLT-11's 07-model-router anchor uses).
+    _write(tmp_path / "lab-notebook" / "proof" / "index.html",
+           _en_page('<p><a href="../router/#실측-어댑터">어댑터</a></p>'))
+    _write(tmp_path / "lab-notebook" / "router" / "index.html",
+           _en_page('<a name="실측-어댑터"></a><p>body</p>'))
+    assert c.check_cross_page_anchors(tmp_path) == []
+
+
+def test_cross_page_anchor_ignores_same_page_fragment(tmp_path: Path) -> None:
+    # Same-page ``#frag`` links are check_anchors' job; the cross-page check must
+    # not double-report (or mis-handle) them even when they dangle.
+    _write(tmp_path / "manual" / "concept" / "index.html",
+           _en_page('<p><a href="#nowhere">x</a></p>'))
+    assert c.check_cross_page_anchors(tmp_path) == []
+
+
+def test_cross_page_anchor_defers_missing_page_to_internal_links(tmp_path: Path) -> None:
+    # A link to a page that does not exist is check_internal_links' failure, not
+    # a bad-anchor failure; the fragment check stays silent so the diagnosis is
+    # unambiguous.
+    _write(tmp_path / "manual" / "concept" / "index.html",
+           _en_page('<p><a href="../ghost/#frag">x</a></p>'))
+    assert c.check_cross_page_anchors(tmp_path) == []
+
+
+def test_cross_page_anchor_ignores_external_links(tmp_path: Path) -> None:
+    _write(tmp_path / "manual" / "concept" / "index.html",
+           _en_page('<p><a href="https://example.com/page/#frag">x</a></p>'))
+    assert c.check_cross_page_anchors(tmp_path) == []
+
+
+# --------------------------------------------------------------------------
 # end-to-end — a fully clean fragment yields exit 0 via the same entry CI uses
 # --------------------------------------------------------------------------
 

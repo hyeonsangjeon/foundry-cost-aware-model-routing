@@ -28,30 +28,30 @@ service's JSON endpoints.
 - **before / after** — naive (premium on every task) vs. cost-aware routing.
 - **Cost × coverage frontier** — plots three strategies (all-mini / all-premium / cost-aware
   mix) as a cost (x) × coverage (y) scatter. The cost-aware mix reaches full
-  coverage at lower cost than all-premium — the panel labels this "both-win".
+  coverage at lower cost than all-premium — the panel labels this "both-win" (same pass rate at lower cost).
   all-mini costs less but has lower coverage.
-- **Spotlight card** — highlights the one task where cost-aware routing beat the naive premium
+- **Representative-task card (the Spotlight card)** — highlights the one task where cost-aware routing beat the naive premium
   arm by the most, with two cards (routing vs. naive) and a multiplier (e.g. `24.1×` cheaper).
-- **Arena (one problem, four ways)** — the "5-minute wow" panel. Pick one task and send **the
-  same problem** four ways: the cheapest model · a premium model · an ensemble that fans out to
+- **Four-way comparison (the `arena` command; one problem, four ways)** — Pick one task and send **the
+  same problem** four ways: the cheapest model · a premium model · an ensemble that calls several candidate models in parallel (fan-out) to
   everyone · a cost-aware router that climbs up from the cheapest. Each card fills in three axes —
   **cost · latency · accuracy** — and highlights the winner for each measure. On the default task
   (`t-0003`) the router is **the cheapest and also right** (premium and ensemble are right too) but
   the **slowest on latency** because escalation is sequential. It reads from `/compare`
   (live) or `compare.json` (static), and task switching is handled
   client-side with no round trip. For details, see [One problem, four ways](head-to-head.md).
-- **Coverage cliff (policy A/B)** — compares the same workload side by side against a `cost-cut`
+- **Pass-rate cliff (policy A/B)** — compares the same workload side by side against a `cost-cut`
   candidate that removes the seed policy's expensive fallback. The candidate costs less,
   but coverage drops **100% → 67% (−33%p)**. This comes from `/regression`, independently of
   replay, and hides silently when there's no data. For the full reading, see [Experiment 03 ·
-  Coverage cliff](../lab-notebook/03-coverage-cliff.md).
-- **Fan-out dial (threshold sweep)** — sweeps the budget gate's `compare_min_value` from 0 → 1.01
+  Pass-rate cliff](../lab-notebook/03-coverage-cliff.md).
+- **Fan-out threshold (threshold sweep)** — sweeps the budget gate's `compare_min_value` from 0 → 1.01
   and shows fan-out task count, coverage, savings, and extra candidate-call cost.
   **Coverage (100%) and savings (47%) stay unchanged** while the extra-call ratio falls
   **[3.74×](projection-results.md) → $0.0000**. It comes from `/fanout-sweep` and hides when there's no data.
-  See [Experiment 06 · Adaptive fan-out dial](../lab-notebook/06-fanout-dial.md).
+  See [Experiment 06 · Adaptive fan-out threshold](../lab-notebook/06-fanout-dial.md).
 - **Experiments (click for statistics)** — click an experiment tab and that experiment's cost,
-  coverage, extra candidate-call cost, and reproducibility contract appear at once. It reads
+  coverage, extra candidate-call cost, and reproducibility criteria appear at once. It reads
   Azure-Foundry-shaped offline metrics from `GET /experiments` (live) or `experiments.json` (static
   export). To see **which models and how** each tab is built as an animated SVG, see [Experiment
   atlas](experiment-atlas.md); for reading the ensemble tax, see [Experiment 05 · Ensemble fan-out
@@ -67,8 +67,8 @@ service's JSON endpoints.
   For the full reading, see [Experiment 07 · The routing layer](../lab-notebook/07-model-router.md).
 - **Per-task routing-decision animation** — class, selected model, reason, cost.
 - **Aggregates** — cost by class, model usage, mode/reason statistics.
-- **Fleet & live routing** — shows the registered deployment catalog and picks **which model goes
-  in each arm** via router (main)/cheapest/premium dropdowns and an ensemble checkbox. **Run
+- **Fleet & live routing** — Fleet — the deployment model catalog plus role assignment; shows the registered deployment catalog and picks **which model goes
+  in each arm — an arm is one comparison strategy in the experiment —** via router (main)/cheapest/premium dropdowns and an ensemble checkbox. **Run
   selection** honestly re-labels a committed measured snapshot as `measured = false` · `provenance =
   recorded` and replays it (the web path **never makes a paid call**), and prints the exact terminal
   command to measure your selection live. It reads from `GET /fleet` · `POST /fleet/run` and hides
@@ -76,7 +76,7 @@ service's JSON endpoints.
   selection](fleet.md).
 
 Flip the `full synthetic workload (100 tasks)` toggle at the top and the whole synthetic workload
-replays, filling in before/after clearly within 20 seconds. The spotlight card is rendered from the
+replays, filling in before/after clearly within 20 seconds. The representative-task card (the Spotlight card) is rendered from the
 replay summary's `spotlight` field (an auto-selected representative task).
 
 !!! tip "Hero autorun"
@@ -95,12 +95,12 @@ replay summary's `spotlight` field (an auto-selected representative task).
 | GET | `/` · `/dashboard` | Dashboard HTML |
 | GET | `/healthz` | Liveness probe |
 | GET | `/policy` | Policy version and candidates per class |
-| GET | `/fleet` | Fleet catalog + current slate + live-readiness state |
-| POST | `/fleet/run` | Validates the selected slate, then replays a recorded arena snapshot |
+| GET | `/fleet` | Fleet catalog + current role assignment + live-readiness state |
+| POST | `/fleet/run` | Validates the selected role assignment, then replays a recorded four-way comparison snapshot |
 | GET | `/replay?synth=true` | Workload replay result (traces + summary) |
-| GET | `/regression` | Policy A/B regression (coverage cliff) summary |
-| GET | `/fanout-sweep` | Fan-out threshold sweep (adaptive fan-out dial) summary |
-| GET | `/compare` · `/compare?task=<id>` | Arena: one problem, four ways (cost · latency · accuracy) |
+| GET | `/regression` | Policy A/B regression (pass-rate cliff) summary |
+| GET | `/fanout-sweep` | Fan-out threshold sweep (adaptive fan-out threshold) summary |
+| GET | `/compare` · `/compare?task=<id>` | Four-way comparison: one problem, four ways (cost · latency · accuracy) |
 | GET | `/experiments` | All experiment cards + Foundry-shaped offline metrics |
 | GET | `/experiment?name=<name>` | Runs one experiment and records it in history (live timestamp) |
 | GET | `/metrics/history` | Recorded run history for the historical dashboard |

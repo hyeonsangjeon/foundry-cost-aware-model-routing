@@ -25,8 +25,8 @@ cost-router --version
 
 ## hero — 히어로 실행 모드
 
-플래그십 실험(`experiments/hero.yaml`)을 한 번에 실행하고 before/after · 스포트라이트 ·
-재현성 자체 점검을 출력합니다. 계약을 통과하지 못하면 **0이 아닌 코드**로 종료합니다.
+플래그십 실험(`experiments/hero.yaml`)을 한 번에 실행하고 before/after · 대표 태스크 ·
+재현성 자체 점검을 출력합니다. 재현성 통과 기준을 통과하지 못하면 **0이 아닌 코드**로 종료합니다.
 
 ```bash
 cost-router hero               # 텍스트 요약
@@ -37,18 +37,18 @@ cost-router hero --serve --host 0.0.0.0 --port 9000
 ```
 
 `--serve`는 `http://127.0.0.1:8000/?run=1`을 안내합니다. 이 주소를 열면 클릭 없이도
-before/after 애니메이션과 스포트라이트가 **로드 즉시** 재생됩니다(약 20초).
+before/after 애니메이션과 대표 태스크가 **로드 즉시** 재생됩니다(약 20초).
 
 ## compare — 문제 하나, 네 가지 방법
 
 태스크 **하나**를 네 가지 방법으로 나란히 비교하고 **비용 · 지연 · 정확도**를 표로 출력합니다:
-가장 싼 모델 · 프리미엄 모델 · 모두에게 팬아웃하는 앙상블 · 값싼 것부터 올라가는 비용 인지 라우터.
-대시보드 아레나 패널의 CLI 버전입니다.
+가장 싼 모델 · 프리미엄 모델 · 여러 후보 모델을 병렬로 호출하는 앙상블(fan-out) · 값싼 것부터 올라가는 비용 인지 라우터.
+대시보드 네 방식 비교(`arena` 명령) 패널의 CLI 버전입니다.
 
 ```bash
 cost-router compare                    # 가장 교훈적인 기본 태스크(t-0003)
 cost-router compare --task t-0001      # 특정 태스크
-cost-router compare --json             # 그 태스크의 아레나를 JSON으로
+cost-router compare --json             # 그 태스크의 네 방식 비교를 JSON으로
 ```
 
 라우터는 **승자만 청구**하고 앙상블은 **후보 전부**를 청구합니다(팬아웃 세금). 정확도는 라우터의
@@ -127,10 +127,10 @@ cost-router ledger replay --ledger reports/routing.jsonl
 저장된 결정을 다시 돌려 정규 최종 페이로드를 바이트 단위로 검증합니다. 자세한 내용은
 [감사 원장](ledger.md)을 참고하세요.
 
-## foundry — 라이브 실측 브릿지 (opt-in)
+## foundry — 라이브 실측 어댑터 (opt-in)
 
 ```bash
-cost-router foundry status              # 배선 상태 확인 (시크릿 마스킹)
+cost-router foundry status              # 측정 반영 상태 확인 (시크릿 마스킹)
 cost-router foundry status --json
 cost-router foundry live                # 녹화 스냅샷 재생 (오프라인, measured=false)
 cost-router foundry live --store runs.jsonl   # 히스토리컬 대시보드로 기록
@@ -141,12 +141,12 @@ cost-router foundry live --live --workload my-prompts.jsonl \
 `status`는 Azure Foundry 환경 변수를 **시크릿 노출 없이** 요약합니다. `live`는 Model Router
 실행을 **실제 토큰 usage**로 스코어링합니다 — `--live` 없이는 녹화된 스냅샷을 재생하므로
 크리덴셜이 없어도 경로를 볼 수 있습니다. 자세한 내용은
-[라이브 실측 브릿지](foundry-live.md)를 참고하세요.
+[라이브 실측 어댑터](foundry-live.md)를 참고하세요.
 
 ## models — 플릿 등록 & 비교 전략(arm) 선택
 
 ```bash
-cost-router models list          # 카탈로그 + 현재 slate + 라이브 준비 상태
+cost-router models list          # 카탈로그 + 현재 역할 배정 + 라이브 준비 상태
 cost-router models show          # 역할 -> 배포 해석 결과 (--json 지원)
 cost-router models select        # 대화형 /model 피커 (번호나 이름 입력)
 cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
@@ -154,11 +154,11 @@ cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini
 
 어떤 배포 모델이 각 비교 전략(router/cheapest/premium/ensemble)을 맡을지 등록·선택합니다. 선택은
 gitignore된 `.foundry-fleet.local.yaml`에 저장됩니다. 모든 명령은 `--fleet PATH`(또는
-`FOUNDRY_FLEET_PATH`)로 다른 플릿 파일을 읽을 수 있습니다. 그런 다음 실측 아레나를 그 플릿으로
+`FOUNDRY_FLEET_PATH`)로 다른 플릿 파일을 읽을 수 있습니다. 그런 다음 실측 네 방식 비교를 그 플릿으로
 돌립니다:
 
 ```bash
-cost-router foundry arena --fleet .foundry-fleet.local.yaml         # 미리보기 (slate 출력)
+cost-router foundry arena --fleet .foundry-fleet.local.yaml         # 미리보기 (role assignment 출력)
 cost-router foundry arena --fleet .foundry-fleet.local.yaml --live  # 실제 호출 → measured=true
 ```
 

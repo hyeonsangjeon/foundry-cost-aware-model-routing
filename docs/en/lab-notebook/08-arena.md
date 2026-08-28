@@ -12,8 +12,8 @@
 ## What this experiment is
 
 - **Situation (when):** other dashboard panels summarize a 100-task workload. A new
-  user also needs to *"runs the same one problem several ways and compares cost, performance, and accuracy by eye."* There was no "5-minute wow."
-- **Task (what):** we built an **arena** that scores four approaches on a single task and put it in both the web app and the CLI. Cost and accuracy **reuse the existing offline machine** as-is (`classify_task` · `candidates_for` · `pricing.cost_usd` · `is_clean` · `ordered_select`), matching the aggregate panels by construction, and we newly added a **third axis, latency**, as an illustrative projection.
+  user also needs to *"runs the same one problem several ways and compares cost, performance, and accuracy by eye."* That immediate view was missing.
+- **Task (what):** we built **the four-way comparison (the `arena` command)** that scores four approaches on a single task and put it in both the web app and the CLI. Cost and accuracy **reuse the existing offline machine** as-is (`classify_task` · `candidates_for` · `pricing.cost_usd` · `is_clean` · `ordered_select`), matching the aggregate panels by construction, and we newly added a **third axis, latency**, as an illustrative projection.
 - **Experiment (what it tests):** on the default `t-0003`, that (1) the router **wins on cost** (the cheapest correct answer), (2) **accuracy is shared by the three approaches that pass** (only the cheapest model fails), and yet (3) the router is **slowest on latency** (1.25× premium) — the hero's hidden price.
 
 This page applies the earlier comparisons to one task and adds **latency**, which the
@@ -22,7 +22,7 @@ It follows experiments 01 · 02, 03 · 04, and 05 · 06 · 07.
 
 ## Aggregate results ↔ one-task comparison
 
-| | Experiments 01–07 (aggregate) | Experiment 08 (arena) |
+| | Experiments 01–07 (aggregate) | Experiment 08 (four-way comparison) |
 | --- | --- | --- |
 | Unit | 100 tasks (or 5 curated) as **one point** | **one task** across four columns |
 | Axes | cost × coverage | cost × **latency** × accuracy (pass/fail) |
@@ -30,7 +30,7 @@ It follows experiments 01 · 02, 03 · 04, and 05 · 06 · 07.
 | Question | "which strategy wins across the whole workload" | "what does each method produce on this one problem" |
 
 !!! note "This is a lens, not a contract experiment"
-    Experiments 01–07 cover workloads and each has an `expect` contract. The arena
+    Experiments 01–07 cover workloads and each has an `expect` contract. The four-way comparison
     runs one task several ways, so it has no `expect` floor. Instead,
     `tests/test_arena.py` pins every number, the cost convention, latency projection,
     winner logic, and endpoint/CLI shape.
@@ -48,10 +48,10 @@ The billing convention is the same as elsewhere in the repo: the router matches 
 
 ## Input test data — a problem you can read
 
-At first the arena showed only a task's **metadata** (class · difficulty · token counts). There was no answer to "so **what problem** is this?" So we attached **human-readable problem statements** to the 5 curated tasks — `samples/prompts/curated-arena.sample.json` holds a `title` · `prompt` · `acceptance` (pass criteria) per task, shown in both the CLI (a `problem` block) and the web app (a problem card). For example, `t-0003` is *"patch parse_duration to also handle combined units like '1h30m' — reject empty/malformed input, keep the existing single-unit tests green."*
+At first the four-way comparison showed only a task's **metadata** (class · difficulty · token counts). There was no answer to "so **what problem** is this?" So we attached **human-readable problem statements** to the 5 curated tasks — `samples/prompts/curated-arena.sample.json` holds a `title` · `prompt` · `acceptance` (pass criteria) per task, shown in both the CLI (a `problem` block) and the web app (a problem card). For example, `t-0003` is *"patch parse_duration to also handle combined units like '1h30m' — reject empty/malformed input, keep the existing single-unit tests green."*
 
 !!! warning "These are authored (synthetic) prompts — not a public benchmark (`measured = false`)"
-    These problem statements are **synthetic examples the repo authored itself** (`problem_basis = authored-synthetic`). We did **not** paste in problems from named public benchmarks like HumanEval or MBPP — doing so would dishonestly imply the repo's synthetic pass/fail signals are that benchmark's **measured evaluation results**. Real public data + real grading is possible only in the [live measured bridge](../manual/foundry-live.md) (`measured = true`, credentials · network · real cost). **Important:** the prompts are **display-only** and do not affect classification or cost — all five tasks carry an explicit `class` field, so `classify_task` never reads the prompt text, and attaching problem statements leaves the pinned numbers above **unchanged** (`tests/test_arena.py` pins this invariant).
+    These problem statements are **synthetic examples the repo authored itself** (`problem_basis = authored-synthetic`). We did **not** paste in problems from named public benchmarks like HumanEval or MBPP — doing so would dishonestly imply the repo's synthetic pass/fail signals are that benchmark's **measured evaluation results**. Real public data + real grading is possible only in the [live measurement adapter](../manual/foundry-live.md) (`measured = true`, credentials · network · real cost). **Important:** the prompts are **display-only** and do not affect classification or cost — all five tasks carry an explicit `class` field, so `classify_task` never reads the prompt text, and attaching problem statements leaves the pinned numbers above **unchanged** (`tests/test_arena.py` pins this invariant).
 
 ## Result — default task `t-0003` (repo_patch, medium)
 
@@ -87,7 +87,7 @@ premium call, while a batch path may prefer the lower-cost router. The table sho
 both results for the same task.
 
 !!! warning "Latency is an illustrative projection (`measured = false`, not wall-clock)"
-    The bundled telemetry has no timing. So latency is an **illustrative projection** that turns token counts into ms with a per-tier throughput model — `latency = (150 + 90·tier) + 1000·(output+reasoning tokens)/(200 − 28·tier)`, ensemble = parallel (max), router = sequential (sum). It exists only to give the third axis a **shape**, not real wall-clock. Real latency has to be measured with real calls in the [live measured bridge](../manual/foundry-live.md). We flag it consistently across UI · CLI · docs as a **different source** from cost/accuracy (offline projection).
+    The bundled telemetry has no timing. So latency is an **illustrative projection** that turns token counts into ms with a per-tier throughput model — `latency = (150 + 90·tier) + 1000·(output+reasoning tokens)/(200 − 28·tier)`, ensemble = parallel (max), router = sequential (sum). It exists only to give the third axis a **shape**, not real wall-clock. Real latency has to be measured with real calls in the [live measurement adapter](../manual/foundry-live.md). We flag it consistently across UI · CLI · docs as a **different source** from cost/accuracy (offline projection).
 
 ## Contrast — easy task `t-0001` (generate, easy)
 
@@ -102,11 +102,11 @@ On an easy task the **cheapest model wins all three axes**. The router picks
 mini-fast and stops because the first try passes. Premium and ensemble spend
 $0.0065 · $0.0083, **up to 17×**, without changing the pass result.
 
-## See it in the web app — the arena panel
+## See it in the web app — the four-way comparison panel
 
-Below the dashboard spotlight we added a **"one problem, four ways"** panel:
+Below the dashboard's representative task card (Spotlight card) we added a **"one problem, four ways"** panel:
 
-- **Task chips** — click one of the 5 curated tasks (t-0001/0003/0004/0005/0006) to switch. One payload holds every task's arena, so it changes **without a round trip**.
+- **Task chips** — click one of the 5 curated tasks (t-0001/0003/0004/0005/0006) to switch. One payload holds every task's four-way comparison, so it changes **without a round trip**.
 - **Four cards** — model · cost · latency · accuracy per approach. It **highlights the winner by axis** (cost = cheapest pass, latency = fastest pass, accuracy = all that pass) and gives the router card a hero border.
 - **A verdict line** — a one-line summary auto-generated per task, like "the router delivers the correct answer 2.5× cheaper than premium, but is slowest because escalation is sequential."
 
@@ -119,7 +119,7 @@ Below the dashboard spotlight we added a **"one problem, four ways"** panel:
 2. **Latency is a new illustrative projection.** It shows only the **relative shape** between approaches (router = sequential sum, ensemble = parallel max); the absolute ms are not measured. Measure it for real before making a real-time decision.
 3. **Accuracy is binary.** Approaches that pass are **equally** correct, so we don't crown only the router but credit all three that pass. Only the cheapest model fails.
 
-So the honest rule: *the arena meters "for this problem, each method's cost, (illustrative) latency, and whether it's correct" at a glance. Trust cost and accuracy as-is, but confirm latency with the measured bridge.*
+So the honest rule: *the four-way comparison meters "for this problem, each method's cost, (illustrative) latency, and whether it's correct" at a glance. Trust cost and accuracy as-is, but confirm latency with the measurement adapter.*
 
 ## When to use this experiment
 
@@ -173,6 +173,6 @@ cost-router foundry live --live \
   --pricing  samples/pricing/your-tenant.yaml --store runs.jsonl
 ```
 
-Cost is computed from real billed usage and becomes `measured = true`, and the result is recorded on the historical dashboard. **Boundary:** the prompts are authored-synthetic, but the **usage and cost** you get by sending them are measured. To measure accuracy (pass/fail) as well, you must inject a `grader`; without one, coverage is labeled as an offline-signal projection. For details, see the [live measured bridge](../manual/foundry-live.md).
+Cost is computed from real billed usage and becomes `measured = true`, and the result is recorded on the historical dashboard. **Boundary:** the prompts are authored-synthetic, but the **usage and cost** you get by sending them are measured. To measure accuracy (pass/fail) as well, you must inject a `grader`; without one, coverage is labeled as an offline-signal projection. For details, see the [live measurement adapter](../manual/foundry-live.md).
 
 For the full manual, see [one problem, four ways](../manual/head-to-head.md), and for the development context, the 2026-07-20 entry in the [development log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).
