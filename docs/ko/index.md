@@ -13,7 +13,7 @@
     실제 Azure Foundry 실측에서 `router-cost`(Model Router의 Cost 모드)의 비용은
     `direct-premium`(프리미엄 모델 직접 호출 · `gpt-5.6-sol`)보다 **95.2% 낮았습니다**.
     통과율 차이는 **4.17%p** 이내였습니다. 이 결과는 24과제·단일 테넌트·1회 측정에서
-    나왔으므로 방향성(publishable) 결과이지 통계적 신뢰가 아닙니다.
+    나왔으므로 방향성 신호이지 통계적 신뢰가 아닙니다. 사전등록한 공개 기준은 통과했습니다.
     → [라우팅 모드 실측 결과 대시보드](manual/03d-results.md)
 
 결과를 비교하기 전에 Foundry가 이미 하는 일과 이 저장소가 더하는 일을 나눠 보겠습니다.
@@ -22,8 +22,8 @@
     Azure AI Foundry **내장 Model Router**는 배포 하나로 크로스 프로바이더 **모델 선택**을
     처리합니다. 이 저장소는 그것을 **대체하지 않습니다**. 실행 과정에 네 가지 통제를 더합니다.
     ① 답을 실행 신호로 확인하고 실패한 경우에만 상위 모델을 시도합니다(**검증**) · ② 선택하지
-    않은 후보까지 포함한 호출 비용을 합산합니다(**앙상블 세금**) · ③ 승인한 지출 한도에서
-    멈춥니다(**비용 거버너**) · ④ 다시 재생할 수 있는 기록에 모든 결정을 남깁니다(**감사 원장**). *내장
+    않은 후보까지 포함한 호출 비용을 합산합니다 · ③ 승인한 지출 한도에서
+    멈춥니다 · ④ 다시 재생할 수 있는 기록에 모든 결정을 남깁니다(**감사 원장**). *내장
     라우터는 모델을 고르고, 이 저장소는 결과를 확인하고 지출을 통제하고 실행 기록을 남깁니다.*
 
 [실험 07 · 라우팅 레이어](lab-notebook/07-model-router.md)는 모델을 한 번만 고르는 방식과
@@ -59,7 +59,7 @@
 git clone https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing
 cd foundry-cost-aware-model-routing
 pip install -e .          # cost-router 콘솔 스크립트 설치
-cost-router hero          # 플래그십 실험을 한 번에 실행
+cost-router hero          # 기본 비용·통과율 실험을 한 번에 실행
 ```
 
 `cost-router hero`가 출력하는 before/after 블록(합성 워크로드 100건):
@@ -97,16 +97,16 @@ cost-router hero --serve   # 실행 후 오프라인 대시보드를 띄웁니�
     호출도, 비밀값도 없고 **과금되는 라이브 대시보드가 아닙니다**. 숫자는
     `cost-router hero`와 동일하게 생성됩니다.
 
-## 목업이 아니라 당신의 Azure로 — 브라우저 콕핏
+## 목업이 아니라 당신의 Azure로 — 로컬 브라우저 실행 화면
 
-위 오프라인 데모는 읽기 전용이며 이미 측정해 커밋한 결과를 보여 줍니다. 로컬 콕핏은 같은
-화면을 **당신의 Foundry 배포로 실시간** 실행합니다. 브라우저에는 자격증명이 들어가지 않습니다.
+위 오프라인 데모는 읽기 전용이며 이미 측정해 커밋한 결과를 보여 줍니다. 로컬 버전은 같은 화면을
+실제 Foundry 배포에 대고 라이브로 실행합니다. 브라우저에는 자격증명이 들어가지 않습니다.
 `127.0.0.1`과 세션 토큰만 쓰고 Entra 로그인은 `az login`에서 읽습니다.
 
-!!! note "콕핏은 최신 측정 배선을 반영하는 작업이 진행 중입니다 (이슈 #55)"
-    콕핏 실행 경로에는 아직 최신 측정 배선(03B-2 v2 요율 · 03D-1 채점 브리지)이 없습니다.
+!!! note "브라우저 실행 화면에 최신 측정 경로를 반영하는 작업이 진행 중입니다 (이슈 #55)"
+    브라우저 실행 화면에는 아직 최신 측정 경로(03B-2 v2 요율 · 03D-1 채점 연결)가 없습니다.
     예를 들어 라이브 클라이언트는 `max_output_tokens`를 설정하지 않아 기본값 512를 씁니다.
-    지금 **정확한 실측은 CLI 경로**를 사용하세요. 배선 상세는
+    지금 **정확한 실측은 CLI 경로**를 사용하세요. 측정 반영 상세는
     [이슈 #55](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/issues/55),
     측정 방법은 [측정 프로토콜](manual/measurement-protocol.md)을 보세요.
 
@@ -116,9 +116,9 @@ cost-router dashboard --live  # 127.0.0.1 + 임의 포트 + 세션 토큰 URL �
 ```
 
 같은 UI에서 먼저 연결을 확인하고 나갈 프롬프트와 dry-run 비용을 보여 줍니다. 사람이
-**승인하고 실행**(사람 게이트)을 선택하기 전에는 실행하지 않습니다. 그다음 실시간 진행 상황을
+**승인하고 실행**을 선택하기 전에는 실행하지 않습니다. 그다음 실시간 진행 상황을
 보여 주고 `results/cockpit/<run-id>` 스냅샷을 재생합니다. 전체 설정은
-[Foundry 실전 구성](manual/foundry-setup.md) → [커스터마이징·콕핏](manual/customize.md) →
+[Foundry 실전 구성](manual/foundry-setup.md) → [커스터마이징·브라우저 실행 화면](manual/customize.md) →
 [감사 원장](manual/ledger.md) 순서로 진행하면 됩니다.
 
 ## 무엇을 보게 되나요
@@ -133,12 +133,12 @@ cost-router dashboard --live  # 127.0.0.1 + 임의 포트 + 세션 토큰 URL �
     `direct-premium`보다 **95.2% 낮았습니다**. 통과율 차이는 4.17%p 이내였습니다.
     → [라우팅 모드 실측 결과](manual/03d-results.md)
 
--   :material-rocket-launch: **히어로 실행 모드**
+-   :material-rocket-launch: **기본 실행 모드**
 
     ---
 
     한 커맨드가 before/after 결과, 스포트라이트 태스크, 재현성 자체 점검을 출력합니다.
-    → [실험 01 · 히어로](lab-notebook/01-hero.md)
+    → [실험 01 · 저렴한 모델 우선 라우팅](lab-notebook/01-hero.md)
 
 -   :material-scale-balance: **같은 통과율, 더 낮은 비용**
 

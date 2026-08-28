@@ -196,3 +196,105 @@ def test_rule_d_is_wired_into_find_violations(tmp_path, monkeypatch):
 def test_rule_d_is_clean_on_the_repository():
     violations = terminology.check_no_retired_terminology()
     assert violations == [], "\n".join(violations)
+
+
+# --- Rule E — retired first-screen jargon (BOLT-10 / #137) ------------------
+#
+# Direction 1 — reintroduction must fail. Each line is the shape of the coinage
+# the confirmed wording replaced on README / docs/en/index.md / docs/ko/index.md,
+# so these are what a future edit would drift back to. If one stops being flagged,
+# Rule E has gone blind for that term. Order matches RETIRED_FIRST_SCREEN_TERMS.
+FIRST_SCREEN_REINTRODUCTIONS = (
+    ("cockpit", "The local cockpit runs the same screen live against your Foundry."),
+    ("콕핏", "로컬 콕핏은 같은 화면을 실시간으로 실행합니다."),
+    ("ensemble tax", "It totals the extra candidate-call cost (**ensemble tax**)."),
+    ("앙상블 세금", "선택하지 않은 후보까지 포함한 호출 비용(**앙상블 세금**)을 합산합니다."),
+    ("cost governor", "It stops at the approved spending limit (**cost governor**)."),
+    ("비용 거버너", "승인한 지출 한도에서 멈춥니다(**비용 거버너**)."),
+    ("wiring", "Read it as a five-prompt wiring proof, not a benchmark."),
+    ("배선", "아직 최신 측정 배선이 반영되지 않았습니다."),
+    ("human gate", "Nothing runs until a person chooses approve and run (the human gate)."),
+    ("사람 게이트", "**승인하고 실행**(사람 게이트)을 선택하기 전에는 실행하지 않습니다."),
+    ("flagship", "The flagship experiment runs in one shot."),
+    ("플래그십", "플래그십 실험을 한 번에 실행합니다."),
+)
+
+FIRST_SCREEN_IDS = (
+    "cockpit-en", "cockpit-ko", "ensemble-tax-en", "ensemble-tax-ko",
+    "cost-governor-en", "cost-governor-ko", "wiring-en", "wiring-ko",
+    "human-gate-en", "human-gate-ko", "flagship-en", "flagship-ko",
+)
+
+
+@pytest.mark.parametrize(("retired", "line"), FIRST_SCREEN_REINTRODUCTIONS, ids=FIRST_SCREEN_IDS)
+def test_reintroducing_a_first_screen_term_is_flagged(retired: str, line: str):
+    hits = [name for name, _ in terminology.retired_first_screen_terms_in(line)]
+    assert retired in hits, f"Rule E missed retired '{retired}' in: {line}"
+
+
+@pytest.mark.parametrize(("retired", "line"), FIRST_SCREEN_REINTRODUCTIONS, ids=FIRST_SCREEN_IDS)
+def test_the_first_screen_failure_names_what_to_write_instead(retired: str, line: str):
+    """A denylist that only says "no" leaves the next author guessing."""
+    replacement = dict(terminology.retired_first_screen_terms_in(line))[retired]
+    assert replacement and retired not in replacement
+
+
+def test_rule_e_covers_the_expected_terms():
+    """Every gated term has a reintroduction probe, and vice versa."""
+    assert [retired for _, retired, _ in terminology.RETIRED_FIRST_SCREEN_TERMS] == [
+        retired for retired, _ in FIRST_SCREEN_REINTRODUCTIONS
+    ]
+
+
+def test_rule_e_masks_the_cockpit_path_token():
+    """`results/cockpit/<run-id>` in a code span is a path, not prose.
+
+    Both directions in one probe: unfenced, the same word is caught — so the mask
+    is genuinely load-bearing, not a rule that would pass either way.
+    """
+    masked = "then shows live progress and replays the `results/cockpit/<run-id>` snapshot."
+    assert terminology.retired_first_screen_terms_in(masked) == []
+    assert [t for t, _ in terminology.retired_first_screen_terms_in("the cockpit run path")] == [
+        "cockpit"
+    ]
+
+
+def test_rule_e_keeps_the_cockpit_path_token_in_the_real_docs():
+    """The `results/cockpit/<run-id>` keep case lives in both index files today.
+
+    Read from the tree (not transcribed) so the probe fails loudly if the token
+    moves out of code into prose instead of silently checking nothing.
+    """
+    seen = 0
+    for rel in terminology.FIRST_SCREEN_SURFACES:
+        for line in (REPO_ROOT / rel).read_text(encoding="utf-8").splitlines():
+            if "results/cockpit/<run-id>" in line:
+                seen += 1
+                assert terminology.retired_first_screen_terms_in(line) == [], (
+                    f"{rel}: cockpit path token read as prose:\n    {line.strip()}"
+                )
+    assert seen >= 2, "the cockpit-path keep case vanished from the home surfaces"
+
+
+def test_rule_e_skips_fenced_cli_comments(tmp_path, monkeypatch):
+    """A retired word in a ```bash comment is code, not prose — Rule E skips it."""
+    body = "```bash\ncost-router hero   # run the flagship experiment\n```\n"
+    (tmp_path / "home.md").write_text(body, encoding="utf-8")
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "FIRST_SCREEN_SURFACES", ("home.md",))
+    assert terminology.check_no_retired_first_screen_terms() == []
+    # break-the-rule: the same comment as bare prose is caught, so the skip matters.
+    assert terminology.retired_first_screen_terms_in("run the flagship experiment")
+
+
+def test_rule_e_is_wired_into_find_violations(tmp_path, monkeypatch):
+    """Rule E has to reach the exit code, not just be importable."""
+    (tmp_path / "home.md").write_text("The local cockpit runs the screen.\n", encoding="utf-8")
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "FIRST_SCREEN_SURFACES", ("home.md",))
+    assert any("retired 'cockpit'" in v for v in terminology.find_violations())
+
+
+def test_rule_e_is_clean_on_the_repository():
+    violations = terminology.check_no_retired_first_screen_terms()
+    assert violations == [], "\n".join(violations)

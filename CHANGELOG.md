@@ -41,6 +41,22 @@ All notable changes to this project are documented here.
 - Local budget gate, replay scripts, and eval summary for sample fixtures.
 
 ### Changed
+- **Plain-language home surfaces, and a gate against the jargon returning.**
+  The reader's first screen in each language — `README.md`, `docs/en/index.md`,
+  `docs/ko/index.md` — dropped repo-coined jargon for plain product wording:
+  cockpit → the (local) browser run screen, wiring proof → an end-to-end
+  call-path check, flagship/hero prose → the default cost-and-coverage
+  experiment (and experiment 01's public name → *Try-cheap-first routing* /
+  저렴한 모델 우선 라우팅), while the *ensemble tax*, *cost governor* and *human
+  gate* coinages were deleted outright. The one-measurement caveat now reads as
+  two plain sentences (a directional signal; the run passed its pre-registered
+  reporting criteria) instead of "directional (publishable)". CLI identifiers
+  (`cost-router hero`), path tokens (`results/cockpit/<run-id>`), product names
+  (Model Router) and the "complementary, not a replacement" frame are unchanged.
+  `scripts/check_terminology.py` gains **Rule E**, which fails the build if any
+  retired coinage returns to those three surfaces, with code spans and fenced
+  CLI comments masked so an identifier is never read as prose; a tree-wide sweep
+  is deferred because the same words still stand on later-wave surfaces.
 - **Korean docs terminology, and a gate against it drifting back.** Six English
   fragments in `docs/ko` prose were restored to the wording the docs already
   used on other pages — 아암 → 비교 전략, prereg → 사전등록, pinned 요율 → 고정
