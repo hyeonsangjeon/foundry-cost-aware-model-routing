@@ -4,10 +4,10 @@
 > truth** that gathers the headline figures of **experiments 01–08** in one place.
 > Every value is a **deterministic offline calculation** over a synthetic workload,
 > not a measurement of real Azure spend. The measured (`measured=true`) results live
-> separately in [Routing-mode measured results · 03D](03d-results.md).
+> separately in [Routing-mode measured results](routing-measured-results.md).
 
 !!! abstract "This page's role — the canonical source for the offline figures"
-    The flagship savings, the extra cost to call several candidate models in parallel (fan-out), and the
+    The default experiment's savings, the extra cost to call several candidate models in parallel (fan-out), and the
     single-call gap appear on several pages. When an experiment is run again, updating
     every copy can leave conflicting numbers. This page is the **canonical source for
     these values**. Other pages **link** here instead of maintaining another copy.
@@ -29,8 +29,8 @@
 
 | Metric | Value | Source experiment |
 | --- | --- | --- |
-| Flagship savings — cost-aware vs `direct-premium` (premium on every task) | **25.5%** ($2.23 → $1.66) | [Experiment 01 · Flagship run](../lab-notebook/01-hero.md) |
-| Pass rate (cost-aware routing, 100 synthetic tasks) | **100%** (100/100) | [Experiment 01 · Flagship run](../lab-notebook/01-hero.md) |
+| Default-experiment savings — cost-aware vs `direct-premium` (premium on every task) | **25.5%** ($2.23 → $1.66) | [Experiment 01 · Try-cheap-first routing](../lab-notebook/01-hero.md) |
+| Pass rate (cost-aware routing, 100 synthetic tasks) | **100%** (100/100) | [Experiment 01 · Try-cheap-first routing](../lab-notebook/01-hero.md) |
 | Extra cost from calling every candidate | **3.74×** | [Experiment 05 · Ensemble fan-out](../lab-notebook/05-ensemble-fanout.md) |
 | single-call pass-rate gap | **+48%p** (52% → 100%) | [Experiment 07 · Routing layer](../lab-notebook/07-model-router.md) |
 
@@ -38,7 +38,7 @@ The reproduction command for each value is in the sections below. Every value is
 `labels.measured = false`. Percentages and dollars follow the display-precision
 convention (savings `%.1f%%`, cost `$%.2f`).
 
-## Flagship — same pass rate, lower cost
+## The default experiment — same pass rate, lower cost
 
 On a synthetic workload of **100 tasks**, cost-aware routing and the direct-premium
 baseline both reach a **100% pass rate**. Calling the premium model on every task costs
@@ -48,7 +48,7 @@ $2.23; routing costs $1.66, or **−25.5%**.
 cost-router hero --json        # total_cost·baseline·delta_pct·coverage
 ```
 
-- **Source:** [Experiment 01 · Flagship run](../lab-notebook/01-hero.md) · config `experiments/hero.yaml`.
+- **Source:** [Experiment 01 · Try-cheap-first routing](../lab-notebook/01-hero.md) · config `experiments/hero.yaml`.
 
 ## Calling every candidate costs more
 
@@ -84,5 +84,5 @@ cost-router experiment run single-call --json  # single-call vs mix coverage·co
   billed calls. They replay the same values every time from the same workload and
   signals.
 - **Honesty label:** every figure on this page is `measured = false` (an offline
-  calculation). Measured values are in the [03D measured results](03d-results.md), and
+  calculation). Measured values are in the [measured results](routing-measured-results.md), and
   the honesty boundaries as a whole are in the [Honesty Charter](../honesty.md).

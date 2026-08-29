@@ -79,7 +79,7 @@ This repository holds **13 experiments (01–13)** — a projection track (01–
 measured track (09–13). The canonical figures for the projection track are collected
 in [offline experiment results](../manual/projection-results.md).
 
-- [Experiment 01 · Flagship](01-hero.md) — 100 synthetic tasks; 25.5% saved while holding coverage
+- [Experiment 01 · Try-cheap-first routing](01-hero.md) — 100 synthetic tasks; 25.5% saved while holding coverage
 - [Experiment 02 · Curated sample](02-curated.md) — five tasks you can follow by eye; 56.7% saved
 - [Experiment 03 · the pass-rate cliff](03-coverage-cliff.md) — removing the expensive fallback drops coverage from 100% → 67%
 - [Experiment 04 · No free lunch](04-no-free-lunch.md) — when only the top model passes, routing saves 0% at 100% coverage

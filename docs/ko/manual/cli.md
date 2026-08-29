@@ -25,7 +25,7 @@ cost-router --version
 
 ## hero — 히어로 실행 모드
 
-플래그십 실험(`experiments/hero.yaml`)을 한 번에 실행하고 before/after · 대표 태스크 ·
+기본 비용·통과율 실험(`experiments/hero.yaml`)을 한 번에 실행하고 before/after · 대표 태스크 ·
 재현성 자체 점검을 출력합니다. 재현성 통과 기준을 통과하지 못하면 **0이 아닌 코드**로 종료합니다.
 
 ```bash

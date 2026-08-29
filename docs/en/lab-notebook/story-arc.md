@@ -23,7 +23,7 @@ reproduction steps; "when, and what was done" lives in the
 
     - **① Verify-then-adopt** — accept only when execution signals are clean, escalate the failures (gains in 01·02, guardrails in 03·04)
     - **② All-candidate call accounting** — count every candidate instead of the winner alone (3.74×) ([05](05-ensemble-fanout.md))
-    - **③ Cost governor** — use a budget gate to reduce those extra calls (3.74× → $0) ([06](06-fanout-dial.md))
+    - **③ Spending limit** — use a budget gate to reduce those extra calls (3.74× → $0) ([06](06-fanout-dial.md))
     - **④ Audit trace** — seal measured runs into a tamper-evident, cost-replayable ledger ([09](09-live-routing-proof.md)·[10](10-measured-ledger.md))
 
     And **[experiment 07](07-model-router.md)** *is* that contrast — the generic
@@ -35,11 +35,11 @@ reproduction steps; "when, and what was done" lives in the
 
 | # | Question | Result | What it proves |
 | --- | --- | --- | --- |
-| [01 · Flagship](01-hero.md) | Routing on a realistic 100-task workload? | 100% coverage, **−25.5%** ($2.23 → $1.66) | the gain is real |
+| [01 · Try-cheap-first routing](01-hero.md) | Routing on a realistic 100-task workload? | 100% coverage, **−25.5%** ($2.23 → $1.66) | the gain is real |
 | [02 · Curated](02-curated.md) | Five tasks you can follow by eye? | 100% coverage, **−56.7%** ($0.13 → $0.06) | verify the gain task by task |
 | [03 · the pass-rate cliff](03-coverage-cliff.md) | Delete the expensive fallback to save more? | looks cheaper, but coverage **100% → 67%** (−33%p) | cost without pinned coverage is meaningless |
 | [04 · No free lunch](04-no-free-lunch.md) | A workload where only the top model passes? | 100% coverage, **0%** saved | routing doesn't invent savings that aren't there |
-| [05 · Ensemble tax](05-ensemble-fanout.md) | What does "just ensemble everything" cost? | 100% coverage, −47% + fan-out **3.74×** | every candidate call is billed |
+| [05 · All-candidate call cost](05-ensemble-fanout.md) | What does "just ensemble everything" cost? | 100% coverage, −47% + fan-out **3.74×** | every candidate call is billed |
 | [06 · fan-out threshold](06-fanout-dial.md) | Remove unnecessary fan-out? | coverage/savings unchanged, extra-call ratio **3.74× → $0** | fewer calls, same result |
 | [07 · Routing layer](07-model-router.md) | Pick once (`single-call`)? | single-call **52%** vs mix **100%** (+48%p gain) | the value of observing = coverage regained |
 | [08 · the four-way comparison](08-arena.md) *(epilogue)* | This one problem, four ways? | router = cheapest correct but **slowest** (sequential) | even the winner pays a **latency** price |
@@ -86,7 +86,7 @@ inflate**. So the natural next move — *push harder?*
 
 Act 3 tests two ways to do more work and records what each one costs.
 
-- **Experiment 05 (ensemble tax):** **run everything.** Ensemble (compare) calls all
+- **Experiment 05 (all-candidate call cost):** **run everything.** Ensemble (compare) calls all
   candidates and keeps one winner. Coverage fills, but the run costs
   **3.74× the winner** because the losing candidates are billed too. Azure
   Foundry-shaped metrics record those calls.

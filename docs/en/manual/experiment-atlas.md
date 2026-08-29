@@ -1,4 +1,4 @@
-# Experiment Atlas — how each experiment is built
+# Experiment Atlas — how each experiment is configured
 
 > **English visual manual.** The Experiment Atlas — how each experiment is configured — opens the hood. The dashboard's **Experiments — click for the metrics** strip has six
 > tabs — `adaptive`, `curated`, `ensemble`, `hero`, `limits`, `single-call`. Each one re-runs the
@@ -55,7 +55,7 @@ Under the hood, one task flows through four layers (detailed in [Core concepts](
 1. CLASSIFY  task → {plan, generate, test, validate, repo_patch}
 2. POLICY    task class → ordered candidate models (pass-rate, $/resolved priors)
 3. SELECT    cost-aware single route (cheapest-clean-first); escalate/fan-out on failure
-4. GOVERN    a cost governor decides — before spending — whether a task is worth fanning out
+4. GOVERN    a spending limit decides — before spending — whether a task is worth fanning out
 ```
 
 Only **layer 3 (SELECT)** changes shape between experiments. There are exactly **three shapes**.
@@ -126,7 +126,7 @@ They are generated deterministically from the numbers above by
 | **Processes** | 100 synthetic tasks (deterministic offline signals, `synth: true`) |
 | **Models** | full ladder per class (mini-fast … premium-max) |
 | **Mechanism** | **Ordered escalation** |
-| **Dial** | none — the flagship default |
+| **Dial** | none — the default configuration |
 | **Headline** | **100% coverage · −25.5%** vs premium-on-every-task ($2.23 → $1.66) |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100` |
 
@@ -333,7 +333,7 @@ byte-identical replay). The three 03D charts below are this run's evidence.
 
 ![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.en.svg)
 ![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.en.svg)
-→ [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · full charts: [03D measured results](03d-results.md)
+→ [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · full charts: [measured results](routing-measured-results.md)
 
 ### `13` · the paid router-mode run that audited the rate card
 

@@ -201,9 +201,10 @@ def test_rule_d_is_clean_on_the_repository():
 # --- Rule E — retired first-screen jargon (BOLT-10 / #137) ------------------
 #
 # Direction 1 — reintroduction must fail. Each line is the shape of the coinage
-# the confirmed wording replaced on README / docs/en/index.md / docs/ko/index.md,
-# so these are what a future edit would drift back to. If one stops being flagged,
-# Rule E has gone blind for that term. Order matches RETIRED_FIRST_SCREEN_TERMS.
+# the confirmed wording replaced; since BOLT-12 Rule E scans the whole docs tree
+# (README + every docs page), so these are what a future edit anywhere in docs
+# would drift back to. If one stops being flagged, Rule E has gone blind for that
+# term. Order matches RETIRED_FIRST_SCREEN_TERMS.
 FIRST_SCREEN_REINTRODUCTIONS = (
     ("cockpit", "The local cockpit runs the same screen live against your Foundry."),
     ("콕핏", "로컬 콕핏은 같은 화면을 실시간으로 실행합니다."),
@@ -300,6 +301,37 @@ def test_rule_e_is_clean_on_the_repository():
     assert violations == [], "\n".join(violations)
 
 
+def test_rule_e_now_scans_inner_pages_tree_wide(tmp_path, monkeypatch):
+    """BOLT-12 widened Rule E from the first screen to every docs page: a BOLT-10
+    coinage on an inner manual page must fail now, where before it was out of
+    scope. The H1 is still skipped, so only the body line is flagged."""
+    page = tmp_path / "docs" / "en" / "manual" / "concept.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "# The flagship experiment\n\nThe flagship experiment runs in one shot.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "FIRST_SCREEN_SURFACES", ())  # inner page only
+    monkeypatch.setattr(terminology, "INNER_PAGE_LOCALES", ("docs/en",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("manual",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
+    violations = terminology.check_no_retired_first_screen_terms()
+    assert len(violations) == 1, violations       # the body line, not the H1
+    assert ":3" in violations[0] and "flagship" in violations[0]
+
+
+def test_wiring_moved_from_rule_f_to_rule_e():
+    """Dedupe: wiring / 배선 is now owned by Rule E (tree-wide), so Rule F must no
+    longer gate it, while Rule E still catches the same line — no double-gating."""
+    for line in ("For wiring details, see the section below.", "측정 배선이 빠졌습니다."):
+        assert terminology.retired_inner_page_terms_in(line) == [], line
+    assert [t for t, _ in terminology.retired_first_screen_terms_in(
+        "For wiring details, see the section below.")] == ["wiring"]
+    assert [t for t, _ in terminology.retired_first_screen_terms_in(
+        "측정 배선이 빠졌습니다.")] == ["배선"]
+
+
 # --- Rule F — retired inner-page jargon (BOLT-11 / #138) --------------------
 #
 # The BOLT-11 sibling of Rule E: the same denylist mechanism, on the inner
@@ -310,9 +342,6 @@ def test_rule_e_is_clean_on_the_repository():
 INNER_PAGE_REINTRODUCTIONS = (
     ("measured/measurement bridge", "The router's decision plugs in through the measured bridge."),
     ("측정 브리지/브릿지", "실제 라우터의 결정을 측정 브리지로 끼워 넣습니다."),
-    ("wiring proof", "Read it as a five-prompt wiring proof, not a benchmark."),
-    ("wiring", "For wiring details, see the section below."),
-    ("배선", "아직 최신 측정 배선이 반영되지 않았습니다."),
     ("spotlight", "The experiment spotlight shows the representative task."),
     ("스포트라이트", "실험 스포트라이트는 대표 태스크를 보여줍니다."),
     ("coverage cliff", "The coverage cliff shows the tasks a cheap-only router loses."),
@@ -334,7 +363,7 @@ INNER_PAGE_REINTRODUCTIONS = (
 )
 
 INNER_PAGE_IDS = (
-    "bridge-en", "bridge-ko", "wiring-proof-en", "wiring-en", "wiring-ko",
+    "bridge-en", "bridge-ko",
     "spotlight-en", "spotlight-ko", "coverage-cliff-en", "coverage-cliff-ko",
     "slate-en", "slate-ko", "fanout-dial-en", "fanout-dial-ko",
     "arena-en", "arena-ko", "wow-en", "wow-ko", "centerpiece-en", "centerpiece-ko",

@@ -21,7 +21,7 @@ Choose a model for each task instead of using one global default.
   (applied, compiled, self-tests pass, lint/types pass), never on a hunch.
 - If it fails those checks, **escalate** to the next candidate or a small
   **execution-graded ensemble**.
-- Before calling several models, let the **cost governor** decide whether that extra
+- Before calling several models, **a spending limit** decides whether that extra
   spend is justified for the task.
 
 Here **pass rate** means the share of tasks that were solved. The offline CLI and
@@ -34,7 +34,7 @@ audit trail on every decision**.
 !!! quote "An old field concern this project answers"
     "A multi-model approach is only worth it when the use case justifies the extra
     tokens and latency."
-    — the **cost governor** turns that concern into a rule checked before spending.
+    — **a spending limit** turns that concern into a rule checked before spending.
 
 !!! info "The built-in Model Router already does this well — this repo is the layer on top"
     Azure AI Foundry's **built-in Model Router** already handles **model selection**.
@@ -47,7 +47,7 @@ audit trail on every decision**.
     starts with the result the built-in router selected. It does not **replace** the
     router; it **complements** it. The next steps are separate:
     ① **verify** the result with execution signals and accept it only when clean ·
-    ② **escalate** after a failure · ③ use a **cost governor** to decide whether
+    ② **escalate** after a failure · ③ use a **spending limit** to decide whether
     calling an ensemble is worth the extra spend · ④ write every decision to an
     **auditable ledger** that is hash-chained and cost-replayable. All four are
     **implemented** here. **Azure API Management (APIM) governance** for quota, routing, and observability at
@@ -88,24 +88,24 @@ and the contract (every class present, `prior_usd_resolved` sorted non-decreasin
 and so on) is enforced by `PolicyTable.validate`.
 
 ### 3 · Select
-The governor chooses one of two ways to run the task:
+The router chooses one of two ways to run the task:
 
 - **Cost-aware single path** — try candidates from cheapest upward. Accept the first
   result whose verifiable signals are clean; move up only after a failure. Most of
   the savings come from this path.
 - **Execution-graded ensemble** — run several candidates, check them with execution
   signals, and use an LLM judge to break ties. It can raise the pass rate but also
-  costs more, so the governor uses it only for tasks marked as high value.
+  costs more, so the router uses it only for tasks marked as high value.
 
 ### 4 · Govern
-Before spending, the cost governor sets how much work the task may use: reasoning
+Before spending, a spending limit sets how much work the task may use: reasoning
 effort, pay-as-you-go (PAYG) vs Provisioned Throughput Units (PTU), handling of the `429 retry-after-ms`
 acceptance signal, and `prompt_cache_key` bucketing. The router consumes this layer
 as a **dependency** from the companion toolkit instead of reimplementing its math.
 
 ## Why "the cheapest bill" isn't the answer
 
-The flagship experiment runs 100 synthetic tasks through the single-call arms and
+The default cost-and-coverage experiment runs 100 synthetic tasks through the single-call arms and
 cost-aware routing.
 
 | arm | Selection | Pass rate | Cost |

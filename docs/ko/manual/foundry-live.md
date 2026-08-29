@@ -1,4 +1,4 @@
-# 라이브 실측 브릿지 · Azure Model Router
+# 라이브 실측 어댑터 · Azure Model Router
 
 저장소의 나머지 전부는 **합성 텔레메트리에 대한 오프라인 투영**(`measured = false`)입니다.
 이 페이지가 설명하는 `src/router/foundry_live.py`는 그 투영을 **실측**으로 바꾸는 **라이브 실측 어댑터**입니다 — 실제 Azure AI Foundry **Model Router** 배포에 진짜 프롬프트를

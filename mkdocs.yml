@@ -47,7 +47,7 @@ nav:
       - Core concepts: manual/concept.md
       - "Glossary · metrics and experiment arm labels": manual/glossary.md
   - Results:
-      - "Routing-mode measured results (03D)": manual/03d-results.md
+      - "Routing-mode measured results": manual/routing-measured-results.md
       - "[measured] Experiment 12 · router three modes · run 2 (measurement succeeded)": lab-notebook/12-router-modes-measured.md
       - "[measured] Experiment 13 · router three modes · run 3 (a gap in our own rate card)": lab-notebook/13-router-modes-rate-card-gap.md
       - "Offline experiment results · synthetic data": manual/projection-results.md
@@ -71,17 +71,17 @@ nav:
           - Experiment configuration (YAML): manual/experiments.md
       - Measured operations:
           - "Foundry hands-on setup · per-experiment": manual/foundry-setup.md
-          - "Fleet registration & model selection": manual/fleet.md
+          - "Fleet · model catalog & role assignment": manual/fleet.md
           - "Customization · bring your own workload": manual/customize.md
-          - Resolved run plan: manual/run-plan.md
+          - "The single approved run plan": manual/run-plan.md
           - Measurement protocol: manual/measurement-protocol.md
           - Audit ledger: manual/ledger.md
-          - The live measured bridge: manual/foundry-live.md
+          - "The live measurement adapter": manual/foundry-live.md
       - Screens · schema:
           - Dashboard: manual/dashboard.md
           - Metrics & Foundry: manual/metrics.md
       - Explainers:
-          - Experiment atlas: manual/experiment-atlas.md
+          - "Experiment atlas · how each experiment is configured": manual/experiment-atlas.md
           - "Workload inventory · what can be measured": manual/workload-inventory.md
           - "One problem, four ways": manual/head-to-head.md
           - "Prompt cache observed in the sealed runs": manual/prompt-cache-observed.md
@@ -118,9 +118,9 @@ plugins:
                 - 홈: index.md
                 - 30초 설치: manual/install.md
                 - 핵심 개념: manual/concept.md
-                - "용어집 · 지표와 실험 arm 라벨": manual/glossary.md
+                - "용어집 · 지표와 비교 전략(arm) 라벨": manual/glossary.md
             - 결과:
-                - "라우팅 모드 실측 결과 (03D)": manual/03d-results.md
+                - "라우팅 모드 실측 결과": manual/routing-measured-results.md
                 - "[실측] 실험 12 · 라우터 세 모드 비교 · 2차 (측정 성공)": lab-notebook/12-router-modes-measured.md
                 - "[실측] 실험 13 · 라우터 세 모드 비교 · 3차 (우리 요율 카드의 구멍)": lab-notebook/13-router-modes-rate-card-gap.md
                 - "오프라인 실험 결과 · 합성 데이터": manual/projection-results.md
@@ -145,17 +145,17 @@ plugins:
                     - 실험 설정(YAML): manual/experiments.md
                 - 실측 운영 절차:
                     - "Foundry 실전 구성 · 실험별 세팅": manual/foundry-setup.md
-                    - "플릿 등록 & 모델 선택": manual/fleet.md
+                    - "플릿 · 모델 목록과 역할 지정": manual/fleet.md
                     - "커스터마이징 · 내 워크로드로": manual/customize.md
-                    - 정본 실행 계획: manual/run-plan.md
+                    - "단일 승인 실행 계획": manual/run-plan.md
                     - 측정 프로토콜: manual/measurement-protocol.md
                     - 감사 원장: manual/ledger.md
-                    - 라이브 실측 브릿지: manual/foundry-live.md
+                    - "라이브 실측 어댑터": manual/foundry-live.md
                 - 화면 · 스키마:
                     - 대시보드: manual/dashboard.md
                     - 메트릭 & Foundry: manual/metrics.md
                 - 해설:
-                    - 실험 아틀라스: manual/experiment-atlas.md
+                    - "실험 아틀라스 · 실험 구성 안내": manual/experiment-atlas.md
                     - "워크로드 인벤토리 · 실측 가능성": manual/workload-inventory.md
                     - "문제 하나, 네 가지 방법": manual/head-to-head.md
                     - "봉인된 런에서 관측된 프롬프트 캐시": manual/prompt-cache-observed.md
@@ -163,6 +163,8 @@ plugins:
   - redirects:
       redirect_maps:
         lab-notebook/story-arc-en.md: https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc/
+        manual/03d-results.md: https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/routing-measured-results/
+        ko/manual/03d-results.md: https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/ko/manual/routing-measured-results/
 
 markdown_extensions:
   - admonition

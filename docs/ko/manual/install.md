@@ -34,7 +34,7 @@ pip install -e ".[dev]"     # 또는:  make dev
 ## 바로 실행
 
 ```bash
-cost-router hero            # 플래그십 실험 (합성 100건) — before/after 한 번에
+cost-router hero            # 기본 비용·통과율 실험 (합성 100건) — before/after 한 번에
 cost-router experiment list # 사용 가능한 실험 목록
 cost-router replay          # 큐레이션 샘플 재생
 cost-router replay --synth  # 전체 워크로드를 결정론적 신호로 재생

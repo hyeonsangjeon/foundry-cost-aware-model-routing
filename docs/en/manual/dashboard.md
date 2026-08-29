@@ -54,7 +54,7 @@ service's JSON endpoints.
   coverage, extra candidate-call cost, and reproducibility criteria appear at once. It reads
   Azure-Foundry-shaped offline metrics from `GET /experiments` (live) or `experiments.json` (static
   export). To see **which models and how** each tab is built as an animated SVG, see [Experiment
-  atlas](experiment-atlas.md); for reading the ensemble tax, see [Experiment 05 · Ensemble fan-out
+  atlas](experiment-atlas.md); for reading the extra candidate-call cost, see [Experiment 05 · Ensemble fan-out
   tax](../lab-notebook/05-ensemble-fanout.md).
 - **Historical dashboard** — a table of recorded experiment-run history. On a live server, one row
   accumulates each time you run an experiment (`GET /metrics/history`); in the static demo, it shows

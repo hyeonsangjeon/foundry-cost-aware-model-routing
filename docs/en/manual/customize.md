@@ -5,7 +5,7 @@ To do that you only change five places. Each one is a separate file, so you swap
 configuration without touching code. The `measured = false` projections run
 offline, right away; the `measured = true` measurements run after you set up `.env`
 + `az login` and press the approve button in the
-[local cockpit](../lab-notebook/09-live-routing-proof.md).
+[local browser run screen](../lab-notebook/09-live-routing-proof.md).
 
 ## The five places you change
 
@@ -94,10 +94,10 @@ offline, right away; the `measured = true` measurements run after you set up `.e
     calls). Only after "this is what goes out now" is visible on screen does the
     (paid) live call begin.
 
-## The browser cockpit — `cost-router dashboard --live`
+## The browser run screen — `cost-router dashboard --live`
 
 If you would rather walk **the same gates in a browser** instead of the CLI, use
-the local cockpit. It follows exactly the same order as the five-step recipe
+the browser run screen. It follows exactly the same order as the five-step recipe
 (check the connection → prompts · dry-run → approve → run → snapshot), right there
 in the dashboard.
 
@@ -108,9 +108,9 @@ cost-router dashboard --live  # 127.0.0.1-only + random port + a session-token U
 
 - **Binding.** It binds to `127.0.0.1` only and uses a random port. You must enter
   through the `http://127.0.0.1:<PORT>/?cockpit=1&token=…` URL printed to the
-  console for the cockpit to open. With a missing or wrong token the `/cockpit/*`
+  console for the browser run screen to open. With a missing or wrong token the `/cockpit/*`
   routes return 403, and the public (static) build has no `cockpit=1`, so the
-  cockpit itself is never rendered.
+  browser run screen itself is never rendered.
 - **Connection panel.** Reuses the **masked** output of `foundry status` verbatim —
   the endpoint (host only), whether Entra login is present, the deployment, the
   pricing file. **There is no credential input field** (read from the environment /
@@ -135,6 +135,6 @@ cost-router measure publish --run results/cockpit/<run-id>
 ```
 
 `--run` takes the snapshot directory the run actually sealed: `results/cockpit/<run-id>`
-for the cockpit above, `<artifacts.local_root>/run/<run-id>` for a `benchmark run --live`
+for the browser run screen above, `<artifacts.local_root>/run/<run-id>` for a `benchmark run --live`
 sweep (see [Measurement protocol](measurement-protocol.md) §3). The published JSON lands
 under `results/published/` regardless.

@@ -1,4 +1,4 @@
-# 라우팅 모드 실측 결과 · 03D Results
+# 라우팅 모드 실측 결과
 
 > **`measured=true` 유료 실측.** 실제 Azure AI Foundry에서 같은 24개 코딩 과제에 네 arm을
 > n=3으로 돌렸다. 네 arm은 `router-cost`(Model Router의 Cost 모드), `router-balanced`(Model Router의

@@ -60,8 +60,22 @@ MKDOCS_YML = REPO_ROOT / "mkdocs.yml"
 KO_ONLY_PAGES = {"lab-notebook/devlog"}          # operator decision (b)
 # Redirect stubs (English-only legacy URLs) — verified by check_redirects, and
 # excluded from pairing / Hangul / canonical content checks.
-REDIRECT_PAGES = {"lab-notebook/story-arc-en"}
-REDIRECT_TARGETS = {"lab-notebook/story-arc-en": "lab-notebook/story-arc"}
+# Redirect stubs (legacy URLs preserved after a rename) — verified by
+# check_redirects, and excluded from pairing / Hangul / canonical content checks.
+# The 03d-results slug was renamed to routing-measured-results (BOLT-12, #139);
+# both the English root URL and the Korean /ko/ URL keep a redirect, so both the
+# English-relative key (used after _norm in check_locale_pairs) and the raw ko
+# key (used as-is in check_canonical_hreflang / check_hangul_leak) are listed.
+REDIRECT_PAGES = {
+    "lab-notebook/story-arc-en",
+    "manual/03d-results",
+    "ko/manual/03d-results",
+}
+REDIRECT_TARGETS = {
+    "lab-notebook/story-arc-en": "lab-notebook/story-arc",
+    "manual/03d-results": "manual/routing-measured-results",
+    "ko/manual/03d-results": "ko/manual/routing-measured-results",
+}
 
 # Directories that are infrastructure, not reader content pages.
 INFRA_TOP = ("assets", "search")
@@ -262,6 +276,10 @@ def check_url_contract(site: Path) -> list[str]:
 def check_lang_attributes(site: Path) -> list[str]:
     out: list[str] = []
     for key, html_path in _iter_pages(site):
+        # Redirect stubs carry the generator's default lang=en even under /ko/;
+        # they have no reader content, so their lang attribute is not meaningful.
+        if key in REDIRECT_PAGES or _is_redirect(html_path):
+            continue
         text = html_path.read_text(encoding="utf-8", errors="ignore")
         m = HTML_LANG_RE.search(text)
         if not m:

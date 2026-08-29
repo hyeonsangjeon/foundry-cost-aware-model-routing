@@ -26,7 +26,7 @@ Policy precedence: `--policy` > environment variable `COST_ROUTER_POLICY` > bund
 
 ## hero — the hero run
 
-Runs the flagship experiment (`experiments/hero.yaml`) end to end and prints the
+Runs the default cost-and-coverage experiment (`experiments/hero.yaml`) end to end and prints the
 before/after, the representative task, and the reproducibility self-check. If it fails the
 reproducibility criteria it exits with a **non-zero code**.
 

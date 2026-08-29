@@ -1042,7 +1042,7 @@ MEASURED = {
             '<b>Do not generalize to other workloads.</b> Limited to this workload · this tenant · this one measurement.',
         ],
         'caveat': 'Sealed snapshot, rendered read-only — changing any number here would break the replay guarantee. Full write-up:',
-        'caveatLink': '03D Results',
+        'caveatLink': 'Measured results',
         'armLbl': {
             'router-cost': 'Cost mode',
             'router-balanced': 'Balanced mode',
@@ -1099,7 +1099,7 @@ MEASURED = {
             '<b>다른 워크로드로 일반화하지 마라.</b> 이 워크로드 · 이 테넌트 · 이 1회 측정에 한정된다.',
         ],
         'caveat': '봉인 스냅샷을 읽기 전용으로 렌더한 것 — 여기 숫자를 바꾸면 replay 보장이 깨진다. 전체 서술:',
-        'caveatLink': '03D 결과',
+        'caveatLink': '실측 결과',
         'armLbl': {
             'router-cost': 'Cost 모드',
             'router-balanced': 'Balanced 모드',

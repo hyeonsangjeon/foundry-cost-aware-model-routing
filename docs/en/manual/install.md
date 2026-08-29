@@ -36,7 +36,7 @@ pip install -e ".[dev]"     # or:  make dev
 ## Run it now
 
 ```bash
-cost-router hero            # flagship experiment (100 synthetic tasks) — before/after in one shot
+cost-router hero            # default cost-and-coverage experiment (100 synthetic tasks) — before/after in one shot
 cost-router experiment list # list the available experiments
 cost-router replay          # replay the curated sample
 cost-router replay --synth  # replay the full workload from deterministic signals

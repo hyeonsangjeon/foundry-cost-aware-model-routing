@@ -907,7 +907,7 @@ DASHBOARD_TEMPLATE = """<!DOCTYPE html>
       <div id="mTo"></div>
       <div class="msub" id="mLimTitle">&mdash;</div>
       <ul class="mlimits" id="mLimits"></ul>
-      <p class="caveat"><span id="mCaveat"></span> <a id="mCaveatLink" href="https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/03d-results/" target="_blank" rel="noopener noreferrer"></a></p>
+      <p class="caveat"><span id="mCaveat"></span> <a id="mCaveatLink" href="https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/routing-measured-results/" target="_blank" rel="noopener noreferrer"></a></p>
     </section>
   </div>
 </main>

@@ -60,8 +60,8 @@ called the more expensive model for the same task.
 - When you want the fastest possible check that the repo **actually works** (few tasks, instant run).
 - When you want to follow the routing logic by eye on **a small, readable dataset** rather than 100 synthetic tasks.
 
-!!! note "Curated vs Flagship"
-    The curated sample's savings rate (56.7%) is larger than [Flagship](../manual/projection-results.md)'s (25.5%) because it has fewer tasks and a different mix. It is a plain example of how **the savings rate depends on workload composition** — which is why the real number has to be measured on your own workload.
+!!! note "Curated vs the default experiment"
+    The curated sample's savings rate (56.7%) is larger than [the default experiment](../manual/projection-results.md)'s (25.5%) because it has fewer tasks and a different mix. It is a plain example of how **the savings rate depends on workload composition** — which is why the real number has to be measured on your own workload.
 
 ## Reproduce this experiment
 

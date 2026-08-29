@@ -1,4 +1,4 @@
-# Fleet registration & model selection · Fleet
+# Fleet · model catalog & role assignment
 
 The measured four-way comparison (the `arena` command, `cost-router foundry arena`) and the dashboard run **four
 strategy arms — an arm is one comparison strategy in the experiment** — **router (the main one)**, **cheapest (the floor)**, **premium

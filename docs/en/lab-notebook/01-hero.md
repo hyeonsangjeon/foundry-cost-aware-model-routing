@@ -1,6 +1,6 @@
 # Experiment 01 · Cheapest first, escalate only on failure
 
-!!! abstract "One-line summary — this repo's *flagship* experiment"
+!!! abstract "One-line summary — this repo's default cost-and-coverage experiment"
     Run 100 synthetic-workload tasks in two ways. Cost-aware routing keeps coverage at
     **100%** and costs **25.5% less** than sending every task to the premium model.
     All numbers are `measured = false`.

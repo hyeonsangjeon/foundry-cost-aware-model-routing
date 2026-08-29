@@ -80,9 +80,9 @@ Routing's bill is honestly cheap at **$0.13**, but fanning those 6 tasks out in 
 | t-0032 | test | mini · swift · balanced | **swift-coder** | $0.01 | $0.0021 | $0.01 |
 | **Total** | | | | **$0.50** | **$0.13** | **$0.36** |
 
-**Ensemble tax = $0.36**: the fan-out cost is **3.74×** the winner.
+**Extra candidate-call cost = $0.36**: the fan-out cost is **3.74×** the winner.
 
-> Canonical: the ensemble fan-out tax (3.74×) is collected in [offline experiment results](../manual/projection-results.md).
+> Canonical: the extra candidate-call cost (3.74×) is collected in [offline experiment results](../manual/projection-results.md).
 
 !!! example "The representative task — t-0032 (test)"
     Routing chose `swift-coder` ($0.0021) while the naive premium arm — an arm is one comparison strategy in the experiment — uses
