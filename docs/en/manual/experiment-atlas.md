@@ -333,7 +333,7 @@ byte-identical replay). The three 03D charts below are this run's evidence.
 
 ![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.en.svg)
 ![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.en.svg)
-→ [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · full charts: [03D measured results](routing-measured-results.md)
+→ [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · full charts: [measured results](routing-measured-results.md)
 
 ### `13` · the paid router-mode run that audited the rate card
 

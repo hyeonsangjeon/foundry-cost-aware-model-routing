@@ -22,7 +22,7 @@ from the saved usage and rate card.
   ([한국어](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/ko/demo/))
   is a read-only replay of an already-measured run, with nothing to install.
 - **Read the measured results** — the
-  [routing-mode dashboard · 03D](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/routing-measured-results/)
+  [routing-mode measured dashboard](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/routing-measured-results/)
   covers four arms over 24 coding tasks at n=3 against a live Azure AI Foundry
   deployment, scored against predictions registered before the run and sealed
   into a replay-verified snapshot.

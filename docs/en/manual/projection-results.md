@@ -4,7 +4,7 @@
 > truth** that gathers the headline figures of **experiments 01–08** in one place.
 > Every value is a **deterministic offline calculation** over a synthetic workload,
 > not a measurement of real Azure spend. The measured (`measured=true`) results live
-> separately in [Routing-mode measured results · 03D](routing-measured-results.md).
+> separately in [Routing-mode measured results](routing-measured-results.md).
 
 !!! abstract "This page's role — the canonical source for the offline figures"
     The default experiment's savings, the extra cost to call several candidate models in parallel (fan-out), and the
@@ -84,5 +84,5 @@ cost-router experiment run single-call --json  # single-call vs mix coverage·co
   billed calls. They replay the same values every time from the same workload and
   signals.
 - **Honesty label:** every figure on this page is `measured = false` (an offline
-  calculation). Measured values are in the [03D measured results](routing-measured-results.md), and
+  calculation). Measured values are in the [measured results](routing-measured-results.md), and
   the honesty boundaries as a whole are in the [Honesty Charter](../honesty.md).

@@ -3,7 +3,7 @@
 > **`measured=false` 오프라인 실험.** 이 페이지는 **실험 01–08** 의 대표 수치를
 > 한곳에 모은 **정본(single source of truth)** 입니다. 모든 값은 합성 워크로드에 대한
 > **결정론적 오프라인 계산**이며 실제 Azure 지출을 측정한 것이 아닙니다. 실측(`measured=true`)
-> 결과는 [라우팅 모드 실측 결과 · 03D](routing-measured-results.md)에 따로 있습니다.
+> 결과는 [라우팅 모드 실측 결과](routing-measured-results.md)에 따로 있습니다.
 
 !!! abstract "이 페이지의 역할 — 오프라인 수치의 정본"
     기본 실험 절감, 모든 후보를 부를 때 드는 추가 비용 — 여러 후보 모델을 병렬로 호출합니다(fan-out) —, single-call 격차는 여러 페이지에 반복됩니다.
@@ -74,4 +74,4 @@ cost-router experiment run single-call --json  # single-call vs mix 커버리지
 - **재현:** 위 세 명령은 모두 오프라인·결정론적이며 유료 호출을 내지 않습니다. 같은 워크로드·같은
   신호에서 항상 같은 값을 재생합니다.
 - **정직 라벨:** 이 페이지의 모든 수치는 `measured = false`(오프라인 계산)입니다. 실측 값은
-  [03D 실측 결과](routing-measured-results.md)에, 정직성 경계 전반은 [정직함 규약](../honesty.md)에 있습니다.
+  [실측 결과](routing-measured-results.md)에, 정직성 경계 전반은 [정직함 규약](../honesty.md)에 있습니다.
