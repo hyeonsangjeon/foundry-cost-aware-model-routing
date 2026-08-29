@@ -40,7 +40,7 @@
 cost-router policy regression --candidate experiments/policies/cost-cut.yaml --synth
 ```
 
-## 결과 — 커버리지 절벽
+## 결과 — 통과율 절벽
 
 ```text
 regression (candidate vs base):

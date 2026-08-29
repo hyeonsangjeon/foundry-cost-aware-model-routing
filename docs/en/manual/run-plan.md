@@ -4,7 +4,7 @@ When preview, human approval, run, ledger, and replay **each interpret their own
 separately**, what you approved and what you ran can drift apart. 03A closes that gap. It
 resolves a single local config file **once** and seals it into an **immutable object** called
 `ResolvedRunPlan`, and all five paths above read that same object. The plan carries a
-deterministic `plan_hash`, and approval is bound to that hash. The cockpit is now wired to
+deterministic `plan_hash`, and approval is bound to that hash. The cockpit now uses
 this plan too — `cost-router dashboard --live --config <file>` binds the canonical
 `ResolvedRunPlan` as the cockpit's single source of truth, so preview, approval, run, abort,
 and replay all key off the same `plan_hash` (03C, §9). The cockpit reuses 03B's shared abort
@@ -17,8 +17,8 @@ handles it.
     `benchmark plan` **sends nothing**. It reads only the local config and the workload and
     rate-card files it points to, fingerprints them, prints the plan **redacted**, and
     computes the `plan_hash`. A real Azure call happens only when `--live` carries a
-    **matching `--approve-plan`**, and even then only in a separate seam (the [live
-    bridge](foundry-live.md)).
+    **matching `--approve-plan`**, and even then only through the live
+    measurement adapter (the [live measurement adapter](foundry-live.md)).
 
 ## 1. The three commands
 
@@ -86,13 +86,13 @@ The human approval screen shows the **number of planned cells** and, per cell, t
 
 It does not call a retriable call **"exactly N times."** A throttled cell may legitimately
 dispatch anywhere between `base` and `max` (`max = 1 + retry.max_retries`). `planned cells =
-task count × repetitions × arm count`.
+task count × repetitions × arm count` — an arm is one comparison strategy in the experiment.
 
-!!! danger "Approval is bound to the hash — a mismatch fails closed"
+!!! danger "Approval is bound to the hash — a mismatch is rejected"
     A `--live` run requires `--approve-plan <plan_hash>`, and if that value differs from the
     freshly resolved plan's `plan_hash` **by even one character, it is rejected before
     dispatch** (exit 1). Credentials are looked up only afterward. So a stale or mismatched
-    approval sends no paid call whatsoever.
+    approval sends no paid call whatsoever; when a rate is missing, withhold the cost claim rather than guess (fail-closed).
 
 ## 4. The Model Router arm is explicit and cannot vanish
 

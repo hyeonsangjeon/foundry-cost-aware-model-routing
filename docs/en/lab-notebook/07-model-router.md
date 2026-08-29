@@ -1,6 +1,6 @@
 # Experiment 07 · One pick vs observe-then-escalate
 
-!!! quote "⭐ The repo's centerpiece — why this asset exists next to the built-in router"
+!!! quote "⭐ The repo's primary comparison — why this asset exists next to the built-in router"
     Azure AI Foundry's **built-in Model Router** already does the **'selection'** well — picking a model per prompt (one deployment, cross-provider). This experiment captures, on one screen, the **reason the layer on top of it exists** — picking once up front and being done vs observe-then-escalate, *at comparable cost*. *Selection is the built-in router's job; verification, governance, and audit are this repo's.* And the **measured** answer to *"what if you plug the real router straight into this arm?"* is [experiment 09](09-live-routing-proof.md) — the repo's first `measured=true` run, where a live deployment called over keyless Entra really forked to `gpt-5.4`×3 · `grok-4-1-fast-reasoning`×2.
 
 !!! info "Terminology — 'coverage' on this page means pass rate"
@@ -19,7 +19,7 @@
   <figcaption>One pick vs observe-then-escalate — a lane that fixes one tier up front against a lane that observes cheap failures and raises only when needed, contrasted on coverage.</figcaption>
 </figure>
 
-The real Foundry **Model Router**'s selection skill is a **measured** quantity, so we left open a gated adapter behind credentials (the measured bridge) that plugs that decision straight into this arm.
+The real Foundry **Model Router**'s selection skill is a **measured** quantity, so we left open a gated seam behind credentials (the live measurement adapter) that plugs that decision straight into this arm — an arm being one comparison strategy in the experiment.
 
 !!! tip "Operational view — Model Router is 'one deploy and it's handled'"
     In real operation, Model Router is done with **one deployment**. The supported models (OpenAI GPT-4/5 families, xAI Grok, DeepSeek, Meta Llama, gpt-oss) need **no separate deploy** — the router picks one per prompt; the only exception is Anthropic Claude, which needs a direct deployment. So the built-in router is already **cross-provider**.     That means *"routing across several vendors' models"* is already handled. This
@@ -59,7 +59,7 @@ Experiments 01 · 02 cover savings, 03 covers lost coverage, 04 covers no saving
 Azure AI Foundry Model Router is the **productized, thin routing layer** for what this repo does — it looks at a prompt and picks a model once. So this experiment's `single_call` arm transparently mimics that **shape**: a `floor(value × N)` rule that picks an index into the class ladder by task value (difficulty) (easy → the cheapest `mini-fast`, hard → `premium-max`).
 
 !!! warning "This arm is a placeholder (`measured = false`, `equivalent = illustrative`)"
-    The `single_call` arm is a transparent proxy that shows the **shape** of a single-call router, not Azure's internal selection logic. On 100 synthetic tasks the picks spread evenly across the five models (`mini-fast` 31 · `swift-coder` 23 · `balanced-pro` 20 · `deep-reasoner` 19 · `premium-max` 7) — a fair difficulty router that uses the whole ladder, not a straw man. A real router's **selection skill** is a measured quantity, plugged in via the [measured bridge](#measured-bridge) below.
+    The `single_call` arm is a transparent proxy that shows the **shape** of a single-call router, not Azure's internal selection logic. On 100 synthetic tasks the picks spread evenly across the five models (`mini-fast` 31 · `swift-coder` 23 · `balanced-pro` 20 · `deep-reasoner` 19 · `premium-max` 7) — a fair difficulty router that uses the whole ladder, not a straw man. A real router's **selection skill** is a measured quantity, plugged in via [the measurement adapter](#measurement-adapter) below.
 
 ## Result — one pick versus escalation
 
@@ -123,7 +123,7 @@ The new contract check `escalation_gain` pins *"observe-then-escalate (mix) must
     "observing really buys coverage." For the fields, see
     [experiment config (YAML)](../manual/experiments.md).
 
-## <a name="measured-bridge"></a>The measured bridge — a gated live adapter
+## <a name="measurement-adapter"></a>The live measurement adapter — gated, behind real Azure credentials
 
 The `single_call` arm's pick is a placeholder proxy. To plug in the real Azure AI Foundry Model Router's **decision**, use the dependency-free gated adapter `router.foundry_router.FoundryModelRouter`:
 
@@ -145,9 +145,9 @@ This recorded run leans toward strong models and reaches 100% coverage. The
 observe-then-escalate mix reaches the same coverage **2.3× cheaper**, this time with
 recorded live decisions on a **measured decision path**.
 
-### Wiring it to real Azure — `azure_router_choice_client` + `foundry router`
+### Integrating it with real Azure — `azure_router_choice_client` + `foundry router`
 
-The **real implementation** of the `client` callable to inject is `azure_router_choice_client`. It wraps the keyless SDK bridge (`AzureModelRouterClient`) as a `(deployment, task) -> model` selection function, returning only the model the deployment actually chose (normalized: `gpt-5.4-2026-03-05` → `gpt-5.4`):
+The **real implementation** of the `client` callable to inject is `azure_router_choice_client`. selection function, returning only the model the deployment actually chose. It wraps the keyless SDK client (`AzureModelRouterClient`) as a `(deployment, task) -> model` (normalized: `gpt-5.4-2026-03-05` → `gpt-5.4`):
 
 ```python
 from router.foundry_live import AzureModelRouterClient, FoundryConfig
@@ -195,8 +195,8 @@ This experiment shows that *"single-call routing loses coverage against observe-
 
 1. **The `single_call` arm is a placeholder.** The real Foundry Model Router's
    selection may be better than this proxy. That improvement is a **measured**
-   quantity plugged in through the [measured bridge](#measured-bridge).
-   [Experiment 09](09-live-routing-proof.md) wires the bridge to a real deployment.
+   quantity plugged in through [the measurement adapter](#measurement-adapter).
+   [Experiment 09](09-live-routing-proof.md) connects the measurement adapter to a real deployment.
    This experiment does not claim that skill on the router's behalf.
 2. **Cost and coverage are offline projections.** Plugging in a live decision keeps them `measured = false`. A truly measured verdict needs real tokens and evaluation.
 
@@ -207,8 +207,8 @@ additional cost of escalation.
 
 - When deciding whether to adopt a managed **single-call router** (Azure AI Foundry
   Model Router or similar) and checking how many tasks "picking once" leaves unresolved.
-- To set a **floor on escalation gain** (`min_escalation_gain`) in the reproducibility contract so CI blocks anyone quietly removing observe-then-escalate from routing.
-- To plug a real router's decisions in via the **measured bridge** instead of using
+- To set a **floor on escalation gain** (`min_escalation_gain`) in the reproducibility criteria so CI blocks anyone quietly removing observe-then-escalate from routing.
+- To plug a real router's decisions in via **the measurement adapter** instead of using
   the placeholder proxy.
 
 ## Reproduce this experiment

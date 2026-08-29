@@ -1,8 +1,8 @@
 # 실험 설정 (YAML)
 
 **명명된 실험**은 워크로드, 오프라인 신호(픽스처 또는 합성), 가격표, 정책을 고정하고
-여기에 `expect` **재현성 계약**을 더한 작은 YAML 파일입니다. 하나를 실행하면 나이브 대 라우팅
-before/after를 다시 유도하고 오프라인 투영이 계약된 하한 아래로 떨어지면 **크게 실패**합니다.
+여기에 `expect` **재현성 통과 기준**을 더한 작은 YAML 파일입니다. 하나를 실행하면 나이브 대 라우팅
+before/after를 다시 유도하고 오프라인 투영이 통과 기준 하한 아래로 떨어지면 **크게 실패**합니다.
 
 저장소의 "설치하면 그냥 돌아간다"는 약속을 expect 블록이 검사합니다. 투영이 선언한 범위를
 벗어나면 명령은 실패합니다.
@@ -10,7 +10,7 @@ before/after를 다시 유도하고 오프라인 투영이 계약된 하한 아�
 파일은 `experiments/` 디렉터리에 둡니다.
 
 !!! tip "비주얼로 먼저 보고 싶다면 — Experiment Atlas"
-    각 실험이 **어떤 모델**로 **무엇을**, **어떤 방식**(순차 에스컬레이션 · 팬아웃 · 단일 콜)으로
+    각 실험이 **어떤 모델**로 **무엇을**, **어떤 방식**(순차 에스컬레이션 · 여러 후보 모델을 병렬로 호출합니다(fan-out) · 단일 콜)으로
     처리하는지 애니메이션 SVG로 한눈에 보려면 **[실험 아틀라스 · Experiment Atlas](experiment-atlas.md)**
     를 보세요. Azure Model Router 실제 구성(키리스 Entra) 따라하기까지 포함되어 있습니다.
 
@@ -39,10 +39,10 @@ expect:
   min_tasks: 100
 ```
 
-!!! tip "팬아웃 다이얼 — `budget:` (선택)"
+!!! tip "팬아웃 임계값 — `budget:` (선택)"
     실험은 라우터의 팬아웃 임계값을 조절할 수 있습니다. `compare_min_value`를 올리면
     가치가 그보다 낮은 태스크는 **단일 경로(ordered)**로 가고 그만큼 후보 추가 호출 비용이
-    줄어듭니다 — [실험 06](../lab-notebook/06-fanout-dial.md)이 이 다이얼을 씁니다.
+    줄어듭니다 — [실험 06](../lab-notebook/06-fanout-dial.md)이 이 임계값을 씁니다.
 
     ```yaml
     budget:
@@ -50,7 +50,7 @@ expect:
       min_compare_candidates: 2   # compare로 가려면 후보가 최소 2개
     ```
 
-!!! tip "측정 브리지 — Azure AI Foundry Model Router (선택)"
+!!! tip "라이브 실측 어댑터 — Azure AI Foundry Model Router (선택)"
     `single_call` arm은 단일 호출 라우팅 레이어의 오프라인 프록시입니다. 실제 Foundry Model
     Router의 **결정**을 끼워 넣으려면, 의존성 없는 게이트
     어댑터 `router.foundry_router.FoundryModelRouter`에 아래 환경 변수와 주입된 `client`
@@ -87,15 +87,15 @@ expect:
 
 경로는 저장소 루트 기준 상대 경로 또는 절대 경로로 씁니다.
 
-## spotlight — 대표 태스크 강조
+## 대표 태스크 — 대표 태스크 강조
 
 `spotlight`는 비용 인지 라우팅이 나이브 프리미엄 arm을 눈에 띄게 이기는 한 태스크를 고릅니다.
 
 - `auto` — 수용된(accepted) 태스크 중 **나이브/라우팅 비용 비율**이 가장 큰 태스크
 - `<task_id>` — 특정 태스크를 명시적으로 고정
-- `none` — 스포트라이트 비활성화
+- `none` — 대표 태스크 비활성화
 
-## 재현성 계약이 하는 일
+## 재현성 통과 기준이 하는 일
 
 `run_experiment`는 재생 후 다음을 점검합니다.
 

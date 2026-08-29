@@ -1,6 +1,6 @@
 # Routing-mode measured results · 03D Results
 
-> **`measured=true`, a paid measured run.** Four arms ran against the same 24 coding tasks
+> **`measured=true`, a paid measured run.** Four arms — an arm is one comparison strategy in the experiment — ran against the same 24 coding tasks
 > at n=3 on real Azure AI Foundry: `router-cost` (Model Router in Cost mode),
 > `router-balanced` (Model Router in Balanced mode), `router-quality` (Model Router in
 > Quality mode), and `direct-premium` (calling the premium model directly ·
@@ -28,7 +28,7 @@
       coverage**). Arm low of 94.4% (all clear the 90% gate).
     - `evidence_tier=directional` — 24 tasks, directional.
     - `replay verified` — sealed-snapshot byte-identical replay, `plan_hash
-      sha256:d640dc07…`, the prereg commit precedes the run.
+      sha256:d640dc07…`, the preregistration commit — the workload, hypotheses, and pass/fail criteria committed before the paid run — precedes the run.
 
 Actual spend **$3.27 / $20.00** budget · 288/288 cells · **0** 429 throttles · 11
 timeout cells (HTTP 408).
@@ -126,7 +126,7 @@ timeouts account for the entire difference between the router arms and
 direct-premium. **The 4.17%p gap above is a latency difference, not a code-quality
 one.** The router backends are slower than premium and reached the fixed timeout
 (read 90s / overall 120s) first. A proposal to raise the timeout is in the
-[Fix C doc](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md) (applying it needs a new prereg + re-run).
+[Fix C doc](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md) (applying it needs a new preregistration + re-run).
 
 ---
 
@@ -143,7 +143,7 @@ To avoid over-reading the measured result, we state the boundary per metric.
 
 ---
 
-## 6 · Reproduction and provenance
+## 6 · Reproduction and where a result came from — live, recorded, or test (provenance)
 
 - **Data source**: [`docs/assets/03d/published.json`](/foundry-cost-aware-model-routing/assets/03d/published.json), a
   masked extract of the sealed snapshot via the `measure publish` path. It holds **only
@@ -152,13 +152,13 @@ To avoid over-reading the measured result, we state the boundary per metric.
   `***.cognitiveservices.azure.com`, and bodies keep only `output_sha256`).
 - **Charts**: the three SVGs above are **statically generated** from `published.json`
   by `scripts/build_03d_dashboard.py`. The browser fetches no data.
-- **Integrity**: `plan_hash sha256:d640dc07…91d2921e` · the prereg commit precedes the
+- **Integrity**: `plan_hash sha256:d640dc07…91d2921e` · the preregistration commit precedes the
   run (D8 gate) · replay `summary_matches=true`, `cost_mismatches=[]` (byte-identical) ·
   `partial=false`.
-- **Quality-gate verdict** (prereg-fixed criteria): grading coverage ≥ 90% **PASS** ·
+- **Quality-gate verdict** (preregistration-fixed criteria): grading coverage ≥ 90% **PASS** ·
   min_pass ≥ 0.60 **PASS** · drop vs premium ≤ 10%p (measured 4.17%p) **PASS** · budget
   **PASS** → **publishable**.
-- **Prereg prediction hit**: the updated prediction was `cost < balanced < premium ≤
+- **Preregistration prediction hit**: the updated prediction was `cost < balanced < premium ≤
   quality` (by cost), and the measurement **matched** at `$0.06 < $0.31 < $1.34 <
   $1.56`. That is, the prediction that quality mode costs more than premium was
   confirmed.
@@ -166,7 +166,7 @@ To avoid over-reading the measured result, we state the boundary per metric.
 The narrative record of the same run is in the lab notebook —
 [Experiment 12 · Routing-mode paid measured re-run](../lab-notebook/12-router-modes-measured.md).
 Read alongside the prior
-[Experiment 11 · prereg VOID](../lab-notebook/11-router-modes-void.md) to see what was
+[Experiment 11 · preregistration VOID](../lab-notebook/11-router-modes-void.md) to see what was
 fixed (rate coverage · output ceiling) and what changed. A third run followed with the
 raised transport timeouts —
 [Experiment 13 · router three modes · run 3](../lab-notebook/13-router-modes-rate-card-gap.md).
@@ -175,5 +175,5 @@ different baseline, which is the second of the two baselines flagged above.
 
 The cache tokens left in the same sealed traces were re-aggregated after the fact, with
 zero paid calls — [Prompt cache observed in the sealed runs](prompt-cache-observed.md).
-It is a post-hoc observation outside the preregistration gate, and no figure on this page
+It was observed after the preregistered analysis (post-hoc), outside the preregistration gate, and no figure on this page
 changed.

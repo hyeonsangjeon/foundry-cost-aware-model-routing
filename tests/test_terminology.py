@@ -298,3 +298,201 @@ def test_rule_e_is_wired_into_find_violations(tmp_path, monkeypatch):
 def test_rule_e_is_clean_on_the_repository():
     violations = terminology.check_no_retired_first_screen_terms()
     assert violations == [], "\n".join(violations)
+
+
+# --- Rule F — retired inner-page jargon (BOLT-11 / #138) --------------------
+#
+# The BOLT-11 sibling of Rule E: the same denylist mechanism, on the inner
+# manual / lab-notebook / honesty pages this wave cleaned. Direction 1 —
+# reintroduction must fail. Each line is the shape the confirmed wording
+# replaced; order matches RETIRED_INNER_PAGE_TERMS so the coverage assertion
+# below can pair them one-to-one.
+INNER_PAGE_REINTRODUCTIONS = (
+    ("measured/measurement bridge", "The router's decision plugs in through the measured bridge."),
+    ("측정 브리지/브릿지", "실제 라우터의 결정을 측정 브리지로 끼워 넣습니다."),
+    ("wiring proof", "Read it as a five-prompt wiring proof, not a benchmark."),
+    ("wiring", "For wiring details, see the section below."),
+    ("배선", "아직 최신 측정 배선이 반영되지 않았습니다."),
+    ("spotlight", "The experiment spotlight shows the representative task."),
+    ("스포트라이트", "실험 스포트라이트는 대표 태스크를 보여줍니다."),
+    ("coverage cliff", "The coverage cliff shows the tasks a cheap-only router loses."),
+    ("커버리지 절벽", "커버리지 절벽은 값싼 모델만 쓸 때 잃는 태스크를 보여줍니다."),
+    ("slate", "Choose the models from the slate up front."),
+    ("슬레이트", "미리 슬레이트에서 모델을 고릅니다."),
+    ("fan-out dial", "Turn the fan-out dial to raise coverage."),
+    ("팬아웃 다이얼", "팬아웃 다이얼을 돌려 커버리지를 올립니다."),
+    ("arena (prose)", "The arena runs a four-way comparison across models."),
+    ("아레나", "아레나는 네 가지 방식을 한 화면에서 비교합니다."),
+    ("5-minute wow", "Try the 5-minute wow demo first."),
+    ("5분 wow", "먼저 5분 wow 데모를 해보세요."),
+    ("centerpiece", "This is the repo's centerpiece experiment."),
+    ("센터피스", "이 저장소의 센터피스 실험입니다."),
+    ("reproducibility contract", "The gain is pinned in the reproducibility contract."),
+    ("재현성 계약", "이 이득은 재현성 계약으로 고정됩니다."),
+    ("authority label", "Each claim keeps an authority label."),
+    ("권한 라벨", "각 주장은 권한 라벨을 유지합니다."),
+)
+
+INNER_PAGE_IDS = (
+    "bridge-en", "bridge-ko", "wiring-proof-en", "wiring-en", "wiring-ko",
+    "spotlight-en", "spotlight-ko", "coverage-cliff-en", "coverage-cliff-ko",
+    "slate-en", "slate-ko", "fanout-dial-en", "fanout-dial-ko",
+    "arena-en", "arena-ko", "wow-en", "wow-ko", "centerpiece-en", "centerpiece-ko",
+    "reproducibility-contract-en", "reproducibility-contract-ko",
+    "authority-label-en", "authority-label-ko",
+)
+
+
+@pytest.mark.parametrize(("retired", "line"), INNER_PAGE_REINTRODUCTIONS, ids=INNER_PAGE_IDS)
+def test_reintroducing_an_inner_page_term_is_flagged(retired: str, line: str):
+    hits = [name for name, _ in terminology.retired_inner_page_terms_in(line)]
+    assert retired in hits, f"Rule F missed retired '{retired}' in: {line}"
+
+
+@pytest.mark.parametrize(("retired", "line"), INNER_PAGE_REINTRODUCTIONS, ids=INNER_PAGE_IDS)
+def test_the_inner_page_failure_names_what_to_write_instead(retired: str, line: str):
+    replacement = dict(terminology.retired_inner_page_terms_in(line))[retired]
+    assert replacement and retired not in replacement
+
+
+def test_rule_f_covers_the_expected_terms():
+    """Every gated inner-page term has a reintroduction probe, and vice versa."""
+    assert [retired for _, retired, _ in terminology.RETIRED_INNER_PAGE_TERMS] == [
+        retired for retired, _ in INNER_PAGE_REINTRODUCTIONS
+    ]
+
+
+def test_rule_f_masks_cli_and_config_tokens():
+    """The CLI `arena`, config `slate` / `compare_min_value` in code spans are
+    names, not prose — masked. Bare in prose, the same words are caught, so the
+    mask is load-bearing (both directions in one probe)."""
+    for keep in ("Run the `arena` command.", "Set `slate` in the config.",
+                 "`compare_min_value` controls the fan-out threshold."):
+        assert terminology.retired_inner_page_terms_in(keep) == [], keep
+    assert [t for t, _ in terminology.retired_inner_page_terms_in("run the arena comparison")] == [
+        "arena (prose)"
+    ]
+    slate_hits = [t for t, _ in terminology.retired_inner_page_terms_in("choose from the slate")]
+    assert slate_hits == ["slate"]
+
+
+def test_rule_f_masks_the_spotlight_card_ui_label():
+    """"Spotlight card" is a dashboard label cited beside the plain term; masked.
+    The bare concept word is still caught."""
+    assert terminology.retired_inner_page_terms_in("the representative task (Spotlight card)") == []
+    bare = [t for t, _ in terminology.retired_inner_page_terms_in("the experiment spotlight")]
+    assert bare == ["spotlight"]
+
+
+def test_rule_f_skips_the_h1_page_title(tmp_path, monkeypatch):
+    """A page's H1 title is BOLT-12's surface — foundry-live.md keeps "measured
+    bridge" there — so Rule F skips the H1 but still catches the body prose."""
+    page = tmp_path / "docs" / "en" / "manual" / "foundry-live.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "# The live measured bridge — a gated adapter\n\nThe measured bridge plugs in.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "INNER_PAGE_LOCALES", ("docs/en",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("manual",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
+    violations = terminology.check_no_retired_inner_page_terms()
+    assert len(violations) == 1, violations       # the body line only, not the H1
+    assert ":3" in violations[0]
+
+
+def test_rule_f_skips_fenced_blocks(tmp_path, monkeypatch):
+    """A retired word in a ```text sample block is CLI output, not prose."""
+    page = tmp_path / "docs" / "en" / "manual" / "page.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text("# Title\n\n```text\nspotlight  t-0078 · validate\n```\n", encoding="utf-8")
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "INNER_PAGE_LOCALES", ("docs/en",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("manual",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
+    assert terminology.check_no_retired_inner_page_terms() == []
+    # break-the-rule: the same line as bare prose is caught, so the skip matters.
+    assert terminology.retired_inner_page_terms_in("the spotlight task")
+
+
+def test_rule_f_masks_inline_code_across_line_wraps(tmp_path, monkeypatch):
+    """A signature or path can wrap a backtick span across a line break — the
+    token inside is code, not prose. The same word bare in prose below is still
+    caught, so the cross-line mask is load-bearing."""
+    page = tmp_path / "docs" / "en" / "manual" / "page.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "# Title\n\n"
+        "The strategies are pure functions:\n"
+        "`cheapest_arm/router_arm(fleet, task, slate, pricing) ->\n"
+        "ArmResult`. They inject a fake client.\n\n"
+        "Then you branch the slate conditionally.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "INNER_PAGE_LOCALES", ("docs/en",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("manual",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
+    violations = terminology.check_no_retired_inner_page_terms()
+    assert len(violations) == 1, violations       # the bare-prose line only
+    assert ":7" in violations[0] and "slate" in violations[0]
+
+
+@pytest.mark.parametrize(
+    "footer",
+    [
+        "## Related documents\n\n- [Live measured bridge](foundry-live.md) — the page.\n",
+        "**Related docs:** [Live measured bridge](foundry-live.md) ·\n(the offline comparison)\n",
+        "**관련 문서:** [라이브 실측 브릿지](foundry-live.md) · [x](y.md)\n",
+        "Related documents: [Live measured bridge](foundry-live.md) ·\n[Audit ledger](ledger.md)\n",
+    ],
+    ids=["heading", "bold-inline", "korean", "plain-inline"],
+)
+def test_rule_f_skips_the_related_documents_footer(tmp_path, monkeypatch, footer):
+    """The Related-documents footer links between pages (nav — BOLT-12), so a link
+    there to a page whose retired title is kept does not fail Rule F. The same
+    term in body prose above the footer is still caught, so the skip is scoped."""
+    page = tmp_path / "docs" / "en" / "manual" / "page.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "# Title\n\nThe body mentions the coverage cliff plainly.\n\n" + footer,
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "INNER_PAGE_LOCALES", ("docs/en",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("manual",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
+    violations = terminology.check_no_retired_inner_page_terms()
+    assert len(violations) == 1, violations       # the body line, not the footer
+    assert "coverage cliff" in violations[0]
+
+
+def test_rule_f_is_wired_into_find_violations(tmp_path, monkeypatch):
+    """Rule F has to reach the exit code, not just be importable."""
+    page = tmp_path / "docs" / "en" / "manual" / "page.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text("# Title\n\nThe coverage cliff shows lost tasks.\n", encoding="utf-8")
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "FIRST_SCREEN_SURFACES", ())  # keep Rule E off the temp tree
+    monkeypatch.setattr(terminology, "INNER_PAGE_LOCALES", ("docs/en",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("manual",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
+    assert any("retired 'coverage cliff'" in v for v in terminology.find_violations())
+
+
+def test_rule_f_excludes_the_devlog(tmp_path, monkeypatch):
+    """The ko devlog is out of BOLT-11 scope (a dated journal), like Rule D."""
+    devlog = tmp_path / "docs" / "ko" / "lab-notebook" / "devlog.md"
+    devlog.parent.mkdir(parents=True, exist_ok=True)
+    devlog.write_text("# devlog\n\n측정 브리지로 연결했습니다.\n", encoding="utf-8")
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "INNER_PAGE_LOCALES", ("docs/ko",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("lab-notebook",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
+    assert terminology.check_no_retired_inner_page_terms() == []
+
+
+def test_rule_f_is_clean_on_the_repository():
+    violations = terminology.check_no_retired_inner_page_terms()
+    assert violations == [], "\n".join(violations)

@@ -25,7 +25,7 @@
 - **Task (what):** for this work alone we provisioned a new **keyless (Entra-only)
   AIServices resource**, deployed one real **`model-router`** plus **GPT‑5.4-family
   candidates** (`gpt-5.4-nano` · `gpt-5.4-mini` · `gpt-5.4`), and then **really
-  called** five curated prompts through the [live bridge](../manual/foundry-live.md).
+  called** five curated prompts through the [live measurement adapter](../manual/foundry-live.md).
 - **Experiment (what it verifies):** (1) does a single `model-router` deployment fork
   to **different real models** per task, (2) does the response **prove** that choice,
   and (3) does all of this happen with **no key, only an Entra token** — all three,
@@ -65,7 +65,7 @@ field**.
   ([`_response_model`](../manual/foundry-live.md)).
 - **usage:** the response's **actual `usage`** tokens are recorded as-is
   (`_usage_from_response`) — not synthetic tokens. Multiplying those by a rate yields
-  an amount that is incomplete for the router arm alone (see below).
+  an amount that is incomplete for the router arm alone — an arm is one comparison strategy in the experiment (see below).
 - **Auth:** the resource has `disableLocalAuth=true` (key auth off), so calls go
   **without an API key** — only an Entra token for the `az login` identity
   (`https://cognitiveservices.azure.com/.default`).
@@ -125,7 +125,7 @@ Answer text also came back with `finish_reason = stop` and no truncation:
       unlike the projection of experiment 08), ④ **keyless Entra auth**.
     - **Not measured:** **accuracy (pass/fail).** We did not inject a `grader`, so whether
       each answer was *correct* was not graded → `coverage_measured = false`. Only by
-      wiring in a real apply/compile/test harness does accuracy become measured too.
+      integrating a real apply/compile/test harness does accuracy become measured too.
     - **Router-derived cost is incomplete.** The tokens are measured, but the amount for a
       routed call is computed with **sub-model rates only** and is **missing the router
       input markup**. It is not an approximation but an **incomplete** value with one
@@ -150,7 +150,7 @@ Answer text also came back with `finish_reason = stop` and no truncation:
 | Reproduction | deterministic (pinned by CI) | live snapshot (varies per call) |
 
 If experiment 08 was the **offline comparison** that "looked at one problem four ways,"
-experiment 09 is the **measurement** that wired that router arm into **real Foundry** to
+experiment 09 is the **measurement** that connected that router arm to **real Foundry** to
 see what the router truly picks.
 
 ## How to reproduce
@@ -178,7 +178,7 @@ router-derived amount is **incomplete** for the reason above, and the summary's
 `--workload my-prompts.jsonl`. To measure grading too, inject a `grader` (see the
 [foundry-live manual](../manual/foundry-live.md)).
 
-## Experiment 08 as a measurement — a 4-way live arena
+## Experiment 08 as a measurement — a live four-way comparison
 
 There's a new command that runs experiment 08's "one problem × four ways" entirely as
 **real Foundry calls**. It really calls the four arms `cheapest` · `premium` · `ensemble` ·
@@ -206,7 +206,7 @@ Measurement snapshot (captured):
     reasoning model** — two of the five calls went to the reasoning model (`grok`). This is
     an observation about **model selection**, evidenced by the response's `model` field.
     But **you cannot compare which side is cheaper here** — the router-derived amount is
-    missing the router input markup, so a cost contrast against a fan-out ensemble or a
+    missing the router input markup, so a cost contrast against an ensemble that calls several candidate models in parallel (fan-out) or a
     single `gpt-5.4` doesn't hold. Structurally, the router is 1 call / 1 charge per prompt
     while fan-out is N calls / N charges — that **call-count** difference remains, but it
     doesn't by itself imply which is cheaper. For setup and rationale, see the

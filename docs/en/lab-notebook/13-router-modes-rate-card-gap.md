@@ -2,14 +2,13 @@
 
 !!! abstract "One-line summary"
 
-    A third **paid 4-arm measured comparison** ran the router's Cost · Balanced ·
+    A third **paid 4-arm measured comparison** — an arm is one comparison strategy in the experiment — ran the router's Cost · Balanced ·
     Quality modes and a direct `gpt-5.6-sol` arm on the same 24 coding tasks, this
     time with the raised transport timeouts. The measurement itself came out clean —
     **287 of 288 cells graded, every arm at pass rate 1.0** — and the preregistered
     cost order held. What the run exposed was ours, not the router's: **our rate card
     enumerated the wrong scope**, so 12 calls in the Balanced arm landed on
-    `gpt-5.6-terra`, a model with no row in the card. Those cells were withheld
-    fail-closed, and that arm is **cost-incomplete**: it reports, but it carries no
+    `gpt-5.6-terra`, a model with no row in the card. Those cells followed this rule: when a rate is missing, withhold the cost claim rather than guess (fail-closed), and that arm is **cost-incomplete**: it reports, but it carries no
     savings claim.
 
 !!! danger "This page records a real paid run"
@@ -18,7 +17,7 @@
     deterministic dispatch order (task-major → repeat → arm). `max_output_tokens` is the only
     request parameter that comes from the plan; sampling temperature is the service default,
     which this repository neither sets nor records.
-    Preregistration `454c8159` committed **before** the results;
+    Preregistration — the workload, hypotheses, and pass/fail criteria committed before the paid run — `454c8159` was committed **before** the results;
     `plan_hash sha256:33821119…6b0b50` matches the run manifest. Prompt and response
     text is not published — the sealed snapshot stays local (gitignored), and only
     `output_sha256` rides in the public trail.
@@ -216,5 +215,5 @@ solved every task.
 
 The cache tokens left in this run's sealed traces were re-aggregated after the fact, with
 zero paid calls — [Prompt cache observed in the sealed runs](../manual/prompt-cache-observed.md).
-It is a post-hoc observation outside the preregistration gate, and no figure on this page
+It was observed after the preregistered analysis (post-hoc), outside the preregistration gate, and no figure on this page
 changed.

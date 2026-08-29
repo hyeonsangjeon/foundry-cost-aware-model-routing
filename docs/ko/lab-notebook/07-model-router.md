@@ -1,6 +1,6 @@
 # 실험 07 · 한 번 고르기 vs 결과 보고 올리기
 
-!!! quote "⭐ 이 저장소의 센터피스 — 내장 라우터 옆에 왜 이 자산이 존재하나"
+!!! quote "⭐ 이 저장소의 핵심 비교 — 내장 라우터 옆에 왜 이 자산이 존재하나"
     Azure AI Foundry **내장 Model Router**는 프롬프트당 모델을 고르는 **'선택'** 을 이미 잘 합니다
     (배포 하나·크로스 프로바이더). 이 실험은 그 위에 얹히는 층의 **존재 이유**를 한 화면에 담습니다
     — 미리 한 번 고르고 끝내기 vs 관찰-후-에스컬레이션, *비슷한 비용에*. *선택은 내장이,
@@ -16,7 +16,7 @@
 !!! abstract "한 줄 요약"
     **`single-call`**은 프롬프트마다 모델을 **한 번** 고르고 멈춥니다. **에스컬레이션이 없어**
     합성 100건에서 커버리지가 **52%**입니다. `cost-aware mix`는 결과를 확인하고 실패하면 다른
-    모델로 옮겨 비슷한 비용(**$1.66 vs $1.59**)으로 커버리지 **100%**를 냅니다. 재현성 계약
+    모델로 옮겨 비슷한 비용(**$1.66 vs $1.59**)으로 커버리지 **100%**를 냅니다. 재현성 통과 기준
     `min_escalation_gain`이 **+48%p** 차이를 고정합니다. 모든 수치는 합성 데이터에 대한 오프라인
     투영이며 `measured = false`입니다. 어떤 상용 제품의 점수가 아닙니다.
 
@@ -25,8 +25,8 @@
   <figcaption>한 번 고르기 vs 결과 보고 올리기 — 앞서 한 티어를 정해두는 레인과, 값싼 실패를 관찰해 필요할 때만 올리는 레인의 커버리지 대비.</figcaption>
 </figure>
 
-실제 Foundry **Model Router**의 선택 실력은 **측정된 값**이라, 자격 증명 뒤의 게이트된
-어댑터(측정 브리지)로 그 결정을 이 arm에 그대로 끼워 넣을 수 있게 열어 두었습니다.
+실제 Foundry **Model Router**의 선택 실력은 **측정된 값**이라, 자격 증명 뒤에 게이트된
+라이브 실측 어댑터를 열어 두어 그 결정을 이 arm에 그대로 끼워 넣을 수 있게 했습니다.
 
 !!! tip "운영 관점 — Model Router는 '배포 하나면 알아서 된다'"
     실제 운영에서 Model Router는 **배포 하나**로 끝납니다. 지원 모델(OpenAI GPT-4/5 계열, xAI
@@ -72,7 +72,7 @@ Azure AI Foundry Model Router는 이 저장소가 하는 일의 **제품화된 �
     Azure의 내부 선택 로직이 아닙니다. 합성 100건에서 선택은 다섯 모델에 고루 퍼집니다
     (`mini-fast` 31 · `swift-coder` 23 · `balanced-pro` 20 · `deep-reasoner` 19 ·
     `premium-max` 7) — 스트로맨이 아니라 사다리 전체를 쓰는 공정한 난이도 라우터입니다.
-    실제 라우터의 **선택 실력**은 측정된 값이며 아래 [측정 브리지](#측정-브리지)로
+    실제 라우터의 **선택 실력**은 측정된 값이며 아래 [실측 어댑터](#실측-어댑터)로
     끼워 넣습니다.
 
 ## 결과 — 한 번 고르기와 실패 후 올리기
@@ -140,7 +140,7 @@ reproducibility  PASS
     "관찰이 실제로 커버리지를 벌고 있는가"를 CI가 지킵니다. 자세한 필드는
     [실험 설정(YAML)](../manual/experiments.md) 참고.
 
-## <a name="측정-브리지"></a>측정 브리지 — 게이트된 라이브 어댑터
+## <a name="실측-어댑터"></a>라이브 실측 어댑터 — 실제 Azure 자격 증명 뒤에 게이트
 
 `single_call` arm의 선택은 자리표시자 프록시입니다. 실제 Azure AI Foundry Model Router의
 **결정**을 끼워 넣고 싶다면, 의존성 없는 게이트 어댑터
@@ -172,10 +172,10 @@ arm = summary_from_choices(workload, signals, policy, pricing, choices)
 커버리지를 **2.3배 싸게** 냅니다. 이번에는 기록된 라이브 결정을 **측정된 결정 경로**로
 비교했습니다.
 
-### 실제 Azure에 물리기 — `azure_router_choice_client` + `foundry router`
+### 실제 Azure에 연결하기 — `azure_router_choice_client` + `foundry router`
 
-주입할 `client` 콜러블의 **실제 구현**은 `azure_router_choice_client`입니다. 이는 item 1이 실은
-키리스 SDK 브릿지(`AzureModelRouterClient`)를 `(deployment, task) -> model` 선택 함수로
+주입할 `client` 콜러블의 **실제 구현**은 `azure_router_choice_client`입니다. 이는
+키리스 SDK 클라이언트(`AzureModelRouterClient`)를 `(deployment, task) -> model` 선택 함수로
 감싸, 배포가 실제로 고른 모델(정규화됨: `gpt-5.4-2026-03-05` → `gpt-5.4`)만 돌려줍니다:
 
 ```python
@@ -227,7 +227,7 @@ Azure Model Router — single-call choice  (recorded snapshot (…/model-router-
 하지만 두 가지 정직한 단서:
 
 1. **`single_call` arm은 자리표시자입니다.** 실제 Foundry Model Router의 선택 실력은 이
-   프록시보다 좋을 수 있습니다. 그 향상은 **측정된 값**이고 [측정 브리지](#측정-브리지)로
+   프록시보다 좋을 수 있습니다. 그 향상은 **측정된 값**이고 [실측 어댑터](#실측-어댑터)로
    끼워 넣습니다. 실제 배포 결과는 [실험 09](09-live-routing-proof.md)에 있습니다. 이 실험은
    실제 라우터의 실력을 대신 주장하지 않습니다.
 2. **비용·커버리지는 오프라인 투영입니다.** 라이브 결정을 넣어도 `measured = false`입니다.
@@ -240,9 +240,9 @@ Azure Model Router — single-call choice  (recorded snapshot (…/model-router-
 
 - 관리형 **단일 호출 라우터**(Azure AI Foundry Model Router 등)를 도입할 때 "한 번 고르기"가
   남기는 실패 태스크 수를 확인할 때.
-- 재현성 계약에 **에스컬레이션 이득 하한**(`min_escalation_gain`)을 걸어, 누군가 라우팅에서
+- 재현성 통과 기준에 **에스컬레이션 이득 하한**(`min_escalation_gain`)을 걸어, 누군가 라우팅에서
   관찰-후-에스컬레이션을 조용히 빼면 CI가 막게 할 때.
-- 실제 라우터의 결정을 **측정 브리지**로 끼워 넣어 자리표시자 프록시 대신 라이브 선택을
+- 실제 라우터의 결정을 **실측 어댑터**로 끼워 넣어 자리표시자 프록시 대신 라이브 선택을
   채점할 때.
 
 ## 이 실험 재현하기

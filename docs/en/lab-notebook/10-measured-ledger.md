@@ -16,10 +16,10 @@
 - **Situation (why):** experiment 09 was the repository's first `measured = true`, but the
   measurement record was a **flat append-only JSONL**. It had no hash chain and no
   cost replay. The offline experiments (01–08) already have the
-  [reproducibility contract](index.md#shared-methodology), but the measured record
+  [reproducibility criteria](index.md#shared-methodology), but the measured record
   could not answer *"has this number not
   been tampered with, and does it really derive from the recorded tokens?"*
-- **Task (what):** seal the measured arena run into a **canonical hash-chain ledger**
+- **Task (what):** seal the measured four-way comparison run into a **canonical hash-chain ledger**
   ([`MeasuredJsonlLedger`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/src/router/ledger/measured.py)).
   Each row stores a `record_hash` over its canonical payload, links to the prior row
   with `previous_hash`, and embeds the rate card used for its cost
@@ -32,7 +32,7 @@
 
 !!! note "This page's ledger re-seals measured usage — it is not new spend"
     The committed sample **re-seals** the token usage that was **already measured and
-    committed** in experiment 09 / [the arena](08-arena.md)
+    committed** in experiment 09 / [the four-way comparison](08-arena.md)
     ([`samples/responses/foundry-arena-measured.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/responses/foundry-arena-measured.json))
     into canonical ledger form — it makes no new Azure call to demonstrate verification
     (zero cost). The sealing logic is **identical** to what the live path
@@ -79,7 +79,7 @@ card that graded it.
 
 ## Anatomy of a measurement-ledger row
 
-One row of `arena-measured.ledger.jsonl` (one arena task = all four arms) looks like this:
+One row of `arena-measured.ledger.jsonl` (one four-way-comparison task = all four arms) looks like this:
 
 | Field | Meaning |
 | --- | --- |
@@ -87,7 +87,7 @@ One row of `arena-measured.ledger.jsonl` (one arena task = all four arms) looks 
 | `captured_at` | Sealing time (ISO-8601) |
 | `pricing_version` · `pricing_hash` | The sealed rate card's version and its SHA-256 fingerprint |
 | **`pricing_snapshot`** | The whole rate card this row was graded against (base rates + rates per model that appears) — **the basis for cost replay** |
-| **`outcome`** | One measured arena result: `task_id` · `arms{cheapest·premium·ensemble·router}` · each arm's `calls[]` (model · **measured usage** · cost · latency) · `labels.measured = true` |
+| **`outcome`** | One measured four-way-comparison result: `task_id` · `arms{cheapest·premium·ensemble·router}` · each arm's `calls[]` (model · **measured usage** · cost · latency) · `labels.measured = true` |
 | **`previous_hash`** | The prior row's `record_hash` (the first row is `null` = genesis) |
 | **`record_hash`** | SHA-256 over all of the above — this row's **tamper-detection seal** |
 
@@ -126,8 +126,8 @@ status: PASS
 
 `replayed == records` means the chain was intact across **all five rows** and every recorded
 call cost was re-derived from the sealed rate card to an exact match. The last two lines
-indicate the router arm is subject to the pricing annotation — if this ledger has a router row
-but the annotation can't be read, verification **closes to `status: FAIL`** (fail-closed).
+indicate the router arm — an arm is one comparison strategy in the experiment — is subject to the pricing annotation — if this ledger has a router row
+but the annotation can't be read, verification follows this rule: when a rate is missing, withhold the cost claim rather than guess (fail-closed), and returns **`status: FAIL`**.
 
 ## Catching tampering — two independent lines of defense
 
@@ -166,7 +166,7 @@ but the annotation can't be read, verification **closes to `status: FAIL`** (fai
 
 !!! warning "What is measured · what is not"
     - **Measured (real):** the **model** the router picked and the per-call **token usage** —
-      the values actually billed by real keyless Entra calls in experiment 09 / the arena
+      the values actually billed by real keyless Entra calls in experiment 09 / the four-way comparison
       (`provenance = live`, `spend_source = provider-usage`).
     - **The rates for cost are illustrative (list price).** The tokens are measured, but the
       rates are the public list price
@@ -189,7 +189,7 @@ but the annotation can't be read, verification **closes to `status: FAIL`** (fai
 
 ## The measured-snapshot headline (the values this ledger sealed)
 
-The four-arm totals of the arena snapshot the ledger froze (measured usage × list rates):
+The four-arm totals of the four-way-comparison snapshot the ledger froze (measured usage × list rates):
 
 | arm | strategy | total | mean latency‡ |
 | --- | --- | ---: | ---: |

@@ -3,7 +3,7 @@
 !!! abstract "One-line summary"
     [Experiment 11](11-router-modes-void.md) was **VOID** because quality grading
     coverage was 79.2% < 90%. This run changed **only the two causes** identified
-    there (Fix A · Fix B), then repeated the same 4-arm comparison with the same gate
+    there (Fix A · Fix B), then repeated the same 4-arm comparison — an arm is one comparison strategy in the experiment — with the same gate
     and estimand. Grading coverage rose from 79.2% to **96.18%**, so **all four arms
     cleared the gate — publishable.**
     The measured cost order matched the preregistered order
@@ -30,7 +30,7 @@ run**. The gate, estimand, workload, and dispatch order were **not changed at al
 
 | Fixed | Why it was a problem in experiment 11 | Effect in this re-run |
 | --- | --- | --- |
-| **Fix A — `grok-4-1-fast.cached: 0.2`** (rate card) | Grok returned cached input, but Azure Retail has no cached meter, so cost was withheld fail-closed → unpriced 43.4% | **unpriced 0%.** the cost and balanced arms are priced cost-complete |
+| **Fix A — `grok-4-1-fast.cached: 0.2`** (rate card) | Grok returned cached input, but Azure Retail has no cached meter, so cost followed this rule: when a rate is missing, withhold the cost claim rather than guess (fail-closed) → unpriced 43.4% | **unpriced 0%.** the cost and balanced arms are priced cost-complete |
 | **Fix B — `max_output_tokens` 2048 → 8192** (config) | reasoning models spent the budget on reasoning and emitted no code → quality grading coverage 79.2% | **grading coverage recovered to 96.18%.** every arm clears the 90% gate |
 
 Both fixes change the config / rate card, so **`plan_hash` changes**, and the [new
@@ -81,7 +81,7 @@ comparison.**
 
 ## The preregistered prediction was **right** — write the prediction first, the result after
 
-The cost-direction prediction written into the re-run preregistration was **`cost < balanced <
+The cost-direction prediction written into the re-run preregistration — the workload, hypotheses, and pass/fail criteria committed before the paid run — was **`cost < balanced <
 direct-premium ≤ quality`** (a prediction updated to reflect experiment 11's measurement, where
 quality cost more than premium). The measurement **confirmed it exactly**: `cost ($0.065) <
 balanced ($0.305) < premium ($1.341) < quality ($1.559)`.
@@ -168,5 +168,5 @@ whether to apply it; this page records the proposal only.
 
 The cache tokens left in this run's sealed traces were re-aggregated after the fact, with
 zero paid calls — [Prompt cache observed in the sealed runs](../manual/prompt-cache-observed.md).
-It is a post-hoc observation outside the preregistration gate, and no figure on this page
+It was observed after the preregistered analysis (post-hoc), outside the preregistration gate, and no figure on this page
 changed.

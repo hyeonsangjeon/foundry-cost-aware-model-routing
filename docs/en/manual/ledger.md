@@ -1,6 +1,6 @@
 # Audit ledger
 
-Routing decisions are recorded in an **append-only, hash-chained JSONL ledger**, and verified
+Routing decisions are recorded in an **audit ledger** — a hash-chained record of every decision that can replay its cost — as an **append-only, hash-chained JSONL ledger**, and verified
 by replaying the stored selection inputs and comparing the canonical final payload **byte for
 byte**. Verification passes only when every decision reproduces and required-field completeness
 is at least 99%.
@@ -28,7 +28,7 @@ status: PASS
 
 ## The measured ledger — the same integrity, for measured runs
 
-The offline ledger is contractually `measured = false`. Real live calls (the 4-way arena and
+The offline ledger is contractually `measured = false`. Real live calls (the four-way comparison (the `arena` command) and
 the like) accumulate in a **separate measured ledger** (`src/router/ledger/measured.py`,
 `MeasuredArenaLedger`), which **never touches the offline ledger** and gets the same two
 guarantees:
@@ -79,7 +79,7 @@ There is a real case of this:
   line**, so a routed call's amount is missing one billing component. It's not an approximation
   — it's **incomplete**.
 - **What is fine** — token usage, the model the router chose, latency, authentication, and the
-  hash-chain integrity. The arms that call a single deployment directly (`cheapest` · `premium` ·
+  hash-chain integrity. The arms — an arm is one comparison strategy in the experiment — that call a single deployment directly (`cheapest` · `premium` ·
   `ensemble`) aren't subject to the markup, so their amounts are **unaffected**.
 - **Why it wasn't repriced** — the markup rate applicable at capture time is pinned nowhere in
   the repository. Back-solving it by estimate would be **inventing a historical cost**, so we
@@ -100,7 +100,7 @@ immediately.
 ```
 
 !!! danger "Fail-closed — without it, things get quieter, not louder"
-    Every surface that renders or publishes a `router` amount (the arena report, the `foundry
+    Every surface that renders or publishes a `router` amount (the four-way comparison report, the `foundry
     live` summary, `ledger measured-replay`, the `/fleet/run` publisher, the dashboard, the static
     build) **loads and enforces** this annotation. If the file is missing, the schema is broken,
     the artifact hash mismatches, or someone flips `savings_claim_allowed` to `true` while
@@ -130,7 +130,7 @@ The router currently selects one execution from **precomputed offline signals**.
 lookup is not a model call. So the ledger cost explicitly uses a `selected-execution-only` basis.
 
 !!! warning "Live fan-out needs separate accounting"
-    A future live fan-out layer (an ensemble that actually calls several candidates) must account
+    A future live layer that calls several candidate models in parallel (fan-out) (an ensemble that actually calls several candidates) must account
     for every panel/judge call **separately, each one**. Don't mistake the offline projection's
     `selected-execution-only` for a live cost. Every record keeps `labels.measured = false`.
 

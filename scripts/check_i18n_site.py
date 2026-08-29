@@ -381,6 +381,61 @@ def check_anchors(site: Path) -> list[str]:
     return out
 
 
+def check_cross_page_anchors(site: Path) -> list[str]:
+    """Every cross-page ``target#fragment`` link resolves to a real id on the target.
+
+    ``check_anchors`` covers same-page ``#fragment`` links only. This covers links
+    that also name another page (``../foundry-setup/#measurement-adapter``): it
+    loads the resolved target page and confirms the fragment exists there as a
+    heading id or an explicit ``<a name>`` anchor. Together the two checks guard
+    every anchor rename against a link left dangling on the other side — the
+    regression BOLT-11's ``measured-bridge`` -> ``measurement-adapter`` rename
+    could otherwise have introduced across pages.
+
+    A missing target *page* and links that escape the site root are left to
+    ``check_internal_links``; this check judges only the fragment, so a failure
+    here is unambiguously a bad anchor.
+    """
+    base = _base_path()
+    site_root = site.resolve()
+    ids_cache: dict[Path, set[str] | None] = {}
+
+    def ids_for(dest: Path) -> set[str] | None:
+        html_file = dest / "index.html" if dest.is_dir() else dest
+        if html_file not in ids_cache:
+            if html_file.is_file():
+                text = html_file.read_text(encoding="utf-8", errors="ignore")
+                ids_cache[html_file] = set(ID_RE.findall(text))
+            else:
+                ids_cache[html_file] = None
+        return ids_cache[html_file]
+
+    out: list[str] = []
+    for html_path in sorted(site.rglob("*.html")):
+        text = html_path.read_text(encoding="utf-8", errors="ignore")
+        for href in HREF_RE.findall(text):
+            if "#" not in href or href.startswith("#"):
+                continue  # external-scheme or same-page (check_anchors owns it)
+            path_part, fragment = href.split("#", 1)
+            fragment = fragment.split("?", 1)[0]
+            if not fragment or not path_part:
+                continue
+            dest = _resolve_link(html_path, site, href, base)
+            if dest is None:
+                continue  # external link
+            try:
+                dest.resolve().relative_to(site_root)
+            except ValueError:
+                continue  # escaping link — check_internal_links owns it
+            ids = ids_for(dest)
+            if ids is None:
+                continue  # missing target page — check_internal_links owns it
+            if fragment not in ids:
+                where = html_path.relative_to(site).as_posix()
+                out.append("cross-anchor: " + where + " -> " + href + " has no target id")
+    return out
+
+
 def _canonical(text: str) -> str | None:
     m = CANONICAL_RE.search(text)
     if not m:
@@ -676,6 +731,7 @@ CHECKS = [
     ("redirects", check_redirects),
     ("internal-links", check_internal_links),
     ("anchors", check_anchors),
+    ("cross-anchors", check_cross_page_anchors),
     ("canonical/hreflang", check_canonical_hreflang),
     ("sitemap", check_sitemap),
     ("search", check_search),

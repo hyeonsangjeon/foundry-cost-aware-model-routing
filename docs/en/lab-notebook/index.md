@@ -8,7 +8,7 @@ commands.
 !!! tip "New here? Start with the [story arc](story-arc.md)"
     The [story arc](story-arc.md) explains experiments 01–07 in order: what each
     experiment changed, what result came out, and which question the next experiment
-    answers. It also links to the [experiment 08 arena](08-arena.md). This page covers
+    answers. It also links to the [experiment 08 four-way comparison](08-arena.md). This page covers
     the **shared methodology and metric definitions** used by all of them.
 
 ## Shared methodology
@@ -22,7 +22,7 @@ commands.
 - **Placeholder models.** `mini-fast`, `swift-coder`, `balanced-pro`,
   `deep-reasoner`, and `premium-max` are all generic placeholders, not specific
   products.
-- **Reproducibility contract.** Each experiment sets an `expect` floor, and the run
+- **Reproducibility criteria.** Each experiment sets an `expect` floor, and the run
   fails if the offline projection drops below it. Some experiments also set a
   `max_delta_pct` **ceiling** (a two-sided contract), so the run also fails if the
   saving becomes implausibly large — see [experiment 04](04-no-free-lunch.md).
@@ -31,7 +31,7 @@ commands.
   observe-then-escalate to recover more coverage than single-call routing — see
   [experiment 07](07-model-router.md).
 
-## Arm definitions
+## Arm definitions — an arm is one comparison strategy in the experiment
 
 | arm | Selection | Character |
 | --- | --- | --- |
@@ -61,7 +61,7 @@ not claims about a managed router's internal implementation.
   [glossary](../manual/glossary.md).
 - **total_cost_usd** — the summed cost of the selected runs (offline projection).
 - **delta_pct** — the saving relative to the naive (quality arm) baseline.
-- **spotlight ratio** — the naive-to-routing cost ratio on a representative task.
+- **representative-task ratio** — the naive-to-routing cost ratio on a representative task.
 
 ## How to reproduce
 
@@ -81,12 +81,12 @@ in [offline experiment results](../manual/projection-results.md).
 
 - [Experiment 01 · Flagship](01-hero.md) — 100 synthetic tasks; 25.5% saved while holding coverage
 - [Experiment 02 · Curated sample](02-curated.md) — five tasks you can follow by eye; 56.7% saved
-- [Experiment 03 · Coverage cliff](03-coverage-cliff.md) — removing the expensive fallback drops coverage from 100% → 67%
+- [Experiment 03 · the pass-rate cliff](03-coverage-cliff.md) — removing the expensive fallback drops coverage from 100% → 67%
 - [Experiment 04 · No free lunch](04-no-free-lunch.md) — when only the top model passes, routing saves 0% at 100% coverage
 - [Experiment 05 · Ensemble fan-out tax](05-ensemble-fanout.md) — calling every model still saves 47%, but costs 3.74× as much as the winner alone
-- [Experiment 06 · Adaptive fan-out dial](06-fanout-dial.md) — compared with experiment 05, raising one budget threshold keeps coverage and savings unchanged while the extra-call ratio falls 3.74× → 0
-- **[Experiment 07 · Routing layer](07-model-router.md)** ⭐ *centerpiece* — pick once, like a generic `single-call` arm? 52% coverage on synthetic data (the observe-then-escalate mix reaches 100% at comparable cost, +48%p) · *selection is the built-in router's job; verification and governance are this repo's*
-- [Experiment 08 · Arena](08-arena.md) — one problem, four ways (a prototype run)? the router is the cheapest correct answer but the **slowest**, because escalation is sequential (cost and accuracy are offline projections; **latency is a new illustrative projection**)
+- [Experiment 06 · adaptive fan-out threshold](06-fanout-dial.md) — compared with experiment 05, raising one budget threshold keeps coverage and savings unchanged while the extra-call ratio falls 3.74× → 0
+- **[Experiment 07 · Routing layer](07-model-router.md)** ⭐ *Primary comparison* — pick once, like a generic `single-call` arm? 52% coverage on synthetic data (the observe-then-escalate mix reaches 100% at comparable cost, +48%p) · *selection is the built-in router's job; verification and governance are this repo's*
+- [Experiment 08 · the four-way comparison](08-arena.md) — one problem, four ways (a prototype run)? the router is the cheapest correct answer but the **slowest**, because escalation is sequential (cost and accuracy are offline projections; **latency is a new illustrative projection**)
 - [Experiment 09 · Live routing](09-live-routing-proof.md) — one real `model-router` deployment routes to **`gpt-5.4` (3)** and **`grok-4-1-fast-reasoning` (2)** (the repo's first **`measured = true`**, keyless Entra)
 - [Experiment 10 · Measured ledger](10-measured-ledger.md) — the live run is written to a hash-chained ledger with a sealed rate card; one command re-verifies `PASS`, and **a single edited byte fails**
 - [Experiment 11 · Paid router-mode run](11-router-modes-void.md) — the first **paid 4-arm comparison ($3.47/$20)** is **VOID** because quality grading coverage was 79.2% < 90%; it also recorded quality > premium, Grok 100% (not Claude), and reasoning consuming the output

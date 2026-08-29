@@ -9,16 +9,16 @@
 
 | 워크로드 | 태스크 | 프롬프트? | 기계 검증(`validation`)? | 사용 실험 | 실측 가능? |
 | --- | --- | --- | --- | --- | --- |
-| `samples/telemetry/mixed-coding-workload.sample.jsonl` | 100 | ❌ 없음 | ❌ 없음 | 01 히어로 · 02 큐레이션 · 05 앙상블 · 06 팬아웃 다이얼 · 07 단일호출 · limits · adaptive | ❌ **프로젝션 전용** |
-| `samples/telemetry/curated-arena-live.sample.jsonl` | 5 | ▲ 별도 픽스처 | ❌ (사람용 `acceptance` 문자열) | 08 아레나 · 09·10 실측 라우팅 | ✅ **실측 완료 (09·10)** · 커버리지 미채점 |
-| `samples/prompts/curated-arena.sample.json` | 5 | ✅ `{title, prompt, acceptance}` | ❌ | 위 아레나/라이브의 프롬프트 원천 | — (프롬프트 픽스처) |
+| `samples/telemetry/mixed-coding-workload.sample.jsonl` | 100 | ❌ 없음 | ❌ 없음 | 01 히어로 · 02 큐레이션 · 05 앙상블 · 06 팬아웃 임계값 · 07 단일호출 · limits · adaptive | ❌ **프로젝션 전용** |
+| `samples/telemetry/curated-arena-live.sample.jsonl` | 5 | ▲ 별도 픽스처 | ❌ (사람용 `acceptance` 문자열) | 08 네 방식 비교(`arena` 명령) · 09·10 실측 라우팅 | ✅ **실측 완료 (09·10)** · 커버리지 미채점 |
+| `samples/prompts/curated-arena.sample.json` | 5 | ✅ `{title, prompt, acceptance}` | ❌ | 위 네 방식 비교/라이브의 프롬프트 원천 | — (프롬프트 픽스처) |
 
 ### 읽는 법
 
 - **프롬프트 없음** = 태스크 행이 텔레메트리(`{task_id, class, difficulty, domain, tokens}`)일
   뿐, 모델에 보낼 `system_prompt`/`user_prompt`가 없음. 그래서 이 워크로드로는 **실제
   모델을 부를 수가 없고** 오프라인 신호로 라우팅을 *투영*만 합니다(`measured = false`).
-- **사람용 `acceptance`** = 큐레이션 아레나 픽스처는 사람이 읽는 합격 기준 문장을 갖지만
+- **사람용 `acceptance`** = 큐레이션 네 방식 비교 픽스처는 사람이 읽는 합격 기준 문장을 갖지만
   기계가 통과/실패를 자동 판정하는 규칙은 아닙니다. 실측 커버리지를 채점하려면
   **기계가 읽는 `validation` 규칙**([검증 규칙](customize.md) ·
   `router.validation`)이 필요합니다.

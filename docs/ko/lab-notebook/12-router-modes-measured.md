@@ -27,7 +27,7 @@
 
 | 고친 것 | 실험 11에서 왜 문제였나 | 이 재런의 효과 |
 | --- | --- | --- |
-| **Fix A — `grok-4-1-fast.cached: 0.2`** (요율표) | Grok이 cached input을 돌려줬는데 Azure Retail에 cached meter가 없어 fail-closed로 비용 withhold → unpriced 43.4% | **unpriced 0%.** cost·balanced arm이 cost-complete로 가격화됨 |
+| **Fix A — `grok-4-1-fast.cached: 0.2`** (요율표) | Grok이 cached input을 돌려줬는데 Azure Retail에 cached meter가 없어 요율이 없으면 값을 추정하지 않고 비용 주장을 보류합니다(fail-closed) → unpriced 43.4% | **unpriced 0%.** cost·balanced arm이 cost-complete로 가격화됨 |
 | **Fix B — `max_output_tokens` 2048 → 8192** (config) | reasoning 모델이 예산을 추론에 다 써 코드 미출력 → quality 채점 커버리지 79.2% | **채점 커버리지 96.18% 복구.** 전 arm 90% 게이트 통과 |
 
 두 수정 모두 config/요율표를 바꿔 **`plan_hash`가 바뀌므로**, [새 사전등록

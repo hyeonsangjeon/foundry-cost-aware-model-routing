@@ -50,11 +50,11 @@ audit trail on every decision**.
     ② **escalate** after a failure · ③ use a **cost governor** to decide whether
     calling an ensemble is worth the extra spend · ④ write every decision to an
     **auditable ledger** that is hash-chained and cost-replayable. All four are
-    **implemented** here. **APIM governance** for quota, routing, and observability at
+    **implemented** here. **Azure API Management (APIM) governance** for quota, routing, and observability at
     the gateway is the next direction to extend.
 
     The built-in Model Router also remains a **first-class candidate arm
-    (`single_call`)**. This project uses the product rather than replacing it.
+    (`single_call`)** — an arm is one comparison strategy in the experiment. This project uses the product rather than replacing it.
 
     > **In one line:** model selection is already handled well by the built-in Model
     > Router. This asset is the layer for the **next problem** — **verifying** the
@@ -99,7 +99,7 @@ The governor chooses one of two ways to run the task:
 
 ### 4 · Govern
 Before spending, the cost governor sets how much work the task may use: reasoning
-effort, PAYG vs provisioned throughput, handling of the `429 retry-after-ms`
+effort, pay-as-you-go (PAYG) vs Provisioned Throughput Units (PTU), handling of the `429 retry-after-ms`
 acceptance signal, and `prompt_cache_key` bucketing. The router consumes this layer
 as a **dependency** from the companion toolkit instead of reimplementing its math.
 
@@ -125,9 +125,9 @@ also **holds the pass rate at 100%** while spending 25.5% less than naive
     claim about any managed router's internals. Every figure is `labels.measured =
     false` — an offline projection made with no real calls.
 
-## Claim-authority labels
+## Claim-source labels
 
-Every numeric and behavioral claim in this repo keeps an authority label.
+Every numeric and behavioral claim in this repo keeps a claim-source label.
 
 - **Tier 1 — vendor spec.** e.g. the `retry-after-ms` acceptance signal, documented
   cache-key thresholds, published rates.

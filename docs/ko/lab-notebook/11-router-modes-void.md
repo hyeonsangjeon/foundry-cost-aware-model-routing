@@ -86,7 +86,7 @@
 quality 채점 커버리지를 79.2%로 끌어내렸습니다 — **런을 무효로 만든 직접 원인**입니다. (반대로 Grok은
 추론을 5,400 토큰까지 쓰고도 채점 가능한 본문을 냈습니다 — output 회계 방식이 provider마다 달랐습니다.)
 
-### (3) fail-closed가 설계대로 작동해 Grok 비용을 보류했다
+### (3) 누락 요율 규칙이 설계대로 작동해 Grok 비용을 보류했다
 
 라우터가 Grok으로 갔는데 비용이 withhold된 것을 보고 처음엔 "카드에 Grok
 요율이 빠졌다"고 의심했지만 조사 결과 **틀린 진단**이었습니다:
@@ -94,8 +94,8 @@ quality 채점 커버리지를 79.2%로 끌어내렸습니다 — **런을 무�
 - Grok 기본 요율(`input $0.2 / output $0.5 /1M`)은 **이미 카드에 있고** Azure Retail과 정확히 일치합니다.
 - 실측에서 Grok 셀은 **100% cached input 토큰을 돌려줬는데**, Azure Retail에는 **Grok의 cached
   meter가 존재하지 않습니다**(전 리전·전 서비스 0행 — 권위 있게 확인). 그래서 카드의 `cached: null`은 **옳습니다**.
-- `composite_cost`의 **cached-token fail-closed 가드**가 "cached 토큰이 있는데 cached 요율이 없다"를
-  감지하고 비용을 **추측하는 대신 withhold**했습니다 — 이건 버그가 아니라 [03Z-b 정직 계약](10-measured-ledger.md)이
+- `composite_cost`의 **cached-token 누락 요율 가드**가 "cached 토큰이 있는데 cached 요율이 없다"를
+  감지했습니다. 요율이 없으면 값을 추정하지 않고 비용 주장을 보류합니다(fail-closed) — 그래서 비용을 **추측하는 대신 withhold**했습니다 — 이건 버그가 아니라 [03Z-b 정직 계약](10-measured-ledger.md)이
   설계대로 작동한 것입니다.
 
 ## 무효(VOID) 결과가 여전히 쓸모 있는 이유

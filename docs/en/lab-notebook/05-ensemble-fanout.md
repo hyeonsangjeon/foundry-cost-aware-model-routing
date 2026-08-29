@@ -4,7 +4,7 @@
     Compare mode calls every candidate on 6 high-value tasks. Those calls cost
     **$0.50**, while the selected winners cost **$0.13**. The discarded calls account
     for the remaining **$0.36 (3.74×)**. The trace's `cost_usd` records **only the
-    winner**, so this experiment calculates the full fan-out cost separately. All
+    winner**, so this experiment calculates the full cost to call several candidate models in parallel (fan-out) separately. All
     numbers are `measured = false`.
 
 <figure markdown="span">
@@ -84,8 +84,8 @@ Routing's bill is honestly cheap at **$0.13**, but fanning those 6 tasks out in 
 
 > Canonical: the ensemble fan-out tax (3.74×) is collected in [offline experiment results](../manual/projection-results.md).
 
-!!! example "Spotlight — t-0032 (test)"
-    Routing chose `swift-coder` ($0.0021) while the naive premium arm uses
+!!! example "The representative task — t-0032 (test)"
+    Routing chose `swift-coder` ($0.0021) while the naive premium arm — an arm is one comparison strategy in the experiment — uses
     `balanced-pro` ($0.01) → **5.14× cheaper**. Fanning out this task (mini · swift ·
     balanced) costs **$0.01**, 6.5× the winner. The saving and extra fan-out cost
     happen **at the same time**.
@@ -123,7 +123,7 @@ For usage details, see the [Metrics & Foundry](../manual/metrics.md) manual.
 We added two panels to the dashboard:
 
 - **Experiments** — click an experiment tab to see cost, coverage, extra fan-out
-  cost, and the reproducibility contract. It reads Foundry-shaped metrics from
+  cost, and the reproducibility criteria. It reads Foundry-shaped metrics from
   `GET /experiments` (live) or `experiments.json` (static export).
 - **Historical dashboard** — a table of recorded run history. On a live server it accrues one row every time you run an experiment (`GET /metrics/history`); in the static demo it shows a deterministic reference snapshot per experiment.
 

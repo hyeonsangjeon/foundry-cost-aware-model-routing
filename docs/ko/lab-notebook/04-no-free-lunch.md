@@ -76,7 +76,7 @@ reproducibility  PASS
 실패해 라우터가 매번 최상위 모델까지 올라가므로 나이브와 같은 비용을 씁니다.
 [실험 03](03-coverage-cliff.md)처럼 커버리지를 낮춰 비용을 작게 보이게 하지 않습니다.
 
-!!! success "양방향 재현성 계약 (`max_delta_pct`)"
+!!! success "양방향 재현성 통과 기준(`max_delta_pct`)"
     이 실험의 `expect` 블록은 **양쪽을 모두** 고정합니다:
 
     - `min_coverage: 1.0` — 라우팅은 (비용을 써서라도) 커버리지를 100%로 유지해야 하고,

@@ -35,6 +35,13 @@ Rules enforced:
      reintroduces the jargon BOLT-10 (#137) retired: cockpit, ensemble tax,
      cost governor, wiring, human gate, flagship — and the Korean counterparts
      콕핏, 앙상블 세금, 비용 거버너, 배선, 사람 게이트, 플래그십.
+  F. No inner-page prose (docs/en·docs/ko manual, lab-notebook, honesty — the
+     ko devlog excluded, and each page's H1 title deferred to BOLT-12) reintroduces
+     the jargon BOLT-11 (#138) retired: measured/measurement bridge, wiring proof,
+     spotlight, coverage cliff, slate, fan-out dial, arena (as prose), 5-minute wow,
+     centerpiece, reproducibility contract, authority label — and the Korean
+     counterparts 측정 브리지/브릿지, 배선, 스포트라이트, 커버리지 절벽, 슬레이트,
+     팬아웃 다이얼, 아레나, 5분 wow, 센터피스, 재현성 계약, 권한 라벨.
 
 Rule D — what it does and does not look at
 ------------------------------------------
@@ -181,10 +188,115 @@ RETIRED_FIRST_SCREEN_TERMS = (
      "기본 비용·통과율 실험"),
 )
 
+# Rule F — jargon BOLT-11 (#138) retired from the inner bilingual pages (manual,
+# lab-notebook, honesty under docs/en and docs/ko), as (pattern, retired,
+# replacement). The operator's spec describes this as "extending the Rule E
+# denylist to the cleaned inner pages"; it is a *separate* rule here for two
+# reasons, so extending Rule E's own list would have been wrong:
+#
+#   * the BOLT-10 first-screen terms (flagship, cockpit, cost governor, …) still
+#     stand as deliberately-retained residuals on some inner pages (concept.md);
+#     a merged scope would fail the inner pages on those out-of-scope lines.
+#   * page titles / nav / URLs are BOLT-12's surface, so this rule skips each
+#     page's H1 line — which is where foundry-live.md ("measured bridge") and
+#     head-to-head.md ("5-minute wow") keep their retired *titles* until BOLT-12.
+#
+# Retained boundaries are masked exactly as Rule D/E mask them (fenced blocks
+# skipped; inline code / links / URLs / anchor-fragments blanked), plus the
+# HTML ``<a name="…">`` anchor and the dashboard UI label "Spotlight card" —
+# the label is cited verbatim beside the plain term, so it must not read as the
+# retired concept. The CLI ``arena``, config keys ``slate`` / ``compare_min_value``,
+# and fixture filenames all live inside those masked code surfaces.
+INNER_PAGE_LOCALES = ("docs/en", "docs/ko")
+INNER_PAGE_DIRS = ("manual", "lab-notebook")
+INNER_PAGE_EXTRA = ("honesty.md",)
+INNER_PAGE_EXCLUDED = ("lab-notebook/devlog.md",)
+
+RETIRED_INNER_PAGE_TERMS = (
+    # item 1 — measurement seam (grading stays "grading integration", from BOLT-10)
+    (re.compile(r"measure(?:d|ment)\s+bridge", re.IGNORECASE), "measured/measurement bridge",
+     "the live measurement adapter (later: the measurement adapter)"),
+    (re.compile(r"측정\s*브(?:릿|리)지"), "측정 브리지/브릿지",
+     "라이브 실측 어댑터 (이후: 실측 어댑터)"),
+    # item 2 — wiring
+    (re.compile(r"wiring\s+proof", re.IGNORECASE), "wiring proof",
+     "end-to-end call-path check"),
+    (re.compile(r"\bwiring\b", re.IGNORECASE), "wiring",
+     "measurement path / measurement integration"),
+    (re.compile(r"배선"), "배선",
+     "측정 경로 / 측정 반영"),
+    # item 3 — spotlight (ko transliteration + en concept; "Spotlight card" UI label masked)
+    (re.compile(r"\bspotlight\b", re.IGNORECASE), "spotlight",
+     "the representative task"),
+    (re.compile(r"스포트라이트"), "스포트라이트",
+     "대표 태스크"),
+    # item 4 — coverage cliff
+    (re.compile(r"coverage\s+cliff", re.IGNORECASE), "coverage cliff",
+     "the pass-rate cliff"),
+    (re.compile(r"커버리지\s*절벽"), "커버리지 절벽",
+     "통과율 절벽"),
+    # item 5 — slate (config key `slate` masked as code)
+    (re.compile(r"\bslate\b", re.IGNORECASE), "slate",
+     "the candidate set (fan-out) / role assignment (fleet)"),
+    (re.compile(r"슬레이트"), "슬레이트",
+     "후보 모델 세트 / 역할 배정"),
+    # item 6 — fan-out dial (config key `compare_min_value` masked as code)
+    (re.compile(r"fan-?out\s+dial", re.IGNORECASE), "fan-out dial",
+     "the fan-out threshold"),
+    (re.compile(r"팬아웃\s*다이얼"), "팬아웃 다이얼",
+     "팬아웃 임계값"),
+    # item 7 — arena as prose (CLI `arena` + fixtures masked as code)
+    (re.compile(r"\barena\b", re.IGNORECASE), "arena (prose)",
+     "the four-way comparison (first mention: the `arena` command)"),
+    (re.compile(r"아레나"), "아레나",
+     "네 방식 비교"),
+    # item 8 — 5-minute wow / centerpiece (the UI label "both-win" is kept, not gated)
+    (re.compile(r"\d+-?\s*minute\s+wow", re.IGNORECASE), "5-minute wow",
+     "delete the phrase"),
+    (re.compile(r"\d+\s*분\s*wow", re.IGNORECASE), "5분 wow",
+     "삭제"),
+    (re.compile(r"centerpiece", re.IGNORECASE), "centerpiece",
+     "Primary comparison"),
+    (re.compile(r"센터피스"), "센터피스",
+     "핵심 비교"),
+    # item 9 — reproducibility contract (generic "contract"/"계약" is kept)
+    (re.compile(r"reproducibility\s+contract", re.IGNORECASE), "reproducibility contract",
+     "the reproducibility criteria"),
+    (re.compile(r"재현성\s*계약"), "재현성 계약",
+     "재현성 통과 기준"),
+    # item 10 — authority label
+    (re.compile(r"authority\s+label", re.IGNORECASE), "authority label",
+     "claim-source label"),
+    (re.compile(r"권한\s*라벨"), "권한 라벨",
+     "주장 근거 라벨"),
+)
+
+# UI labels and HTML anchors masked before Rule F matches, on top of the shared
+# code-surface mask. "Spotlight card" is a dashboard label cited beside the plain
+# term ("the representative task (Spotlight card)"); the anchor name is a URL id.
+_HTML_ANCHOR = re.compile(r'<a\s+name="[^"]*">')
+_INNER_UI_LABELS = (
+    re.compile(r"Spotlight\s+card", re.IGNORECASE),
+)
+
+# The "Related documents" / "관련 문서" footer links between pages — navigation,
+# which is BOLT-12's surface — so Rule F does not scan it (e.g. a footer link to
+# foundry-live.md keeps that page's retired title until BOLT-12 renames both). In
+# every inner page the footer is the final block, so once its marker line is seen
+# the rest of the file is skipped. The marker is a heading (`## Related
+# documents`) or an inline label carrying a link on the same line.
+_NAV_FOOTER = re.compile(
+    r"^\s*(?:#{1,6}\s+|\*\*)?(?:Related documents|Related docs|관련 문서)\s*:?",
+    re.IGNORECASE,
+)
+
 # Code surfaces stripped before Rule D matches. A term surviving all four is
 # being read as prose. Order matters — code spans may themselves contain URLs.
 _FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 _CODE_SPAN = re.compile(r"`[^`]*`")
+# Same span, but allowed to cross line wraps — a signature or path can open its
+# backtick on one line and close it on the next (see _mask_inner_document).
+_CODE_SPAN_MULTILINE = re.compile(r"`[^`]*`", re.DOTALL)
 _LINK_TARGET = re.compile(r"\]\([^)]*\)")
 _URL = re.compile(r"<?https?://[^\s>)]+>?")
 _PREREG_FILENAME = re.compile(r"prereg(?:-03d[23]?-router-modes)?\.md")
@@ -364,6 +476,118 @@ def check_no_retired_first_screen_terms() -> list[str]:
     return failures
 
 
+def _inner_page_files() -> list[Path]:
+    """Return the Rule F surfaces: manual + lab-notebook + honesty, both locales.
+
+    The ko-only ``lab-notebook/devlog.md`` is excluded (a dated journal, like Rule
+    D). docs/en has no devlog; the suffix match covers whichever locale carries it.
+    """
+    files: list[Path] = []
+    for locale in INNER_PAGE_LOCALES:
+        base = REPO_ROOT / locale
+        for sub in INNER_PAGE_DIRS:
+            directory = base / sub
+            if directory.is_dir():
+                files.extend(sorted(directory.rglob("*.md")))
+        for extra in INNER_PAGE_EXTRA:
+            path = base / extra
+            if path.exists():
+                files.append(path)
+    return [
+        path
+        for path in files
+        if not any(
+            path.as_posix().endswith(excluded) for excluded in INNER_PAGE_EXCLUDED
+        )
+    ]
+
+
+def _nav_footer_start(lines: list[str]) -> int | None:
+    """1-indexed line where the page's Related-documents footer nav begins, if any.
+
+    The footer is either a ``## Related documents`` heading or an inline
+    ``**Related docs:** [link]…`` paragraph; in every inner page it is the final
+    block, so Rule F skips from here to EOF (nav is BOLT-12's surface).
+    """
+    for lineno, text in enumerate(lines, 1):
+        if _NAV_FOOTER.match(text) and (re.match(r"\s*#{1,6}\s", text) or "](" in text):
+            return lineno
+    return None
+
+
+def _mask_inner_document(lines: list[str], fenced: set[int]) -> list[str]:
+    """Blank inline code spans across the whole page, including spans that wrap
+    across a line break (e.g. a function signature or a path split for width), so
+    Rule F never reads a code token as prose. Fenced lines are blanked first so
+    their backticks cannot pair with inline ones; newlines and length are kept so
+    line numbers stay aligned with the raw text.
+    """
+    prepped = [
+        (" " * len(text)) if lineno in fenced else text
+        for lineno, text in enumerate(lines, 1)
+    ]
+    masked = _CODE_SPAN_MULTILINE.sub(
+        lambda match: re.sub(r"[^\n]", " ", match.group(0)), "\n".join(prepped)
+    )
+    return masked.split("\n")
+
+
+def _iter_inner_page_lines():
+    """Yield (relpath, line_number, raw, masked) for the Rule F prose lines.
+
+    Skips every line inside a fenced code block, each page's H1 title line
+    (``# …``) — page titles are BOLT-12's surface, which is why the retired titles
+    on foundry-live.md and head-to-head.md do not fail here — and the
+    Related-documents footer nav. ``masked`` has inline code spans blanked across
+    line wraps; the raw line is kept for the failure message.
+    """
+    for path in _inner_page_files():
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        lines = path.read_text(encoding="utf-8").splitlines()
+        fenced = fenced_line_numbers(lines)
+        masked = _mask_inner_document(lines, fenced)
+        footer = _nav_footer_start(lines)
+        for lineno, text in enumerate(lines, 1):
+            if lineno in fenced:
+                continue
+            if re.match(r"#\s", text):  # H1 page title — deferred to BOLT-12
+                continue
+            if footer is not None and lineno >= footer:  # nav — BOLT-12
+                continue
+            yield rel, lineno, text, masked[lineno - 1]
+
+
+def strip_inner_surfaces(text: str) -> str:
+    """Blank the code surfaces plus the HTML anchor and UI labels Rule F keeps."""
+    text = strip_code_surfaces(text)
+    text = _HTML_ANCHOR.sub(lambda match: " " * len(match.group(0)), text)
+    for pattern in _INNER_UI_LABELS:
+        text = pattern.sub(lambda match: " " * len(match.group(0)), text)
+    return text
+
+
+def retired_inner_page_terms_in(text: str) -> list[tuple[str, str]]:
+    """Return (retired, replacement) for BOLT-11 terms left after the mask."""
+    prose = strip_inner_surfaces(text)
+    return [
+        (retired, replacement)
+        for pattern, retired, replacement in RETIRED_INNER_PAGE_TERMS
+        if pattern.search(prose)
+    ]
+
+
+def check_no_retired_inner_page_terms() -> list[str]:
+    """Rule F — no inner-page prose reintroduces jargon retired by BOLT-11."""
+    failures: list[str] = []
+    for rel, lineno, text, masked in _iter_inner_page_lines():
+        for retired, replacement in retired_inner_page_terms_in(masked):
+            failures.append(
+                f"{rel}:{lineno} reintroduces retired '{retired}' — "
+                f"use '{replacement}':\n    {text.strip()[:200]}"
+            )
+    return failures
+
+
 def find_violations() -> list[str]:
     """Return every terminology violation across all rules."""
     return (
@@ -372,6 +596,7 @@ def find_violations() -> list[str]:
         + check_measured_pages_qualified()
         + check_no_retired_terminology()
         + check_no_retired_first_screen_terms()
+        + check_no_retired_inner_page_terms()
     )
 
 
@@ -382,7 +607,8 @@ def main() -> int:
         print(
             f"terminology: OK — glossary present, {pages} docs pages checked, "
             f"{len(RETIRED_TERMS)} retired terms gated, "
-            f"{len(RETIRED_FIRST_SCREEN_TERMS)} first-screen terms gated"
+            f"{len(RETIRED_FIRST_SCREEN_TERMS)} first-screen terms gated, "
+            f"{len(RETIRED_INNER_PAGE_TERMS)} inner-page terms gated"
         )
         return 0
     print(f"terminology: {len(violations)} violation(s):\n")

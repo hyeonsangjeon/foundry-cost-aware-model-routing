@@ -1,6 +1,6 @@
 # Honesty Charter
 
-Every numeric and behavioral claim has an **authority label**. The label tells you
+Every numeric and behavioral claim has a **claim-source label**. The label tells you
 whether the result was measured, computed offline, or taken from a vendor
 specification. This page also states what the project does not claim.
 
@@ -9,7 +9,7 @@ specification. This page also states what the project does not claim.
 | Category | In this repo | Label |
 | --- | --- | --- |
 | Offline before/after | Projection over synthetic data | `measured = false` |
-| Experiment spotlight / savings rate | Projection over synthetic data | `measured = false` |
+| Representative task / savings rate | Projection over synthetic data | `measured = false` |
 | Measured experiments 09 · 10 · 11 · 12 · 13 (committed) | Real Foundry calls · `evidence_tier = directional` (11 is VOID, below its pre-registration bar; one arm of 13 is cost-incomplete) | `measured = true` |
 | A live eval in your tenant | Real measurement (scope: the workload you measured) | `measured = true` |
 
@@ -32,12 +32,12 @@ cells were withheld fail-closed rather than priced at a guessed rate, so that ar
 **cost-incomplete**: its total is reported and labelled, and it carries no savings
 claim. Nothing in an earlier run was recomputed when the card was later corrected.
 
-The [live measurement bridge](manual/foundry-live.md) implements this path. It reads
+The [live measurement adapter](manual/foundry-live.md) implements this path. It reads
 the token usage from a real Azure Model Router call, computes the cost, and grants
 `measured = true` only to live calls. To find the measured savings for your workload,
 run it in your own tenant.
 
-## Claim-authority labels
+## Claim-source labels
 
 - **Tier 1 — vendor spec.** Facts the vendor publishes, such as the `retry-after-ms`
   acceptance signal, documented cache-key thresholds, and published rates.
@@ -64,7 +64,8 @@ run it in your own tenant.
 The current router chooses one execution from pre-computed offline signals. Looking
 up that signal is not a model call, so the ledger uses a
 `selected-execution-only` billing basis. A future live fan-out layer must record the
-cost of every panel and judge call separately. → [audit ledger](manual/ledger.md)
+cost of every panel and judge call separately. → [audit ledger](manual/ledger.md) — a
+hash-chained record of every decision that can replay its cost.
 
 ## What this is / is not
 

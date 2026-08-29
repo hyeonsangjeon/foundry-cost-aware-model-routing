@@ -7,7 +7,7 @@
 > separately in [Routing-mode measured results · 03D](03d-results.md).
 
 !!! abstract "This page's role — the canonical source for the offline figures"
-    The flagship savings, the extra cost of calling every candidate, and the
+    The flagship savings, the extra cost to call several candidate models in parallel (fan-out), and the
     single-call gap appear on several pages. When an experiment is run again, updating
     every copy can leave conflicting numbers. This page is the **canonical source for
     these values**. Other pages **link** here instead of maintaining another copy.
@@ -65,7 +65,7 @@ cost-router experiment run ensemble --json     # tax_ratio·fanout stats
 
 ## The single-call gap — pick once vs observe and escalate
 
-The `single-call` arm picks a model **once** per prompt and stops. It chooses by
+The `single-call` arm — an arm is one comparison strategy in the experiment — picks a model **once** per prompt and stops. It chooses by
 difficulty but has **no escalation**, so it reaches a **52% pass rate** over 100
 synthetic tasks. The `cost-aware mix` checks the result and moves up after a failure.
 It reaches a **100% pass rate** at **comparable cost** ($1.66 vs $1.59), a gap of

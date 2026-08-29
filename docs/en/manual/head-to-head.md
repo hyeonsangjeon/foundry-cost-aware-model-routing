@@ -1,13 +1,13 @@
 # One problem, four ways (5-minute wow)
 
-Where the dashboard's other panels compare the **whole workload** in aggregate, this arena
+Where the dashboard's other panels compare the **whole workload** in aggregate, this four-way comparison (the `arena` command)
 answers the question a new user asks first: **"For this one problem, how much does each
 approach spend, how slow is it, and does it even get the answer right?"** Pick a task and
 watch four columns fill in — a "press it and you see it" screen in the spirit of HuggingFace
 Spaces.
 
 !!! success "See it instantly, no install"
-    The arena panel is part of the live dashboard.
+    The four-way comparison panel is part of the live dashboard.
 
     [:material-open-in-new: Live demo](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/){ .md-button target=_blank }
 
@@ -20,7 +20,7 @@ machinery** as the aggregate panels, so the numbers agree by construction.
 | --- | --- | --- |
 | **Cheapest model** | Calls only the class's single cheapest candidate | that one call |
 | **Premium model** | Calls only the most expensive candidate (the naive ceiling) | that one call |
-| **Ensemble (fan-out)** | Fans out to **all** candidates and takes the best | **the sum of all candidates** ([extra call cost](../lab-notebook/05-ensemble-fanout.md)) |
+| **Ensemble (fan-out)** | Calls several candidate models in parallel (fan-out) to **all** candidates and takes the best | **the sum of all candidates** ([extra call cost](../lab-notebook/05-ensemble-fanout.md)) |
 | **Cost-aware router** | Starts cheap, escalates upward on failure | **the winner only** |
 
 !!! info "The four ways = a contrast of the axes layered on top of the built-in router"
@@ -60,7 +60,7 @@ easy task (`t-0001`) and the cheapest model wins all three axes, and the router 
 that — routing earns its value on the hard tasks.
 
 `*` Latency is an illustrative projection (`measured = false`). It is not real wall-clock; real
-timing comes from the [live measured bridge](foundry-live.md).
+timing comes from the [live measurement adapter](foundry-live.md).
 
 ## Input data — a problem you can read
 
@@ -74,8 +74,8 @@ this is" and that the four ways solve **the same concrete problem**.
     (`problem_basis = authored-synthetic`, `samples/prompts/curated-arena.sample.json`). It
     **did not bolt on a public benchmark** like HumanEval or MBPP — attaching synthetic
     pass/fail signals to a named benchmark would dishonestly imply a measured evaluation. Real
-    public data plus real grading is possible only in the [live measured
-    bridge](foundry-live.md). The prompts are **display-only** — they don't affect
+    public data plus real grading is possible only in the [live measurement
+    adapter](foundry-live.md). The prompts are **display-only** — they don't affect
     classification or cost, and the numbers above are identical with or without them.
 
 ## Viewing it from the CLI
@@ -130,7 +130,7 @@ tasks with no round trip.
 ## Viewing it measured (`measured = true`)
 
 The numbers above are all offline projections (`measured = false`). To **measure the same
-curated tasks (t-0001–t-0006) against the real Azure Model Router**, run the live bridge with a
+curated tasks (t-0001–t-0006) against the real Azure Model Router**, run the live measurement adapter with a
 prepared, prompt-bearing workload — it's one command once you fill in credentials:
 
 ```bash
@@ -141,12 +141,12 @@ cost-router foundry live --live \
 
 Cost is computed from the actually billed token usage, becoming `measured = true`, and `--store`
 leaves one line on the historical dashboard. For the full setup and honesty boundaries, see the
-[live measured bridge](foundry-live.md). (Measuring accuracy too requires injecting a `grader`;
+[live measurement adapter](foundry-live.md). (Measuring accuracy too requires injecting a `grader`;
 without one, coverage is labeled an offline-signal projection.)
 
 ## Experiment record
 
 The method, numbers, and honesty labels of this prototype run feature are collected in
-[Experiment 08 · Arena](../lab-notebook/08-arena.md) — why it narrows to a single task, why the
+[Experiment 08 · Four-way comparison](../lab-notebook/08-arena.md) — why it narrows to a single task, why the
 latency axis is an illustrative projection, and why the router is the slowest (sequential
 escalation).

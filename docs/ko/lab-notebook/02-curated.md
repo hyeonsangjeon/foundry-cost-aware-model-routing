@@ -21,7 +21,7 @@
 
 - **설정 파일:** `experiments/curated.yaml`
 - **데이터:** 큐레이션 픽스처 (`samples/responses/routing-signals.sample.json`)
-- **재현성 계약:** 커버리지 ≥ 100%, 절감 ≥ 30%, 태스크 ≥ 3
+- **재현성 통과 기준:** 커버리지 ≥ 100%, 절감 ≥ 30%, 태스크 ≥ 3
 
 ## 실행
 
@@ -46,7 +46,7 @@ before / after  (offline projection over synthetic data; labels.measured=false)
 | 라우팅 비용 | $0.06 |
 | 절감률 | 56.7% |
 
-## 스포트라이트
+## 대표 태스크
 
 ```text
 spotlight  t-0005 · validate · clean-first

@@ -25,28 +25,28 @@ cost-router hero --serve
 - **before / after** — 나이브(모든 태스크에 프리미엄) 대 비용 인지 라우팅
 - **비용 × 커버리지 프런티어** — all-mini / all-premium / cost-aware mix 세 전략을
   비용(가로)·커버리지(세로) 산점도로 표시. 비용 인지 mix는 all-premium보다 낮은 비용으로
-  완전한 커버리지를 냅니다. all-mini는 비용이 낮지만 커버리지도 낮습니다.
-- **스포트라이트 카드** — 비용 인지 라우팅이 나이브 프리미엄 arm을 가장 크게 이긴 한 태스크를
+  완전한 커버리지를 냅니다. 패널은 이를 "both-win"으로 표시합니다 (더 낮은 비용에 같은 통과율). all-mini는 비용이 낮지만 커버리지도 낮습니다.
+- **대표 태스크 카드(Spotlight card)** — 비용 인지 라우팅이 나이브 프리미엄 arm을 가장 크게 이긴 한 태스크를
   두 카드(라우팅 vs 나이브)와 배율로 강조 (예: `24.1×` 더 저렴)
-- **아레나(문제 하나, 네 가지 방법)** — "5분 wow" 패널. 태스크 하나를 골라 **같은 문제**를
-  네 가지로 보냅니다: 가장 싼 모델 · 프리미엄 모델 · 모두에게 팬아웃하는 앙상블 · 값싼 것부터
+- **네 방식 비교(`arena` 명령, 문제 하나, 네 가지 방법)** — 태스크 하나를 골라 **같은 문제**를
+  네 가지로 보냅니다: 가장 싼 모델 · 프리미엄 모델 · 여러 후보 모델을 병렬로 호출하는 앙상블(fan-out) · 값싼 것부터
   올라가는 비용 인지 라우터. 각 카드가 **비용 · 지연 · 정확도**를 채우고 항목마다 승자를
   강조합니다. 기본 태스크(`t-0003`)에서는 라우터가 **가장 싸면서 정답도 맞히지만**(프리미엄·앙상블도
   정답) **지연은 가장 느립니다**. 순차 에스컬레이션이기 때문입니다.
   `/compare`(라이브) 또는
   `compare.json`(정적)에서 읽으며 태스크 전환은 왕복 없이 클라이언트에서 처리됩니다. 자세한
   내용은 [문제 하나, 네 가지 방법](head-to-head.md) 참고.
-- **커버리지 절벽(정책 A/B)** — 같은 워크로드에 시드 정책과 비싼 fallback을 지운
+- **통과율 절벽(정책 A/B)** — 같은 워크로드에 시드 정책과 비싼 fallback을 지운
   `cost-cut` 후보를 나란히 비교. 후보는 비용이 낮지만 커버리지가 **100% → 67%(−33%p)**로
   떨어집니다. 이는 replay와 독립적으로 `/regression`에서 가져오며 데이터가 없으면 조용히
-  숨겨집니다. 자세한 해석은 [실험 03 · 커버리지 절벽](../lab-notebook/03-coverage-cliff.md) 참고.
-- **팬아웃 다이얼(임계값 스윕)** — 예산 게이트의 `compare_min_value`를 0→1.01까지 훑으며
+  숨겨집니다. 자세한 해석은 [실험 03 · 통과율 절벽](../lab-notebook/03-coverage-cliff.md) 참고.
+- **팬아웃 임계값(임계값 스윕)** — 예산 게이트의 `compare_min_value`를 0→1.01까지 훑으며
   팬아웃 태스크 수·커버리지·절감·후보 추가 호출 비용을 보여 줍니다. **커버리지(100%)와
   절감(47%)은 그대로이고** 추가 호출 비율만 **[3.74×](projection-results.md) → $0.0000**으로
   낮아집니다. `/fanout-sweep`에서
-  가져오며 데이터가 없으면 숨겨집니다. [실험 06 · 적응형 팬아웃 다이얼](../lab-notebook/06-fanout-dial.md) 참고.
+  가져오며 데이터가 없으면 숨겨집니다. [실험 06 · 적응형 팬아웃 임계값](../lab-notebook/06-fanout-dial.md) 참고.
 - **Experiments(클릭하면 통계)** — 실험 탭을 누르면 그 실험의 비용·커버리지·후보 추가 호출
-  비용·재현성 계약이 즉시 뜹니다. `GET /experiments`(라이브) 또는 `experiments.json`(정적
+  비용·재현성 통과 기준이 즉시 뜹니다. `GET /experiments`(라이브) 또는 `experiments.json`(정적
   export)에서 Azure Foundry 형태의 오프라인 메트릭을 읽습니다. 각 탭이 **어떤 모델로 어떻게**
   구성되는지 애니메이션 SVG로 보려면 [실험 아틀라스 · Experiment Atlas](experiment-atlas.md),
   앙상블 세금 해석은 [실험 05 · 앙상블 팬아웃 세금](../lab-notebook/05-ensemble-fanout.md) 참고.
@@ -60,7 +60,7 @@ cost-router hero --serve
   [실험 07 · 라우팅 레이어](../lab-notebook/07-model-router.md) 참고.
 - **태스크별 라우팅 결정 애니메이션** — 클래스·선택 모델·이유·비용
 - **집계** — 클래스별 비용, 모델 사용량, 모드/이유 통계
-- **Fleet & live routing(플릿 선택)** — 등록된 배포 카탈로그를 보여주고
+- **Fleet & live routing(플릿 선택)** — 플릿 — 배포 모델 목록과 역할 지정을 묶어 부르는 이름입니다; 등록된 배포 카탈로그를 보여주고
   router(메인)/cheapest/premium 드롭다운과 ensemble 체크박스로 **각 비교 전략(arm)에 어떤 모델을 넣을지**
   고릅니다. **Run selection**은 커밋된 measured 스냅샷을 정직하게 `measured = false` ·
   `provenance = recorded`로 재라벨해 재생하고(웹 경로는 **절대 유료 호출 안 함**), 여러분 선택을
@@ -68,7 +68,7 @@ cost-router hero --serve
   라이브 서버가 아니면 조용히 숨겨집니다. 자세한 내용은 [플릿 등록 & 모델 선택](fleet.md) 참고.
 
 상단의 `full synthetic workload (100 tasks)` 토글을 켜면 전체 합성 워크로드가 재생되며
-before/after가 20초 안에 명확히 채워집니다. 스포트라이트 카드는 재생 요약의
+before/after가 20초 안에 명확히 채워집니다. 대표 태스크 카드(Spotlight card)는 재생 요약의
 `spotlight` 필드(자동 선택된 대표 태스크)에서 렌더링됩니다.
 
 !!! tip "히어로 자동 실행"
@@ -87,12 +87,12 @@ before/after가 20초 안에 명확히 채워집니다. 스포트라이트 카�
 | GET | `/` · `/dashboard` | 대시보드 HTML |
 | GET | `/healthz` | 라이브니스 프로브 |
 | GET | `/policy` | 정책 버전과 클래스별 후보 |
-| GET | `/fleet` | 플릿 카탈로그 + 현재 slate + 라이브 준비 상태 |
-| POST | `/fleet/run` | 선택한 slate 검증 후 녹화 아레나 스냅샷 재생 |
+| GET | `/fleet` | 플릿 카탈로그 + 현재 역할 배정 + 라이브 준비 상태 |
+| POST | `/fleet/run` | 선택한 역할 배정 검증 후 녹화 네 방식 비교 스냅샷 재생 |
 | GET | `/replay?synth=true` | 워크로드 재생 결과(트레이스+요약) |
-| GET | `/regression` | 정책 A/B 회귀(커버리지 절벽) 요약 |
-| GET | `/fanout-sweep` | 팬아웃 임계값 스윕(적응형 팬아웃 다이얼) 요약 |
-| GET | `/compare` · `/compare?task=<id>` | 아레나: 문제 하나에 네 가지 방법(비용·지연·정확도) |
+| GET | `/regression` | 정책 A/B 회귀(통과율 절벽) 요약 |
+| GET | `/fanout-sweep` | 팬아웃 임계값 스윕(적응형 팬아웃 임계값) 요약 |
+| GET | `/compare` · `/compare?task=<id>` | 네 방식 비교: 문제 하나에 네 가지 방법(비용·지연·정확도) |
 | GET | `/experiments` | 모든 실험 카드 + Foundry 형태 오프라인 메트릭 |
 | GET | `/experiment?name=<name>` | 실험 하나를 실행하고 히스토리에 기록(라이브 타임스탬프) |
 | GET | `/metrics/history` | 히스토리컬 대시보드용 기록된 실행 이력 |

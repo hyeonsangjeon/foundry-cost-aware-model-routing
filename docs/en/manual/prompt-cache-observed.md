@@ -1,10 +1,10 @@
 # Prompt cache observed in the sealed runs
 
-!!! note "measured = true · post-hoc re-read · no new paid calls"
+!!! note "measured = true · observed after the preregistered analysis (post-hoc) re-read · no new paid calls"
     The data here comes from three real paid runs against Azure Foundry — the same
     sealed snapshots behind the measured results. This page adds no new calls: it
-    re-reads `traces.jsonl` after the results were already in. The preregistration
-    carried no cache prediction and no cache gate, so this is a post-hoc observation,
+    re-reads `traces.jsonl` after the results were already in. The preregistration — the workload, hypotheses, and pass/fail criteria committed before the paid run —
+    carried no cache prediction and no cache gate, so this is an observation after that preregistered analysis,
     not a preregistered result. Nothing under `results/` changed and no published
     figure moved. Measured results that passed a preregistration gate live on the
     [Routing-mode measured results dashboard](03d-results.md); this page is
@@ -43,7 +43,7 @@
   HTTP 408 and carry `tokens.input == 0`, so they cannot move a ratio.
 
 *Cells and rows here are one population counted two ways: a cell is one
-(task × arm × sample) measurement — 24 × 4 × 3 = 288 per run
+(task × arm × sample) measurement — an arm is one comparison strategy in the experiment — 24 × 4 × 3 = 288 per run
 ([Glossary](glossary.md)) — and each cell recorded exactly one trace row, so the
 three runs together hold 864 rows.*
 
@@ -55,7 +55,7 @@ run, and the void does not put them in question. What experiment 11 cannot suppo
 the arm comparison it was planned for; what is re-read here is not that run's
 conclusion but the cache record its traces left behind. The run is kept and labelled
 rather than deleted, which is how this repository treats a void measurement
-([Experiment 11 · prereg VOID](../lab-notebook/11-router-modes-void.md)).
+([Experiment 11 · preregistration VOID](../lab-notebook/11-router-modes-void.md)).
 
 !!! info "The angle, stated once"
     Cache questions about a *specific model or gateway* ask whether a given model path
@@ -330,7 +330,7 @@ reader-less field that enters `plan_hash` and no model API.
 [Core concepts](concept.md) lists `prompt_cache_key` bucketing under the Govern layer
 and states that the router "consumes this layer as a **dependency** from the companion
 toolkit instead of reimplementing its math." There is no such dependency in
-`pyproject.toml`, no bucketing code, and no call site. It is a declaration, not wiring.
+`pyproject.toml`, no bucketing code, and no call site. It is a declaration, not integration.
 
 The dispatch order in §3-5 is documented only as a determinism property
 (`run_plan.py:912`: `"task-major, then repeat, then arm; deterministic"`). Nothing in
@@ -363,6 +363,6 @@ bear directly on what a cache record looks like, so they travel with any citatio
 this page.
 
 The narrative record of the runs themselves is in the lab notebook —
-[Experiment 11 · prereg VOID](../lab-notebook/11-router-modes-void.md) ·
+[Experiment 11 · preregistration VOID](../lab-notebook/11-router-modes-void.md) ·
 [Experiment 12 · Routing-mode paid measured re-run](../lab-notebook/12-router-modes-measured.md) ·
 [Experiment 13 · router three modes · run 3](../lab-notebook/13-router-modes-rate-card-gap.md).

@@ -10,7 +10,7 @@
 
 This page puts the repository's [experiments 01–13](index.md) in order. For the core
 experiments 01–07, it states what changed, what result came out, and what question
-the next experiment answers. [Experiment 08 (arena)](08-arena.md) applies the same
+the next experiment answers. [Experiment 08 (the four-way comparison)](08-arena.md) applies the same
 comparison to one task. Each experiment page contains the calculation and
 reproduction steps; "when, and what was done" lives in the
 [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).
@@ -27,7 +27,7 @@ reproduction steps; "when, and what was done" lives in the
     - **④ Audit trace** — seal measured runs into a tamper-evident, cost-replayable ledger ([09](09-live-routing-proof.md)·[10](10-measured-ledger.md))
 
     And **[experiment 07](07-model-router.md)** *is* that contrast — the generic
-    **`single-call`** arm that picks once and stops vs the observe-then-escalate
+    **`single-call`** arm — an arm is one comparison strategy in the experiment — that picks once and stops vs the observe-then-escalate
     **mix**. *Selection is the built-in router's job; verification, governance, and
     audit are this repo's.*
 
@@ -37,12 +37,12 @@ reproduction steps; "when, and what was done" lives in the
 | --- | --- | --- | --- |
 | [01 · Flagship](01-hero.md) | Routing on a realistic 100-task workload? | 100% coverage, **−25.5%** ($2.23 → $1.66) | the gain is real |
 | [02 · Curated](02-curated.md) | Five tasks you can follow by eye? | 100% coverage, **−56.7%** ($0.13 → $0.06) | verify the gain task by task |
-| [03 · Coverage cliff](03-coverage-cliff.md) | Delete the expensive fallback to save more? | looks cheaper, but coverage **100% → 67%** (−33%p) | cost without pinned coverage is meaningless |
+| [03 · the pass-rate cliff](03-coverage-cliff.md) | Delete the expensive fallback to save more? | looks cheaper, but coverage **100% → 67%** (−33%p) | cost without pinned coverage is meaningless |
 | [04 · No free lunch](04-no-free-lunch.md) | A workload where only the top model passes? | 100% coverage, **0%** saved | routing doesn't invent savings that aren't there |
 | [05 · Ensemble tax](05-ensemble-fanout.md) | What does "just ensemble everything" cost? | 100% coverage, −47% + fan-out **3.74×** | every candidate call is billed |
-| [06 · Fan-out dial](06-fanout-dial.md) | Remove unnecessary fan-out? | coverage/savings unchanged, extra-call ratio **3.74× → $0** | fewer calls, same result |
+| [06 · fan-out threshold](06-fanout-dial.md) | Remove unnecessary fan-out? | coverage/savings unchanged, extra-call ratio **3.74× → $0** | fewer calls, same result |
 | [07 · Routing layer](07-model-router.md) | Pick once (`single-call`)? | single-call **52%** vs mix **100%** (+48%p gain) | the value of observing = coverage regained |
-| [08 · Arena](08-arena.md) *(epilogue)* | This one problem, four ways? | router = cheapest correct but **slowest** (sequential) | even the winner pays a **latency** price |
+| [08 · the four-way comparison](08-arena.md) *(epilogue)* | This one problem, four ways? | router = cheapest correct but **slowest** (sequential) | even the winner pays a **latency** price |
 
 All numbers are deterministic offline projections over synthetic data
 (`measured = false`). The canonical source for these figures is
@@ -71,7 +71,7 @@ So far this is a "routing is good" demo. An honest question follows immediately 
 Act 2 **attacks** routing. It refutes two easy tricks that lower the cost number
 alone.
 
-- **Experiment 03 (coverage cliff):** **delete** the expensive fallback model from
+- **Experiment 03 (the pass-rate cliff):** **delete** the expensive fallback model from
   the policy and the bill *looks* cheaper at −38.9%. But grade with the same signals
   and coverage collapses **100% → 67%** — a third of the tasks lose a model that
   would pass. → *a cost comparison that doesn't pin coverage is meaningless.*
@@ -90,7 +90,7 @@ Act 3 tests two ways to do more work and records what each one costs.
   candidates and keeps one winner. Coverage fills, but the run costs
   **3.74× the winner** because the losing candidates are billed too. Azure
   Foundry-shaped metrics record those calls.
-- **Experiment 06 (fan-out dial):** compared with experiment 05, raise one
+- **Experiment 06 (fan-out threshold):** compared with experiment 05, raise one
   budget-gate threshold so fewer tasks
   call every candidate. The extra-call ratio falls **3.74× → $0** while coverage
   (100%) and savings (47%) stay unchanged.
@@ -105,10 +105,10 @@ Together, the results favor **observe-then-escalate**: calling every candidate a
 cost, while choosing once leaves failed tasks unresolved. The middle process checks
 the result and calls another model only after failure.
 
-## Epilogue · Arena — narrowing to one problem (08)
+## Epilogue · the four-way comparison — narrowing to one problem (08)
 
 Acts 1–3 compared the **whole** workload in aggregate. [Experiment 08
-(arena)](08-arena.md) applies the same comparison to **a single task**, answering the
+(the four-way comparison)](08-arena.md) applies the same comparison to **a single task**, answering the
 first question a new user asks — *"on this one problem, how much does each approach
 spend, how slow is it, and does it get the answer right?"* — and adds **latency**,
 which the previous seven experiments did not cover.
@@ -138,11 +138,11 @@ made those routing choices (accuracy ungraded, cost rates illustrative — the h
 boundary is spelled out in experiment 09).
 
 [Experiment 10 · Measured ledger](10-measured-ledger.md) hardens that measured record
-one step further — it seals the live run into a canonical audit ledger with **tamper
+one step further — it seals the live run into a canonical audit ledger — a hash-chained record of every decision that can replay its cost — with **tamper
 detection (hash chain) + cost replay (a sealed rate card)**, so anyone can reproduce
 `PASS` in one line without credentials or a network, and **a single edited byte
 fails**. Just as the offline track (01–08) is protected by the [reproducibility
-contract](index.md#shared-methodology), the measured track (09) is now protected by an
+criteria](index.md#shared-methodology), the measured track (09) is now protected by an
 **independently re-verifiable ledger** — the two audits kept separate so neither blurs
 the other's honesty label.
 
@@ -161,9 +161,9 @@ illustrative projection.
 
 They test the claim "this looks cheaper, but actually…" with the recorded values.
 
-## The reproducibility contract keeps the story honest
+## The reproducibility criteria keep the story honest
 
-Each experiment's `expect` contract **fails CI** if the story drifts. The contract
+Each experiment's `expect` criteria **fails CI** if the story drifts. The contract
 grows in three directions:
 
 | Contract | What it stops | Introduced |
@@ -195,7 +195,7 @@ or all-ensemble cost —
 
 - **5 minutes (executive):** this page's thesis + the journey table → [experiment 01](01-hero.md).
 - **15 minutes (practitioner):** the three acts above → compare the five strategies on the [dashboard chart](../manual/dashboard.md) → one guardrail of interest ([03](03-coverage-cliff.md) / [05](05-ensemble-fanout.md) / [07](07-model-router.md)).
-- **Everything:** [introduction and methodology](index.md) → 01–07 in order → narrow to one task in [experiment 08 · arena](08-arena.md) → [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).
+- **Everything:** [introduction and methodology](index.md) → 01–07 in order → narrow to one task in [experiment 08 · the four-way comparison](08-arena.md) → [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).
 
 ## Reproduce everything
 
@@ -206,8 +206,8 @@ for e in hero curated limits ensemble adaptive model-router; do
   cost-router experiment run "$e"                  # each experiment's before/after + contract
 done
 cost-router policy regression \
-  --candidate experiments/policies/cost-cut.yaml --synth   # experiment 03 coverage cliff
-cost-router compare                                # experiment 08 arena — one problem, four ways
+  --candidate experiments/policies/cost-cut.yaml --synth   # experiment 03 pass-rate cliff
+cost-router compare                                # experiment 08 four-way comparison — one problem, four ways
 ```
 
 Every command runs offline and deterministically, without a network or credentials,

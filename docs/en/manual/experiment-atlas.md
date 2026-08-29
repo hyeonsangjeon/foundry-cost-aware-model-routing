@@ -1,16 +1,16 @@
 # Experiment Atlas — how each experiment is built
 
-> **English visual manual.** The dashboard's **Experiments — click for the metrics** strip has six
+> **English visual manual.** The Experiment Atlas — how each experiment is configured — opens the hood. The dashboard's **Experiments — click for the metrics** strip has six
 > tabs — `adaptive`, `curated`, `ensemble`, `hero`, `limits`, `single-call`. Each one re-runs the
-> *same* router over a workload and prints cost · coverage · fan-out tax under a reproducibility
-> contract. This page opens the hood: **which models** each uses, **what it processes**, **which
-> selection mechanism** (ordered escalation, fan-out, or single-call), and the **honest headline**.
-> It ends with the **measured track** (the live Foundry bridge, experiments 09–13), linking out to the full Azure setup guide so you can stand the real thing up yourself.
+> *same* router over a workload and prints cost · coverage · fan-out tax under reproducibility
+> criteria. This page opens the hood: **which models** each uses, **what it processes**, **which
+> selection mechanism** (ordered escalation, call several candidate models in parallel (fan-out), or single-call), and the **honest headline**.
+> It ends with the **measured track** (the live Foundry measurement adapter, experiments 09–13), linking out to the full Azure setup guide so you can stand the real thing up yourself.
 
 !!! tip "The diagrams animate"
     The mechanism and architecture SVGs below are animated (they loop in your browser like a GIF) —
     watch the router walk the ladder, fan out, and pick a backend. Every number is an **offline
-    deterministic projection** (`labels.measured=false`) *except* the live Foundry bridge in the
+    deterministic projection** (`labels.measured=false`) *except* the live Foundry measurement adapter in the
     final section, which is `measured=true`.
 
 ## At a glance
@@ -18,7 +18,7 @@
 ![Six experiments at a glance: hero and curated use ordered escalation, ensemble fans out, adaptive turns fan-out off, limits shows the honest floor, single-call compares one up-front pick to the mix](/foundry-cost-aware-model-routing/assets/experiments-overview.svg)
 
 Same models, same pricing, same policy everywhere. Each experiment flips exactly **one dial** — the
-workload, the fan-out gate, or the comparison arm — so you can read one idea at a time.
+workload, the fan-out gate, or the comparison arm — an arm is one comparison strategy in the experiment — so you can read one idea at a time.
 
 ---
 
@@ -107,7 +107,7 @@ the **headline** (re-derived live by the command shown), and a link to the full 
     The built-in already "routes many providers". These experiments test what happens after
     selection: **① verification-based adoption**
     (`hero`, `curated`, `limits`) · **② all-candidate call accounting** (`ensemble`) ·
-    **③ the spending check before fan-out** (`adaptive`) · **④ the audit trace** (the measured bridge + ledger
+    **③ the spending check before fan-out** (`adaptive`) · **④ the audit trace** (the live measurement adapter + the audit ledger — a hash-chained record of every decision that can replay its cost
     below). The **single-call** card compares one up-front pick with no escalation
     against observe-and-escalate. Its synthetic coverage numbers show the difference.
 
@@ -179,7 +179,7 @@ Because several models pass each high-value task, best-of-N settles on the **che
 model — still 47% under naive — but fanning out means paying for the losing calls too.
 → [Lab-notebook 05](../lab-notebook/05-ensemble-fanout.md)
 
-### `adaptive` — the fan-out dial, turned off
+### `adaptive` — the fan-out threshold, turned off
 
 ![Animated adaptive loop: compare_min_value rises above every task value, reducing five parallel calls to one; extra-call ratio falls from 3.7x to 0.00x while 47% savings stay unchanged](/foundry-cost-aware-model-routing/assets/gif/adaptive.gif)
 
@@ -231,7 +231,7 @@ on hard work.
 
 | | |
 | --- | --- |
-| **Role** | ⭐ **Centerpiece** — the direct contrast that justifies the layer atop the built-in router |
+| **Role** | ⭐ **Primary comparison** — the direct contrast that justifies the layer atop the built-in router |
 | **Processes** | 100 synthetic tasks |
 | **Models** | full ladder per class |
 | **Mechanism** | **Single-call** arm compared against the escalating **mix** |
@@ -249,7 +249,7 @@ for nearly the same cost.
 
 That figure is a projection of the generic *shape*, not a score for any shipped product. The real
 Foundry Model Router's pick-skill is proprietary — that gap is exactly what the **measured** live
-bridge captures next.
+measurement adapter captures next.
 → [Lab-notebook 07](../lab-notebook/07-model-router.md) · canonical figures: [offline experiment results](projection-results.md)
 
 ---
@@ -289,7 +289,7 @@ returns which one in `response.model`.
     us** — the account holds only `model-router` + `gpt-5.4 / -mini / -nano`, proving the router
     routes to *its own* roster. Full evidence: [Lab-notebook 09 · live routing proof](../lab-notebook/09-live-routing-proof.md).
 
-The complete keyless-Entra walkthrough — one `model-router` deployment, no API keys, wiring the repo,
+The complete keyless-Entra walkthrough — one `model-router` deployment, no API keys, setting up the repo measurement integration,
 and a single measured pass — is the copy-paste guide in [Foundry setup](foundry-setup.md). Once the
 repo is wired, `cost-router foundry live --live` turns every curated task into a real `measured=true`
 call. From there the **measured track** runs across four lab-notebook entries; the atlas lists them at
@@ -312,7 +312,7 @@ above.
 
 ### `11` · the paid router-mode run (VOID)
 
-The first paid four-arm comparison (**$3.47 / $20**) is **VOID** under the preregistration committed
+The first paid four-arm comparison (**$3.47 / $20**) is **VOID** under the preregistration — the workload, hypotheses, and pass/fail criteria committed before the paid run — committed
 in advance — grading coverage came in at **79.2%**, below the **90%** per-arm floor. A negative result
 kept as an asset by discipline: the predictions were overturned (Grok at 100%, not Claude; reasoning
 tokens swallowing the output).
@@ -350,7 +350,7 @@ because two sealed preregistrations pin the old one's digest.
 
 ## What is measured, and what is not
 
-| Claim | Live bridge | Offline experiments |
+| Claim | Live measurement adapter | Offline experiments |
 | --- | --- | --- |
 | **Model selection** (which backend) | ✅ measured — real `response.model` | projected |
 | **Token usage** (billed input/output/reasoning) | ✅ measured — provider usage | synthetic |
@@ -359,6 +359,6 @@ because two sealed preregistrations pin the old one's digest.
 | **Accuracy / coverage** | ⚠️ projected unless you inject a `grader` (`coverage_measured=false`) | projected |
 | **Cost *rate*** (USD per token) | ⚠️ illustrative rate × real tokens — **not** your Azure bill | illustrative |
 
-Every offline number on this page is `labels.measured=false`. Only the live bridge's *selection,
+Every offline number on this page is `labels.measured=false`. Only the live measurement adapter's *selection,
 usage, latency, and auth* are `measured=true`. See the [Honesty compact](../honesty.md) for the full
 boundary.

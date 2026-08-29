@@ -306,7 +306,7 @@ egress는 정확히 두 곳이고 둘 다 `src/router/foundry_live.py`에 있습
 [핵심 개념](concept.md)은 `prompt_cache_key` 버킷팅을 Govern 계층의 항목으로 적고, 라우터가
 이 계층을 "동반 툴킷의 **의존성**으로 사용하며 그 수학을 다시 구현하지 않는다"고 밝힙니다.
 그런데 `pyproject.toml`에 그런 의존성이 없고, 버킷팅 코드도 없고, 호출부도 없습니다.
-선언이지 배선이 아닙니다.
+선언이지 연결이 아닙니다.
 
 §3-5의 디스패치 순서도 마찬가지입니다. `run_plan.py:912`에는
 `"task-major, then repeat, then arm; deterministic"`이라고만 적혀 있고, 코드에도 주석에도

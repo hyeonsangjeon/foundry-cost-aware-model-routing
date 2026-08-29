@@ -1,15 +1,15 @@
 # 플릿 등록 & 모델 선택 · Fleet
 
-실측 아레나(`cost-router foundry arena`)와 대시보드는 **네 개의 비교 전략(arm)**을 굴립니다 —
-**router(메인)**, **cheapest(하한)**, **premium(상한)**, **ensemble(팬아웃)**. 각 비교 전략을
+실측 네 방식 비교(`arena` 명령, `cost-router foundry arena`)와 대시보드는 **네 개의 비교 전략(arm)**을 굴립니다 —
+**router(메인)**, **cheapest(하한)**, **premium(상한)**, **ensemble(여러 후보 모델을 병렬로 호출합니다(fan-out))**. 각 비교 전략을
 어떤 **실제 배포 모델**이 맡을지는 지금까지 코드에 하드코딩돼 있었습니다. `src/router/fleet.py`는
-그 매핑을 여러분이 소유하는 작은 **환경 파일(플릿 설정)**로 승격합니다 — "사용할 모델을
+그 매핑을 여러분이 소유하는 작은 **환경 파일(플릿 — 배포 모델 목록과 역할 지정을 묶어 부르는 이름입니다 설정)**로 승격합니다 — "사용할 모델을
 환경파일에 등록한다"는 바로 그 단계입니다.
 
-!!! note "플릿 = 카탈로그 + 역할 배정"
+!!! note "플릿 — 배포 모델 목록과 역할 지정을 묶어 부르는 이름입니다"
     - **카탈로그**: 실제로 배포해 둔 모델 목록. 각 항목은 가격표·리포트에 쓰는 논리
       `name`, 라이브 클라이언트가 호출하는 Azure `deployment` 이름, 그리고 자유 형식 `tier`.
-    - **역할 배정(slate)**: 어느 카탈로그 모델이 어느 비교 전략을 맡는지. `name`과 `deployment`는
+    - **역할 배정**: 어느 카탈로그 모델이 어느 비교 전략을 맡는지. `name`과 `deployment`는
       보통 같지만 하나의 논리 모델이 다르게 명명된 배포를 가리킬 수 있도록 **의도적으로
       분리**돼 있습니다.
 
@@ -43,7 +43,7 @@ roles:
 ### 1-1. `provider` — 어느 호출 표면으로 부를지 (멀티프로바이더)
 
 Foundry(`kind=AIServices`) 리소스 **하나**는 Azure OpenAI 모델과 파트너/OSS 모델을 **같은
-엔드포인트**에 함께 호스팅합니다. 다만 실제 호출이 나가는 **와이어 경로(표면)**는 둘로 나뉩니다.
+엔드포인트**에 함께 호스팅합니다. 다만 실제 호출이 나가는 **측정 경로(표면)**는 둘로 나뉩니다.
 카탈로그 항목의 `provider` 필드가 이를 고릅니다:
 
 | `provider` | 호출 표면 | 대상 모델 |
@@ -70,7 +70,7 @@ models:
     반면 `benchmark`/유료 측정 경로는 `schema_version: 2`인 **v2 요율 카드**(예:
     `samples/pricing/foundry-ext-router.yaml`)로 과금합니다 — 라우터 arm에 input-token
     마크업을 얹는 합성 공식과, 요율이 없는 백엔드를 임의 단가로 채우지 않고
-    unpriced로 봉인하는 **fail-closed** 규칙이 핵심입니다. 두 스키마의 경로 구분은
+    unpriced로 봉인하는 **요율이 없으면 값을 추정하지 않고 비용 주장을 보류합니다(fail-closed)** 규칙이 핵심입니다. 두 스키마의 경로 구분은
     [측정 프로토콜 §6.1](measurement-protocol.md#61-v1-vs-v2)을 보세요.
 
 !!! note "`provider` 태그가 의미 있는 곳"
@@ -87,7 +87,7 @@ models:
     벤치마크 arm에도 들어가지 않으므로 마이그레이션은 측정 결과를 바꾸지 않은 채 범위만 키웁니다.
     이 범위 제외는 **코드로 강제**됩니다: `provider=foundry` arm이 benchmark 모드나 publishable
     경로에 들어오면 `router.foundry_live.assert_provider_benchmark_safe`가 fail-closed로 막습니다
-    (opt-in 배선 스모크는 계속 허용). 은퇴 전 측정 비용 주장을 실으려면 OpenAI v1 표면으로 먼저
+    (opt-in 연결 스모크는 계속 허용). 은퇴 전 측정 비용 주장을 실으려면 OpenAI v1 표면으로 먼저
     이전해야 합니다.
 
 ## 2. 터미널에서 선택 (`/model` 피커)
@@ -96,7 +96,7 @@ models:
 `.foundry-fleet.local.yaml`에 저장돼 실제 배포 이름이 커밋되지 않습니다.
 
 ```bash
-cost-router models list            # 카탈로그 + 현재 slate + 라이브 준비 상태
+cost-router models list            # 카탈로그 + 현재 역할 배정 + 라이브 준비 상태
 cost-router models show            # 역할 -> 배포 해석 결과만
 cost-router models select          # 대화형: 아암마다 번호나 이름 입력 (/model 스타일)
 ```
@@ -109,7 +109,7 @@ cost-router models select \
   --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
 ```
 
-저장한 뒤 **여러분이 고른 slate**를 실측으로 돌립니다:
+저장한 뒤 **여러분이 고른 역할 배정**를 실측으로 돌립니다:
 
 ```bash
 cost-router foundry arena --fleet .foundry-fleet.local.yaml --live
@@ -125,14 +125,14 @@ routing"** 패널이 같은 카탈로그를 보여줍니다 — router/cheapest/
 !!! danger "정직함 경계 — 웹 경로는 절대 유료 호출을 하지 않습니다"
     대시보드의 `Run selection`은 새 Azure 호출을 하지 않습니다. 커밋된 measured 스냅샷을
     **정직하게 `measured = false` · `provenance = recorded`로 재라벨**해 재생합니다 (포착된
-    측정치이지 새 측정이 아님). 따라서 웹에서 다른 slate를 골라도 오프라인 숫자는 바뀌지
+    측정치이지 새 측정이 아님). 따라서 웹에서 다른 역할 배정을 골라도 오프라인 숫자는 바뀌지
     않습니다 — 이는 포착된 **레퍼런스 플릿**을 반영하기 때문이며 응답의 `note`와
     `recorded_fleet`에 명시됩니다. **여러분의 선택을 실제로 측정**하려면 패널이 출력한 터미널
     명령(`... --live`)을 쓰세요.
 
 ## 4. 배포가 하나뿐이라면
 
-헤드투헤드는 보통 여러 배포에 걸쳐 있지만 배포가 하나뿐이어도 **라이브 경로 전체**(키리스
+헤드투헤드는 보통 여러 배포에 걸쳐 있지만 배포가 하나뿐이어도 **라이브 측정 경로 전체**(키리스
 Microsoft Entra ID → 실제 호출 → 실제 토큰 usage → 가격 계산 → 해시체인 원장)를 끝까지
 증명할 수 있습니다. 모든 비교 전략을 그 하나로 향하게 하면 비교 전략들이 동점이 되는데, 그게 바로
 요점입니다 — 스프레드가 아니라 진짜 *measured* 스모크 테스트입니다.

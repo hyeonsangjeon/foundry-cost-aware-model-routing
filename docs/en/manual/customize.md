@@ -39,11 +39,11 @@ offline, right away; the `measured = true` measurements run after you set up `.e
 - If a rule is wrong (unknown type, bad regex) `validate_rule` **fails loudly
   before the run**.
 
-### 3. Fleet (candidate models)
+### 3. Fleet — the deployment model catalog plus role assignment
 - **Where:** `samples/fleet/*.fleet.yaml` (e.g. `foundry-ext-full.fleet.yaml`,
   `foundry-5series.fleet.yaml`).
 - **Selection:** `FOUNDRY_FLEET_PATH` (or `COST_ROUTER_FLEET`) in `.env`.
-- Defines which deployment each arm (cheapest/premium/router/ensemble) calls and
+- Defines which deployment each arm — an arm is one comparison strategy in the experiment — (cheapest/premium/router/ensemble) calls and
   what the provider is.
 
 ### 4. Pricing
@@ -68,9 +68,9 @@ offline, right away; the `measured = true` measurements run after you set up `.e
    `user_prompt` · `validation`.
 2. **Check the validation rules.** That each `validation` is machine-judgeable
    (checked on load by `router.validation.validate_rule`). No subjective criteria.
-3. **Wire it to an experiment.** Point the experiment YAML's `dataset.workload` at
+3. **Connect it to an experiment.** Point the experiment YAML's `dataset.workload` at
    the new file (or write a new experiment YAML).
-4. **Name the fleet and pricing.** Set `FOUNDRY_FLEET_PATH` · `FOUNDRY_PRICING_PATH`
+4. **Name the Fleet and pricing.** Set `FOUNDRY_FLEET_PATH` · `FOUNDRY_PRICING_PATH`
    in `.env` to your deployments and rates.
 5. **Preview with the catalog first, then the approved run.** Use `cost-router
    measure catalog --workload samples/telemetry/my-workload.jsonl` to see, up front,
