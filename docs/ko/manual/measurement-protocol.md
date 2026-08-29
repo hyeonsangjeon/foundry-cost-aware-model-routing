@@ -139,7 +139,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
   상한 `max_backoff_ms=30000`). 파라미터는 manifest에 봉인되어 재생이 재시도 계상을 재현합니다.
 - **캐시 토큰**: `tokens.cached`를 입력 토큰과 **분리 기록**하고 캐시 단가로 별도 과금합니다.
 - **all-calls 과금 (D2)**: 여러 후보 모델을 병렬로 호출하는(fan-out) 앙상블 전략은 **진 후보까지 전부 합산**해 과금합니다
-  (`billing = sum-all-fanout`). "승자만 세는" 착시를 만들지 않습니다 — 이것이 앙상블 세금의
+  (`billing = sum-all-fanout`). "승자만 세는" 착시를 만들지 않습니다 — 이것이 후보 호출 비용의
   실측 근거입니다.
 - **예산 가드**: 누적 실측 비용이 `--budget-usd`에 도달하면 즉시 중단하고 부분 결과를 정상
   스냅샷으로 저장한 뒤 `manifest.partial = true` · `stopped_reason`을 남깁니다. `--resume <run-id>`로
@@ -163,7 +163,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 | 경로 | 스키마 | 과금 방식 | 미확인 백엔드 |
 | --- | --- | --- | --- |
 | 오프라인 실험 01–08 (`replay`·`evals`·`hero`·`compare`·`experiment`) | v1 `PricingTable` (`samples/pricing/*.yaml`) | 표당 단순 in/out 단가, 마크업 없음 | `default` 폴백으로 **fail-open** (합성 실험이라 무방) |
-| 벤치/유료 측정 (`benchmark plan`·`benchmark run --live`·라이브 콕핏) | v2 `RateCardV2` (`schema_version: 2`, 예: `samples/pricing/foundry-ext-router.yaml`) | 정확한 alias map + Model Router **input-token 마크업**(라우터 arm) + 하위모델 in/out 합성 | rates에 없으면 **fail-closed**: `cost_usd=null`, `cost_complete=false`, 절감 주장에서 제외 |
+| 벤치/유료 측정 (`benchmark plan`·`benchmark run --live`·라이브 브라우저 실행 화면) | v2 `RateCardV2` (`schema_version: 2`, 예: `samples/pricing/foundry-ext-router.yaml`) | 정확한 alias map + Model Router **input-token 마크업**(라우터 arm) + 하위모델 in/out 합성 | rates에 없으면 **fail-closed**: `cost_usd=null`, `cost_complete=false`, 절감 주장에서 제외 |
 
 - **스키마 판정**: 카드에 최상위 `schema_version` 키가 있으면 v2, 없으면 v1로 해석합니다.
   v1의 `version:`은 자유 리비전 정수라 `plan_hash`에 영향 없이 그대로 보존됩니다.

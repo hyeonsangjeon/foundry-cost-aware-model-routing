@@ -18,7 +18,7 @@ the same results.
     comes from 24 tasks · a single tenant · one measurement, so it is a directional
     signal, not statistical confidence. The run passed its pre-registered reporting
     criteria.
-    → [Routing-mode measured results dashboard](manual/03d-results.md)
+    → [Routing-mode measured results dashboard](manual/routing-measured-results.md)
 
 Before comparing results, separate what Foundry already does from what this repository adds.
 
@@ -116,8 +116,8 @@ deployment. Credentials never enter the browser; it connects only to `127.0.0.1`
 with a session token, while Entra reads the sign-in from `az login`.
 
 !!! note "The browser run screen is mid-update to the latest measurement path (issue #55)"
-    The browser run screen does not yet include the latest measurement path (03B-2
-    v2 rates · 03D-1 grading integration). For example, the live client does not set
+    The browser run screen does not yet include the latest measurement path
+    (v2 pricing · grading integration). For example, the live client does not set
     `max_output_tokens`, so it uses the default of 512. For **accurate measurement
     right now, use the CLI path**. For the integration details, see
     [issue #55](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/issues/55),
@@ -144,7 +144,7 @@ For the full setup, follow [Foundry setup](manual/foundry-setup.md) →
 
     In a real Azure Foundry measurement (`measured=true` · directional), `router-cost`
     cost **95.2% less** than `direct-premium`. The pass-rate gap was within 4.17%p.
-    → [Routing-mode measured results](manual/03d-results.md)
+    → [Routing-mode measured results](manual/routing-measured-results.md)
 
 -   :material-rocket-launch: **Default run mode**
 

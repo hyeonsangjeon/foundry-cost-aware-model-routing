@@ -14,7 +14,7 @@ Korean charts stay byte-identical and visually unchanged), and it fails loudly
 if any chart carries a Korean run that the map does not cover — so a future
 relabelling in ``build_03d_dashboard.py`` cannot silently leak Korean onto the
 English pages. English wording follows the canonical English page
-``docs/en/manual/03d-results.md`` (pass rate, cost-per-pass, sub-cent, full
+``docs/en/manual/routing-measured-results.md`` (pass rate, cost-per-pass, sub-cent, full
 precision, graded cells, the ``4.17%p`` notation, the section headings).
 
 Run ``python scripts/localize_03d_svgs.py`` after regenerating the charts.

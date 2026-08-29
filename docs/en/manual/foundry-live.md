@@ -1,4 +1,4 @@
-# The live measured bridge · Azure Model Router
+# The live measurement adapter · Azure Model Router
 
 Everything else in the repository is an **offline projection over synthetic
 telemetry** (`measured = false`). The `src/router/foundry_live.py` this page

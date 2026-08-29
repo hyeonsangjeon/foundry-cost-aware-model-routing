@@ -149,7 +149,7 @@ So this repository attaches an `evidence_tier` to every workload:
   separately at the cache price.
 - **All-calls billing (D2)**: fan-out (ensemble) strategies bill **the sum of every candidate,
   including the losers** (`billing = sum-all-fanout`). They don't create a "count only the winner"
-  illusion — this is the measured basis for the ensemble tax.
+  illusion — this is the measured basis for the extra candidate-call cost.
 - **Budget guard**: when cumulative measured cost reaches `--budget-usd`, it stops immediately, saves
   the partial result as a normal snapshot, and leaves `manifest.partial = true` · `stopped_reason`.
   `--resume <run-id>` skips finished cells and runs to completion from there.
@@ -172,7 +172,7 @@ This repository deliberately lets **two rate-card schemas** coexist. Which path 
 | Path | Schema | Billing method | Unconfirmed backend |
 | --- | --- | --- | --- |
 | Offline experiments 01–08 (`replay` · `evals` · `hero` · `compare` · `experiment`) | v1 `PricingTable` (`samples/pricing/*.yaml`) | simple per-table in/out prices, no markup | **fail-open** via the `default` fallback (fine for synthetic experiments) |
-| Bench/paid measurement (`benchmark plan` · `benchmark run --live` · the live cockpit) | v2 `RateCardV2` (`schema_version: 2`, e.g. `samples/pricing/foundry-ext-router.yaml`) | exact alias map + Model Router **input-token markup** (router arm) + sub-model in/out composed | if not in rates, **fail-closed**: `cost_usd=null`, `cost_complete=false`, excluded from savings claims |
+| Bench/paid measurement (`benchmark plan` · `benchmark run --live` · the live browser run screen) | v2 `RateCardV2` (`schema_version: 2`, e.g. `samples/pricing/foundry-ext-router.yaml`) | exact alias map + Model Router **input-token markup** (router arm) + sub-model in/out composed | if not in rates, **fail-closed**: `cost_usd=null`, `cost_complete=false`, excluded from savings claims |
 
 - **Schema decision**: if the card has a top-level `schema_version` key it's read as v2, otherwise v1.
   v1's `version:` is a free revision integer, preserved as-is with no effect on `plan_hash`.

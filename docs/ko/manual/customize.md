@@ -3,7 +3,7 @@
 이 저장소는 **본인 Foundry에서 그대로 돌려보라**는 전제로 만들어졌습니다. 그러려면 다섯
 군데만 바꾸면 됩니다. 각 지점은 별도 파일이라 코드를 건드리지 않고 설정만 교체하면
 됩니다. `measured = false` 프로젝션은 오프라인으로 즉시, `measured = true` 실측은 `.env`
-설정 + `az login` 후 [로컬 콕핏](../lab-notebook/09-live-routing-proof.md)의 승인 버튼으로.
+설정 + `az login` 후 [로컬 브라우저 실행 화면](../lab-notebook/09-live-routing-proof.md)의 승인 버튼으로.
 
 ## 바꾸는 곳 다섯
 
@@ -77,9 +77,9 @@
     한 화면에 보여줍니다(유료 호출 0). "지금 이게 나갑니다"가 눈에 보인 다음에야
     (유료) 라이브 호출이 시작됩니다.
 
-## 브라우저 콕핏 — `cost-router dashboard --live`
+## 브라우저 실행 화면 — `cost-router dashboard --live`
 
-CLI 대신 **브라우저에서 같은 게이트**를 밟고 싶으면 로컬 콕핏을 씁니다. 5단계 레시피와
+CLI 대신 **브라우저에서 같은 게이트**를 밟고 싶으면 브라우저 실행 화면을 씁니다. 5단계 레시피와
 정확히 같은 순서(연결 확인 → 프롬프트·dry-run → 승인 → 실행 → 스냅샷)를 대시보드에서 그대로.
 
 ```bash
@@ -88,9 +88,9 @@ cost-router dashboard --live  # 127.0.0.1 전용 + 임의 포트 + 세션 토큰
 ```
 
 - **바인딩.** `127.0.0.1`에만 붙고 임의 포트를 씁니다. 콘솔에 찍힌
-  `http://127.0.0.1:<PORT>/?cockpit=1&token=…` URL로 들어가야 콕핏이 열립니다. 토큰이
+  `http://127.0.0.1:<PORT>/?cockpit=1&token=…` URL로 들어가야 브라우저 실행 화면이 열립니다. 토큰이
   없거나 틀리면 `/cockpit/*` 라우트는 403이고 공개(정적) 빌드에는 `cockpit=1`이 없어
-  콕핏 자체가 렌더되지 않습니다.
+  브라우저 실행 화면 자체가 렌더되지 않습니다.
 - **연결 패널.** `foundry status`의 **마스킹된** 출력을 그대로 재사용 — 엔드포인트(호스트만),
   Entra 로그인 여부, 배포, 단가 파일. **자격증명 입력란은 없습니다**(환경/`az login`에서 읽음).
   누락 항목은 "무엇을 어떻게 설정하면 되는지" 인라인 안내.
@@ -109,7 +109,7 @@ cost-router dashboard --live  # 127.0.0.1 전용 + 임의 포트 + 세션 토큰
 cost-router measure publish --run results/cockpit/<run-id>
 ```
 
-`--run`에는 그 런이 실제로 봉인한 스냅샷 디렉터리를 넣습니다. 위 콕핏이면
+`--run`에는 그 런이 실제로 봉인한 스냅샷 디렉터리를 넣습니다. 위 브라우저 실행 화면이면
 `results/cockpit/<run-id>`, `benchmark run --live` 스윕이면
 `<artifacts.local_root>/run/<run-id>`입니다([측정 프로토콜](measurement-protocol.md) §3).
 발행된 JSON은 어느 쪽이든 `results/published/` 아래에 떨어집니다.

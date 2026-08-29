@@ -1,4 +1,4 @@
-# 플릿 등록 & 모델 선택 · Fleet
+# 플릿 · 모델 목록과 역할 지정
 
 실측 네 방식 비교(`arena` 명령, `cost-router foundry arena`)와 대시보드는 **네 개의 비교 전략(arm)**을 굴립니다 —
 **router(메인)**, **cheapest(하한)**, **premium(상한)**, **ensemble(여러 후보 모델을 병렬로 호출합니다(fan-out))**. 각 비교 전략을

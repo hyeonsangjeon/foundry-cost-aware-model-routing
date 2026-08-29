@@ -1,4 +1,4 @@
-# One problem, four ways (5-minute wow)
+# One problem, four ways
 
 Where the dashboard's other panels compare the **whole workload** in aggregate, this four-way comparison (the `arena` command)
 answers the question a new user asks first: **"For this one problem, how much does each

@@ -103,7 +103,7 @@ GLOSSARY = DOCS / "manual" / "glossary.md"
 # these the grading metric must be spelled out as "채점 커버리지", never a bare
 # "커버리지" that could be mistaken for the pass rate.
 MEASURED_PAGES = (
-    "manual/03d-results.md",
+    "manual/routing-measured-results.md",
     "lab-notebook/11-router-modes-void.md",
     "lab-notebook/12-router-modes-measured.md",
     "lab-notebook/13-router-modes-rate-card-gap.md",
@@ -144,16 +144,17 @@ RETIRED_TERMS = (
 # BOLT-06 skipped it, so Rule D must too. Rules A–C still read it.
 RULE_D_EXCLUDED = ("lab-notebook/devlog.md",)
 
-# Rule E — jargon BOLT-10 (#137) retired from the plain-language home surfaces,
-# as (pattern, retired, replacement). These three files are the reader's first
-# screen in each language; the confirmed wording replaced the coinages in place.
+# Rule E — jargon BOLT-10 (#137) retired, as (pattern, retired, replacement). The
+# confirmed wording replaced these coinages in place, first on the reader's first
+# screen in each language (README + the two index pages named below).
 #
-# Scope is deliberately the three cleaned files, not a tree-wide sweep. The same
-# words legitimately still stand on lab-notebook page titles (BOLT-11) and the
-# 03B/03D code surfaces (BOLT-12) that later waves own — gating the whole tree
-# now would fail on out-of-scope lines and pre-empt those waves. Code surfaces
-# (the CLI ``hero`` identifier, the ``results/cockpit/<run-id>`` path token) are
-# masked before matching, exactly as Rule D masks them, so an identifier is never
+# BOLT-12 (#139) widened the scan from those three files to the whole docs tree
+# (README + every docs page in both locales, the ko devlog aside) once its item ④
+# sweep had cleared the same coinages from the inner manual / lab-notebook pages —
+# so that sweep cannot silently regress on an inner page. The masking is shared
+# with Rule F: fenced blocks, each page's H1 title and the Related-documents
+# footer are skipped, and code surfaces (the CLI ``hero`` identifier, the
+# ``results/cockpit/<run-id>`` path token) are blanked, so an identifier is never
 # read as prose.
 FIRST_SCREEN_SURFACES = (
     "README.md",
@@ -190,16 +191,16 @@ RETIRED_FIRST_SCREEN_TERMS = (
 
 # Rule F — jargon BOLT-11 (#138) retired from the inner bilingual pages (manual,
 # lab-notebook, honesty under docs/en and docs/ko), as (pattern, retired,
-# replacement). The operator's spec describes this as "extending the Rule E
-# denylist to the cleaned inner pages"; it is a *separate* rule here for two
-# reasons, so extending Rule E's own list would have been wrong:
+# replacement). It stays a *separate* rule from Rule E on purpose:
 #
-#   * the BOLT-10 first-screen terms (flagship, cockpit, cost governor, …) still
-#     stand as deliberately-retained residuals on some inner pages (concept.md);
-#     a merged scope would fail the inner pages on those out-of-scope lines.
-#   * page titles / nav / URLs are BOLT-12's surface, so this rule skips each
-#     page's H1 line — which is where foundry-live.md ("measured bridge") and
-#     head-to-head.md ("5-minute wow") keep their retired *titles* until BOLT-12.
+#   * provenance — these are the BOLT-11 coinages (spotlight, coverage cliff,
+#     slate, arena, …); Rule E carries the BOLT-10 family and, since BOLT-12,
+#     scans these same inner pages tree-wide. The one overlap, wiring / 배선, is
+#     therefore owned by Rule E alone and dropped here, so a wiring line is never
+#     gated twice.
+#   * H1 titles — a page's H1 is nav surface and some are kept by design (e.g.
+#     08-arena.md keeps "arena" in its title), so this rule skips each page's H1
+#     line while still reading the body prose beneath it.
 #
 # Retained boundaries are masked exactly as Rule D/E mask them (fenced blocks
 # skipped; inline code / links / URLs / anchor-fragments blanked), plus the
@@ -218,13 +219,9 @@ RETIRED_INNER_PAGE_TERMS = (
      "the live measurement adapter (later: the measurement adapter)"),
     (re.compile(r"측정\s*브(?:릿|리)지"), "측정 브리지/브릿지",
      "라이브 실측 어댑터 (이후: 실측 어댑터)"),
-    # item 2 — wiring
-    (re.compile(r"wiring\s+proof", re.IGNORECASE), "wiring proof",
-     "end-to-end call-path check"),
-    (re.compile(r"\bwiring\b", re.IGNORECASE), "wiring",
-     "measurement path / measurement integration"),
-    (re.compile(r"배선"), "배선",
-     "측정 경로 / 측정 반영"),
+    # item 2 — wiring / 배선 is a BOLT-10 term owned by Rule E (gated tree-wide
+    # since BOLT-12); it is not repeated here so no line is gated twice, and
+    # "wiring proof" is still caught by Rule E's \bwiring\b.
     # item 3 — spotlight (ko transliteration + en concept; "Spotlight card" UI label masked)
     (re.compile(r"\bspotlight\b", re.IGNORECASE), "spotlight",
      "the representative task"),
@@ -439,24 +436,26 @@ def check_no_retired_terminology() -> list[str]:
     return failures
 
 
-def _iter_first_screen_lines():
-    """Yield (relpath, line_number, text) for the BOLT-10 first-screen prose lines.
-
-    Fenced code blocks are skipped and, per line, inline code / links / URLs are
-    masked by ``retired_first_screen_terms_in`` — so ``cost-router hero`` and the
-    ``results/cockpit/<run-id>`` path never register as prose.
+def _tree_wide_prose_files() -> list[Path]:
+    """Rule E surfaces after BOLT-12: README plus every docs prose page — the
+    ``FIRST_SCREEN_SURFACES`` first screen unioned with the Rule F inner pages
+    (manual, lab-notebook, honesty, both locales; the ko devlog excluded). This is
+    the whole tree the BOLT-10 family is now gated across, so the item ④ sweep
+    cannot regress on an inner page.
     """
-    for rel in FIRST_SCREEN_SURFACES:
-        lines = (REPO_ROOT / rel).read_text(encoding="utf-8").splitlines()
-        fenced = fenced_line_numbers(lines)
-        for lineno, text in enumerate(lines, 1):
-            if lineno not in fenced:
-                yield rel, lineno, text
+    files = [REPO_ROOT / rel for rel in FIRST_SCREEN_SURFACES]
+    files.extend(_inner_page_files())
+    return files
 
 
 def retired_first_screen_terms_in(text: str) -> list[tuple[str, str]]:
-    """Return (retired, replacement) for BOLT-10 terms left after the code mask."""
-    prose = strip_code_surfaces(text)
+    """Return (retired, replacement) for BOLT-10 terms left after the mask.
+
+    Uses the same ``strip_inner_surfaces`` mask as Rule F (code surfaces plus the
+    HTML anchor and UI labels), since BOLT-12 runs Rule E across the inner pages
+    too, where those surfaces occur.
+    """
+    prose = strip_inner_surfaces(text)
     return [
         (retired, replacement)
         for pattern, retired, replacement in RETIRED_FIRST_SCREEN_TERMS
@@ -465,10 +464,15 @@ def retired_first_screen_terms_in(text: str) -> list[tuple[str, str]]:
 
 
 def check_no_retired_first_screen_terms() -> list[str]:
-    """Rule E — no first-screen prose reintroduces jargon retired by BOLT-10."""
+    """Rule E — no docs prose reintroduces jargon retired by BOLT-10.
+
+    BOLT-12 widened this from the three first-screen files to the whole docs tree
+    (``_tree_wide_prose_files``), reusing Rule F's line masking so retained code /
+    path tokens and skipped H1 titles / footers behave identically.
+    """
     failures: list[str] = []
-    for rel, lineno, text in _iter_first_screen_lines():
-        for retired, replacement in retired_first_screen_terms_in(text):
+    for rel, lineno, text, masked in _iter_prose_lines(_tree_wide_prose_files()):
+        for retired, replacement in retired_first_screen_terms_in(masked):
             failures.append(
                 f"{rel}:{lineno} reintroduces retired '{retired}' — "
                 f"use '{replacement}':\n    {text.strip()[:200]}"
@@ -532,16 +536,16 @@ def _mask_inner_document(lines: list[str], fenced: set[int]) -> list[str]:
     return masked.split("\n")
 
 
-def _iter_inner_page_lines():
-    """Yield (relpath, line_number, raw, masked) for the Rule F prose lines.
+def _iter_prose_lines(files: list[Path]):
+    """Yield (relpath, line_number, raw, masked) prose lines for ``files``.
 
-    Skips every line inside a fenced code block, each page's H1 title line
-    (``# …``) — page titles are BOLT-12's surface, which is why the retired titles
-    on foundry-live.md and head-to-head.md do not fail here — and the
-    Related-documents footer nav. ``masked`` has inline code spans blanked across
-    line wraps; the raw line is kept for the failure message.
+    Shared by Rule E (tree-wide) and Rule F (inner pages). Skips every line inside
+    a fenced code block, each page's H1 title line (``# …`` — page titles are nav
+    surface, some kept by design) and the Related-documents footer nav. ``masked``
+    has inline code spans blanked across line wraps; the raw line is kept for the
+    failure message.
     """
-    for path in _inner_page_files():
+    for path in files:
         rel = path.relative_to(REPO_ROOT).as_posix()
         lines = path.read_text(encoding="utf-8").splitlines()
         fenced = fenced_line_numbers(lines)
@@ -550,11 +554,17 @@ def _iter_inner_page_lines():
         for lineno, text in enumerate(lines, 1):
             if lineno in fenced:
                 continue
-            if re.match(r"#\s", text):  # H1 page title — deferred to BOLT-12
+            if re.match(r"#\s", text):  # H1 page title — nav surface
                 continue
-            if footer is not None and lineno >= footer:  # nav — BOLT-12
+            if footer is not None and lineno >= footer:  # nav footer
                 continue
             yield rel, lineno, text, masked[lineno - 1]
+
+
+def _iter_inner_page_lines():
+    """Yield the Rule F prose lines — the inner manual / lab-notebook / honesty
+    pages, masked by ``_iter_prose_lines``."""
+    yield from _iter_prose_lines(_inner_page_files())
 
 
 def strip_inner_surfaces(text: str) -> str:
@@ -607,7 +617,7 @@ def main() -> int:
         print(
             f"terminology: OK — glossary present, {pages} docs pages checked, "
             f"{len(RETIRED_TERMS)} retired terms gated, "
-            f"{len(RETIRED_FIRST_SCREEN_TERMS)} first-screen terms gated, "
+            f"{len(RETIRED_FIRST_SCREEN_TERMS)} BOLT-10 terms gated tree-wide, "
             f"{len(RETIRED_INNER_PAGE_TERMS)} inner-page terms gated"
         )
         return 0

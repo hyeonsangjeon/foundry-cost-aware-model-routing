@@ -19,7 +19,7 @@
   <figcaption>One pick vs observe-then-escalate — a lane that fixes one tier up front against a lane that observes cheap failures and raises only when needed, contrasted on coverage.</figcaption>
 </figure>
 
-The real Foundry **Model Router**'s selection skill is a **measured** quantity, so we left open a gated seam behind credentials (the live measurement adapter) that plugs that decision straight into this arm — an arm being one comparison strategy in the experiment.
+The real Foundry **Model Router**'s selection skill is a **measured** quantity, so we left open a gated integration point behind credentials (the live measurement adapter) that plugs that decision straight into this arm — an arm being one comparison strategy in the experiment.
 
 !!! tip "Operational view — Model Router is 'one deploy and it's handled'"
     In real operation, Model Router is done with **one deployment**. The supported models (OpenAI GPT-4/5 families, xAI Grok, DeepSeek, Meta Llama, gpt-oss) need **no separate deploy** — the router picks one per prompt; the only exception is Anthropic Claude, which needs a direct deployment. So the built-in router is already **cross-provider**.     That means *"routing across several vendors' models"* is already handled. This

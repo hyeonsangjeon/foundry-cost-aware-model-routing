@@ -1,13 +1,13 @@
-# Resolved Run Plan
+# The single approved run plan
 
 When preview, human approval, run, ledger, and replay **each interpret their own settings
 separately**, what you approved and what you ran can drift apart. 03A closes that gap. It
 resolves a single local config file **once** and seals it into an **immutable object** called
 `ResolvedRunPlan`, and all five paths above read that same object. The plan carries a
-deterministic `plan_hash`, and approval is bound to that hash. The cockpit now uses
+deterministic `plan_hash`, and approval is bound to that hash. The local browser run screen now uses
 this plan too — `cost-router dashboard --live --config <file>` binds the canonical
-`ResolvedRunPlan` as the cockpit's single source of truth, so preview, approval, run, abort,
-and replay all key off the same `plan_hash` (03C, §9). The cockpit reuses 03B's shared abort
+`ResolvedRunPlan` as the browser run screen's single source of truth, so preview, approval, run, abort,
+and replay all key off the same `plan_hash` (03C, §9). The browser run screen reuses 03B's shared abort
 gate and spend ledger rather than building a separate cancel or budget path.
 
 This page describes the canonical plan that `src/router/run_plan.py` builds and the CLI that
@@ -101,7 +101,7 @@ one item on that list, so it **can never be dropped** by a path that "only reads
 role." The candidates the plan builds and the candidates in the sealed manifest always carry
 the same arms.
 
-## 5. Single source of truth — preview = approval = run = manifest = replay = cockpit
+## 5. Single source of truth — preview = approval = run = manifest = replay = browser run screen
 
 The same `plan_hash` runs through six points.
 
@@ -110,7 +110,7 @@ The same `plan_hash` runs through six points.
 3. **Run**: the runner measures with the plan's candidates, rates, and budget.
 4. **Manifest**: the sealed snapshot records the same `plan_hash`.
 5. **Replay**: `replay` reads the manifest's `plan_hash` back verbatim.
-6. **Cockpit**: `dashboard --live --config` binds the same plan, so preview, approval, run,
+6. **Browser run screen**: `dashboard --live --config` binds the same plan, so preview, approval, run,
    abort, and snapshot are all bound to the same `plan_hash` (03C). The browser never supplies
    plan content; it only steers the server-side plan.
 
@@ -122,7 +122,7 @@ The earlier per-command env/flag configuration (`foundry live`, `foundry arena`,
 run`, `measure catalog`) **still works but is deprecated**. Those paths have their own
 independent resolution semantics that the canonical plan now owns, so calling them prints
 guidance to stderr. `dashboard --live` run without `--config` prints the same deprecation
-warning, for the same reason — a cockpit that hasn't bound a plan falls back to the legacy
+warning, for the same reason — a browser run screen that hasn't bound a plan falls back to the legacy
 ad-hoc config path.
 
 ```

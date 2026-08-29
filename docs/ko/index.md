@@ -14,7 +14,7 @@
     `direct-premium`(프리미엄 모델 직접 호출 · `gpt-5.6-sol`)보다 **95.2% 낮았습니다**.
     통과율 차이는 **4.17%p** 이내였습니다. 이 결과는 24과제·단일 테넌트·1회 측정에서
     나왔으므로 방향성 신호이지 통계적 신뢰가 아닙니다. 사전등록한 공개 기준은 통과했습니다.
-    → [라우팅 모드 실측 결과 대시보드](manual/03d-results.md)
+    → [라우팅 모드 실측 결과 대시보드](manual/routing-measured-results.md)
 
 결과를 비교하기 전에 Foundry가 이미 하는 일과 이 저장소가 더하는 일을 나눠 보겠습니다.
 
@@ -104,7 +104,7 @@ cost-router hero --serve   # 실행 후 오프라인 대시보드를 띄웁니�
 `127.0.0.1`과 세션 토큰만 쓰고 Entra 로그인은 `az login`에서 읽습니다.
 
 !!! note "브라우저 실행 화면에 최신 측정 경로를 반영하는 작업이 진행 중입니다 (이슈 #55)"
-    브라우저 실행 화면에는 아직 최신 측정 경로(03B-2 v2 요율 · 03D-1 채점 연결)가 없습니다.
+    브라우저 실행 화면에는 아직 최신 측정 경로(v2 요율 · 채점 연결)가 없습니다.
     예를 들어 라이브 클라이언트는 `max_output_tokens`를 설정하지 않아 기본값 512를 씁니다.
     지금 **정확한 실측은 CLI 경로**를 사용하세요. 측정 반영 상세는
     [이슈 #55](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/issues/55),
@@ -131,7 +131,7 @@ cost-router dashboard --live  # 127.0.0.1 + 임의 포트 + 세션 토큰 URL �
 
     실제 Azure Foundry 실측(`measured=true` · directional)에서 `router-cost`의 비용은
     `direct-premium`보다 **95.2% 낮았습니다**. 통과율 차이는 4.17%p 이내였습니다.
-    → [라우팅 모드 실측 결과](manual/03d-results.md)
+    → [라우팅 모드 실측 결과](manual/routing-measured-results.md)
 
 -   :material-rocket-launch: **기본 실행 모드**
 

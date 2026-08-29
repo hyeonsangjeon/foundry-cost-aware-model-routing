@@ -62,7 +62,7 @@ _HERO_IMAGE = "docs/assets/gif/hero.gif"
 
 # Slots 2 and 3 of the rail, as destinations rather than link text. Slot 1 is the
 # quickstart command, derived from the script path so a rename cannot slip through.
-_RAIL_TARGETS = (_SITE_URL + "demo/", _SITE_URL + "manual/03d-results/")
+_RAIL_TARGETS = (_SITE_URL + "demo/", _SITE_URL + "manual/routing-measured-results/")
 
 
 def _child_env() -> dict[str, str]:

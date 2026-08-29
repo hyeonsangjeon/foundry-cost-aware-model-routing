@@ -7,7 +7,7 @@
     carried no cache prediction and no cache gate, so this is an observation after that preregistered analysis,
     not a preregistered result. Nothing under `results/` changed and no published
     figure moved. Measured results that passed a preregistration gate live on the
-    [Routing-mode measured results dashboard](03d-results.md); this page is
+    [Routing-mode measured results dashboard](routing-measured-results.md); this page is
     deliberately kept out of that place because it is a different kind of claim.
 
 !!! question "The short answer"

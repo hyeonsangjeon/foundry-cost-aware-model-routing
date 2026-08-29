@@ -86,9 +86,9 @@ reproducibility  PASS
 | t-0032 | test | mini · swift · balanced | **swift-coder** | $0.01 | $0.0021 | $0.01 |
 | **합계** | | | | **$0.50** | **$0.13** | **$0.36** |
 
-**앙상블 세금 = $0.36**, 즉 팬아웃 원가가 승자의 **3.74배**입니다.
+**후보 호출 비용 = $0.36**, 즉 팬아웃 원가가 승자의 **3.74배**입니다.
 
-> 정본: 앙상블 팬아웃 세금(3.74×)은 [오프라인 실험 결과](../manual/projection-results.md)에 모여 있습니다.
+> 정본: 후보 호출 비용(3.74×)은 [오프라인 실험 결과](../manual/projection-results.md)에 모여 있습니다.
 
 !!! example "대표 태스크 — t-0032 (test)"
     라우팅은 `swift-coder`($0.0021)를 골랐고 나이브 프리미엄 arm은 `balanced-pro`

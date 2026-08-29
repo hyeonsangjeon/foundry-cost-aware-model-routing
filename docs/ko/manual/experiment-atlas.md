@@ -55,7 +55,7 @@
 1. CLASSIFY  task → {plan, generate, test, validate, repo_patch}
 2. POLICY    task class → ordered candidate models (pass-rate, $/resolved priors)
 3. SELECT    cost-aware single route (cheapest-clean-first); escalate/fan-out on failure
-4. GOVERN    a cost governor decides — before spending — whether a task is worth fanning out
+4. GOVERN    a spending limit decides — before spending — whether a task is worth fanning out
 ```
 
 실험마다 모양이 바뀌는 것은 **레이어 3(SELECT)**뿐입니다. 모양은 정확히 **세 가지**입니다.
@@ -124,7 +124,7 @@
 | **처리 대상** | 100개 합성 태스크 (결정론적 오프라인 신호, `synth: true`) |
 | **모델** | 클래스별 전체 사다리 (mini-fast … premium-max) |
 | **메커니즘** | **순차 에스컬레이션** |
-| **다이얼** | 없음 — 플래그십 기본값 |
+| **다이얼** | 없음 — 기본 구성 |
 | **헤드라인** | **100% 커버리지 · −25.5%** vs 모든-태스크-프리미엄 ($2.23 → $1.66) |
 | **계약** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100` |
 
@@ -327,7 +327,7 @@ Router의 Balanced 모드) · `router-quality`(Model Router의 Quality 모드) �
 
 ![arm별 총비용 가로 막대: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56. 각 막대에 통과율과 cost-per-pass 주석](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.svg)
 ![arm별 실제 라우팅된 백엔드 스택 막대: router-cost는 100% grok-4-1-fast-reasoning, router-quality는 gpt-5과 gpt-5.5로 분할되고 grok 없음, direct-premium은 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.svg)
-→ [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · 전체 차트: [03D 실측 결과](03d-results.md)
+→ [Lab-notebook 12](../lab-notebook/12-router-modes-measured.md) · 전체 차트: [03D 실측 결과](routing-measured-results.md)
 
 ### `13` · 요율 카드를 감사하게 된 유료 라우터-모드 런
 

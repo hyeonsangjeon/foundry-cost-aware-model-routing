@@ -1,4 +1,4 @@
-# Routing-mode measured results · 03D Results
+# Routing-mode measured results
 
 > **`measured=true`, a paid measured run.** Four arms — an arm is one comparison strategy in the experiment — ran against the same 24 coding tasks
 > at n=3 on real Azure AI Foundry: `router-cost` (Model Router in Cost mode),
