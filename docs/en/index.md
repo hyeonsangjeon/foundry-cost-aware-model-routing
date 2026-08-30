@@ -115,14 +115,6 @@ committed. The local version runs the same screen live against your own Foundry
 deployment. Credentials never enter the browser; it connects only to `127.0.0.1`
 with a session token, while Entra reads the sign-in from `az login`.
 
-!!! note "The browser run screen is mid-update to the latest measurement path (issue #55)"
-    The browser run screen does not yet include the latest measurement path
-    (v2 pricing · grading integration). For example, the live client does not set
-    `max_output_tokens`, so it uses the default of 512. For **accurate measurement
-    right now, use the CLI path**. For the integration details, see
-    [issue #55](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/issues/55),
-    and for the method see the [measurement protocol](manual/measurement-protocol.md).
-
 ```bash
 az login                      # keyless Entra — no input field in the browser
 cost-router dashboard --live  # prints a 127.0.0.1 + random-port + session-token URL

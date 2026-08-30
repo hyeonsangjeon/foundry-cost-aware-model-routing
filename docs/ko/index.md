@@ -103,13 +103,6 @@ cost-router hero --serve   # 실행 후 오프라인 대시보드를 띄웁니�
 실제 Foundry 배포에 대고 라이브로 실행합니다. 브라우저에는 자격증명이 들어가지 않습니다.
 `127.0.0.1`과 세션 토큰만 쓰고 Entra 로그인은 `az login`에서 읽습니다.
 
-!!! note "브라우저 실행 화면에 최신 측정 경로를 반영하는 작업이 진행 중입니다 (이슈 #55)"
-    브라우저 실행 화면에는 아직 최신 측정 경로(v2 요율 · 채점 연결)가 없습니다.
-    예를 들어 라이브 클라이언트는 `max_output_tokens`를 설정하지 않아 기본값 512를 씁니다.
-    지금 **정확한 실측은 CLI 경로**를 사용하세요. 측정 반영 상세는
-    [이슈 #55](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/issues/55),
-    측정 방법은 [측정 프로토콜](manual/measurement-protocol.md)을 보세요.
-
 ```bash
 az login                      # 키리스 Entra — 브라우저에 입력란 없음
 cost-router dashboard --live  # 127.0.0.1 + 임의 포트 + 세션 토큰 URL 출력
