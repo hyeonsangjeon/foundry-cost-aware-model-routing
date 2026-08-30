@@ -172,7 +172,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
   절감 수치"가 되살아납니다. 그래서 벤치 경로는 **모르는 단가를 채우지 않고** 그 셀을
   unpriced로 봉인하고 그 런의 절감 주장을 `savings_claim_allowed=false`로 막습니다.
 - **다섯 표면 동일 공식**: 같은 셀의 합성 비용이 dry-run 추정 · 예약 상한 · trace ·
-  summary · replay에서 **동일**합니다. 회귀 테스트 `tests/test_rate_card_wiring.py`가
+  summary · 재생에서 **동일**합니다. 회귀 테스트 `tests/test_rate_card_wiring.py`가
   이 동일성과 fail-closed(라우터 마크업 · Claude unpriced · v1 무변경)를 고정합니다.
 - **tier 처리**: v2 카드는 키마다 **보수적 long-tier 단가 하나**만 저장하고 예약을 그
   값으로 잡습니다. 실제 tier가 판정되면 settle에서 반영하되, 판정 불가면 long을
@@ -196,7 +196,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 | exp03·04·06 Guardrails | 2–11 후보 ×5×3 | $0.22–$1.03 each | **$2 each** |
 | exp05 Fan-out (D2) | 11×5×3 = 165 | $1.03 | **$3** |
 | exp08 네 방식 비교 | 11×5×3 = 165 | $1.03 | **$2** |
-| exp01 Hero (100 tasks) | ⚠ 100-task prompt 워크로드 **선작성 필요** | ≈$20.6 | **$25** |
+| exp01 저렴한 모델 우선 라우팅 (100 tasks) | ⚠ 100-task prompt 워크로드 **선작성 필요** | ≈$20.6 | **$25** |
 
 !!! warning "이 수치의 성격"
     dollar 값은 **illustrative** 단가(파트너 행 placeholder)에서 나온 planning 추정입니다.
@@ -262,7 +262,7 @@ coverage가 79%로 무너지는 것을 30분 시점에 알았다면 abort할 수
     **abort(전체 중단 + partial 스냅샷)** 뿐이다.
 
 `progress.json`은 gitignored 런 디렉터리에만 쓰이고 지문 대상(§4)이 아니므로
-스냅샷 바이트나 `plan_hash`에 영향을 주지 않는다 — replay는 여전히 byte-동일이다.
+스냅샷 바이트나 `plan_hash`에 영향을 주지 않는다 — 재생은 여전히 byte-동일이다.
 
 관련 문서: [라이브 실측 브릿지](foundry-live.md) · [감사 원장](ledger.md) ·
 [실험 09 · 실측 라우팅](../lab-notebook/09-live-routing-proof.md) · [정직함 규약](../honesty.md)

@@ -41,6 +41,26 @@ All notable changes to this project are documented here.
 - Local budget gate, replay scripts, and eval summary for sample fixtures.
 
 ### Changed
+- **The last of the coined vocabulary, and its gate.** Finishing the
+  plain-wording pass, the *hero* metaphor was dropped from prose across the
+  bilingual manual and lab-notebook — 24 lines in 19 pages. Descriptive uses
+  became the default experiment (hero workload/baseline/loop → the default
+  experiment's workload/baseline/loop, 히어로 → 기본 실험), and experiment 01's
+  public name settled on *Try-cheap-first routing* / 저렴한 모델 우선 라우팅 to
+  match the label the tables already carried. Two narrative uses that meant the
+  router rather than the experiment were named plainly (the router's hidden
+  price; even the winner pays on latency), and a *hero border* became a prominent
+  border. In the Korean docs the English CLI verb "replay" left standing in prose
+  became 재생 — 재현 where it means reproduction — over 14 lines. Kept untouched
+  because they are code, not prose: the CLI `hero`, the `## hero —` and
+  `## replay —` command headings, `hero.gif` / `hero.yaml`, the `01-hero` URL,
+  the `measure replay` / `ledger replay` verbs, and the first-mention
+  "재생(replay)" gloss. `scripts/check_terminology.py` grows to match — Rule E
+  now also fails on the retired hero phrasing (Korean 히어로 gated whole, English
+  gated only on the retired multiword phrases so the bare identifier survives),
+  and a new **Rule G** fails on a bare English "replay" in Korean prose, both
+  with the command headings and glosses masked and both proved by reintroduction
+  probes in either direction.
 - **The browser run screen now measures the same way as the CLI (issue #55).**
   The local `dashboard --live` run screen used to price on the legacy v1 rates
   and skip grading, so a browser run could seal `measured=true` with no accuracy

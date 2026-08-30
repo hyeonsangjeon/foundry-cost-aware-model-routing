@@ -6,8 +6,8 @@
     All numbers are `measured = false`.
 
 <figure markdown="span">
-  ![Hero loop animation — a naive lane and a cost-aware lane running side by side](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
-  <figcaption>Hero loop — the naive lane sends every task to premium; the cost-aware lane tries the cheapest candidate first and escalates one step only on a failed check.</figcaption>
+  ![Default-experiment loop animation — a naive lane and a cost-aware lane running side by side](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
+  <figcaption>Default-experiment loop — the naive lane sends every task to premium; the cost-aware lane tries the cheapest candidate first and escalates one step only on a failed check.</figcaption>
 </figure>
 
 ## What this experiment is

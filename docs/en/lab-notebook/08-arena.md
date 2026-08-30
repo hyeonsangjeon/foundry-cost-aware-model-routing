@@ -14,7 +14,7 @@
 - **Situation (when):** other dashboard panels summarize a 100-task workload. A new
   user also needs to *"runs the same one problem several ways and compares cost, performance, and accuracy by eye."* That immediate view was missing.
 - **Task (what):** we built **the four-way comparison (the `arena` command)** that scores four approaches on a single task and put it in both the web app and the CLI. Cost and accuracy **reuse the existing offline machine** as-is (`classify_task` · `candidates_for` · `pricing.cost_usd` · `is_clean` · `ordered_select`), matching the aggregate panels by construction, and we newly added a **third axis, latency**, as an illustrative projection.
-- **Experiment (what it tests):** on the default `t-0003`, that (1) the router **wins on cost** (the cheapest correct answer), (2) **accuracy is shared by the three approaches that pass** (only the cheapest model fails), and yet (3) the router is **slowest on latency** (1.25× premium) — the hero's hidden price.
+- **Experiment (what it tests):** on the default `t-0003`, that (1) the router **wins on cost** (the cheapest correct answer), (2) **accuracy is shared by the three approaches that pass** (only the cheapest model fails), and yet (3) the router is **slowest on latency** (1.25× premium) — the router's hidden price.
 
 This page applies the earlier comparisons to one task and adds **latency**, which the
 earlier experiments did not include.
@@ -107,7 +107,7 @@ $0.0065 · $0.0083, **up to 17×**, without changing the pass result.
 Below the dashboard's representative task card (Spotlight card) we added a **"one problem, four ways"** panel:
 
 - **Task chips** — click one of the 5 curated tasks (t-0001/0003/0004/0005/0006) to switch. One payload holds every task's four-way comparison, so it changes **without a round trip**.
-- **Four cards** — model · cost · latency · accuracy per approach. It **highlights the winner by axis** (cost = cheapest pass, latency = fastest pass, accuracy = all that pass) and gives the router card a hero border.
+- **Four cards** — model · cost · latency · accuracy per approach. It **highlights the winner by axis** (cost = cheapest pass, latency = fastest pass, accuracy = all that pass) and gives the router card a prominent border.
 - **A verdict line** — a one-line summary auto-generated per task, like "the router delivers the correct answer 2.5× cheaper than premium, but is slowest because escalation is sequential."
 
 [Open it in the live demo →](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/)

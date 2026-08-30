@@ -117,7 +117,7 @@
 
 ### `hero` — 같은 커버리지, 더 낮은 비용
 
-![hero 루프 애니메이션: 나이브 레인은 모든 태스크를 premium-max($2.23)로 보내는 반면, 비용 인지 레인은 mini-fast를 먼저 시도하고 실패한 검사에서 한 번 에스컬레이션해 swift-coder를 남긴다 — 같은 100% 커버리지에서 25.5% 더 싸게 안착](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
+![기본 실험 루프 애니메이션: 나이브 레인은 모든 태스크를 premium-max($2.23)로 보내는 반면, 비용 인지 레인은 mini-fast를 먼저 시도하고 실패한 검사에서 한 번 에스컬레이션해 swift-coder를 남긴다 — 같은 100% 커버리지에서 25.5% 더 싸게 안착](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
 
 | | |
 | --- | --- |

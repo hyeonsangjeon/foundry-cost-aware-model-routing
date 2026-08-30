@@ -6,7 +6,7 @@
     4-arm 비교를 같은 게이트와 estimand로 다시 돌렸습니다. 채점 커버리지가 79.2%에서
     **96.18%**로 올라 **네 arm 전부 게이트를 통과 — publishable**했습니다. 실측 비용 순서는
     사전등록의 예상(`cost < balanced < premium
-    ≤ quality`)과 같았습니다. 지출은 **$3.27 / $20**, replay는
+    ≤ quality`)과 같았습니다. 지출은 **$3.27 / $20**, 재생은
     바이트 단위 동일, unpriced는 **0%**였습니다. 실험 11의 "규율이 무효를 강제했다"와 이 실험의
     "규율 아래 유효 결과가 나왔다"는 **같은 게이트를 두 번, 완화 없이** 적용한 기록입니다.
 
@@ -54,7 +54,7 @@ Router의 Balanced 모드) · `router-quality`(Model Router의 Quality 모드) �
 | `router-quality` | Quality | 94.4% (68/72) | 95.8% (23/24) | $1.558659 | ✅ | $0.06777 |
 
 - **총지출 $3.269553 / $20** · 288/288 완주(partial=false) · 429 스로틀 **0** · 타임아웃 11(HTTP408) ·
-  집계 채점 커버리지 **96.18%(277/288)** · unpriced **0%** · replay **바이트 단위 동일**(`cost_mismatches: []`).
+  집계 채점 커버리지 **96.18%(277/288)** · unpriced **0%** · 재생 **바이트 단위 동일**(`cost_mismatches: []`).
 - **비용 순서: `cost($0.065) < balanced($0.305) < premium($1.341) < quality($1.559)`.**
 
 ## 품질 게이트 판정 — **네 arm 전부 PASS → publishable**

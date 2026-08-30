@@ -9,7 +9,7 @@ true`) and which are still projection only (`measured = false`)**.
 
 | Workload | Tasks | Prompts? | Machine validation (`validation`)? | Experiments using it | Measurable? |
 | --- | --- | --- | --- | --- | --- |
-| `samples/telemetry/mixed-coding-workload.sample.jsonl` | 100 | ❌ none | ❌ none | 01 Hero · 02 Curated · 05 Ensemble · 06 Fan-out threshold · 07 Single-call · limits · adaptive | ❌ **projection only** |
+| `samples/telemetry/mixed-coding-workload.sample.jsonl` | 100 | ❌ none | ❌ none | 01 Try-cheap-first routing · 02 Curated · 05 Ensemble · 06 Fan-out threshold · 07 Single-call · limits · adaptive | ❌ **projection only** |
 | `samples/telemetry/curated-arena-live.sample.jsonl` | 5 | ▲ separate fixture | ❌ (human-facing `acceptance` strings) | 08 Four-way comparison (the `arena` command) · 09·10 live routing | ✅ **measured (09·10)** · coverage ungraded |
 | `samples/prompts/curated-arena.sample.json` | 5 | ✅ `{title, prompt, acceptance}` | ❌ | prompt source for the four-way comparison/live runs above | — (prompt fixture) |
 

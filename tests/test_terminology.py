@@ -218,12 +218,25 @@ FIRST_SCREEN_REINTRODUCTIONS = (
     ("사람 게이트", "**승인하고 실행**(사람 게이트)을 선택하기 전에는 실행하지 않습니다."),
     ("flagship", "The flagship experiment runs in one shot."),
     ("플래그십", "플래그십 실험을 한 번에 실행합니다."),
+    # BOLT-17 (#150) — hero prose retired to the default-experiment standard.
+    ("hero workload", "The synthetic hero workload runs first."),
+    ("hero baseline", "The hero baseline sets the price to beat."),
+    ("hero loop", "The animated hero loop plays on the home page."),
+    ("hero 루프", "홈에서 hero 루프 애니메이션이 재생됩니다."),
+    ("hero border", "The winning card draws a hero border."),
+    ("hero's hidden price", "The panel reveals the hero's hidden price."),
+    ("Hero autorun", 'A tip titled "Hero autorun" explains the demo.'),
+    ("01 / exp01 Hero label", "Run exp01 hero to reproduce it."),
+    ("히어로", "이것은 히어로 데모 화면입니다."),
 )
 
 FIRST_SCREEN_IDS = (
     "cockpit-en", "cockpit-ko", "ensemble-tax-en", "ensemble-tax-ko",
     "cost-governor-en", "cost-governor-ko", "wiring-en", "wiring-ko",
     "human-gate-en", "human-gate-ko", "flagship-en", "flagship-ko",
+    "hero-workload-en", "hero-baseline-en", "hero-loop-en", "hero-loop-ko",
+    "hero-border-en", "hero-hidden-price-en", "hero-autorun-en",
+    "exp01-hero-label", "hero-ko",
 )
 
 
@@ -524,4 +537,69 @@ def test_rule_f_excludes_the_devlog(tmp_path, monkeypatch):
 
 def test_rule_f_is_clean_on_the_repository():
     violations = terminology.check_no_retired_inner_page_terms()
+    assert violations == [], "\n".join(violations)
+
+
+# --- Rule G — Korean "replay" prose left untranslated (BOLT-17 / #150) -------
+#
+# "replay" is a live CLI verb (``measure replay``, ``ledger replay``), so unlike
+# the retired coinages the rule is Korean-only and masks every surface BOLT-17
+# keeps: inline code, the ``## replay —`` command heading and the "재생(replay)"
+# first-mention gloss. What is left flagged is bare English "replay" in Korean
+# prose, which should read 재생 (or 재현 for reproduction).
+def test_rule_g_flags_bare_replay_in_korean_prose(tmp_path, monkeypatch):
+    page = tmp_path / "manual"
+    page.mkdir()
+    (page / "run-plan.md").write_text(
+        "이 실행은 replay 없이 진행됩니다.\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(terminology, "DOCS", tmp_path)
+    hits = terminology.check_no_untranslated_replay()
+    assert any("leaves English 'replay'" in v for v in hits), hits
+
+
+def test_rule_g_keeps_the_replay_code_surfaces(tmp_path, monkeypatch):
+    """The CLI verb, its command heading and the first-mention gloss stay."""
+    page = tmp_path / "manual"
+    page.mkdir()
+    (page / "cli.md").write_text(
+        "## replay — 워크로드 재생\n\n"
+        "`measure replay`로 봉인 기록을 재생합니다.\n\n"
+        "이 단계는 재생(replay)으로 재현합니다.\n\n"
+        "```bash\ncost-router measure replay\n```\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(terminology, "DOCS", tmp_path)
+    assert terminology.check_no_untranslated_replay() == []
+
+
+def test_rule_g_is_korean_only():
+    """The rule reads docs/ko only — English pages keep 'replay' by design."""
+    assert terminology.DOCS.name == "ko"
+    assert terminology.DOCS.parent.name == "docs"
+
+
+def test_rule_g_excludes_the_devlog(tmp_path, monkeypatch):
+    """The ko devlog is a dated journal, out of scope like Rules D and F."""
+    devlog = tmp_path / "lab-notebook" / "devlog.md"
+    devlog.parent.mkdir(parents=True, exist_ok=True)
+    devlog.write_text("측정은 replay 없이 진행했습니다.\n", encoding="utf-8")
+    monkeypatch.setattr(terminology, "DOCS", tmp_path)
+    assert "lab-notebook/devlog.md" in terminology.RULE_D_EXCLUDED
+    assert terminology.check_no_untranslated_replay() == []
+
+
+def test_rule_g_is_wired_into_find_violations(tmp_path, monkeypatch):
+    """Rule G has to reach the exit code, not just be importable."""
+    page = tmp_path / "manual"
+    page.mkdir()
+    (page / "run-plan.md").write_text(
+        "이 실행은 replay 없이 진행됩니다.\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(terminology, "DOCS", tmp_path)
+    assert any("leaves English 'replay'" in v for v in terminology.find_violations())
+
+
+def test_rule_g_is_clean_on_the_repository():
+    violations = terminology.check_no_untranslated_replay()
     assert violations == [], "\n".join(violations)

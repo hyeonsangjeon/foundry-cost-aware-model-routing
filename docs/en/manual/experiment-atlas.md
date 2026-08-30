@@ -119,7 +119,7 @@ They are generated deterministically from the numbers above by
 
 ### `hero` — same coverage, lower cost
 
-![Animated hero loop: a naive lane sends every task to premium-max ($2.23) while the cost-aware lane tries mini-fast first, escalates once on a failed check, and keeps swift-coder — landing 25.5% cheaper at the same 100% coverage](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
+![Animated default-experiment loop: a naive lane sends every task to premium-max ($2.23) while the cost-aware lane tries mini-fast first, escalates once on a failed check, and keeps swift-coder — landing 25.5% cheaper at the same 100% coverage](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
 
 | | |
 | --- | --- |

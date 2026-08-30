@@ -34,7 +34,11 @@ Rules enforced:
   E. No first-screen prose (README, docs/en/index.md, docs/ko/index.md)
      reintroduces the jargon BOLT-10 (#137) retired: cockpit, ensemble tax,
      cost governor, wiring, human gate, flagship — and the Korean counterparts
-     콕핏, 앙상블 세금, 비용 거버너, 배선, 사람 게이트, 플래그십.
+     콕핏, 앙상블 세금, 비용 거버너, 배선, 사람 게이트, 플래그십. BOLT-17 (#150)
+     adds the retired ``hero`` prose to this family (hero workload / baseline /
+     loop / border / autorun, the exp01 "Hero" label, and Korean 히어로) while
+     leaving the CLI ``hero``, the ``## hero —`` command heading, ``hero.gif`` /
+     ``hero.yaml`` and the ``01-hero`` URL untouched.
   F. No inner-page prose (docs/en·docs/ko manual, lab-notebook, honesty — the
      ko devlog excluded, and each page's H1 title deferred to BOLT-12) reintroduces
      the jargon BOLT-11 (#138) retired: measured/measurement bridge, wiring proof,
@@ -42,6 +46,11 @@ Rules enforced:
      centerpiece, reproducibility contract, authority label — and the Korean
      counterparts 측정 브리지/브릿지, 배선, 스포트라이트, 커버리지 절벽, 슬레이트,
      팬아웃 다이얼, 아레나, 5분 wow, 센터피스, 재현성 계약, 권한 라벨.
+  G. No Korean prose line (docs/ko, ko devlog excluded) leaves the English CLI
+     verb "replay" untranslated where it should read 재생 (or 재현 for
+     reproduction) — BOLT-17 (#150). The ``measure replay`` / ``ledger replay``
+     code surfaces, the ``## replay —`` command heading and the first-mention
+     gloss "재생(replay)" are masked and stay.
 
 Rule D — what it does and does not look at
 ------------------------------------------
@@ -187,6 +196,32 @@ RETIRED_FIRST_SCREEN_TERMS = (
      "the default cost-and-coverage experiment"),
     (re.compile(r"플래그십"), "플래그십",
      "기본 비용·통과율 실험"),
+    # BOLT-17 (#150) item ① — hero prose retired to the same BOLT-10 default-
+    # experiment standard. The CLI ``hero``, the command-documenting headings
+    # (``## hero —``, blanked by _COMMAND_DOC_HEADING below), the ``hero.gif`` /
+    # ``hero.yaml`` paths and the ``01-hero`` URL stay — they are code surfaces or
+    # masked headings. Korean 히어로 is always prose (the command / slug / path are
+    # the Latin ``hero``), so the bare transliteration is gated like 콕핏 / 플래그십.
+    # English ``hero`` is overloaded, so only the retired experiment-referring
+    # phrases are gated here, never the bare identifier.
+    (re.compile(r"hero\s+workload", re.IGNORECASE), "hero workload",
+     "the default experiment's workload"),
+    (re.compile(r"hero\s+baseline", re.IGNORECASE), "hero baseline",
+     "the default experiment's baseline"),
+    (re.compile(r"hero\s+loop", re.IGNORECASE), "hero loop",
+     "the default experiment loop (GIF caption)"),
+    (re.compile(r"hero\s*루프"), "hero 루프",
+     "기본 실험 루프"),
+    (re.compile(r"hero\s+border", re.IGNORECASE), "hero border",
+     "a prominent border (a visual style, not the experiment)"),
+    (re.compile(r"hero'?s\s+hidden", re.IGNORECASE), "hero's hidden price",
+     "the router's hidden price"),
+    (re.compile(r"hero\s+autorun", re.IGNORECASE), "Hero autorun",
+     "Autorun (drop 'Hero')"),
+    (re.compile(r"(?:exp\s*)?0?1\s+hero\b", re.IGNORECASE), "01 / exp01 Hero label",
+     "Try-cheap-first routing (the exp01 public label)"),
+    (re.compile(r"히어로"), "히어로",
+     "기본 비용·통과율 실험 (축약: 기본 실험)"),
 )
 
 # Rule F — jargon BOLT-11 (#138) retired from the inner bilingual pages (manual,
@@ -274,6 +309,14 @@ RETIRED_INNER_PAGE_TERMS = (
 _HTML_ANCHOR = re.compile(r'<a\s+name="[^"]*">')
 _INNER_UI_LABELS = (
     re.compile(r"Spotlight\s+card", re.IGNORECASE),
+)
+
+# A heading that documents a CLI command — "## hero — …", "## replay — …",
+# "### 6-1. hero — …". BOLT-17 keeps these (a command name is a code surface),
+# so the whole heading line is blanked before the hero / replay prose rules read
+# it. Only H2+ command headings match; a page H1 is already skipped as nav.
+_COMMAND_DOC_HEADING = re.compile(
+    r"^\s*#{2,6}\s+.*?\b(?:hero|replay)\b\s*[—–-].*$", re.IGNORECASE
 )
 
 # The "Related documents" / "관련 문서" footer links between pages — navigation,
@@ -571,6 +614,7 @@ def strip_inner_surfaces(text: str) -> str:
     """Blank the code surfaces plus the HTML anchor and UI labels Rule F keeps."""
     text = strip_code_surfaces(text)
     text = _HTML_ANCHOR.sub(lambda match: " " * len(match.group(0)), text)
+    text = _COMMAND_DOC_HEADING.sub(lambda match: " " * len(match.group(0)), text)
     for pattern in _INNER_UI_LABELS:
         text = pattern.sub(lambda match: " " * len(match.group(0)), text)
     return text
@@ -598,6 +642,48 @@ def check_no_retired_inner_page_terms() -> list[str]:
     return failures
 
 
+# Rule G — BOLT-17 (#150) item ② — English "replay" left untranslated in Korean
+# prose. Unlike the retired coinages, "replay" is a live CLI verb, so this rule is
+# Korean-only (English pages keep "replay" / "replay-verified") and it masks every
+# surface BOLT-17 keeps: fenced blocks and inline code (`measure replay`,
+# `ledger replay`, `--replay`), the "## replay —" command heading, and the
+# first-mention gloss "재생(replay)". What survives is prose that should read 재생
+# (or 재현, where the meaning is reproduction). ``DOCS`` is already docs/ko.
+_REPLAY = re.compile(r"\breplay\b", re.IGNORECASE)
+_REPLAY_GLOSS = re.compile(r"\(\s*replay\s*\)", re.IGNORECASE)
+
+
+def _iter_replay_lines():
+    """Yield (relpath, lineno, raw, masked) Korean prose lines for Rule G."""
+    for path in sorted(DOCS.rglob("*.md")):
+        rel = path.relative_to(DOCS).as_posix()
+        if rel in RULE_D_EXCLUDED:
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        fenced = fenced_line_numbers(lines)
+        masked = _mask_inner_document(lines, fenced)
+        for lineno, raw in enumerate(lines, 1):
+            if lineno in fenced:
+                continue
+            text = masked[lineno - 1]
+            text = _LINK_TARGET.sub(lambda m: " " * len(m.group(0)), text)
+            text = _REPLAY_GLOSS.sub(lambda m: " " * len(m.group(0)), text)
+            text = _COMMAND_DOC_HEADING.sub(lambda m: " " * len(m.group(0)), text)
+            yield rel, lineno, raw, text
+
+
+def check_no_untranslated_replay() -> list[str]:
+    """Rule G — Korean prose says 재생, never a bare English 'replay'."""
+    failures: list[str] = []
+    for rel, lineno, raw, masked in _iter_replay_lines():
+        if _REPLAY.search(masked):
+            failures.append(
+                f"ko/{rel}:{lineno} leaves English 'replay' in Korean prose — "
+                f"use '재생' (or '재현' for reproduction):\n    {raw.strip()[:200]}"
+            )
+    return failures
+
+
 def find_violations() -> list[str]:
     """Return every terminology violation across all rules."""
     return (
@@ -607,6 +693,7 @@ def find_violations() -> list[str]:
         + check_no_retired_terminology()
         + check_no_retired_first_screen_terms()
         + check_no_retired_inner_page_terms()
+        + check_no_untranslated_replay()
     )
 
 
@@ -618,7 +705,8 @@ def main() -> int:
             f"terminology: OK — glossary present, {pages} docs pages checked, "
             f"{len(RETIRED_TERMS)} retired terms gated, "
             f"{len(RETIRED_FIRST_SCREEN_TERMS)} BOLT-10 terms gated tree-wide, "
-            f"{len(RETIRED_INNER_PAGE_TERMS)} inner-page terms gated"
+            f"{len(RETIRED_INNER_PAGE_TERMS)} inner-page terms gated, "
+            f"Korean 'replay' prose gated"
         )
         return 0
     print(f"terminology: {len(violations)} violation(s):\n")
