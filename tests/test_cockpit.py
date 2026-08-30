@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from router.abort_gate import AbortGate, request_cancellation
+from router.benchmark_grader import GradeVerdict, output_hash
 from router.cockpit import CockpitController, CockpitError, RunState
 from router.measure import AttemptResult, RetryPolicy
 from router.run_plan import LocalRunConfig, resolve_run_plan
@@ -589,3 +590,96 @@ def test_sweep_spends_the_plans_retry_budget_not_the_library_default(tmp_path, m
     assert seen["retry"].max_retries == 2, (
         "the sweep must spend the plan's retry budget; RetryPolicy() defaults to 5"
     )
+
+
+# --------------------------------------------------------------------------- #
+# 13-15. BOLT-15 (issue #55): the browser run screen grades through the shared
+# grader seam the server fills. A grade error is a coverage drop, never a run
+# abort; turning the injection back to grader=None restores an ungraded run.
+# --------------------------------------------------------------------------- #
+
+
+class CodeClient:
+    """A 200 whose body is a small code block, so a content grader has input."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    def attempt(self, *, deployment, provider, task) -> AttemptResult:
+        self.calls.append((deployment, task["task_id"]))
+        return AttemptResult(
+            http_status=200, model=deployment, usage=dict(_USAGE),
+            latency_ms=10.0, provenance="live",
+            content=f"# {task['task_id']}\ndef solve():\n    return 1\n",
+        )
+
+
+class ScriptedGrader:
+    """A content grader returning a scripted verdict per task id.
+
+    A ``None`` verdict models a cell the grader could not score (a grade error):
+    it must count against coverage, never crash the sweep. This never *raises* —
+    a raising grader is the separate fail-closed path proven in scenario 05.
+    """
+
+    def __init__(self, verdict_by_task: dict[str, bool | None]) -> None:
+        self.verdict_by_task = verdict_by_task
+        self.seen: list[str] = []
+
+    def __call__(self, task_id, task, model, usage, content):  # noqa: ANN001 - seam
+        self.seen.append(task_id)
+        return GradeVerdict(
+            passed=self.verdict_by_task.get(task_id, True),
+            detail="scripted",
+            output_sha256=output_hash(content or ""),
+        )
+
+
+def test_scenario_13_browser_run_is_graded_when_a_grader_is_wired(tmp_path):
+    ctrl = _controller(
+        tmp_path, lambda: CodeClient(), grader=ScriptedGrader({}),
+        budget_usd=50.0, repetitions=1,
+    )
+    run = ctrl.approve_and_start(
+        plan_hash=ctrl.plan_hash, idempotency_key="k", inline=True
+    )
+    assert run.state is RunState.REPLAY_VERIFIED
+    summary = json.loads((run.run_dir / "summary.json").read_text())
+    grading = summary["grading"]
+    assert grading["basis"] == "exec-signals"
+    assert grading["coverage"] == pytest.approx(1.0)  # every cell graded
+    assert grading["grade_errors"] == 0
+    assert summary["labels"]["quality_graded"] is True
+
+
+def test_scenario_14_grade_error_is_a_coverage_drop_not_a_run_abort(tmp_path):
+    # One task's cells cannot be graded (verdict None). The run still verifies;
+    # the ungradable cells drag coverage down instead of aborting the sweep.
+    ctrl = _controller(
+        tmp_path, lambda: CodeClient(),
+        grader=ScriptedGrader({"smoke-0001": None}),
+        budget_usd=50.0, repetitions=1,
+    )
+    run = ctrl.approve_and_start(
+        plan_hash=ctrl.plan_hash, idempotency_key="k", inline=True
+    )
+    assert run.state is RunState.REPLAY_VERIFIED  # not FAILED / ABORTED
+    grading = json.loads((run.run_dir / "summary.json").read_text())["grading"]
+    assert grading["grade_errors"] >= 1
+    assert grading["graded_cells"] < grading["planned_cells"]
+    assert grading["coverage"] < 1.0
+
+
+def test_scenario_15_browser_run_stays_ungraded_when_grader_is_none(tmp_path):
+    # The revert cut-line: with the server injection turned back to grader=None,
+    # the browser run is honestly ungraded — no grading block, coverage null.
+    ctrl = _controller(
+        tmp_path, lambda: CodeClient(), grader=None, budget_usd=50.0, repetitions=1,
+    )
+    run = ctrl.approve_and_start(
+        plan_hash=ctrl.plan_hash, idempotency_key="k", inline=True
+    )
+    assert run.state is RunState.REPLAY_VERIFIED
+    summary = json.loads((run.run_dir / "summary.json").read_text())
+    assert "grading" not in summary
+    assert summary["labels"]["accuracy"] == "ungraded"

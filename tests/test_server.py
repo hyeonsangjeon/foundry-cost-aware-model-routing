@@ -1070,9 +1070,11 @@ def test_dashboard_cockpit_frontend_binds_plan_and_is_injection_safe(
 
 import time  # noqa: E402
 
+from router.benchmark_grader import ExecSignalsGrader  # noqa: E402
 from router.run_plan import LocalRunConfig, resolve_run_plan  # noqa: E402
 
 SMOKE_WORKLOAD = ROOT / "samples" / "workloads" / "validated-smoke.example.jsonl"
+BENCH = ROOT / "benchmarks" / "original-coding"
 
 
 def _write_rate_card(tmp_path: Path, *, models: str | None = None) -> None:
@@ -1135,6 +1137,53 @@ def _planned_cockpit(
         cockpit_token=COCKPIT_TOKEN, run_plan=plan, run_config=config,
         client_factory=_FakeMeasureClient,
     )
+
+
+def _graded_workload(tmp_path: Path) -> Path:
+    """A tiny benchmark whose dir ships a harness/grade.py, so the shared grader
+    selector authorizes exec-signals grading. The harness is symlinked, not
+    copied — grade.py resolves its ROOT through the link, so no paid call or run
+    is needed to prove the server wired the grader object."""
+    bench = tmp_path / "graded-workload"
+    (bench / "harness").mkdir(parents=True)
+    (bench / "harness" / "grade.py").symlink_to(BENCH / "harness" / "grade.py")
+    lines = (BENCH / "tasks.jsonl").read_text(encoding="utf-8").splitlines()[:2]
+    (bench / "tasks.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return bench / "tasks.jsonl"
+
+
+def _planned_cockpit_graded(tmp_path: Path) -> RouterService:
+    _write_rate_card(tmp_path)
+    mapping = _plan_mapping()
+    mapping["benchmark"]["workload"] = str(_graded_workload(tmp_path))
+    mapping["benchmark"]["repetitions"] = 1
+    config = LocalRunConfig.from_mapping(
+        mapping, base_dir=tmp_path, source=str(tmp_path / ".foundry.local.yaml")
+    )
+    plan = resolve_run_plan(config, env={})
+    return RouterService(
+        cockpit_token=COCKPIT_TOKEN, run_plan=plan, run_config=config,
+        client_factory=_FakeMeasureClient,
+    )
+
+
+def test_server_wires_the_shared_grader_when_the_workload_ships_a_harness(
+    tmp_path: Path,
+) -> None:
+    # The injection point (server builds the sole CockpitController): a benchmark
+    # plan whose workload ships harness/grade.py gets the shared exec-signals
+    # grader, so the browser run screen grades the cells the CLI would.
+    service = _planned_cockpit_graded(tmp_path)
+    grader = service._cockpit_controller._grader
+    assert isinstance(grader, ExecSignalsGrader)
+
+
+def test_server_leaves_the_run_ungraded_without_a_harness(tmp_path: Path) -> None:
+    # The revert cut-line, and backward compatibility: the smoke workload ships
+    # no harness, so the shared selector returns None and the run stays honestly
+    # ungraded — flipping the injection to grader=None is the same one-line move.
+    service = _planned_cockpit(tmp_path)
+    assert service._cockpit_controller._grader is None
 
 
 def _poll_terminal(service: RouterService, run_id: str, *, timeout: float = 10.0) -> dict:

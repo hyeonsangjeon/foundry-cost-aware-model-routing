@@ -1025,6 +1025,32 @@ def retry_policy_for(plan: ResolvedRunPlan) -> RetryPolicy:
     return RetryPolicy(max_retries=int(plan.execution["retry"]["max_retries"]))
 
 
+def select_measured_grader(
+    config: LocalRunConfig, plan: ResolvedRunPlan
+) -> ExecSignalsGrader | None:
+    """The exec-signals grader a benchmark plan authorizes for grading, or None.
+
+    Both measured run paths pick their grader here — the CLI benchmark
+    (:func:`execute_benchmark`) and the browser run screen
+    (:class:`router.cockpit.CockpitController`, wired at the server) — so a plan
+    grades the same cells under the same rule no matter which path ran it, and
+    the grader is defined once instead of copied per path (issue #55). A plan
+    grades only when it is a benchmark, its declared grader kind is
+    ``exec-signals``, and its workload directory ships a ``harness/grade.py`` to
+    run; anything else stays honestly ungraded (coverage is null, never faked).
+    """
+
+    if plan.run_mode != "benchmark":
+        return None
+    grader_kind = str((plan.execution.get("grader") or {}).get("kind") or "")
+    if grader_kind != "exec-signals":
+        return None
+    benchmark_root = config.resolve_path(plan.workload_path).parent
+    if not (benchmark_root / "harness" / "grade.py").is_file():
+        return None
+    return ExecSignalsGrader(benchmark_root)
+
+
 def execute_benchmark(
     config: LocalRunConfig,
     plan: ResolvedRunPlan,
@@ -1069,16 +1095,14 @@ def execute_benchmark(
     pricing = select_measured_pricing(card_path)
     retry = retry_policy_for(plan)
 
-    # Auto-wire the exec-signals grading bridge for a benchmark sweep so the
-    # (paid) run captures each arm's code and grades it in memory (spec §10).
-    # Tests still inject a fake grader; a smoke run stays ungraded. The grader
-    # no-ops on cells with no captured content, so this never egresses here.
-    if grader is None and plan.run_mode == "benchmark":
-        grader_kind = str((plan.execution.get("grader") or {}).get("kind") or "")
-        if grader_kind == "exec-signals":
-            benchmark_root = config.resolve_path(plan.workload_path).parent
-            if (benchmark_root / "harness" / "grade.py").is_file():
-                grader = ExecSignalsGrader(benchmark_root)
+    # Auto-wire the exec-signals grader for a benchmark sweep so the (paid) run
+    # captures each arm's code and grades it in memory (spec §10). The one shared
+    # selector decides — the browser run screen wires the same grader the same
+    # way (issue #55). Tests still inject a fake grader to override; a smoke run
+    # or a workload with no harness stays ungraded. The grader no-ops on cells
+    # with no captured content, so this never egresses here.
+    if grader is None:
+        grader = select_measured_grader(config, plan)
 
     # Record the prereg the plan pins (its {path, blob, commit} are already bound
     # into plan_hash) into the sealed manifest, unless a decision was injected.

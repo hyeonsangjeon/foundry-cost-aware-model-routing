@@ -22,6 +22,7 @@ from router.benchmark_grader import (
     extract_code,
     output_hash,
 )
+from router.cockpit import CockpitController, RunState
 from router.measure import (
     AttemptResult,
     MeasureCandidate,
@@ -34,7 +35,12 @@ from router.measure import (
     run_measure,
 )
 from router.pricing import PricingTable
-from router.run_plan import LocalRunConfig, execute_benchmark, resolve_run_plan
+from router.run_plan import (
+    LocalRunConfig,
+    execute_benchmark,
+    resolve_run_plan,
+    select_measured_grader,
+)
 
 BENCH = Path("benchmarks/original-coding")
 # 03D-3 Fix C re-run plan hash. Supersedes the 03D-2 re-run's
@@ -514,3 +520,146 @@ def test_progress_seeds_prior_arm_tallies_on_resume(tmp_path):
     assert final["arms"]["bad"] == {"attempted": 3, "content": 3, "passed": 0}
     assert final["graded_content"] == 6  # 3 seeded + 3 freshly graded
     assert final["passed"] == 3
+
+
+# --------------------------------------------------------------------------- #
+# BOLT-15 (issue #55): the browser run screen grades exactly like the CLI
+# benchmark, because both pick the grader through the one shared selector
+# (router.run_plan.select_measured_grader). No grader code is copied per path.
+# --------------------------------------------------------------------------- #
+
+
+class GradedFixtureClient:
+    """Fake: each deployment returns a fixed fixture's code, with live provenance.
+
+    The same content on both run paths, so a shared grader produces the same
+    verdicts and the two paths' grading blocks can be compared byte-for-byte.
+    """
+
+    def __init__(self, kind_by_deployment: dict[str, str]) -> None:
+        self.kind_by_deployment = kind_by_deployment
+
+    def attempt(self, *, deployment, provider, task):  # noqa: ANN001 - test seam
+        kind = self.kind_by_deployment.get(deployment, "reference")
+        return AttemptResult(
+            http_status=200, model=deployment,
+            usage={"input": 100, "cached": 0, "output": 50, "reasoning": 0},
+            latency_ms=5.0, provenance="live",
+            content=_fixture(task["task_id"], kind),
+        )
+
+
+def _tmp_benchmark(tmp_path: Path, *, with_harness: bool = True) -> Path:
+    """A small benchmark dir: a two-task subset beside a symlink to the real
+    harness, so grading runs the genuine grader over a few tasks (fast). With
+    ``with_harness=False`` the harness is omitted, modelling a plain workload
+    directory (e.g. the smoke workload) that must stay honestly ungraded.
+    """
+
+    bench = tmp_path / "bench"
+    bench.mkdir(parents=True, exist_ok=True)
+    if with_harness:
+        # .resolve() in grade.py follows this symlink back to the real harness,
+        # so the genuine graders/runner/fixtures load unchanged.
+        (bench / "harness").symlink_to((BENCH / "harness").resolve())
+    wanted = set(_task_ids()[:2])
+    lines = [
+        line
+        for line in (BENCH / "tasks.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip() and str(json.loads(line).get("id") or json.loads(line).get("task_id"))
+        in wanted
+    ]
+    (bench / "tasks.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return bench
+
+
+def _bench_plan(tmp_path: Path, *, with_harness: bool = True):
+    bench = _tmp_benchmark(tmp_path, with_harness=with_harness)
+    (tmp_path / "rates.yaml").write_text(
+        "version: 7\ncurrency: USD\nsource: t\neffective_date: 2026-08-01\n"
+        "pricing_basis: composite\nmodels:\n"
+        "  good: {input: 1.0, cached: 0.5, output: 2.0, reasoning: 2.0}\n"
+        "  bad: {input: 1.0, cached: 0.5, output: 2.0, reasoning: 2.0}\n"
+        "default: {input: 1.0, cached: 0.5, output: 2.0, reasoning: 2.0}\n",
+        encoding="utf-8",
+    )
+    mapping = {
+        "schema_version": 1, "template": False, "run_mode": "benchmark",
+        "foundry": {
+            "auth": "entra", "endpoint_kind": "azure_openai",
+            "azure_openai_endpoint": "https://acme.example.com/",
+            "api_version": "2024-10-21",
+        },
+        "arms": [
+            {"id": "good", "kind": "direct", "provider": "openai",
+             "requested_model": "good", "deployment": "good"},
+            {"id": "bad", "kind": "direct", "provider": "openai",
+             "requested_model": "bad", "deployment": "bad"},
+        ],
+        "benchmark": {
+            "workload": str(bench / "tasks.jsonl"), "rate_card": "rates.yaml",
+            "smoke_authorization_ceiling_usd": None, "repetitions": 1,
+            "max_output_tokens": 256, "budget_usd": 50.0, "random_seed": 7,
+            "estimand": {
+                "analysis_unit": "task", "repeat_aggregation": "mean",
+                "denominator_policy": "all-attempted", "failure_policy": "count-as-zero",
+                "cost_per_pass_formula": "total_cost / passes", "paired_statistic": "wilcoxon",
+            },
+            "grader": {"kind": "exec-signals", "version": 1}, "retry": {"max_retries": 1},
+        },
+        "privacy": {"retain_raw_prompts": True, "retain_raw_outputs": True},
+        "artifacts": {"local_root": "results/local"},
+        "display": {"locale": "en"},
+    }
+    config = LocalRunConfig.from_mapping(
+        mapping, base_dir=tmp_path, source=str(tmp_path / ".foundry.local.yaml")
+    )
+    return config, resolve_run_plan(config, env={})
+
+
+def test_select_measured_grader_is_the_shared_decision(tmp_path):
+    # A benchmark whose workload ships a harness/grade.py grades via the real
+    # ExecSignalsGrader; the same plan without that harness stays ungraded. This
+    # single decision is what both run paths consult, so neither copies it.
+    config, plan = _bench_plan(tmp_path / "with")
+    grader = select_measured_grader(config, plan)
+    assert isinstance(grader, ExecSignalsGrader)
+
+    bare_config, bare_plan = _bench_plan(tmp_path / "without", with_harness=False)
+    assert select_measured_grader(bare_config, bare_plan) is None
+
+
+def test_browser_and_cli_paths_grade_identically(tmp_path):
+    # The heart of #55: run the SAME benchmark plan through the CLI benchmark and
+    # through the browser run screen with the SAME scripted code, and the grading
+    # and quality blocks are identical — the browser path is no longer ungraded.
+    config, plan = _bench_plan(tmp_path)
+    kinds = {"good": "reference", "bad": "wrong"}
+
+    cli = execute_benchmark(
+        config, plan, client=GradedFixtureClient(kinds), run_dir=tmp_path / "CLI",
+        clock=(lambda: "2026-08-07T00:00:00.000+00:00"),
+        now=datetime(2026, 8, 7, tzinfo=UTC), sleeper=lambda _s: None,
+    )
+
+    ctrl = CockpitController(
+        plan, config, client_factory=lambda: GradedFixtureClient(kinds),
+        results_root=tmp_path / "cockpit",
+        retry=RetryPolicy(max_retries=1, base_backoff_ms=1.0),
+        grader=select_measured_grader(config, plan),  # exactly what the server wires
+    )
+    run = ctrl.approve_and_start(
+        plan_hash=ctrl.plan_hash, idempotency_key="k1", inline=True
+    )
+    assert run.state is RunState.REPLAY_VERIFIED
+    browser = json.loads((run.run_dir / "summary.json").read_text())
+
+    # Same cells, same coverage, same per-arm quality — no v-path drift.
+    assert cli.summary["grading"] == browser["grading"]
+    assert cli.summary["quality"] == browser["quality"]
+    assert browser["grading"]["basis"] == "exec-signals"
+    assert browser["grading"]["planned_cells"] == 4  # 2 tasks x 2 arms x n=1
+    assert browser["grading"]["coverage"] == pytest.approx(1.0)  # every cell graded
+    assert browser["quality"]["by_candidate"]["good"]["pass_rate"] == pytest.approx(1.0)
+    assert browser["quality"]["by_candidate"]["bad"]["pass_rate"] == pytest.approx(0.0)
+    assert browser["labels"]["quality_graded"] is True
