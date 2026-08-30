@@ -89,7 +89,7 @@
     | `measured=true` (실측) | 실제 Azure Foundry 호출과 usage로 측정된 값(실험 09·10·11·12·13). |
     | `evidence_tier=directional` | 24 과제·단일 테넌트·1회 측정 — 통계적 신뢰가 아니라 방향성 신호. |
     | `cost_complete=true` / `unpriced 0%` | 모든 셀이 고정(pinned) 요율로 가격화됨. |
-    | `plan_hash` | 워크로드·정책·요율을 봉인한 내용 주소 해시. 재현/replay의 기준. |
+    | `plan_hash` | 워크로드·정책·요율을 봉인한 내용 주소 해시. 재현·재생의 기준. |
 
     각 수치의 정직 라벨(measured/projected)은 **해당 페이지에서** 확인하세요 — 이 용어집은 이름과
     정의만 통일할 뿐, 페이지별 주장 경계를 대체하지 않습니다. 경계 전반은

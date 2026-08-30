@@ -375,7 +375,7 @@ How each of the six experiments runs — **with which model, which prompt, and h
 - **Run (measured)**: the `router` vs `premium` arms of
   `cost-router foundry arena --live` are the before/after as-is.
 - **Measured status**: ✅ cost·latency measured / accuracy ungraded.
-- Related: [experiment 01 · the hero](../lab-notebook/01-hero.md)
+- Related: [experiment 01 · Try-cheap-first routing](../lab-notebook/01-hero.md)
 
 ### 6-2. curated — the curated head-to-head
 - **Model**: all four arms (`gpt-5.4-nano`/`gpt-5.4`/fan-out/`model-router`).

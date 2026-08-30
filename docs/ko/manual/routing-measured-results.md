@@ -3,14 +3,14 @@
 > **`measured=true` 유료 실측.** 실제 Azure AI Foundry에서 같은 24개 코딩 과제에 네 arm을
 > n=3으로 돌렸다. 네 arm은 `router-cost`(Model Router의 Cost 모드), `router-balanced`(Model Router의
 > Balanced 모드), `router-quality`(Model Router의 Quality 모드), `direct-premium`(프리미엄
-> 모델 직접 호출 · `gpt-5.6-sol`)이다. 288셀, 봉인 스냅샷, replay로 byte-identical 재생 검증됨.
+> 모델 직접 호출 · `gpt-5.6-sol`)이다. 288셀, 봉인 스냅샷, 재생으로 byte-identical 검증됨.
 > 이 페이지의 모든 숫자는 오프라인 투영이 아니라 **한 번의 실제 측정**에서 나왔다 — 그래서
 > 강력하지만 좁다. 아래 한계를 먼저 읽어라.
 
 !!! warning "먼저 읽을 한계 — 일반화 금지"
     - **24 과제 = evidence_tier `directional`.** 방향성 신호이지 통계적 신뢰가 아니다. 통계적
       결론에는 ~100문제가 필요하다.
-    - **단일 테넌트 · 단일 리전 · 1회 측정.** replay로 *재현*은 보장되지만 모집단 추정은 아니다.
+    - **단일 테넌트 · 단일 리전 · 1회 측정.** 재생으로 *재현*은 보장되지만 모집단 추정은 아니다.
     - **타임아웃이 라우터 arm에만 불리하게 작용한다.** 라우터 백엔드는 지연이 길어(p50 12–16s)
       고정 타임아웃에 걸리고, direct-premium(4.2s)은 걸리지 않는다. 아래 **4.17%p** 통과율 격차는
       코드 품질이 아니라 이 지연 특성 차이에서 나온다.
@@ -133,7 +133,7 @@ pass=False로 **실패 계상**한다. 이 타임아웃들이 라우터 arm과 d
 - **차트**: 위 세 SVG는 `published.json`에서 `scripts/build_03d_dashboard.py`로 **정적 생성**된다.
   브라우저에서 데이터를 페치하지 않는다.
 - **무결성**: `plan_hash sha256:d640dc07…91d2921e` · 사전등록 커밋이 실행보다 앞섬(D8 게이트) ·
-  replay `summary_matches=true`, `cost_mismatches=[]`(byte-identical) · `partial=false`.
+  재생 `summary_matches=true`, `cost_mismatches=[]`(byte-identical) · `partial=false`.
 - **품질 게이트 판정**(사전등록 고정 기준): 채점 커버리지 ≥ 90% **PASS** · min_pass ≥ 0.60 **PASS** ·
   premium 대비 drop ≤ 10%p (실측 4.17%p) **PASS** · 예산 **PASS** → **publishable**.
 - **사전등록 예상 적중**: 갱신 예상은 `cost < balanced < premium ≤ quality`(비용 순서)였고

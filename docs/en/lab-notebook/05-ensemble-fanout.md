@@ -92,7 +92,7 @@ Routing's bill is honestly cheap at **$0.13**, but fanning those 6 tasks out in 
 
 ## Calling every model — "run everything" is the most expensive strategy
 
-The 100-task synthetic hero workload also includes an `all_ensemble` strategy that
+The 100-task synthetic default-experiment workload also includes an `all_ensemble` strategy that
 calls every model on every task:
 
 | Strategy | Cost | Coverage |

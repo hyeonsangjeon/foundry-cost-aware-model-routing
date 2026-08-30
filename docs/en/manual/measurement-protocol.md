@@ -208,7 +208,7 @@ leave headroom above the estimate to absorb output-token variance.
 | exp03·04·06 Guardrails | 2–11 candidates ×5×3 | $0.22–$1.03 each | **$2 each** |
 | exp05 Fan-out (D2) | 11×5×3 = 165 | $1.03 | **$3** |
 | exp08 Four-way comparison | 11×5×3 = 165 | $1.03 | **$2** |
-| exp01 Hero (100 tasks) | ⚠ requires **authoring first** a 100-task prompt workload | ≈$20.6 | **$25** |
+| exp01 Try-cheap-first routing (100 tasks) | ⚠ requires **authoring first** a 100-task prompt workload | ≈$20.6 | **$25** |
 
 !!! warning "The nature of these figures"
     The dollar values are planning estimates from **illustrative** unit prices (partner-row

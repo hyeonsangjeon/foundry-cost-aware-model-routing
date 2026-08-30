@@ -79,7 +79,7 @@ Flip the `full synthetic workload (100 tasks)` toggle at the top and the whole s
 replays, filling in before/after clearly within 20 seconds. The representative-task card (the Spotlight card) is rendered from the
 replay summary's `spotlight` field (an auto-selected representative task).
 
-!!! tip "Hero autorun"
+!!! tip "Autorun"
     Open the `http://127.0.0.1:8000/?run=1` address that `cost-router hero --serve` points you to,
     and replay starts the moment the page loads. With the query parameter `?run=1` (or `?autorun`)
     present, replay runs automatically after the policy loads.

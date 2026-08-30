@@ -6,7 +6,7 @@
 `ResolvedRunPlan` 이라는 **불변 객체**로 봉인하고 위 다섯 경로가 전부 그 동일한 객체를
 읽습니다. 계획에는 결정론적 `plan_hash`가 붙고 승인은 그 해시에 묶입니다. 로컬 브라우저 실행 화면도
 이제 이 계획을 씁니다 — `cost-router dashboard --live --config <파일>`은 정본
-`ResolvedRunPlan`을 브라우저 실행 화면의 유일한 진실 원천으로 바인딩해 preview·승인·실행·abort·replay가
+`ResolvedRunPlan`을 브라우저 실행 화면의 유일한 진실 원천으로 바인딩해 preview·승인·실행·abort·재생이
 전부 같은 `plan_hash`를 키로 씁니다(03C, §9). 브라우저 실행 화면은 03B의 공유 abort 게이트와 지출 원장을
 재사용하며 별도 취소·예산 경로를 만들지 않습니다.
 

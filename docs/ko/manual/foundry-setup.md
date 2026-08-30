@@ -354,7 +354,7 @@ cost-router foundry live --live \
 - **실행(실측)**: `cost-router foundry arena --live` 의 `router` vs `premium` arm이 그대로
   before/after입니다.
 - **실측 상태**: ✅ 비용·지연 실측 / 정확도 미채점.
-- 관련: [실험 01 · 히어로](../lab-notebook/01-hero.md)
+- 관련: [실험 01 · 저렴한 모델 우선 라우팅](../lab-notebook/01-hero.md)
 
 ### 6-2. curated — 큐레이션 헤드투헤드
 - **모델**: 네 arm 전부(`gpt-5.4-nano`/`gpt-5.4`/팬아웃/`model-router`).

@@ -48,7 +48,7 @@ regression (candidate vs base):
 | **Coverage** | **100.0%** | **67.0%** (−33%p) |
 | Routing cost | $1.66 | $0.73 |
 
-> The hero baseline for this comparison ($2.23 → $1.66, −25.5%) is canonically in [offline experiment results](../manual/projection-results.md).
+> The default experiment's baseline for this comparison ($2.23 → $1.66, −25.5%) is canonically in [offline experiment results](../manual/projection-results.md).
 
 ## Reading this number honestly
 

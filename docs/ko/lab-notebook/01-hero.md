@@ -6,8 +6,8 @@
     낮습니다**. 모든 수치는 `measured = false`.
 
 <figure markdown="span">
-  ![히어로 루프 애니메이션 — 순진한 레인과 비용 인지 레인이 나란히 도는 모습](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
-  <figcaption>히어로 루프 — 순진한 레인은 모든 태스크를 프리미엄으로, 비용 인지 레인은 값싼 후보부터 시도해 실패한 검사에서만 한 단계 올린다.</figcaption>
+  ![기본 실험 루프 애니메이션 — 순진한 레인과 비용 인지 레인이 나란히 도는 모습](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
+  <figcaption>기본 실험 루프 — 순진한 레인은 모든 태스크를 프리미엄으로, 비용 인지 레인은 값싼 후보부터 시도해 실패한 검사에서만 한 단계 올린다.</figcaption>
 </figure>
 
 ## 이 실험은 무엇인가
