@@ -42,7 +42,7 @@ from .measure import (
     workload_fingerprint,
 )
 from .pricing import PricingTable
-from .pricing_engine import V2PricingEngine
+from .pricing_engine import card_is_v2, select_measured_pricing
 from .rate_card import RateCardError, RateCardV2
 
 # --------------------------------------------------------------------------- #
@@ -593,10 +593,9 @@ def _resolve_pricing(
         raw = yaml.safe_load(text) or {}
         # A v2 card is identified ONLY by an explicit ``schema_version``; a v1
         # card's ``version`` is a free revision integer (not a schema version),
-        # so it must never be mistaken for one.
-        raw_schema = raw.get("schema_version")
-        is_v2 = raw_schema is not None and int(raw_schema) >= 2
-        if is_v2:
+        # so it must never be mistaken for one. ``card_is_v2`` is the one shared
+        # rule every measured surface applies.
+        if card_is_v2(raw):
             # Authoritative composite card (fail-closed). Validate its structure
             # via RateCardV2 — a v1 PricingTable would KeyError on the missing
             # ``default`` and there is deliberately no default rate here.
@@ -604,7 +603,7 @@ def _resolve_pricing(
                 card_v2 = RateCardV2.from_yaml(card_path)
             except RateCardError as exc:
                 raise PlanError(f"invalid rate card {card_path}: {exc}") from exc
-            schema_version = int(raw_schema)
+            schema_version = int(raw["schema_version"])
             currency = str(card_v2.currency).upper()
             effective = _iso_or_none(card_v2.effective_date) or card_v2.effective_date or None
             pricing_basis = card_v2.unit_basis or raw.get("pricing_basis") or raw.get("basis")
@@ -1063,16 +1062,11 @@ def execute_benchmark(
             "ceiling-only smoke reserves spend but derives no cost (see 03B)"
         )
     card_path = config.resolve_path(card)
-    # The benchmark / paid path prices through the authoritative v2 composite
-    # card (fail-closed, router markup); a legacy v1 card still works for older
-    # fixtures. Detect the format exactly as ``_resolve_pricing`` did: only an
-    # explicit ``schema_version`` marks a v2 card.
-    raw_card = yaml.safe_load(card_path.read_text(encoding="utf-8")) or {}
-    raw_schema = raw_card.get("schema_version")
-    if raw_schema is not None and int(raw_schema) >= 2:
-        pricing: Any = V2PricingEngine(RateCardV2.from_yaml(card_path))
-    else:
-        pricing = PricingTable.from_yaml(card_path)
+    # Price through the one shared selector so the browser run screen and this
+    # benchmark path never diverge: a v2 composite card prices fail-closed with
+    # the router markup, a legacy v1 card stays fail-open for older fixtures
+    # (issue #55).
+    pricing = select_measured_pricing(card_path)
     retry = retry_policy_for(plan)
 
     # Auto-wire the exec-signals grading bridge for a benchmark sweep so the

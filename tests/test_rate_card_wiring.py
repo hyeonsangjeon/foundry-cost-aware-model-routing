@@ -19,6 +19,7 @@ from typing import Any
 import pytest
 import yaml
 
+from router.cockpit import CockpitController, CockpitError, RunState
 from router.measure import (
     AttemptResult,
     MeasureCandidate,
@@ -43,6 +44,7 @@ from router.run_plan import (
 
 ROOT = Path(__file__).resolve().parents[1]
 AUTHORITATIVE_CARD = ROOT / "samples/pricing/foundry-ext-router.yaml"
+SMOKE_WORKLOAD = ROOT / "samples/workloads/validated-smoke.example.jsonl"
 
 # A tiny, fully-controlled v2 card: one aliased router pick (gpt-4.1) and one
 # direct-arm model (gpt-5.6-sol) are priced; Claude is deliberately absent so a
@@ -383,3 +385,122 @@ def test_v1_card_still_resolves_in_plan(tmp_path) -> None:
     plan = resolve_run_plan(config, env={})
     assert plan.execution["pricing"]["schema_version"] == 7  # revision preserved, not a schema
     assert plan.planned_cells == 288
+
+
+# --------------------------------------------------------------------------- #
+# BOLT-14 (issue #55): the browser run screen prices a v2 card exactly like the
+# CLI benchmark, because both select the engine through the one shared helper.
+# --------------------------------------------------------------------------- #
+
+
+def _parity_config(card_path: str) -> dict[str, Any]:
+    """A benchmark config: one router arm + one direct arm, tiny smoke workload."""
+
+    mapping = _benchmark_config(card_path)
+    mapping["arms"] = [
+        {"id": "router-cost", "kind": "model_router", "provider": "openai",
+         "requested_model": "model-router", "deployment": "model-router-cost",
+         "expected": {"format": "router", "name": "cost", "version": "2025-11"}},
+        {"id": "direct-premium", "kind": "direct", "provider": "openai",
+         "requested_model": "gpt-5.6-sol", "deployment": "gpt-5.6-sol"},
+    ]
+    mapping["benchmark"]["workload"] = str(SMOKE_WORKLOAD)  # 3 tasks, no grader harness
+    mapping["benchmark"]["repetitions"] = 2
+    mapping["benchmark"]["budget_usd"] = 50.0
+    return mapping
+
+
+def test_v2_browser_and_cli_paths_price_identically(tmp_path) -> None:
+    # The whole point of #55: run the SAME v2-card plan through the CLI benchmark
+    # and through the browser run screen with the SAME scripted picks, and the
+    # sealed per-arm cost is identical — no v1/v2 drift between the two paths.
+    card_path = tmp_path / "card.yaml"
+    card_path.write_text(V2_CARD_TEXT, encoding="utf-8")
+    mapping = _parity_config(str(card_path))
+    config = LocalRunConfig.from_mapping(
+        mapping, base_dir=tmp_path, source=str(tmp_path / "c.yaml")
+    )
+    plan = resolve_run_plan(config, env={})
+    resolved = {"model-router-cost": "gpt-4.1-2025-04-14", "gpt-5.6-sol": "gpt-5.6-sol"}
+
+    # (a) CLI benchmark path.
+    cli_result = execute_benchmark(
+        config, plan, client=RoutedClient(resolved), run_dir=tmp_path / "CLI",
+        clock=(lambda: "2026-08-05T00:00:00.000+00:00"),
+        now=datetime(2026, 8, 5, tzinfo=UTC), sleeper=lambda _s: None,
+    )
+    cli_cost = cli_result.summary["cost"]["by_candidate"]
+
+    # (b) Browser run screen path — same plan, same picks.
+    ctrl = CockpitController(
+        plan, config, client_factory=lambda: RoutedClient(resolved),
+        results_root=tmp_path / "cockpit",
+        retry=RetryPolicy(max_retries=2, base_backoff_ms=1.0),
+    )
+    # A v2 card is no longer silently repriced as v1 on this path.
+    assert isinstance(ctrl._load_pricing(), V2PricingEngine)
+    run = ctrl.approve_and_start(
+        plan_hash=ctrl.plan_hash, idempotency_key="k1", inline=True
+    )
+    assert run.state is RunState.REPLAY_VERIFIED
+    assert run.measured is True and run.cost_withheld is False
+    browser = json.loads((run.run_dir / "summary.json").read_text())
+    browser_cost = browser["cost"]["by_candidate"]
+
+    assert browser["labels"]["cost_basis"] == "composite-rate-card-v2"
+    for model in ("model-router", "gpt-5.6-sol"):
+        assert browser_cost[model]["cost_complete"] is True
+        assert browser_cost[model]["total_usd"] == pytest.approx(
+            cli_cost[model]["total_usd"]
+        )
+    # The router arm carries the composite markup on both paths.
+    assert browser_cost["model-router"]["avg_usd_per_call"] == pytest.approx(
+        COST_ROUTER_GPT41
+    )
+
+
+def test_v1_card_stays_on_pricing_table_on_browser_path(tmp_path) -> None:
+    # The other direction of the probe: a legacy v1 card keeps the fail-open
+    # PricingTable on the browser path, byte-for-byte as before BOLT-14.
+    card = tmp_path / "v1.yaml"
+    card.write_text(
+        "version: 7\ncurrency: USD\nsource: legacy\neffective_date: 2026-08-01\n"
+        "models:\n  gpt-5.6-sol: {input: 1.25, cached: 0.6, output: 10.0, reasoning: 10.0}\n"
+        "  model-router: {input: 3.0, cached: 1.5, output: 10.0, reasoning: 10.0}\n"
+        "default: {input: 1.0, cached: 0.5, output: 2.0, reasoning: 2.0}\n",
+        encoding="utf-8",
+    )
+    mapping = _parity_config(str(card))
+    config = LocalRunConfig.from_mapping(
+        mapping, base_dir=tmp_path, source=str(tmp_path / "c.yaml")
+    )
+    plan = resolve_run_plan(config, env={})
+    ctrl = CockpitController(
+        plan, config, client_factory=lambda: RoutedClient({}),
+        results_root=tmp_path / "cockpit",
+    )
+    assert isinstance(ctrl._load_pricing(), PricingTable)
+
+
+def test_v2_browser_path_fails_closed_on_unpriced_direct_backend(tmp_path) -> None:
+    # Under v2 the browser path is fail-closed: a direct arm the card cannot
+    # price is refused before any dispatch (v1 would have priced it off default).
+    card_path = tmp_path / "card.yaml"
+    card_path.write_text(V2_CARD_TEXT, encoding="utf-8")
+    mapping = _parity_config(str(card_path))
+    mapping["arms"] = [
+        {"id": "direct-claude", "kind": "direct", "provider": "openai",
+         "requested_model": "claude-sonnet-4-5", "deployment": "claude-sonnet-4-5"},
+    ]
+    config = LocalRunConfig.from_mapping(
+        mapping, base_dir=tmp_path, source=str(tmp_path / "c.yaml")
+    )
+    plan = resolve_run_plan(config, env={})
+    ctrl = CockpitController(
+        plan, config, client_factory=lambda: RoutedClient({}),
+        results_root=tmp_path / "cockpit",
+    )
+    with pytest.raises(CockpitError, match="unpriced"):
+        ctrl.approve_and_start(
+            plan_hash=ctrl.plan_hash, idempotency_key="k", inline=True
+        )

@@ -112,6 +112,7 @@ from .pipeline import (
 )
 from .preregistration import prereg_dispatch_gate
 from .pricing import PricingTable, format_usd, format_usd_avg
+from .pricing_engine import card_is_v2
 from .rate_card import RateCardError, RateCardV2
 from .run_plan import (
     DEFAULT_LOCAL_CONFIG,
@@ -2400,8 +2401,7 @@ def _doctor_pricing_coverage(
     try:
         resolved = config.resolve_path(rate_card_path)
         raw = yaml.safe_load(resolved.read_text(encoding="utf-8")) or {}
-        schema = raw.get("schema_version")
-        if schema is None or int(schema) < 2:
+        if not card_is_v2(raw):
             # A v1 card fails *open* (PricingTable.rates_for falls back to a
             # default), so it can never answer a coverage question. Report the
             # direct arms as unverified rather than implying they are covered.
