@@ -79,6 +79,7 @@ from .pipeline import (
     run_bundled_replay,
 )
 from .pricing import PricingTable
+from .run_plan import select_measured_grader
 
 _KNOWN_ROUTES = {
     "/",
@@ -170,10 +171,15 @@ class RouterService:
             # The controller loads pricing from the plan's OWN pinned rate card
             # (never the server's bundled illustrative table), so an unpriced
             # backend fails closed instead of silently pricing off a default.
+            # Fill the controller's grader seam with the one shared selector so
+            # a browser run grades exactly like the CLI benchmark — the same
+            # cells, the same coverage (issue #55). Reverting this to
+            # ``grader=None`` restores the ungraded browser run in one line.
             self._cockpit_controller = CockpitController(
                 run_plan,
                 run_config,
                 client_factory=client_factory,
+                grader=select_measured_grader(run_config, run_plan),
             )
 
     # -- endpoint handlers ------------------------------------------------
