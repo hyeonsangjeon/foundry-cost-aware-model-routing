@@ -663,3 +663,58 @@ def test_browser_and_cli_paths_grade_identically(tmp_path):
     assert browser["quality"]["by_candidate"]["good"]["pass_rate"] == pytest.approx(1.0)
     assert browser["quality"]["by_candidate"]["bad"]["pass_rate"] == pytest.approx(0.0)
     assert browser["labels"]["quality_graded"] is True
+
+
+def test_cli_and_browser_paths_are_end_to_end_equivalent(tmp_path):
+    # BOLT-16 capstone for #55: run ONE resolved plan to completion on both the
+    # CLI benchmark and the browser run screen, and the sealed summary matches on
+    # every substantive axis — cost (the spend-ledger settlement), grading and
+    # coverage, and the ledger accounting labels. Only the run-instance id and
+    # the surface label (exp_id) differ, by design. All live/recorded fixture
+    # content, a fake client, and zero paid calls.
+    config, plan = _bench_plan(tmp_path)
+    kinds = {"good": "reference", "bad": "wrong"}
+
+    cli = execute_benchmark(
+        config, plan, client=GradedFixtureClient(kinds), run_dir=tmp_path / "CLI",
+        clock=(lambda: "2026-08-07T00:00:00.000+00:00"),
+        now=datetime(2026, 8, 7, tzinfo=UTC), sleeper=lambda _s: None,
+    ).summary
+
+    ctrl = CockpitController(
+        plan, config, client_factory=lambda: GradedFixtureClient(kinds),
+        results_root=tmp_path / "cockpit",
+        retry=RetryPolicy(max_retries=1, base_backoff_ms=1.0),
+        grader=select_measured_grader(config, plan),  # exactly what the server wires
+    )
+    run = ctrl.approve_and_start(
+        plan_hash=ctrl.plan_hash, idempotency_key="k1", inline=True
+    )
+    assert run.state is RunState.REPLAY_VERIFIED  # the browser run seals + replays clean
+    assert run.measured is True and run.cost_withheld is False
+    browser = json.loads((run.run_dir / "summary.json").read_text())
+
+    # (1) Cost — the spend-ledger settlement recorded in the sealed summary.
+    assert cli["cost"] == browser["cost"]
+    assert browser["cost"]["cost_complete"] is True
+    assert browser["cost"]["total_usd"] == pytest.approx(cli["cost"]["total_usd"])
+
+    # (2) Grading verdicts + coverage.
+    assert cli["grading"] == browser["grading"]
+    assert cli["quality"] == browser["quality"]
+    assert cli["coverage"] == browser["coverage"]
+
+    # (3) Ledger accounting: same basis and spend source, and no cost mismatch.
+    assert cli["labels"] == browser["labels"]
+    assert browser["labels"]["cost_basis"] == cli["labels"]["cost_basis"]
+    assert browser["labels"]["spend_source"] == cli["labels"]["spend_source"]
+    assert browser["integrity"] == cli["integrity"]
+    assert browser["integrity"]["cost_mismatches"] == []
+    assert cli["tokens"] == browser["tokens"]
+
+    # The whole sealed summary is identical but for the run-instance id and the
+    # surface label: the two paths are one run screen, priced and graded the same.
+    divergent = {"run_id", "exp_id"}
+    assert {k: v for k, v in cli.items() if k not in divergent} == {
+        k: v for k, v in browser.items() if k not in divergent
+    }

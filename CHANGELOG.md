@@ -41,7 +41,18 @@ All notable changes to this project are documented here.
 - Local budget gate, replay scripts, and eval summary for sample fixtures.
 
 ### Changed
-- **Plain-language inner docs pages, and a gate against the jargon returning.**
+- **The browser run screen now measures the same way as the CLI (issue #55).**
+  The local `dashboard --live` run screen used to price on the legacy v1 rates
+  and skip grading, so a browser run could seal `measured=true` with no accuracy
+  behind it. It now takes the CLI benchmark's exact path: one shared v2 pricing
+  selector (`select_measured_pricing`) and one shared grader selector
+  (`select_measured_grader`), wired where the server builds the run controller.
+  The same resolved plan run on either path seals the same cost, grading
+  verdicts, and coverage — an end-to-end equivalence test asserts the two
+  summaries match on every axis but the run id and the surface label. Grading
+  never blocks a run: an ungradable cell lowers coverage rather than aborting the
+  sweep, and no approval, budget, or fail-closed gate changed. The home page's
+  #55 caveat is gone.
   The bilingual manual, lab-notebook and honesty pages (`docs/en`, `docs/ko`)
   dropped the repo's coined vocabulary for plain wording, matching the home-page
   pass: the measured/measurement bridge → the live measurement adapter (ko 실측
