@@ -20,16 +20,19 @@ through *either* card via one small interface, so:
 * every existing caller that passes a ``PricingTable`` keeps **byte-identical**
   snapshots, traces and summaries (the v1 engine reproduces the legacy path
   exactly and emits no extra trace columns); and
-* the benchmark path — and only the benchmark path — selects the v2 engine (see
-  :func:`router.run_plan.execute_benchmark`), so the five §8 surfaces (dry-run
-  estimate, reservation ceiling, per-attempt trace, summary, replay) all compute
-  the *identical* composite number.
+* both measured run paths — the CLI benchmark (:func:`router.run_plan.execute_benchmark`)
+  and the browser run screen (:class:`router.cockpit.CockpitController`) — select
+  the card format through the one :func:`select_measured_pricing` helper, so the
+  five §8 surfaces (dry-run estimate, reservation ceiling, per-attempt trace,
+  summary, replay) all compute the *identical* composite number for a pinned
+  card no matter which path ran it (issue #55).
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import yaml
@@ -297,3 +300,37 @@ def engine_from_snapshot(text: str) -> PricingEngine:
     from .measure import pricing_from_snapshot_yaml
 
     return V1PricingEngine(pricing_from_snapshot_yaml(text))
+
+
+def card_is_v2(raw: Mapping[str, Any]) -> bool:
+    """Whether a parsed rate card is the authoritative v2 composite format.
+
+    A card is v2 only when it declares an explicit ``schema_version`` of 2 or
+    more. A v1 card's ``version`` is a free revision integer — not a schema
+    version — so it must never be read as one. This is the single detection rule
+    that the plan resolver, the benchmark runner, the coverage probe, and the
+    browser run screen all share, so every surface judges the card format the
+    same way.
+    """
+
+    schema = raw.get("schema_version")
+    return schema is not None and int(schema) >= 2
+
+
+def select_measured_pricing(card_path: Path | str) -> PricingTable | V2PricingEngine:
+    """Build the pricing engine a pinned rate card authorizes, by its schema.
+
+    A v2 composite card prices fail-closed through :class:`V2PricingEngine` (an
+    unpriced backend withholds the amount, a Model-Router request carries the
+    composite markup); a legacy v1 card prices fail-open through the bare
+    :class:`PricingTable`. This is the one place a measured run path turns a
+    pinned card into an engine, so the CLI benchmark and the browser run screen
+    price the identical number for the same card instead of drifting apart
+    (issue #55). An invalid v2 card raises rather than silently pricing v1.
+    """
+
+    path = Path(card_path)
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if card_is_v2(raw):
+        return V2PricingEngine(RateCardV2.from_yaml(path))
+    return PricingTable.from_yaml(path)

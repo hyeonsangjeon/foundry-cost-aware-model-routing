@@ -49,6 +49,7 @@ from .measure import (
     run_measure,
 )
 from .pricing import PricingTable
+from .pricing_engine import V2PricingEngine, select_measured_pricing
 from .run_plan import (
     ApprovalError,
     LocalRunConfig,
@@ -155,7 +156,7 @@ class CockpitController:
         plan: ResolvedRunPlan,
         config: LocalRunConfig,
         *,
-        pricing: PricingTable | None = None,
+        pricing: PricingTable | V2PricingEngine | None = None,
         client_factory: Callable[[], Any] | None = None,
         results_root: Path | str | None = None,
         retry: RetryPolicy | None = None,
@@ -212,7 +213,7 @@ class CockpitController:
 
     # -- preflight ---------------------------------------------------------
 
-    def _load_pricing(self) -> PricingTable:
+    def _load_pricing(self) -> PricingTable | V2PricingEngine:
         if self._pricing is not None:
             return self._pricing
         card = self.plan.rate_card_path
@@ -221,7 +222,11 @@ class CockpitController:
                 "no pinned rate card: cost cannot be derived — fail closed "
                 "(smoke ceiling reserves spend but derives no cost)"
             )
-        self._pricing = PricingTable.from_yaml(self.config.resolve_path(card))
+        # The one shared selector: a v2 card prices fail-closed through the same
+        # composite engine the CLI benchmark uses; a v1 card stays on the legacy
+        # table. The browser run screen no longer silently reprices a v2 card as
+        # v1 (issue #55).
+        self._pricing = select_measured_pricing(self.config.resolve_path(card))
         return self._pricing
 
     def _workload(self) -> dict[str, dict[str, Any]]:
@@ -230,10 +235,32 @@ class CockpitController:
     def _candidates(self) -> list[MeasureCandidate]:
         return self.plan.candidates()
 
-    def _unpriced_backends(self, pricing: PricingTable) -> list[str]:
-        """Resolved backends with no *explicit* rate-card entry (would price off default)."""
+    def _unpriced_backends(
+        self, pricing: PricingTable | V2PricingEngine
+    ) -> list[str]:
+        """Resolved backends the pinned card cannot price — fail closed on these.
 
-        return [c.model for c in self._candidates() if c.model not in pricing.models]
+        v1 (fail-open) refuses a backend with no *explicit* entry that would
+        otherwise price off the generic ``default``. v2 (fail-closed) refuses a
+        *direct* arm whose composite ``pricing_key`` is unpinned; a router arm's
+        pick is unknown before the run (it is priced per cell once the provider
+        resolves it), so it is not a missing rate here.
+        """
+
+        if isinstance(pricing, PricingTable):
+            return [c.model for c in self._candidates() if c.model not in pricing.models]
+        missing: list[str] = []
+        for candidate in self._candidates():
+            if candidate.router:
+                continue
+            # Token-independent membership, mirroring the v1 check: the card must
+            # resolve a pinned rate row for this direct backend. A row that omits
+            # a cached/reasoning rate is still "priced" here — that only fails
+            # closed per cell if such tokens actually appear at run time.
+            key = pricing.card.resolve_pricing_key(candidate.model)
+            if pricing.card.rates_for(key) is None:
+                missing.append(candidate.model)
+        return missing
 
     def preflight(self) -> dict[str, Any]:
         """Price the plan's workload offline; fail closed on an unpriced backend.
@@ -262,28 +289,88 @@ class CockpitController:
         return catalog
 
     def _per_cell_reservation(
-        self, pricing: PricingTable, workload: Mapping[str, Mapping[str, Any]]
+        self,
+        pricing: PricingTable | V2PricingEngine,
+        workload: Mapping[str, Mapping[str, Any]],
     ) -> Decimal:
-        """Conservative per-cell reservation: the max single-cell list-price cost.
+        """Conservative per-cell reservation: the max single-cell cost.
 
         Reserving this before *every* dispatch never under-reserves, so the hard
         cap can only ever be crossed by refusing a dispatch — never by a
         surprise settle. A run with only a smoke ceiling still reserves a
         strictly positive floor so :class:`SpendLedger` can gate it.
+
+        Under a v2 composite card a direct arm reserves its composite estimate;
+        a router arm's pick is unknown before dispatch, so its cell is bounded by
+        the priciest pinned backend (markup included) rather than guessed — still
+        an upper bound that never under-reserves.
         """
 
         candidates = self._candidates()
-        costs = [
-            Decimal(str(pricing.cost_usd(c.model, task.get("tokens") or DEFAULT_DRY_RUN_TOKENS)))
-            for c in candidates
-            for task in workload.values()
-        ]
+        if isinstance(pricing, PricingTable):
+            costs = [
+                Decimal(
+                    str(pricing.cost_usd(c.model, task.get("tokens") or DEFAULT_DRY_RUN_TOKENS))
+                )
+                for c in candidates
+                for task in workload.values()
+            ]
+        else:
+            costs = [
+                self._v2_cell_ceiling(pricing, c, task.get("tokens") or DEFAULT_DRY_RUN_TOKENS)
+                for c in candidates
+                for task in workload.values()
+            ]
         top = max(costs) if costs else _ZERO
         if top <= _ZERO:
             # Degenerate estimate (all-zero tokens): reserve a tiny positive floor
             # so the ledger still admits/denies rather than dividing by zero.
             top = Decimal("0.000001")
         return top
+
+    @staticmethod
+    def _v2_cell_ceiling(
+        pricing: V2PricingEngine,
+        candidate: MeasureCandidate,
+        tokens: Mapping[str, Any],
+    ) -> Decimal:
+        """Conservative upper-bound cost of one cell under the v2 composite card.
+
+        Uses the card's own reservation ceiling: the input volume at the pinned
+        input rate with no cache discount, plus the whole completion volume
+        (output + reasoning) billed at the higher completion rate. A direct arm
+        reserves against its own pinned key; a router arm's pick is unknown
+        before dispatch, so it is bounded by the priciest pinned backend with the
+        router markup applied — never an under-estimate.
+        """
+
+        def _toks(name: str) -> int:
+            return int(float(tokens.get(name) or 0))
+
+        max_input = _toks("input")
+        max_output = _toks("output") + _toks("reasoning")
+        card = pricing.card
+        if not candidate.router:
+            reserved = card.reservation_cost(
+                pricing_key=card.resolve_pricing_key(candidate.model),
+                max_input_tokens=max_input,
+                max_output_tokens=max_output,
+                include_router_markup=False,
+            )
+            if reserved.priced:
+                return reserved.total_usd
+            # A direct arm the card cannot price is refused by
+            # _unpriced_backends before we reserve; bound it defensively below.
+        ceilings = [
+            card.reservation_cost(
+                pricing_key=key,
+                max_input_tokens=max_input,
+                max_output_tokens=max_output,
+                include_router_markup=True,
+            ).total_usd
+            for key in card.rates
+        ]
+        return max(ceilings) if ceilings else _ZERO
 
     # -- approve + start ---------------------------------------------------
 
@@ -383,7 +470,7 @@ class CockpitController:
 
     # -- the sweep (gated by SpendLedger + AbortGate) ----------------------
 
-    def _run_sweep(self, run: CockpitRun, pricing: PricingTable) -> None:
+    def _run_sweep(self, run: CockpitRun, pricing: PricingTable | V2PricingEngine) -> None:
         gate = AbortGate(run.gate_path)
         ledger = run.ledger
         per_cell = run.per_cell_reservation
