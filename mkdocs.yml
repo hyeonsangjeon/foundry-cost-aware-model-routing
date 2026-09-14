@@ -1,14 +1,18 @@
 site_name: Foundry cost-aware model routing
-site_description: Route each task to the cheapest model that passes, and prove it offline — English manual and lab notebook.
+site_description: Route each task to the cheapest model that passes. Two evidence tracks — offline projections over synthetic data, and measured runs on Azure AI Foundry. English manual and lab notebook.
 site_author: Hyeonsang Jeon
 site_url: https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/
 repo_url: https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing
 repo_name: foundry-cost-aware-model-routing
 edit_uri: edit/main/docs/
 copyright: >-
-  Experiments 01–08 are synthetic offline projections (measured=false); 09, 10, 12, 13
-  are measured (measured=true, evidence_tier=directional); 11 is a measured run voided
-  by its grading-coverage gate. Check each page's labels.
+  Experiments 01–08 are offline projections over synthetic data (measured=false).
+  09, 10, 12 and 13 are measured Azure AI Foundry runs (measured=true,
+  evidence_tier=directional — a directional signal, not statistical confidence).
+  11 is a measured run marked VOID on two independent grounds: the quality arm's
+  grading coverage — graded cells over planned cells — was 79.2%, below the 90%
+  gate, and 43.4% of the run's cells were unpriced, so the run is cost-incomplete.
+  Either one voids it on its own. Check each page's labels.
 
 theme:
   name: material
@@ -47,24 +51,24 @@ nav:
       - Core concepts: manual/concept.md
       - "Glossary · metrics and experiment arm labels": manual/glossary.md
   - Results:
-      - "Routing-mode measured results": manual/routing-measured-results.md
-      - "[measured] Experiment 12 · router three modes · run 2 (measurement succeeded)": lab-notebook/12-router-modes-measured.md
-      - "[measured] Experiment 13 · router three modes · run 3 (a gap in our own rate card)": lab-notebook/13-router-modes-rate-card-gap.md
-      - "Offline experiment results · synthetic data": manual/projection-results.md
+      - "Routing-mode measured results · three Model Router modes vs a direct premium call": manual/routing-measured-results.md
+      - "[measured] Experiment 12 · three router modes vs direct premium · run 2, the publishable one": lab-notebook/12-router-modes-measured.md
+      - "[measured] Experiment 13 · three router modes vs direct premium · run 3, a missing entry in our own rate card": lab-notebook/13-router-modes-rate-card-gap.md
+      - "Offline experiment results · projections over synthetic data (measured=false)": manual/projection-results.md
   - Lab notebook:
       - Introduction and methodology: lab-notebook/index.md
       - "Story arc · at a glance": lab-notebook/story-arc.md
-      - "[projection] Experiment 01 · cheapest first, escalate only on failure": lab-notebook/01-hero.md
+      - "[projection] Experiment 01 · cheapest first, escalate only on failure — vs premium on every task": lab-notebook/01-hero.md
       - "[projection] Experiment 02 · which model the router chose, and why": lab-notebook/02-curated.md
-      - "[projection] Experiment 03 · what you lose using only the cheapest model": lab-notebook/03-coverage-cliff.md
+      - "[projection] Experiment 03 · how much task pass rate you lose using only the cheapest model": lab-notebook/03-coverage-cliff.md
       - "[projection] Experiment 04 · when every task is hard, there is no saving": lab-notebook/04-no-free-lunch.md
       - "[projection] Experiment 05 · calling several models at once multiplies the cost": lab-notebook/05-ensemble-fanout.md
       - "[projection] Experiment 06 · when it is worth calling several models": lab-notebook/06-fanout-dial.md
-      - "[projection] Experiment 07 · one pick vs observe-then-escalate ⭐": lab-notebook/07-model-router.md
+      - "[projection] Experiment 07 · pick one model up front vs observe-then-escalate ⭐": lab-notebook/07-model-router.md
       - "[projection] Experiment 08 · one problem, four routing strategies": lab-notebook/08-arena.md
-      - "[measured] Experiment 09 · the model the Foundry router actually picked": lab-notebook/09-live-routing-proof.md
+      - "[measured] Experiment 09 · the backend the Foundry Model Router actually picked · first live run": lab-notebook/09-live-routing-proof.md
       - "[measured] Experiment 10 · sealing and re-verifying the measurement record": lab-notebook/10-measured-ledger.md
-      - "[measured] Experiment 11 · router three modes · run 1 (measurement failed)": lab-notebook/11-router-modes-void.md
+      - "[measured] Experiment 11 · three router modes · run 1, VOID on two grounds (grading coverage and unpriced cells)": lab-notebook/11-router-modes-void.md
   - Reference:
       - Command reference:
           - CLI reference: manual/cli.md
@@ -83,8 +87,8 @@ nav:
       - Explainers:
           - "Experiment atlas · how each experiment is configured": manual/experiment-atlas.md
           - "Workload inventory · what can be measured": manual/workload-inventory.md
-          - "One problem, four ways": manual/head-to-head.md
-          - "Prompt cache observed in the sealed runs": manual/prompt-cache-observed.md
+          - "One problem, four routing strategies side by side": manual/head-to-head.md
+          - "Prompt cache observed in the sealed measured runs": manual/prompt-cache-observed.md
   - Honesty Charter: honesty.md
 
 # Explicit plugin block — no reliance on the implicit `search` default.
@@ -105,12 +109,15 @@ plugins:
           name: 한국어
           default: false
           build: true
-          site_name: Foundry 비용 인지 모델 라우팅
-          site_description: 태스크마다 '통과하는 가장 싼 모델'로 라우팅하고, 오프라인으로 증명하는 실험 — 한국어 매뉴얼과 실험노트.
+          site_name: 비용을 고려한 Foundry 모델 라우팅
+          site_description: 과제마다 통과할 만한 가장 싼 모델로 보내 추론 비용을 줄이는 방법을 다룹니다. 근거는 두 갈래로 나눠 적었습니다. 하나는 합성 데이터로 돌린 오프라인 투영이고, 다른 하나는 Azure AI Foundry에서 직접 잰 실측입니다. 한국어 매뉴얼과 실험노트.
           copyright: >-
-            실험 01–08은 합성 오프라인 투영(measured=false), 09·10·12·13은 실측(measured=true,
-            evidence_tier=directional), 11은 실측이지만 채점 커버리지 게이트로 VOID. 각 페이지의
-            라벨을 확인하세요.
+            실험 01–08은 합성 데이터에 대한 오프라인 투영(measured=false)입니다. 09·10·12·13은
+            Azure AI Foundry 실측 실행(measured=true, evidence_tier=directional —
+            통계적 신뢰가 아니라 방향성 신호)입니다. 11은 실측이지만 두 가지 이유로 무효(VOID)입니다.
+            하나는 quality arm의 채점 커버리지(채점된 셀 / 계획된 셀)가 79.2%로 90% 게이트에
+            못 미친 것이고, 다른 하나는 전체 셀의 43.4%가 unpriced라 실행이 cost-incomplete인
+            것입니다. 둘 중 하나만으로도 무효입니다. 각 페이지의 라벨을 확인하세요.
           theme:
             language: ko
           nav:
@@ -120,24 +127,24 @@ plugins:
                 - 핵심 개념: manual/concept.md
                 - "용어집 · 지표와 비교 전략(arm) 라벨": manual/glossary.md
             - 결과:
-                - "라우팅 모드 실측 결과": manual/routing-measured-results.md
-                - "[실측] 실험 12 · 라우터 세 모드 비교 · 2차 (측정 성공)": lab-notebook/12-router-modes-measured.md
-                - "[실측] 실험 13 · 라우터 세 모드 비교 · 3차 (우리 요율 카드의 구멍)": lab-notebook/13-router-modes-rate-card-gap.md
-                - "오프라인 실험 결과 · 합성 데이터": manual/projection-results.md
+                - "라우팅 모드 실측 결과 · Model Router 세 모드 vs 프리미엄 직접 호출": manual/routing-measured-results.md
+                - "[실측] 실험 12 · 라우터 세 모드 vs direct-premium · 2차, 발행 가능한 실행": lab-notebook/12-router-modes-measured.md
+                - "[실측] 실험 13 · 라우터 세 모드 vs direct-premium · 3차, 우리 요율 카드에 빠진 항목": lab-notebook/13-router-modes-rate-card-gap.md
+                - "오프라인 실험 결과 · 합성 데이터 투영(measured=false)": manual/projection-results.md
             - 실험노트:
                 - 소개와 방법론: lab-notebook/index.md
                 - "스토리 아크 · 한눈에 보기": lab-notebook/story-arc.md
-                - "[투영] 실험 01 · 싼 모델로 먼저, 실패할 때만 올리기": lab-notebook/01-hero.md
+                - "[투영] 실험 01 · 싼 모델로 먼저, 실패할 때만 올리기 — 모든 태스크 프리미엄 대비": lab-notebook/01-hero.md
                 - "[투영] 실험 02 · 라우터가 어떤 모델을 왜 골랐나": lab-notebook/02-curated.md
-                - "[투영] 실험 03 · 가장 싼 모델만 쓰면 무엇을 잃나": lab-notebook/03-coverage-cliff.md
+                - "[투영] 실험 03 · 가장 싼 모델만 쓰면 과제 통과율을 얼마나 잃나": lab-notebook/03-coverage-cliff.md
                 - "[투영] 실험 04 · 어려운 문제만 있으면 절감이 없다": lab-notebook/04-no-free-lunch.md
                 - "[투영] 실험 05 · 여러 모델을 동시에 부르면 비용이 몇 배": lab-notebook/05-ensemble-fanout.md
                 - "[투영] 실험 06 · 언제 여러 모델을 부를 값어치가 있나": lab-notebook/06-fanout-dial.md
-                - "[투영] 실험 07 · 한 번 고르기 vs 결과 보고 올리기 ⭐": lab-notebook/07-model-router.md
-                - "[투영] 실험 08 · 같은 문제를 네 가지 라우팅으로": lab-notebook/08-arena.md
-                - "[실측] 실험 09 · Foundry 라우터가 실제로 고른 모델": lab-notebook/09-live-routing-proof.md
+                - "[투영] 실험 07 · 앞서 한 번 고르기 vs 결과 보고 올리기 ⭐": lab-notebook/07-model-router.md
+                - "[투영] 실험 08 · 문제 하나를 네 방식으로 비교": lab-notebook/08-arena.md
+                - "[실측] 실험 09 · Foundry Model Router가 실제로 고른 백엔드 · 최초 라이브 실행": lab-notebook/09-live-routing-proof.md
                 - "[실측] 실험 10 · 측정 기록을 봉인하고 재검증하기": lab-notebook/10-measured-ledger.md
-                - "[실측] 실험 11 · 라우터 세 모드 비교 · 1차 (측정 실패)": lab-notebook/11-router-modes-void.md
+                - "[실측] 실험 11 · 라우터 세 모드 vs direct-premium · 1차, 채점 커버리지와 unpriced 두 가지로 무효(VOID)": lab-notebook/11-router-modes-void.md
                 - 개발 로그: lab-notebook/devlog.md
             - 레퍼런스:
                 - 명령 레퍼런스:
@@ -157,8 +164,8 @@ plugins:
                 - 해설:
                     - "실험 아틀라스 · 실험 구성 안내": manual/experiment-atlas.md
                     - "워크로드 인벤토리 · 실측 가능성": manual/workload-inventory.md
-                    - "문제 하나, 네 가지 방법": manual/head-to-head.md
-                    - "봉인된 런에서 관측된 프롬프트 캐시": manual/prompt-cache-observed.md
+                    - "문제 하나, 네 가지 라우팅 전략 나란히": manual/head-to-head.md
+                    - "봉인된 실측 실행에서 관측된 프롬프트 캐시": manual/prompt-cache-observed.md
             - 정직함 규약: honesty.md
   - redirects:
       redirect_maps:

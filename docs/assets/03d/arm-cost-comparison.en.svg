@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Per-arm total cost bar chart. router-cost $0.06 versus direct-premium $1.34; each bar annotated with task pass-rate and cost-per-pass.">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Experiment 12, one measured run. Per-arm total cost bar chart. router-cost $0.06 versus direct-premium $1.34; each bar annotated with task pass-rate and cost-per-pass.">
   <rect x="0" y="0" width="760" height="360" fill="#ffffff"/>
-<text x="24" y="34" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">Total cost per arm — pass rate · cost-per-pass</text>
-<text x="24" y="56" font-size="11" fill="#7b8794" text-anchor="start">24 tasks × n=3 = 288 cells · amounts shown to 2 places (sub-cent to 4) · savings at full precision</text>
+<text x="24" y="34" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">Experiment 12, measured · total cost per arm — pass rate · cost-per-pass</text>
+<text x="24" y="56" font-size="11" fill="#7b8794" text-anchor="start">24 tasks × n=3 = 288 cells · measured=true · directional · amounts shown to 2 places (sub-cent to 4) · savings at full precision</text>
 <text x="140" y="102.0" font-size="12" fill="#1f2933" text-anchor="end" font-weight="600">router-cost</text>
 <text x="140" y="116.0" font-size="10" fill="#7b8794" text-anchor="end">(Cost)</text>
   <rect x="150" y="78" width="20" height="40" rx="4" fill="#2f9e44"/>
@@ -22,5 +22,5 @@
   <rect x="150" y="276" width="470" height="40" rx="4" fill="#5b7089"/>
 <text x="630" y="294.0" font-size="13" fill="#1f2933" text-anchor="start" font-weight="700">$1.56</text>
 <text x="630" y="310.0" font-size="10" fill="#52606d" text-anchor="start">pass 95.8% (23/24) · $/pass $0.0678</text>
-<text x="24" y="336" font-size="11" fill="#52606d" text-anchor="start">Key contrast: router-cost is 95.2% cheaper than direct-premium (full precision), pass-rate gap within 4.17%p.</text>
+<text x="24" y="336" font-size="11" fill="#52606d" text-anchor="start">Experiment 12: router-cost is 95.2% cheaper than direct-premium (full precision), pass-rate gap within 4.17 percentage points.</text>
 </svg>

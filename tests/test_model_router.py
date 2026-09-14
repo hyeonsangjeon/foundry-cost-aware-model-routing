@@ -161,8 +161,9 @@ def test_escalation_gain_contract_is_green() -> None:
     assert result.ok is True
     gain = next(c for c in result.checks if c.name == "escalation_gain")
     assert gain.ok is True
-    # mix 100% − single-call 52% = +48% ≥ the 30% floor
-    assert "48.0%" in gain.detail
+    # observe-then-escalate 100% − single-call 52% = 48 percentage points.
+    assert "+48.0 percentage points" in gain.detail
+    assert "≥ 30.0 percentage points" in gain.detail
 
 
 def test_escalation_gain_bites_when_the_floor_is_raised() -> None:

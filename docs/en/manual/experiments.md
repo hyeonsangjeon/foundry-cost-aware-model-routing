@@ -2,8 +2,8 @@
 
 A **named experiment** is a small YAML file that pins the workload, the offline
 signals (fixture or synthetic), the pricing, and the policy, and adds an `expect`
-**reproducibility criteria** on top. Run one and it re-derives the naive-vs-routing
-before/after and **fails loudly** if the offline projection drops below the
+**reproducibility criteria** on top. Run one and it re-derives the before/after between
+the **premium-on-every-task baseline** and routing and **fails loudly** if the offline projection drops below the
 contracted floor.
 
 The repository's "install it and it just runs" promise is checked by the expect
@@ -14,19 +14,24 @@ The files live in the `experiments/` directory.
 
 !!! tip "Want to see it visually first — the Experiment Atlas"
     To see at a glance **which model** each experiment uses to do **what**, and in
-    **which way** (sequential escalation · call several candidate models in parallel (fan-out) · single call), as animated SVGs,
-    see the **[Experiment Atlas](experiment-atlas.md)**. It even includes a
-    walkthrough of the real Azure Model Router setup (keyless Entra).
+    **which way** — sequential escalation, parallel fan-out, or a single call — as
+    animated SVGs, see the **[Experiment Atlas](experiment-atlas.md)**. It also includes
+    a walkthrough of the real Azure Model Router setup (keyless Entra).
 
 ## Minimal example
 
-```yaml title="experiments/hero.yaml"
+The labels below are the English rendering of the current
+[`experiments/hero.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/experiments/hero.yaml)
+fields; the schema and values match the file.
+
+```yaml title="Equivalent English example"
 name: hero
-title: "Same coverage, lower cost — the 30-second hero run"
+title: "Keep a 100% pass rate while reducing cost"
 summary: >-
-  Route 100 synthetic-workload items 'cheapest passing model first, escalate
-  only on failure' and compare against the naive approach of sending every task
-  to a premium model.
+  Route 100 synthetic-workload items by trying the cheapest model that can pass
+  and escalating only after a failure. Compare with the premium-on-every-task
+  baseline. These figures are offline projections over fixed synthetic data and
+  illustrative prices, not measured call costs.
 
 dataset:
   workload: samples/telemetry/mixed-coding-workload.sample.jsonl
@@ -39,8 +44,8 @@ pricing: null          # null → bundled illustrative pricing (measured=false)
 spotlight: auto        # auto | <task_id> | none
 
 expect:
-  min_coverage: 1.0    # routing must keep coverage
-  min_delta_pct: 0.20  # …while cutting the naive bill by at least 20%
+  min_coverage: 1.0    # routing must keep the task pass rate at 100%
+  min_delta_pct: 0.20  # …while cutting the premium baseline by at least 20%
   min_tasks: 100
 ```
 
@@ -57,13 +62,14 @@ expect:
     ```
 
 !!! tip "The live measurement adapter — Azure AI Foundry Model Router (optional)"
-    The `single_call` arm — an arm is one comparison strategy in the experiment — is an offline proxy for a single-call routing layer. To use
-    the **decisions** of a real Foundry
-    Model Router, give the dependency-free gate adapter
+    The `single_call` arm — one comparison strategy evaluated against the same workload
+    under the same measurement plan — is an offline proxy for single-call routing.
+    To use the **decisions** of a real Foundry Model Router, give the dependency-free gate
+    adapter
     `router.foundry_router.FoundryModelRouter` the environment variables below plus
     an injected `client` callable (with no configuration the adapter is inactive and
     the offline proxy stands in). Even with live decisions plugged in, cost and
-    coverage remain offline projections (`measured = false`) — only the model
+    pass rate remain offline projections (`measured = false`) — only the model
     **selection** is live. See [experiment 07](../lab-notebook/07-model-router.md).
 
     | Environment variable | Meaning |
@@ -86,22 +92,22 @@ expect:
 | `budget.compare_min_value` | (optional) Fan-out threshold — compare (fan out) only when a task's value is at or above this. Higher → fewer extra candidate calls (see `adaptive.yaml`) |
 | `budget.min_compare_candidates` | (optional) Minimum candidates required to go to compare |
 | `spotlight` | `auto`, a specific `task_id`, or `none` |
-| `expect.min_coverage` | Must hold at or above this coverage |
-| `expect.min_delta_pct` | Must lower the naive bill by at least this fraction |
+| `expect.min_coverage` | Must hold the pass rate at or above this value (the field is named `coverage` in the contract) |
+| `expect.min_delta_pct` | Must lower the premium-baseline bill by at least this fraction |
 | `expect.max_delta_pct` | (optional) **Ceiling** — savings must not exceed this fraction (blocks implausibly large savings; see `limits.yaml`) |
 | `expect.max_tax_ratio` | (optional) **Extra-call ratio ceiling** — the fan-out cost/winner ratio must not exceed this (see `adaptive.yaml`) |
-| `expect.min_escalation_gain` | (optional) **Escalation-gain floor** — mix coverage − `single_call` arm coverage must be at or above this (see `single-call.yaml`) |
+| `expect.min_escalation_gain` | (optional) **Escalation-gain floor** — the observe-then-escalate pass rate minus the `single_call` arm's pass rate must be at or above this (see `single-call.yaml`) |
 | `expect.min_tasks` | Must cover at least this many tasks |
 
 Paths are written relative to the repository root, or as absolute paths.
 
 ## representative task — highlight a representative task
 
-`spotlight` picks the representative task where cost-aware routing beats the naive premium arm
-most visibly.
+The config field `spotlight` picks the representative task where cost-aware routing beats
+the premium baseline most visibly.
 
 - `auto` — among the accepted tasks, the one with the largest
-  **naive/routing cost ratio**
+  **premium-baseline-to-routing cost ratio**
 - `<task_id>` — pin a specific task explicitly
 - `none` — disable the representative task
 
@@ -109,11 +115,11 @@ most visibly.
 
 After the replay, `run_experiment` checks:
 
-- `coverage ≥ min_coverage`
+- `coverage ≥ min_coverage` (the pass rate against its floor)
 - `delta_pct ≥ min_delta_pct`
 - `delta_pct ≤ max_delta_pct` (only when set — a ceiling that blocks an implausibly large saving)
 - `tax_ratio ≤ max_tax_ratio` (only when set — the extra-call ratio ceiling)
-- `escalation_gain ≥ min_escalation_gain` (only when set — mix must beat the single-call `single_call` on coverage by at least this much)
+- `escalation_gain ≥ min_escalation_gain` (only when set — observe-then-escalate routing must beat the `single_call` arm on pass rate by at least this much)
 - `tasks ≥ min_tasks`
 
 If any one fails, `cost-router hero`/`experiment run` exits with a **non-zero code**.

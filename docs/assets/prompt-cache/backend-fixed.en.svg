@@ -2,8 +2,8 @@
   <title id="chart-title">Cost mode versus Balanced mode on the Grok slice only</title>
   <desc id="chart-desc">Grouped bar chart from 0 to 100 percent. Experiment 11 (VOID): Cost mode 93.11 percent, Balanced mode 99.41 percent. Experiment 12: Cost mode 96.47 percent, Balanced mode 99.10 percent. In both runs Balanced mode, the arm that spread its requests across backends, recorded the higher ratio once the backend is held fixed. Experiment 13 recorded no Grok rows in Balanced mode.</desc>
   <rect x="0" y="0" width="760" height="420" fill="#ffffff"/>
-  <text x="24.0" y="34.0" font-size="15" fill="#1f2933" text-anchor="start" font-weight="700">With the backend held fixed, the arm that spread its requests is not the lower one</text>
-  <text x="24.0" y="56.0" font-size="11" fill="#7b8794" text-anchor="start">Grok rows only · sum(cached) / sum(input) · gpt-family rows are excluded by construction (§3-3)</text>
+  <text x="24.0" y="34.0" font-size="15" fill="#1f2933" text-anchor="start" font-weight="700">Backend held fixed — Balanced mode recorded the higher cache ratio, not the lower</text>
+  <text x="24.0" y="56.0" font-size="11" fill="#7b8794" text-anchor="start">Grok rows only · sum(cached) / sum(input) as the API reported it · gpt-family rows are excluded by construction (§3-3)</text>
   <line x1="76.0" y1="300.0" x2="700.0" y2="300.0" stroke="#9aa5b1" stroke-width="1"/>
   <text x="64.0" y="304.0" font-size="11" fill="#7b8794" text-anchor="end">0%</text>
   <line x1="76.0" y1="253.0" x2="700.0" y2="253.0" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>

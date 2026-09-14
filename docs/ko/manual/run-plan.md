@@ -21,7 +21,7 @@
 ## 1. 세 개의 명령
 
 ```bash
-# 1) 커밋된 템플릿에서 로컬 설정을 만든다 (자격증명 필드 없음).
+# 1) 커밋된 템플릿에서 로컬 설정을 만든다 (자격 증명 필드 없음).
 cost-router config init                       # → .foundry.local.yaml
 
 # 2) 계획을 해석·편집·해시한다. 송신 0.
@@ -33,7 +33,7 @@ cost-router benchmark run  --config .foundry.local.yaml \
 ```
 
 `config init`이 복사하는 템플릿은 저장소 루트의 `foundry.example.yaml`입니다.
-`.foundry.local.yaml`은 gitignore되며 **자격증명을 절대 담지 않습니다** — `api_key`,
+`.foundry.local.yaml`은 gitignore되며 **자격 증명을 절대 담지 않습니다** — `api_key`,
 `access_token`, `bearer_token`, `client_secret`, `password`, `connection_string`,
 `sas_token`, `secret_key` 키는 파싱 단계에서 거부됩니다. 인증은 키리스 Microsoft
 Entra ID(`az login`)가 골든 패스입니다.
@@ -56,7 +56,7 @@ Entra ID(`az login`)가 골든 패스입니다.
 
 !!! warning "엔드포인트는 호스트만 남기고 편집됩니다"
     계획에 들어가는 엔드포인트는 `scheme://host[:port]`로 축약돼 경로·쿼리·URL 내
-    자격증명(userinfo)이 제거됩니다. `http://`와 URL에 박힌 자격증명은 거부됩니다.
+    자격 증명(userinfo)이 제거됩니다. `http://`와 URL에 박힌 자격 증명은 거부됩니다.
     인쇄된 편집 계획만으로 `plan_hash`를 그대로 재현할 수 있습니다.
 
 ### 해석 우선순위
@@ -87,8 +87,10 @@ Entra ID(`az login`)가 골든 패스입니다.
 !!! danger "승인은 해시에 묶인다 — 어긋나면 거부"
     `--live` 실행은 `--approve-plan <plan_hash>` 를 요구하고, 그 값이 방금 해석된
     계획의 `plan_hash`와 **한 글자라도 다르면 디스패치 이전에 거부**됩니다(exit 1).
-    자격증명은 그 뒤에야 조회됩니다. 오래됐거나(stale) 어긋난 승인으로는 어떤
-    유료 호출도 나가지 않습니다. 요율이 없으면 값을 추정하지 않고 비용 주장을 보류합니다(fail-closed).
+    자격 증명은 그 뒤에야 조회됩니다. 오래됐거나(stale) 어긋난 승인으로는 어떤
+    유료 호출도 나가지 않습니다. 실행이 시작된 뒤 요율 행이 없는 백엔드를 만나는 경우는
+    이 게이트가 아니라 fail-closed 규칙이 막습니다
+    ([측정 프로토콜 §6.1](measurement-protocol.md#61-v1-vs-v2)).
 
 ## 4. Model Router arm은 명시적이며 사라지지 않는다
 
@@ -131,7 +133,7 @@ deprecated by BOLT-03A in favor of the canonical run plan
 
 ## 관련 문서
 
-- [라이브 실측 브릿지](foundry-live.md) — 실제 Azure Model Router 호출 이음새.
+- [라이브 실측 어댑터](foundry-live.md) — 실제 Azure Model Router 호출 이음새.
 - [플릿 등록 & 모델 선택](fleet.md) — arms/요율 카드가 되는 아티팩트.
 - [감사 원장](ledger.md) — 봉인된 스냅샷과 재생 무결성.
 - [실험 설정(YAML)](experiments.md) — 실험 아티팩트 스키마.

@@ -15,7 +15,7 @@ if any chart carries a Korean run that the map does not cover — so a future
 relabelling in ``build_03d_dashboard.py`` cannot silently leak Korean onto the
 English pages. English wording follows the canonical English page
 ``docs/en/manual/routing-measured-results.md`` (pass rate, cost-per-pass, sub-cent, full
-precision, graded cells, the ``4.17%p`` notation, the section headings).
+precision, graded cells, percentage-point wording spelled out, the section headings).
 
 Run ``python scripts/localize_03d_svgs.py`` after regenerating the charts.
 Numbers, model names and identifiers are never translated.
@@ -40,29 +40,40 @@ CHARTS = (
 # number, model name, symbol (× — · → ↓ –) and honesty term intact.
 LABELS: dict[str, str] = {
     # arm-cost-comparison.svg
-    "arm별 총비용 — 통과율 · cost-per-pass":
-        "Total cost per arm — pass rate · cost-per-pass",
-    "24 tasks × n=3 = 288 cells · 표시 금액 2자리(서브센트 4자리) · 절감은 풀정밀도 계산":
-        "24 tasks × n=3 = 288 cells · amounts shown to 2 places (sub-cent to 4) "
-        "· savings at full precision",
-    "핵심 대비: router-cost는 direct-premium 대비 95.2% 저렴(풀정밀도), 품질 격차 4.17%p 이내.":
-        "Key contrast: router-cost is 95.2% cheaper than direct-premium "
-        "(full precision), pass-rate gap within 4.17%p.",
+    "실험 12 실측 · arm별 총비용 — 통과율 · cost-per-pass":
+        "Experiment 12, measured · total cost per arm — pass rate · cost-per-pass",
+    "24 tasks × n=3 = 288 cells · measured=true · directional · "
+    "금액 2자리(서브센트 4자리) · 절감은 풀정밀도":
+        "24 tasks × n=3 = 288 cells · measured=true · directional · amounts shown "
+        "to 2 places (sub-cent to 4) · savings at full precision",
+    (
+        "실험 12: router-cost는 direct-premium 대비 95.2% 저렴(풀정밀도), "
+        "통과율 격차 4.17퍼센트포인트 이내."
+    ):
+        "Experiment 12: router-cost is 95.2% cheaper than direct-premium "
+        "(full precision), pass-rate gap within 4.17 percentage points.",
     # cost-vs-quality-scatter.svg
-    "비용 × 통과율 — Quality 모드는 비용이 더 들고 덜 풀었다":
-        "Cost × pass rate — Quality mode cost more and passed less",
-    "y축 확대(94–101%)로 4.17%p 격차 가시화 · x축 총비용(USD)":
-        "y-axis zoomed (94–101%) to surface the 4.17%p gap · x-axis total cost (USD)",
+    "실험 12 · 비용 × 통과율 — Quality 모드는 비용이 더 들고 덜 풀었다":
+        "Experiment 12 · cost × pass rate — Quality mode cost more and passed less",
+    (
+        "y축 확대(94–101%)로 4.17퍼센트포인트 격차 가시화 · "
+        "x축 총비용(USD) · 실측 1회, directional"
+    ):
+        "y-axis zoomed (94–101%) to surface the 4.17 percentage point gap · x-axis "
+        "total cost (USD) · one measured run, directional",
     "arm 총비용 (USD)": "Arm total cost (USD)",
     "direct-premium보다 비싸고 통과율 낮음":
         "Costs more and passes less than direct-premium",
     "→ 비용 높음 · ↓ 통과율 낮음": "→ higher cost · ↓ lower pass rate",
     # backend-distribution.svg
-    "백엔드 분포 — arm별 실제 라우팅된 모델 (graded 셀 기준)":
-        "Backend distribution — models actually routed per arm (graded cells)",
-    "Cost 모드 100% Grok은 무효 처리된 실행과 이번 런 두 번 연속 재현됐다":
-        "Cost mode 100% Grok, reproduced across the void run and this run "
-        "(two consecutive)",
+    "실험 12 · 백엔드 분포 — 각 arm이 실제로 도달한 모델":
+        "Experiment 12 · backend distribution — the model each arm actually reached",
+    (
+        "채점된 셀만 · Cost 모드 100% Grok은 무효 처리된 실험 11과 "
+        "실험 12에서 연속 재현 — 보장이 아니라 반복 관측"
+    ):
+        "Graded cells only · Cost mode 100% Grok repeated in experiment 11 "
+        "(voided) and experiment 12 — a repeat, not a guarantee",
 }
 
 _HANGUL = re.compile(r"[\uac00-\ud7a3]")

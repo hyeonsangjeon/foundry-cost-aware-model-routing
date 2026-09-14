@@ -215,14 +215,19 @@ def test_bare_metrics_prints_usage(capsys: pytest.CaptureFixture[str]) -> None:
 def test_compare_default_prints_four_approaches(capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["compare"]) == 0
     out = capsys.readouterr().out
-    assert "one problem, four ways   (measured = false)" in out
+    assert "one problem, four routing strategies   (measured = false)" in out
     assert "task  t-0003" in out
-    for label in ("Cheapest model", "Premium model", "Ensemble (fan-out)", "Cost-aware router"):
+    for label in (
+        "Cheapest model only",
+        "Premium model only",
+        "Every candidate (fan-out)",
+        "Cheapest-first, escalate on failure",
+    ):
         assert label in out
     # honest winners line: router wins cost, premium wins latency, and accuracy
     # is a pass/fail tally (3 of 4 pass) rather than a single crowned winner
-    assert "cost: Cost-aware router" in out
-    assert "latency: Premium model" in out
+    assert "cost: Cheapest-first, escalate on failure" in out
+    assert "latency: Premium model only" in out
     assert "accuracy: 3 of 4 pass" in out
 
 

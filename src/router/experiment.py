@@ -409,8 +409,9 @@ def _evaluate(report: ReplayReport, expect: Expectation) -> tuple[Check, ...]:
                 name="escalation_gain",
                 ok=gain >= expect.min_escalation_gain,
                 detail=(
-                    f"mix {coverage:.1%} − single-call {single_coverage:.1%} "
-                    f"= +{gain:.1%} ≥ {expect.min_escalation_gain:.1%}"
+                    f"observe-then-escalate {coverage:.1%} − single-call "
+                    f"{single_coverage:.1%} = {gain * 100:+.1f} percentage points "
+                    f"≥ {expect.min_escalation_gain * 100:.1f} percentage points"
                 ),
             )
         )

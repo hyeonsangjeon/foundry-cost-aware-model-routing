@@ -2,12 +2,13 @@
 
 !!! abstract "한 줄 요약"
     실험 01–08은 합성 텔레메트리와 자리표시자 모델을 쓴 오프라인 투영이었습니다
-    (`measured = false`). 이 실험은 **키 없이 Microsoft Entra ID**로 실제
-    **Azure AI Foundry Model Router** 배포에 큐레이션 5개 프롬프트를 보냈습니다. 응답에서
-    프롬프트를 처리한 모델, 청구된 토큰 usage, wall-clock 지연을 읽었습니다. 단일
-    `model-router` 배포는 **`gpt-5.4`(3건)와 `grok-4-1-fast-reasoning`(2건)**을 골랐습니다.
-    저장소 최초의 `measured = true` 실험이며 실험 08과 달리 **지연도 여기서는 진짜
-    wall-clock**입니다.
+    (`measured = false`). 이 실험은 **저장소 최초의 라이브 Model Router 실행**입니다 —
+    **키 없이 Microsoft Entra ID**로 실제 **Azure AI Foundry Model Router** 배포에 큐레이션
+    과제 5건의 프롬프트를 보냈습니다. 응답에서 프롬프트를 처리한 모델, 청구된 토큰 usage,
+    wall-clock 지연을 읽었습니다. 단일 `model-router` 배포는 **`gpt-5.4`(3건)와
+    `grok-4-1-fast-reasoning`(2건)**을 골랐습니다. 저장소 최초의 `measured = true` 실험이며
+    실험 08과 달리 **지연도 여기서는 진짜 wall-clock**입니다. 근거 수준은
+    `evidence_tier = directional`입니다 — 과제 5건, 단일 테넌트, 1회 측정입니다.
 
 <figure markdown="span">
   ![Azure AI Foundry 라우터 아키텍처 — 키리스 Entra 인증으로 라우터가 백엔드를 고르는 구조](/foundry-cost-aware-model-routing/assets/azure-architecture.svg)
@@ -56,17 +57,20 @@
 - **증명:** 응답의 `response.model`이 **라우터가 실제로 태운 백엔드 모델**을 담습니다. 이 값이
   ground truth입니다([`_response_model`](../manual/foundry-live.md)).
 - **usage:** 응답의 **실제 `usage`** 토큰을 그대로 기록(`_usage_from_response`) — 합성 토큰이
-  아님. 여기에 요율을 곱한 금액은 라우터 팔에 한해 불완전합니다(아래 참조).
+  아님. 여기에 요율을 곱한 금액은 라우터 arm에 한해 불완전합니다(아래 참조).
 - **인증:** 리소스가 `disableLocalAuth=true`(키 인증 꺼짐)라 **API 키 없이** `az login` 신원의
   Entra 토큰(`https://cognitiveservices.azure.com/.default`)으로만 호출.
 
 ## 결과 — 라우터가 실제로 고른 모델 (measured 스냅샷)
 
 !!! danger "이 표의 비용 열은 **불완전**합니다 — 비용 주장에 쓰지 마세요"
-    Model Router 과금은 **합성(composite)**입니다: **라우터 input 토큰 마크업** + 라우터가
-    고른 **하위 모델의 input·output** 요금. 이 캡처는 하위 모델 요율만으로 값을 매겼으므로
-    아래 `비용†` 열은 **청구 항목 하나가 빠져 있습니다**. 근사치가 아니라 **불완전**입니다.
-    원본 금액은 히스토리로 그대로 두고, 어떤 비용·절감 주장에서도 제외합니다. 근거와 범위는
+    Azure Model Router의 과금은 **복합적**입니다: **라우터 input 토큰 마크업** + 라우터가 고른
+    **백엔드의 input·output** 요금. 이 캡처는 백엔드 요율만으로 값을 매겼으므로 아래 `비용†`
+    열은 **청구 항목 하나가 빠져 있습니다**. 근사치가 아니라 **불완전**입니다.
+    이 저장소가 두 항목을 합성해 계산하는 `composite-rate-card-v2` 요율 카드 스키마는
+    **이 캡처보다 나중에** 도입됐고 실험 11·12·13부터 적용됩니다 — 실험 09는 그 이전 기록이라
+    이 스키마로 다시 계산하지 않았습니다. 원본 금액은 히스토리로 그대로 두되 **합산하지
+    않고**, 어떤 비용·절감 주장에서도 제외합니다. 근거와 범위는
     versioned annotation
     [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
     에 고정돼 있고, 렌더러·발행기·리플레이가 이를 **강제**합니다(annotation이 없거나 어긋나면
@@ -80,7 +84,9 @@
 | t-0005 | validate | `model-router` | `gpt-5.4-2026-03-05` | 53 | 543 | 76 | `$0.002529`† | 7.10 s |
 | t-0006 | test | `model-router` | **`grok-4-1-fast-reasoning`** | 59 | 0 | 1293 | `$0.005187`† | 10.84 s |
 
-†라우터 input 마크업이 빠진 **불완전한** 히스토리 금액. ‡실측 wall-clock.
+†라우터 input 마크업이 빠진 **불완전한** 히스토리 금액입니다. 항목이 하나 빠진 값이므로
+**더하지 않습니다** — 이 표에 합계 행이 없는 이유이고, 절감 주장에도 쓰지 않습니다.
+‡실측 wall-clock.
 
 **라우터가 사용한 모델 집계:** `gpt-5.4-2026-03-05` × 3 · `grok-4-1-fast-reasoning` × 2.
 `selection = azure-model-router` · `provenance = live` · `measured = true` · `spend_source =
@@ -103,7 +109,7 @@ provider-usage`. 라우팅 분포는 두 번의 독립 실행에서 **동일**�
 - **t-0006 · grok** — `unittest`로 `merge_intervals` 테스트를 실제 작성.
 - **t-0003·0004·0005 · gpt-5.4** — repo 패치 계획 · 커서 페이지네이션 설계 · retry diff 리뷰를 실제 작성.
 
-## 정직함 경계 — 무엇이 측정이고 무엇이 아닌가
+## 주장 경계 — 무엇이 측정이고 무엇이 아닌가
 
 !!! warning "측정된 것 · 측정되지 않은 것"
     - **측정됨(진짜):** ① 라우터가 고른 **모델**(응답 `model`), ② **토큰 usage**(응답 `usage`),
@@ -111,11 +117,15 @@ provider-usage`. 라우팅 분포는 두 번의 독립 실행에서 **동일**�
     - **측정 안 됨:** **정확도(pass/fail).** `grader`를 주입하지 않았으므로 각 답이 *맞았는지*는
       채점하지 않았습니다 → `coverage_measured = false`. 실제 apply/compile/test 하네스를
       물려야 정확도까지 실측됩니다.
-    - **라우터 파생 비용은 불완전.** 토큰은 실측이지만, 라우팅된 호출의 금액은 **하위 모델
-      요율만**으로 계산돼 **라우터 input 마크업이 빠져 있습니다**. 근사가 아니라 청구 항목이
-      하나 없는 **불완전**한 값이라, 히스토리로만 남기고 비용·절감 주장에서 제외합니다.
+    - **라우터 파생 비용은 불완전.** Azure Model Router의 과금은 복합적입니다 — 라우터 input
+      토큰 마크업에 라우터가 고른 백엔드의 요율을 더합니다. 토큰은 실측이지만 이 캡처의
+      금액은 **백엔드 요율만**으로 계산돼 **라우터 input 마크업이 빠져 있습니다**. 근사가
+      아니라 청구 항목이 하나 없는 **불완전**한 값이라, 개별 항목을 **합산하지 않고**
+      히스토리로만 남기며 비용·절감 주장에서 제외합니다. 두 항목을 합성하는
+      `composite-rate-card-v2` 스키마는 이 실행 이후에 들어왔습니다.
       요율 자체도 예시값이라 여러분 테넌트의 **실제 청구액이 아닙니다**. 반면 단일 모델을
-      직접 부르는 팔(`cheapest`·`premium`·`ensemble`)은 마크업 대상이 아니라 **영향 없습니다**.
+      직접 부르는 비교 전략(arm) `cheapest`·`premium`·`ensemble`은 마크업 대상이 아니라 **영향
+      없습니다**.
     - **라이브 스냅샷.** 이 리소스는 이 작업용으로 만든 것이고, 표의 수치는 한 번의 실측
       스냅샷입니다. 재실행하면 라우팅 결정은 같아도 토큰·비용·지연은 달라질 수 있습니다.
 
@@ -159,13 +169,13 @@ cost-router foundry live --live \
 ## 실험 08을 실측으로 — 라이브 네 방식 비교
 
 실험 08의 "문제 하나 × 네 방법"을 전부 **실제 Foundry 호출**로 돌리는 명령이 새로
-생겼습니다. `cheapest`·`premium`·`ensemble`·`router` 네 팔을 실제로 호출해 **usage와 지연을
-실측**합니다(정확도는 미채점 — 그래더 주입 시 측정 가능). 단일 모델 팔의 금액은 요율 카드가
-그대로 적용되지만 **`router` 팔의 금액은 라우터 마크업이 빠져 불완전**하므로 리포트는 라우터
+생겼습니다. `cheapest`·`premium`·`ensemble`·`router` 네 arm을 실제로 호출해 **usage와 지연을
+실측**합니다(정확도는 미채점 — 그래더 주입 시 측정 가능). 단일 모델 arm의 금액은 요율 카드가
+그대로 적용되지만 **`router` arm의 금액은 라우터 마크업이 빠져 불완전**하므로 리포트는 라우터
 절감 수치를 아예 내보내지 않습니다.
 
 ```bash
-# 4-way 라이브 아레나 — 실비용·실지연, 리포트/원장 저장
+# 4-way 라이브 네 방식 비교 — 실비용·실지연, 리포트/원장 저장
 cost-router foundry arena --live \
   --workload samples/telemetry/curated-arena-live.sample.jsonl \
   --pricing  samples/pricing/foundry-5series.yaml \
@@ -182,7 +192,7 @@ cost-router foundry arena --live \
     문제를 추론 모델로 보내는 품질 최적화형**입니다 — 다섯 콜 중 둘이 추론 모델(`grok`)로
     갔습니다. 이건 **모델 선택**에 대한 관찰이고, 응답의 `model` 필드가 근거입니다. 다만
     **어느 쪽이 더 싸다는 비교는 여기서 할 수 없습니다** — 라우터 파생 금액에 라우터 input
-    마크업이 빠져 있어 여러 후보 모델을 병렬로 호출합니다(fan-out). 그런 앙상블이나 단일 `gpt-5.4`와의 비용 대조가 성립하지 않습니다.
+    마크업이 빠져 있어, 팬아웃 앙상블이나 단일 `gpt-5.4`와의 비용 대조가 성립하지 않습니다.
     구조적으로 라우터는 프롬프트당 1콜/1청구, 팬아웃은 N콜/N청구라는 **호출 수**의 차이는
     남지만, 그 자체가 금액 우열을 뜻하진 않습니다.
     설정·근거는 [Foundry 실전 구성 매뉴얼](../manual/foundry-setup.md)을 보세요.
@@ -190,5 +200,5 @@ cost-router foundry arena --live \
 ---
 
 **관련 문서:** [Foundry 실전 구성 · 실험별 세팅](../manual/foundry-setup.md) ·
-[라이브 실측 브릿지](../manual/foundry-live.md) · [실험 08 · 아레나](08-arena.md)
+[라이브 실측 어댑터](../manual/foundry-live.md) · [실험 08 · 네 방식 비교](08-arena.md)
 (오프라인 비교) · [개발 로그](devlog.md)

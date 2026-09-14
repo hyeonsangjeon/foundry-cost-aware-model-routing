@@ -225,17 +225,17 @@ def _join(parts: list[str]) -> str:
 # --------------------------------------------------------------------------- #
 COPY: dict[str, dict[str, str]] = {
     "en": {
-        "a_title": "Recorded cache ratio across the three repeats — Cost mode",
+        "a_title": "Cache ratio by repeat — Cost mode, three sealed measured runs",
         "a_sub": (
-            "sum(cached) / sum(input) over HTTP 200 rows · router-cost, whose rows are "
-            "100% Grok in all three runs"
+            "sum(cached) / sum(input) as the API reported it, over HTTP 200 rows · "
+            "router-cost, whose rows are 100% Grok in all three runs"
         ),
         "a_warn": (
             "Repeat 1 is not a cold baseline: the first paid call of every run already "
             "recorded cached = 149 / input = 155 (§3-5)."
         ),
         "a_rep": "Repeat {n}",
-        "a_svgtitle": "Recorded cache ratio by repeat, three sealed runs, Cost mode",
+        "a_svgtitle": "Cache ratio recorded by repeat, three sealed measured runs, Cost mode",
         "a_svgdesc": (
             "Grouped bar chart, one group per run, one bar per repeat, on a vertical axis "
             "running from 0 to 100 percent. Experiment 11 (VOID) reads 83.64, 95.67, "
@@ -244,12 +244,12 @@ COPY: dict[str, dict[str, str]] = {
             "Repeat 1 is not a cold baseline."
         ),
         "b_title": (
-            "With the backend held fixed, the arm that spread its requests is not the "
-            "lower one"
+            "Backend held fixed — Balanced mode recorded the higher cache ratio, "
+            "not the lower"
         ),
         "b_sub": (
-            "Grok rows only · sum(cached) / sum(input) · gpt-family rows are excluded by "
-            "construction (§3-3)"
+            "Grok rows only · sum(cached) / sum(input) as the API reported it · "
+            "gpt-family rows are excluded by construction (§3-3)"
         ),
         "b_note": (
             "Experiment 13 has no bar for Balanced mode: that arm recorded no Grok rows "
@@ -267,27 +267,27 @@ COPY: dict[str, dict[str, str]] = {
         "exp": "Experiment",
     },
     "ko": {
-        "a_title": "세 번의 반복에 걸친 캐시 기록 비율 — Cost 모드",
+        "a_title": "회차별 캐시 비율 — Cost 모드, 봉인된 실측 세 실행",
         "a_sub": (
-            "HTTP 200 행에 대한 sum(cached) / sum(input) · 세 런 모두 행이 "
-            "100% Grok인 router-cost"
+            "API가 보고한 sum(cached) / sum(input) · HTTP 200 행 기준 · "
+            "세 실행 모두 행이 100% Grok인 router-cost"
         ),
         "a_warn": (
-            "1회차는 콜드 기준선이 아닙니다. 세 런 모두 런의 최초 유료 호출이 이미 "
+            "1회차는 콜드 기준선이 아닙니다. 세 실행 모두 그 실행의 최초 유료 호출이 이미 "
             "cached = 149 / input = 155로 기록됐습니다(§3-5)."
         ),
         "a_rep": "{n}회차",
-        "a_svgtitle": "봉인된 세 런의 회차별 캐시 기록 비율, Cost 모드",
+        "a_svgtitle": "봉인된 실측 세 실행의 회차별 캐시 기록 비율, Cost 모드",
         "a_svgdesc": (
-            "런마다 한 묶음, 회차마다 한 막대인 묶음 막대 그래프이고 세로축은 0에서 "
+            "실행마다 한 묶음, 회차마다 한 막대인 묶음 막대 그래프이고 세로축은 0에서 "
             "100퍼센트입니다. 실험 11(무효)은 83.64, 95.67, 100.00입니다. 실험 12는 89.61, "
-            "100.00, 100.00입니다. 실험 13은 90.79, 100.00, 100.00입니다. 세 런이 같은 모양으로 "
-            "올라가고 되돌아 내려간 런은 없습니다. 1회차는 콜드 기준선이 아닙니다."
+            "100.00, 100.00입니다. 실험 13은 90.79, 100.00, 100.00입니다. 세 실행이 같은 모양으로 "
+            "올라가고 되돌아 내려간 실행은 없습니다. 1회차는 콜드 기준선이 아닙니다."
         ),
-        "b_title": "백엔드를 고정하면 요청을 나눠 보낸 쪽이 더 낮지 않습니다",
+        "b_title": "백엔드를 고정하면 Balanced 모드가 오히려 더 높은 캐시 비율로 기록됐습니다",
         "b_sub": (
-            "Grok 행만 · sum(cached) / sum(input) · gpt 계열 행은 정의상 "
-            "들어오지 않습니다(§3-3)"
+            "Grok 행만 · API가 보고한 sum(cached) / sum(input) · gpt 계열 행은 "
+            "정의상 들어오지 않습니다(§3-3)"
         ),
         "b_note": (
             "실험 13에 Balanced 모드 막대가 없는 것은 그 arm에 Grok 행이 하나도 "
@@ -297,7 +297,7 @@ COPY: dict[str, dict[str, str]] = {
         "b_svgdesc": (
             "0에서 100퍼센트까지의 묶음 막대 그래프입니다. 실험 11(무효)은 Cost 모드 93.11퍼센트, "
             "Balanced 모드 99.41퍼센트입니다. 실험 12는 Cost 모드 96.47퍼센트, Balanced 모드 "
-            "99.10퍼센트입니다. 백엔드를 고정하면 두 런 모두에서 요청을 여러 백엔드로 나눠 보낸 "
+            "99.10퍼센트입니다. 백엔드를 고정하면 두 실행 모두에서 요청을 여러 백엔드로 나눠 보낸 "
             "Balanced 모드가 더 높게 기록됐습니다. 실험 13의 Balanced 모드에는 Grok 행이 "
             "없었습니다."
         ),

@@ -254,3 +254,67 @@ of a mode and varies run to run — that caveat is the honest form of what the
 "fixed seed" comment wrongly promised. What *is* byte-reproducible is the sealed
 artifact set, and `measure replay` re-verifies it against the recorded
 fingerprints.
+
+## Reader notes — appended 2026-09-15
+
+**A second append, below the 2026-08-15 errata. Nothing above this heading was
+changed, including the errata itself.** The approved blob
+`4158ca8ab1b5cda4290e289c1d27a68114e58e9a` at commit
+`ea3a55165dd0cfaccbe965019b7197e4675b78ca` is content-addressed and cannot be
+reached by either append.
+
+### Terms this document uses without defining them
+
+`arm`, `cell`, `pass rate`, `grading coverage`, and `cost-complete` are defined in
+the [benchmark suite README](README.md#terms-these-runs-use), together with what
+the `BOLT-03 §8` / `§9` / `§10` / `03B` / `03Z-b` section numbers refer to.
+
+### Where this run was reported
+
+This preregistration governed run **03D-2**, written up as
+[experiment 12](../../docs/en/lab-notebook/12-router-modes-measured.md) and
+summarized on the [routing-mode measured results
+page](../../docs/en/manual/routing-measured-results.md). `plan_hash
+sha256:d640dc07…91d2921e` matches the sealed manifest.
+
+The run completed 288/288 cells for **$3.269553 / $20.00**, with **0** throttles,
+**11** timeout cells, aggregate grading coverage **96.18% (277/288)**, every arm
+`cost_complete = true` at **0%** unpriced, and a byte-for-byte replay. No
+run-level invalidation criterion fixed above was triggered, so this is the
+publishable run of the three.
+
+**How the five predictions came out.** All five held in direction; none was
+falsified:
+
+1. Coverage recovery — every required arm cleared 90%; `router-quality`, the arm
+   that voided the first run, graded 94.4%.
+2. Cost order — measured `cost ($0.065) < balanced ($0.305) < premium ($1.341) <
+   quality ($1.559)`, so Quality mode did cost more than calling premium directly,
+   as the updated prediction said and the first run's prediction had not.
+3. Cost-completeness — `router-cost` and `router-balanced` were cost-complete for
+   the first time, and in fact all four arms were.
+4. Pass rates — the three router arms recovered to 95.8% (23/24) against
+   `direct-premium` at 100%.
+5. Cost-per-pass — `router-cost` best at **$0.00282**, `direct-premium` worst at
+   **$0.05586**.
+
+**Two savings figures come out of this run and are not interchangeable.** The
+site's published **95.2%** compares `router-cost` ($0.06) against
+`direct-premium` ($1.34) — routing against the common choice to call the best
+model directly. The public bundle's `savings_pct` of **95.8%** compares the least
+expensive arm against the worst arm, `router-quality` ($1.56). The results page
+states both and which one it uses as the headline.
+
+### One caveat this run recorded, and the run that later demonstrated it
+
+The errata above notes that the published pages already say a routing mix is not a
+fixed property of a mode. [Experiment
+13](../../docs/en/lab-notebook/13-router-modes-rate-card-gap.md) went on to show
+it directly. It ran the same workload, requested the same deployment names, and
+used the same rate card; `random_seed` was identical in both plans, but as the
+errata above records, no seed ever reached the model API, so it controlled
+nothing about what came back. What the service actually resolved those requests to
+did change: the Balanced arm's share served by `grok-4-1-fast-reasoning`
+moved from **83% in this run to 0%**, and that arm's total cost from **$0.305492
+to $1.327674**. No cause is claimed for the shift. Read any single run's per-arm
+router cost as what the roster served that day.

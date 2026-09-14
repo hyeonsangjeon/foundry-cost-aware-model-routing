@@ -217,7 +217,7 @@ def test_dashboard_rounds_away_false_precision(service: RouterService) -> None:
 def test_dashboard_shows_workload_mix_caveat(service: RouterService) -> None:
     html = service.dispatch("GET", "/").payload
     # P1.2: caveat sits next to the headline, not only in the footer.
-    assert "Savings depend on workload mix" in html
+    assert "Savings depend on the workload mix" in html
     assert 'id="mixCaveat"' in html
     # honesty labels must remain intact.
     assert "labels.measured=false" in html
@@ -228,10 +228,18 @@ def test_dashboard_has_coverage_guard_affordances(service: RouterService) -> Non
     html = service.dispatch("GET", "/").payload
     # P2.4: a coverage < 100% run must be able to flip to a warning state.
     assert 'id="covNote"' in html
-    assert "coverage dropped" in html
+    assert "task pass rate dropped" in html
     assert ".covnote" in html  # warning style is defined
     assert ".v.warn" in html   # coverage KPI can turn red
 
+
+def _dyn_prelude(script: str) -> str:
+    """Return the ``const D = {...};`` line plus ``mfmt``, so an extracted JS
+    function that renders locale prose can run standalone under node."""
+    d = re.search(r"^const D = .*?;$", script, re.S | re.M)
+    m = re.search(r"function mfmt\(tpl, v\) \{.*?\n\}", script, re.S)
+    assert d and m, "dynamic string table + mfmt must be present"
+    return d.group(0) + "\n" + m.group(0) + "\n"
 
 def test_coverage_state_warns_below_full(service: RouterService, tmp_path) -> None:
     node = shutil.which("node")
@@ -241,12 +249,12 @@ def test_coverage_state_warns_below_full(service: RouterService, tmp_path) -> No
     script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
     fn = re.search(r"function coverageState\(cov\) \{.*?\n\}", script, re.S)
     assert fn, "coverageState function must be present"
-    program = fn.group(0) + (
+    program = _dyn_prelude(script) + fn.group(0) + (
         "\nconst full = coverageState(1);"
         "\nconst low = coverageState(0.9);"
         "\nif (full.warn !== false) throw new Error('full should not warn');"
         "\nif (low.warn !== true) throw new Error('low should warn');"
-        "\nif (!/coverage dropped/.test(low.note)) throw new Error('missing note');"
+        "\nif (!/task pass rate dropped/.test(low.note)) throw new Error('missing note');"
         "\nconsole.log('ok');\n"
     )
     js = tmp_path / "cov.js"
@@ -259,7 +267,7 @@ def test_coverage_state_warns_below_full(service: RouterService, tmp_path) -> No
 def test_dashboard_shows_three_way_strategy_comparison(service: RouterService) -> None:
     html = service.dispatch("GET", "/").payload
     # P1: three labeled strategies, each with its own cost + coverage element.
-    for label in ("all-mini", "all-premium", "cost-aware mix"):
+    for label in ("all-mini", "all-premium", "cheapest-first escalation"):
         assert label in html
     for cost_id in ('id="miniVal"', 'id="premVal"', 'id="afterVal"'):
         assert cost_id in html
@@ -278,7 +286,7 @@ def test_dashboard_explains_cost_and_coverage(service: RouterService) -> None:
     # The scatter states what each option costs and solves; only the cost-aware
     # mix reaches the top-left (full coverage, low cost) corner.
     assert 'id="frontier"' in html
-    assert "what each option costs and solves" in html
+    assert "what each strategy costs and how many tasks it solves" in html
     assert "renderFrontier" in script
     # rendered from the same strategies payload and wired into the replay run.
     assert "s.strategies" in script
@@ -374,7 +382,7 @@ def test_dashboard_shows_arena_panel(service: RouterService) -> None:
     html = service.dispatch("GET", "/").payload
     script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
     assert 'id="arenaPanel"' in html
-    assert "One problem, four ways" in html
+    assert "One problem, four routing strategies" in html
     for element_id in (
         'id="arenaTasks"',
         'id="arenaProblem"',
@@ -418,7 +426,7 @@ def test_render_cliff_sets_bars_and_delta(service: RouterService, tmp_path) -> N
         "function $(id){ if(!els[id]) els[id]={style:{}}; return els[id]; }\n"
         "function usd(n){ return '$' + Number(n).toFixed(2); }\n"
         "function pct(n){ return (n*100).toFixed(1) + '%'; }\n"
-        + render.group(0) + "\n"
+        + _dyn_prelude(script) + render.group(0) + "\n"
         "renderCliff({base:{coverage:1.0,routed_total_usd:1.659167},"
         "candidate:{coverage:0.67,routed_total_usd:0.727969},coverage_delta:-0.33});\n"
         "if (els.cliffBaseBar.style.width !== '100.0%') throw new Error('base bar');\n"
@@ -484,8 +492,8 @@ def test_render_strategies_wires_costs_coverage_and_takeaway(
         "function usd(n){ return '$' + Number(n).toFixed(2); }\n"
         "function pct(n){ return (n*100).toFixed(1) + '%'; }\n"
         "function coverageState(cov){ return {warn: cov < 1, "
-        "note: cov < 1 ? 'coverage dropped' : ''}; }\n"
-        + set_cov.group(0) + "\n" + render.group(0) + "\n"
+        "note: cov < 1 ? 'pass rate dropped' : ''}; }\n"
+        + _dyn_prelude(script) + set_cov.group(0) + "\n" + render.group(0) + "\n"
         "renderStrategies({strategies:{all_mini:{total_cost_usd:0.187913,coverage:0.22},"
         "all_premium:{total_cost_usd:2.226910,coverage:1},"
         "mix:{total_cost_usd:1.659167,coverage:1}},coverage:1,"

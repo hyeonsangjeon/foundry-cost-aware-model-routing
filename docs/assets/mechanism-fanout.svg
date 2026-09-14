@@ -63,8 +63,8 @@
     <rect x="512" y="246" width="0" height="14" rx="3" fill="#7b52c9">
       <animate attributeName="width" dur="6s" repeatCount="indefinite" keyTimes="0;0.6;0.72;0.9;1" values="0;0;154;154;0"/>
     </rect>
-    <text x="512" y="278" font-size="11" font-weight="700" fill="#7b52c9">fan-out spend ≈ $0.50  ·  3.7× tax</text>
+    <text x="512" y="278" font-size="11" font-weight="700" fill="#7b52c9">fan-out spend ≈ $0.50 · 3.7× extra calls</text>
   </g>
 
-  <text x="24" y="308" font-size="10.5" fill="#9aa5b1">used by · ensemble  (adaptive turns this dial OFF — see below)</text>
+  <text x="24" y="308" font-size="10.5" fill="#9aa5b1">used by · ensemble  (adaptive turns this setting OFF — see below)</text>
 </svg>

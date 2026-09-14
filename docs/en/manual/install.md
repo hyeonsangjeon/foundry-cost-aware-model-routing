@@ -57,7 +57,7 @@ cost-router --version
 cost-router hero           # a reproducibility PASS on the last line means it's fine
 ```
 
-`cost-router hero` carries **the reproducibility criteria** — coverage, savings rate,
+`cost-router hero` carries **the reproducibility criteria** — pass rate, savings rate,
 and task count must meet preset thresholds to pass. Fail the criteria and it exits
 with a **non-zero exit code**. In other words, it won't quietly wave through a
 "runs, but the numbers look off" state.
@@ -86,7 +86,10 @@ baseline.
   runs (0.18 s on the first run).
 
 !!! note "Measurement environment (metadata)"
-    - **OS**: `Linux-3.10.102-x86_64-with-glibc2.35` (Ubuntu 22.04.5 LTS), `x86_64`, 8 vCPU
+    - **OS**: reported as `Linux-3.10.102-x86_64-with-glibc2.35` (Ubuntu 22.04.5 LTS),
+      `x86_64`, 8 vCPU. The kernel string and the glibc/distribution strings are
+      inconsistent with each other; both are recorded exactly as the platform reported
+      them, and neither has been re-checked.
     - **Interpreters**: CPython **3.11.15**, **3.12.13** (uv-distributed builds)
     - **Cache**: cold = `pip install --no-cache-dir`, warm = reuse of a shared pip cache
     - **Network**: `--depth 1` public clone from GitHub (0 Azure calls)
@@ -96,8 +99,9 @@ baseline.
     The per-second figures above are **observed targets** until repeated measurements
     accumulate across the supported interpreters. They are neither a guaranteed
     performance metric (p95) nor a service-level promise (SLA). We also do not call
-    this offline path **"10 minutes"** — the 10-minute figure applies only to the
-    credentialed legacy-Foundry path.
+    this offline path **"10 minutes"** — that 10-minute figure applies only to the
+    credentialed legacy-Foundry path, which is a different path with different
+    prerequisites.
 
 ## Dev verification gates (optional)
 

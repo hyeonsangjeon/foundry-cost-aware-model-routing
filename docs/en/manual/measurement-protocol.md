@@ -6,19 +6,27 @@ page specifies is the procedure that turns that projection into **measurement** 
 prompts to a real Azure deployment, reads the **token usage that was actually billed**, computes
 cost as that usage × unit price, and seals it in a **fingerprinted, deterministic snapshot**.
 
+**What this protocol guarantees, and what it does not.** It guarantees that a measured
+figure came from a live call that actually happened, that the snapshot replays
+byte-identically without credentials, and that an unpriced backend is recorded as
+unpriced rather than filled with a guess. It does not guarantee that a result generalizes
+beyond the workload measured, and it does not grade quality unless a grader was injected.
+Experiments 11, 12 and 13 are the runs executed under this protocol; the failures it
+caught are recorded on their pages rather than removed.
+
 !!! danger "Honesty boundary — deliberately strict"
     - **`measured = true` is granted only to a live call that just happened (`provenance = live`).**
       The mock, recorded, and replay paths stay `provenance = test|recorded` and `measured = false`.
       No committed artifact impersonates `measured = true`.
     - **We measure spend, but measure quality only when a grader is present.** Without a grader,
-      coverage falls back to an offline-signal projection, and that fact is labeled in the summary.
+      the pass rate falls back to an offline-signal projection, and that fact is labeled in the summary.
     - **Live mode is local-only.** CI and automation pipelines run only `measure replay` (no
       credentials needed). A live call must pass operator approval + a budget cap + the prereg gate,
       all three.
 
 ---
 
-## 1. Two tracks (D1) — keep projection and measurement separate
+## 1. Two tracks — keep projection and measurement separate
 
 | Track | Label | Source | Where |
 | --- | --- | --- | --- |
@@ -90,13 +98,14 @@ If a 429 is retried, it leaves **one line per attempt**, and when retries are ex
 `fail_reason="throttle_exhausted"`; the retry itself is marked `fail_reason="throttled_429"` as a
 matter of policy.
 
-On the v2 paid path, a cell routed to a **backend whose unit price is unconfirmed** doesn't invent an
-amount — it's recorded **when a rate is missing, withhold the cost claim rather than guess (fail-closed)** as `cost_usd=null` + `pricing.priced=false` (with the reason)
-(§6.1).
+On the paid `composite-rate-card-v2` path, a cell routed to a **backend whose unit price is
+unconfirmed** does not invent an amount. It fails closed — withholding the cost claim
+rather than guessing at a missing rate — and is recorded as `cost_usd=null` +
+`pricing.priced=false`, with the reason (§6.1).
 
-### 3.3 `prereg.md` minimum contents (D8)
+### 3.3 `prereg.md` minimum contents
 
-Expected coverage / expected savings rate (a range) · **the expected direction of the gap vs. the
+Expected grading coverage / expected savings rate (a range) · **the expected direction of the gap vs. the
 projection and a one-line reason** · what counts as a "failure" in this run · the budget cap.
 
 ### 3.4 Sample size and evidence tier (`evidence_tier`)
@@ -116,7 +125,7 @@ So this repository attaches an `evidence_tier` to every workload:
 | Workload | Prompts | `evidence_tier` | Basis |
 | --- | --- | --- | --- |
 | `curated-24` | 24 | **`directional`** | fewer than 30 — directional signal only |
-| `hero-100-prompts` | 100 | **first candidate** for a stronger tier | meets the 100-or-more recommendation |
+| `hero-100-prompts` (proposed; not present in this repository) | 100 | would be the **first candidate** for a stronger tier | would meet the 100-or-more recommendation |
 
 !!! note "Citation-preservation rule"
     The URL and the **access date (2026-07-29)** are preserved together everywhere this threshold is
@@ -127,8 +136,10 @@ So this repository attaches an `evidence_tier` to every workload:
 
 ## 4. Determinism and fingerprints
 
-- **n = 3** (default): a cell is (task × arm — an arm is one comparison strategy in the experiment — × sample n), and each (task × arm) combination is
-  measured n=3 times to report variance.
+- **n = 3** (default): a cell is (task × arm × sample n), where an **arm** is one
+  comparison strategy evaluated against the same workload under the same measurement
+  plan. Each (task × arm) combination is measured n=3 times to report variance. The
+  router-mode runs therefore plan 24 tasks × 4 arms × 3 repeats = 288 cells each.
 - **Deterministic replay (§3.4)**: `measure replay` recomputes `summary.json` **byte-identically**
   from `traces.jsonl` + `pricing.snapshot.yaml` alone (no credentials needed). CI checks only this
   replay.
@@ -147,7 +158,7 @@ So this repository attaches an `evidence_tier` to every workload:
   reproduces the retry accounting.
 - **Cached tokens**: `tokens.cached` is **recorded separately** from input tokens and billed
   separately at the cache price.
-- **All-calls billing (D2)**: fan-out (ensemble) strategies bill **the sum of every candidate,
+- **All-calls billing**: fan-out (ensemble) strategies bill **the sum of every candidate,
   including the losers** (`billing = sum-all-fanout`). They don't create a "count only the winner"
   illusion — this is the measured basis for the extra candidate-call cost.
 - **Budget guard**: when cumulative measured cost reaches `--budget-usd`, it stops immediately, saves
@@ -165,23 +176,23 @@ So this repository attaches an `evidence_tier` to every workload:
 - Every published figure carries the **pricing-snapshot date**. `measure verify` raises a
   **non-fatal warning (freshness)** if a snapshot is older than 90 days.
 
-### 6.1 Rate-card schema — v1 (offline experiments) vs. v2 (bench/paid measurement)
+### 6.1 Rate-card schema — v1 (offline experiments) vs. composite v2 (bench/paid measurement) {#61-v1-vs-v2}
 
 This repository deliberately lets **two rate-card schemas** coexist. Which path uses which is fixed.
 
 | Path | Schema | Billing method | Unconfirmed backend |
 | --- | --- | --- | --- |
 | Offline experiments 01–08 (`replay` · `evals` · `hero` · `compare` · `experiment`) | v1 `PricingTable` (`samples/pricing/*.yaml`) | simple per-table in/out prices, no markup | **fail-open** via the `default` fallback (fine for synthetic experiments) |
-| Bench/paid measurement (`benchmark plan` · `benchmark run --live` · the live browser run screen) | v2 `RateCardV2` (`schema_version: 2`, e.g. `samples/pricing/foundry-ext-router.yaml`) | exact alias map + Model Router **input-token markup** (router arm) + sub-model in/out composed | if not in rates, **fail-closed**: `cost_usd=null`, `cost_complete=false`, excluded from savings claims |
+| Bench/paid measurement (`benchmark plan` · `benchmark run --live` · the live browser run screen) | `composite-rate-card-v2` — `RateCardV2` (`schema_version: 2`, e.g. `samples/pricing/foundry-ext-router.yaml`) | exact alias map, composing the Model Router **input-token markup** (router arm) with the resolved backend's in/out rates | if not in rates, **fail-closed**: `cost_usd=null`, `cost_complete=false`, excluded from savings claims |
 
 - **Schema decision**: if the card has a top-level `schema_version` key it's read as v2, otherwise v1.
   v1's `version:` is a free revision integer, preserved as-is with no effect on `plan_hash`.
 - **Why fail-closed**: leaving the v1 `default` fallback on a paid path would attach an arbitrary
   unit price to a price-unconfirmed backend (e.g. the 5 Claude models with no rate in Azure Retail),
-  reviving the "savings figure with no source" that 03Z retired. So the bench path **doesn't fill in a
+  reviving the "savings figure with no source" that this repository retired. So the bench path **doesn't fill in a
   price it doesn't know** — it seals that cell as unpriced and blocks the run's savings claim with
   `savings_claim_allowed=false`.
-- **Same formula across five surfaces**: a given cell's synthetic cost is **identical** across the
+- **Same formula across five surfaces**: a given cell's composite cost is **identical** across the
   dry-run estimate · the reservation ceiling · the trace · the summary · the replay. The regression test
   `tests/test_rate_card_wiring.py` pins this identity and fail-closed (router markup · Claude unpriced ·
   v1 unchanged).
@@ -201,12 +212,17 @@ Below are planning figures from a **dry-run** of the 5-task prompt-bearing workl
 `--pricing samples/pricing/foundry-ext-full.yaml` (illustrative, 2025 snapshot) and `--n 3`. The caps
 leave headroom above the estimate to absorb output-token variance.
 
+**Read the task count in each row before the dollar figure.** Every row except the last
+substitutes that 5-task workload for the experiment's own dataset, which is 100 tasks for
+experiment 01 and 6 tasks for experiments 04, 05 and 06. These are sizing figures for a
+5-task pilot of each shape, not the cost of running the experiment as defined.
+
 | Experiment | Measurement basis (candidates × tasks × n) | Dry-run estimate | Recommended `--budget-usd` cap |
 | --- | --- | --- | --- |
 | exp02 Curated (pilot) | 11×5×3 = 165 calls | $1.03 | **$2** |
-| exp07 Routing layer | `model-router` 1×5×3 = 15 | $0.21 | **$1** |
+| exp07 Single-call routing | `model-router` 1×5×3 = 15 | $0.21 | **$1** |
 | exp03·04·06 Guardrails | 2–11 candidates ×5×3 | $0.22–$1.03 each | **$2 each** |
-| exp05 Fan-out (D2) | 11×5×3 = 165 | $1.03 | **$3** |
+| exp05 Fan-out | 11×5×3 = 165 | $1.03 | **$3** |
 | exp08 Four-way comparison | 11×5×3 = 165 | $1.03 | **$2** |
 | exp01 Try-cheap-first routing (100 tasks) | ⚠ requires **authoring first** a 100-task prompt workload | ≈$20.6 | **$25** |
 
@@ -217,17 +233,17 @@ leave headroom above the estimate to absorb output-token variance.
 
 ---
 
-## 8. The `measure verify` contract (7.2)
+## 8. The `measure verify` contract
 
 The contract YAML checks **ranges/floors, not exact values** (the same convention as the offline
 `Expectation`). Only the keys that are set are scored.
 
 | Key | Meaning |
 | --- | --- |
-| `min_coverage` | coverage floor |
-| `min_savings_pct` / `max_savings_pct` | savings-rate band vs. naive |
+| `min_coverage` | A floor whose denominator depends on the path. In the offline experiment contract it floors the **task pass rate** (`accepted / counted`). In `measure verify` it floors the sealed snapshot's `result.coverage.coverage`, which is **accepted among graded cells** (`accepted / graded`), not the task pass rate and not grading coverage ([glossary](glossary.md)). A run with no grader has no value to compare and fails this check as ungraded. |
+| `min_savings_pct` / `max_savings_pct` | savings-rate band against the premium-on-every-task baseline |
 | `max_tax_ratio` | fan-out-tax (highest/lowest candidate cost ratio) ceiling |
-| `min_escalation_gain` | floor on the coverage that observe-then-escalate recovers |
+| `min_escalation_gain` | floor on the pass rate that observe-then-escalate routing recovers |
 | `max_failure_rate` | failure-rate ceiling |
 
 ---
@@ -236,9 +252,9 @@ The contract YAML checks **ranges/floors, not exact values** (the same conventio
 
 1. Confirm `cost-router foundry status` reports `credentialed: yes` (keyless Entra).
 2. Write the preregistration, **commit it**, then pin it into the run config's
-   `benchmark.preregistration` block by `path` · `blob` · `commit`. The D8 gate re-reads the
-   committed blob and compares, so an uncommitted file — or one edited after its commit — is
-   refused before dispatch. Pinning changes the plan, so this comes **before** step 3.
+   `benchmark.preregistration` block by `path` · `blob` · `commit`. The preregistration
+   gate re-reads the committed blob and compares, so an uncommitted file — or one edited
+   after its commit — is refused before dispatch. Pinning changes the plan, so this comes **before** step 3.
 3. Resolve the plan offline with `cost-router benchmark plan --config <file>`. This sends
    nothing. Read the approval summary — planned cells, the transport-attempt range, and the
    **worst-case reservation** — and set the **budget cap** in `benchmark.budget_usd`
@@ -265,12 +281,12 @@ progress: 142/288 cells  $1.83  429×0  fail×2  cov 96.5% [gate 90%]  [cell_don
          cost 34/36 · balanced 34/35 · quality 33/36 · premium 36/36
 ```
 
-Its purpose is exactly one thing — **the decision to abort early**. Had we known at the 30-minute
-mark that quality coverage was collapsing to 79% in the last void run, we could have aborted.
+Its purpose is exactly one thing — **the decision to abort early**. Had we known at the 30-minute mark that the quality arm's grading coverage was collapsing
+toward 79.2% in experiment 11, we could have aborted.
 
 !!! danger "Changing the experiment on an interim indicator is a prereg violation"
-    These values are **diagnostic, not a verdict.** The coverage gate (90%) and the quality gates
-    (min_pass 0.60 / max_drop 10pp) are judged by `measure verify` **against the sealed snapshot
+    These values are **diagnostic, not a verdict.** The grading-coverage gate (90%) and the quality gates
+    (min_pass 0.60 / max_drop 10 percentage points) are judged by `measure verify` **against the sealed snapshot
     only**. Looking at an interim value and changing the workload, arm, gate, or denominator is a
     pre-registration violation and voids the result. The only intervention allowed mid-run is an
     **abort (a full stop + a partial snapshot)**.
@@ -278,5 +294,5 @@ mark that quality coverage was collapsing to 79% in the last void run, we could 
 `progress.json` is written only to the gitignored run directory and is not a fingerprint target
 (§4), so it affects neither the snapshot bytes nor the `plan_hash` — replay is still byte-identical.
 
-Related documents: [Live measured bridge](foundry-live.md) · [Audit ledger](ledger.md) ·
+Related documents: [Live measurement adapter](foundry-live.md) · [Audit ledger](ledger.md) ·
 [Experiment 09 · Live routing](../lab-notebook/09-live-routing-proof.md) · [Honesty Charter](../honesty.md)

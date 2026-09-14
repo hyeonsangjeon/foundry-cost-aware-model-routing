@@ -11,7 +11,7 @@ billed**, and computes cost from that usage.
     - **You can measure spend, but (with this repository) not quality.** A live call
       returns real tokens, so `total_cost_usd` is genuinely measured spend. Whether
       each answer was *good* is measured only when you inject a **grader**; without
-      one, coverage falls back to the offline signal projection and is labeled
+      one, the pass rate falls back to the offline signal projection and is labeled
       `coverage_measured = false`.
     - **`measured = true` is granted only to the live call that just happened.**
       Replaying a recorded usage snapshot travels the same scoring path but is
@@ -139,7 +139,8 @@ cost-router foundry status              # auth method : Microsoft Entra ID (keyl
 
 The heart of it is feeding `pricing.cost_usd(model, tokens)` the **response's real
 usage instead of the synthetic `task.tokens`**. That one spot is the only difference
-between an offline arm — an arm is one comparison strategy in the experiment — and the live measurement adapter.
+between an offline arm and the live measurement adapter. An **arm** is one comparison
+strategy evaluated against the same workload under the same measurement plan.
 
 ```python
 from router.foundry_live import RouterOutcome, measured_router_summary
@@ -161,13 +162,13 @@ summary = measured_router_summary(
 #                      coverage_measured, coverage_basis}
 ```
 
-- **Cost** is computed from `outcome.usage` with `pricing`. The usage is measured, but
-  the amount for a call routed through the `model-router` deployment is **incomplete —
-  missing the router input markup** (see `†` below).
-- **Coverage** is measured when a `grader` is present (`coverage_basis = "graded"`);
+- **Cost** is computed from `outcome.usage` with `pricing`. The usage is measured, but on
+  this rate card the amount for a call routed through the `model-router` deployment is
+  **incomplete — missing the router input markup** (see `†` below).
+- **The pass rate** is measured when a `grader` is present (`coverage_basis = "graded"`);
   without one it is that model's offline signal projection (`"offline-projection"`).
-  The captured **real model** has no matching row in the offline signals, so coverage
-  is honestly **ungraded** (`coverage = null`, `coverage_basis = "ungraded"`) — the
+  The captured **real model** has no matching row in the offline signals, so the pass
+  rate is honestly **ungraded** (`coverage = null`, `coverage_basis = "ungraded"`) — the
   usage is measured but the accuracy is not.
 - **`measured`** is `true` only when every outcome's provenance is `live`.
 - **`model_aliases`** maps a vendor name like `gpt-4o` to a rate/signal key.
@@ -180,7 +181,7 @@ scoring path (the default). This snapshot
 genuine Azure Model Router call** — it contains the models the router actually picked
 (`gpt-5.4` · `grok-4-1-fast-reasoning`) and the real billed tokens. Because it is a
 replay it is honestly labeled `provenance = recorded` · `measured = false`, and the
-real models have no matching row in the offline signals, so coverage is **ungraded**:
+real models have no matching row in the offline signals, so the pass rate is **ungraded**:
 
 ```bash
 cost-router foundry live
@@ -200,10 +201,12 @@ Azure Model Router — measured usage  (recorded snapshot (…/model-router-usag
 ```
 
 !!! danger "`†` — the router-derived amount is **incomplete**"
-    Model Router billing is synthetic: the **router input-token markup** + the input
-    and output of the chosen sub-model. The rate card has no markup line item, so the
-    amount for a routed call is **missing one billed component** — not an
-    approximation, but incomplete. Show the amount as history, but never use it in a
+    Model Router billing is composite: the **router input-token markup** plus the input
+    and output of the backend the router resolved to. This rate card has no markup line
+    item, so the amount for a routed call is **missing one billed component** — not an
+    approximation, but incomplete. The paid measurement path uses the
+    `composite-rate-card-v2` schema, which composes both parts; the recorded snapshot
+    shown here predates it. Show the amount as history, but never use it in a
     cost or savings claim; the CLI **enforces this footnote directly**: if it cannot
     read the versioned annotation
     [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
@@ -279,9 +282,11 @@ cost-router foundry live --workload samples/telemetry/curated-arena-live.sample.
     attaches **authored synthetic prompts** (input for display and sending,
     `measured = false`) to the four-way comparison's five tasks so that a live send is possible. The
     prompts are authored-synthetic, but the usage and cost from **actually sending them
-    is measured = true** — where a result came from — live, recorded, or test (provenance) for the input (authored) and the
-    measurement (live) are separate things. To measure accuracy (pass/fail) too,
-    inject a `grader` (without one, coverage is labeled an offline signal projection).
+    is measured = true**. Provenance — whether a figure came from a live call, a recorded
+    snapshot, or a test — is tracked separately for the input (authored) and for the
+    measurement (live); they are two different things. To measure accuracy (pass/fail)
+    too, inject a `grader`. Without one, the pass rate is labelled an offline signal
+    projection.
 
 ### With an arbitrary workload
 
@@ -350,4 +355,5 @@ whole path with no network.
     `measured = true`"* row of the [Honesty Charter](../honesty.md). The amount gets
     closer to your range only when you put **your real rates** in
     `samples/pricing/your-tenant.yaml` (gitignored) — the router-derived amount stays
-    incomplete, separately, until the markup line item is filled in.
+    incomplete, separately, until the markup line item is filled in — which is what the
+    `composite-rate-card-v2` schema does on the paid measurement path.

@@ -19,15 +19,15 @@ machinery** as the aggregate panels, so the numbers agree by construction.
 | Approach | What it does | Cost billed |
 | --- | --- | --- |
 | **Cheapest model** | Calls only the class's single cheapest candidate | that one call |
-| **Premium model** | Calls only the most expensive candidate (the naive ceiling) | that one call |
-| **Ensemble (fan-out)** | Calls several candidate models in parallel (fan-out) to **all** candidates and takes the best | **the sum of all candidates** ([extra call cost](../lab-notebook/05-ensemble-fanout.md)) |
+| **Premium model** | Calls only the most expensive candidate — the premium-on-every-task ceiling | that one call |
+| **Ensemble (fan-out)** | Calls **all** candidates in parallel and takes the best | **the sum of all candidates** ([extra call cost](../lab-notebook/05-ensemble-fanout.md)) |
 | **Cost-aware router** | Starts cheap, escalates upward on failure | **the winner only** |
 
 !!! info "The four ways = a contrast of the axes layered on top of the built-in router"
     The Azure AI Foundry **built-in Model Router** already does the **per-prompt "selection"**
     well (one deployment, cross-provider). The ensemble calls every candidate and
     bills every call; the cost-aware router checks the result and calls another model
-    only after failure. [Experiment 07 · The routing layer](../lab-notebook/07-model-router.md)
+    only after failure. [Experiment 07 · Single-call routing vs observe-then-escalate](../lab-notebook/07-model-router.md)
     shows the aggregate comparison.
 
 ## The three measures
@@ -36,10 +36,13 @@ machinery** as the aggregate panels, so the numbers agree by construction.
   only**; the ensemble bills **all**.
 - **Accuracy** — the router's `is_clean` verdict ("pass" when every offline check passes). It's
   a synthetic-signal projection, not a graded live answer.
-- **Latency** — an **illustrative projection**, not a measurement. The bundled telemetry has no
-  timing, so a per-tier throughput model turns token counts into milliseconds for a
-  relative comparison. The ensemble is a parallel fan-out, so it's the **slowest single one**
-  (max); the router escalates sequentially, so it's the **sum of the calls it attempted** (sum).
+- **Latency** — an **illustrative axis**, not a measurement. The bundled telemetry has no
+  timing, so a per-tier throughput model turns each task's authored synthetic `output` and
+  `reasoning` token estimates into milliseconds for a relative comparison. Neither those
+  estimates nor the model's presentation constants have been validated against a
+  measurement. The ensemble is a parallel fan-out, so it takes the **slowest single call**
+  (max); the router escalates sequentially, so it takes the **sum of the calls it
+  attempted**.
 
 ## Result on the default task
 
@@ -59,7 +62,7 @@ premium and ensemble are equally right), but sequential escalation gives it the
 easy task (`t-0001`) and the cheapest model wins all three axes, and the router picks exactly
 that — routing earns its value on the hard tasks.
 
-`*` Latency is an illustrative projection (`measured = false`). It is not real wall-clock; real
+`*` Latency is an illustrative axis (`measured = false`). It is not real wall-clock; real
 timing comes from the [live measurement adapter](foundry-live.md).
 
 ## Input data — a problem you can read
@@ -124,7 +127,7 @@ tasks with no round trip.
 
 !!! note "Every number is an offline projection"
     Cost and accuracy come from the same offline machinery as the other panels (`measured =
-    false`) **by construction**; latency is a newly introduced **illustrative projection**. Model
+    false`) **by construction**; latency is a separate **illustrative axis**. Model
     names are generic placeholders.
 
 ## Viewing it measured (`measured = true`)
@@ -142,11 +145,11 @@ cost-router foundry live --live \
 Cost is computed from the actually billed token usage, becoming `measured = true`, and `--store`
 leaves one line on the historical dashboard. For the full setup and honesty boundaries, see the
 [live measurement adapter](foundry-live.md). (Measuring accuracy too requires injecting a `grader`;
-without one, coverage is labeled an offline-signal projection.)
+without one, the pass rate is labeled an offline-signal projection.)
 
 ## Experiment record
 
 The method, numbers, and honesty labels of this prototype run feature are collected in
 [Experiment 08 · Four-way comparison](../lab-notebook/08-arena.md) — why it narrows to a single task, why the
-latency axis is an illustrative projection, and why the router is the slowest (sequential
+latency axis is illustrative rather than measured, and why the router is the slowest (sequential
 escalation).

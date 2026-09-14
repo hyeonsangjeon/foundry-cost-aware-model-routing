@@ -42,7 +42,7 @@ before/after 애니메이션과 대표 태스크가 **로드 즉시** 재생됩�
 ## compare — 문제 하나, 네 가지 방법
 
 태스크 **하나**를 네 가지 방법으로 나란히 비교하고 **비용 · 지연 · 정확도**를 표로 출력합니다:
-가장 싼 모델 · 프리미엄 모델 · 여러 후보 모델을 병렬로 호출하는 앙상블(fan-out) · 값싼 것부터 올라가는 비용 인지 라우터.
+가장 싼 모델 · 프리미엄 모델 · 팬아웃 앙상블 · 값싼 것부터 올라가는 비용을 고려하는 라우터.
 대시보드 네 방식 비교(`arena` 명령) 패널의 CLI 버전입니다.
 
 ```bash
@@ -51,7 +51,7 @@ cost-router compare --task t-0001      # 특정 태스크
 cost-router compare --json             # 그 태스크의 네 방식 비교를 JSON으로
 ```
 
-라우터는 **승자만 청구**하고 앙상블은 **후보 전부**를 청구합니다(팬아웃 세금). 정확도는 라우터의
+라우터는 **승자만 청구**하고 앙상블은 **후보 전부**를 청구합니다(팬아웃 추가 비용). 정확도는 라우터의
 `is_clean` 판정, 지연은 토큰 수에서 나온 **예시적 투영**입니다(측정값 아님, `measured = false`).
 자세한 해석은 [문제 하나, 네 가지 방법](head-to-head.md)을 참고하세요.
 
@@ -76,7 +76,7 @@ cost-router replay --json          # 트레이스를 JSON으로
 cost-router replay --synth --ledger reports/routing.jsonl
 ```
 
-마지막에 나이브 대 라우팅 before/after 블록이 붙습니다.
+마지막에 프리미엄 기준선 대 라우팅 before/after 블록이 붙습니다.
 
 ## route-once — 단일 트레이스
 
@@ -93,7 +93,7 @@ cost-router route-once --task-id t-0001 --ledger reports/one.jsonl
 cost-router evals --synth
 ```
 
-라우팅 비용 대 '항상 가장 비싼' baseline의 커버리지/비용 요약을 냅니다.
+라우팅 비용 대 '항상 가장 비싼' baseline의 통과율/비용 요약을 냅니다.
 
 ## serve — 오프라인 HTTP 서비스
 
@@ -103,7 +103,7 @@ cost-router serve --host 0.0.0.0 --port 9000 --policy src/policy/seed_policy.yam
 ```
 
 표준 라이브러리만으로 동작하는 오프라인 서비스입니다. 요청한 포트가 이미 사용 중이면 다음
-빈 포트로 자동 폴백하고 실제 URL을 출력합니다(트레이스백 없음). 자세한 내용은
+빈 포트로 자동으로 옮겨 가고 실제 URL을 출력합니다(트레이스백 없음). 자세한 내용은
 [대시보드](dashboard.md)를 참고하세요.
 
 ## policy — 정책 검사/검증/비교
@@ -116,7 +116,7 @@ cost-router policy simulate --policy samples/policy/candidate.example.yaml --syn
 cost-router policy regression --candidate samples/policy/candidate.example.yaml --synth
 ```
 
-`regression`은 기저 정책 대 후보 정책의 비용/커버리지 변화를 결정론적으로 비교합니다.
+`regression`은 기저 정책 대 후보 정책의 비용/통과율 변화를 결정론적으로 비교합니다.
 
 ## ledger — 감사 원장 재생/검증
 
@@ -140,7 +140,7 @@ cost-router foundry live --live --workload my-prompts.jsonl \
 
 `status`는 Azure Foundry 환경 변수를 **시크릿 노출 없이** 요약합니다. `live`는 Model Router
 실행을 **실제 토큰 usage**로 스코어링합니다 — `--live` 없이는 녹화된 스냅샷을 재생하므로
-크리덴셜이 없어도 경로를 볼 수 있습니다. 자세한 내용은
+자격 증명이 없어도 경로를 볼 수 있습니다. 자세한 내용은
 [라이브 실측 어댑터](foundry-live.md)를 참고하세요.
 
 ## models — 플릿 등록 & 비교 전략(arm) 선택

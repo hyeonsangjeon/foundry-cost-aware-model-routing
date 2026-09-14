@@ -25,11 +25,11 @@ Choose a model for each task instead of using one global default.
   spend is justified for the task.
 
 Here **pass rate** means the share of tasks that were solved. The offline CLI and
-experiment contract call this field `coverage`. Measured results also report
-**grading coverage**, the share of cells that produced an answer that could be
-graded; it is a different metric ([Glossary](glossary.md)). The goal is not
-"the cheapest bill possible"; it is **the same pass rate at far lower cost, with an
-audit trail on every decision**.
+experiment contract call this field `coverage`. Measured results also report **grading
+coverage**, the share of planned cells that produced an answer that could be graded; it
+is a different metric with a different denominator ([Glossary](glossary.md)). The goal
+is not "the cheapest bill possible"; it is **the same pass rate at far lower cost, with
+an audit trail on every decision**.
 
 !!! quote "An old field concern this project answers"
     "A multi-model approach is only worth it when the use case justifies the extra
@@ -54,7 +54,9 @@ audit trail on every decision**.
     the gateway is the next direction to extend.
 
     The built-in Model Router also remains a **first-class candidate arm
-    (`single_call`)** — an arm is one comparison strategy in the experiment. This project uses the product rather than replacing it.
+    (`single_call`)**, an arm being one comparison strategy evaluated against the same
+    workload under the same measurement plan. This project uses the product rather than
+    replacing it.
 
     > **In one line:** model selection is already handled well by the built-in Model
     > Router. This asset is the layer for the **next problem** — **verifying** the
@@ -99,31 +101,39 @@ The router chooses one of two ways to run the task:
 
 ### 4 · Govern
 Before spending, a spending limit sets how much work the task may use: reasoning
-effort, pay-as-you-go (PAYG) vs Provisioned Throughput Units (PTU), handling of the `429 retry-after-ms`
-acceptance signal, and `prompt_cache_key` bucketing. The router consumes this layer
-as a **dependency** from the companion toolkit instead of reimplementing its math.
+effort, pay-as-you-go (PAYG) vs Provisioned Throughput Units (PTU), and handling of the
+`429 retry-after-ms` acceptance signal.
+
+`prompt_cache_key` bucketing belongs to this layer by design, but **it is not
+integrated in this repository**: nothing here sets a cache key, a session hint, or a
+backend-affinity signal on an outgoing request, and no companion-toolkit dependency for
+it is declared. Cached tokens are only ever read back from the response. The evidence for
+that absence, and what the sealed runs did record, is in
+[prompt cache observed in the sealed runs](prompt-cache-observed.md).
 
 ## Why "the cheapest bill" isn't the answer
 
-The default cost-and-coverage experiment runs 100 synthetic tasks through the single-call arms and
+The default cost-and-pass-rate experiment runs 100 synthetic tasks through the single-call arms and
 cost-aware routing.
 
-| arm | Selection | Pass rate | Cost |
+| arm (offline placeholder) | Selection | Pass rate | Cost |
 | --- | --- | --- | --- |
 | cost | cheapest candidate per class | **22%** | $0.19 |
 | balanced | middle candidate per class | 38% | $1.32 |
-| quality (naive) | most expensive candidate per class | 100% | $2.23 |
+| quality (premium baseline) | most expensive candidate per class | 100% | $2.23 |
 | **cost-aware routing** | cheapest passing model first | **100%** | **$1.66** |
 
 The cheapest arm solves only 22% of the tasks. The premium arm solves 100% but costs
 the most. Routing starts with a cheaper model and moves up after a failed check. It
-also **holds the pass rate at 100%** while spending 25.5% less than naive
+also **holds the pass rate at 100%** while spending 25.5% less than the premium-on-every-task baseline
 ([offline experiment results](projection-results.md) is canonical).
 
 !!! note "This table is an illustrative equivalent"
     The cost/balanced/quality arms are transparent **placeholder baselines**, not a
-    claim about any managed router's internals. Every figure is `labels.measured =
-    false` — an offline projection made with no real calls.
+    claim about any managed router's internals. They share their names with Model
+    Router's Cost, Balanced and Quality modes, measured separately in experiments 11, 12
+    and 13, but they are not measurements of those modes. Every figure is
+    `labels.measured = false` — an offline projection made with no real calls.
 
 ## Claim-source labels
 

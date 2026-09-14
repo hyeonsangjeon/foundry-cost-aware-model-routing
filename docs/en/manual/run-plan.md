@@ -1,14 +1,17 @@
 # The single approved run plan
 
-When preview, human approval, run, ledger, and replay **each interpret their own settings
-separately**, what you approved and what you ran can drift apart. 03A closes that gap. It
-resolves a single local config file **once** and seals it into an **immutable object** called
-`ResolvedRunPlan`, and all five paths above read that same object. The plan carries a
-deterministic `plan_hash`, and approval is bound to that hash. The local browser run screen now uses
-this plan too — `cost-router dashboard --live --config <file>` binds the canonical
-`ResolvedRunPlan` as the browser run screen's single source of truth, so preview, approval, run, abort,
-and replay all key off the same `plan_hash` (03C, §9). The browser run screen reuses 03B's shared abort
-gate and spend ledger rather than building a separate cancel or budget path.
+**One resolved plan governs every paid run, and approval is bound to its hash.** When
+preview, human approval, run, ledger, and replay each interpret their own settings
+separately, what you approved and what you ran can drift apart. The canonical run plan
+closes that gap: it resolves a single local config file **once**, seals it into an
+immutable `ResolvedRunPlan`, and all five paths read that same object. The plan carries
+a deterministic `plan_hash`, and approval is bound to that hash.
+
+The browser run screen uses this plan too. `cost-router dashboard --live --config <file>`
+binds the canonical `ResolvedRunPlan` as that screen's single source of truth, so
+preview, approval, run, abort, and replay all key off the same `plan_hash`. It reuses the
+shared abort gate and spend ledger rather than building a separate cancel or budget
+path.
 
 This page describes the canonical plan that `src/router/run_plan.py` builds and the CLI that
 handles it.
@@ -66,9 +69,9 @@ pinned by a regression test (`tests/test_live_config.py`).
 
 Execution fields resolve in the order `CLI override > local YAML > legacy env > safe
 default`, and each field's origin is recorded in the plan's `sources` map (secrets are never
-recorded). Only locale is a §12 exception, following `--locale > COST_ROUTER_LOCALE >
-display.locale > en` and having **no effect whatsoever on execution semantics** (the behavior
-is merely reserved for i18n).
+recorded). Locale is the one exception. It follows `--locale > COST_ROUTER_LOCALE >
+display.locale > en` and has **no effect whatsoever on execution semantics**; the
+behaviour is reserved for internationalization.
 
 ## 3. The approval screen — planned cells and the transport-attempt range
 
@@ -86,13 +89,15 @@ The human approval screen shows the **number of planned cells** and, per cell, t
 
 It does not call a retriable call **"exactly N times."** A throttled cell may legitimately
 dispatch anywhere between `base` and `max` (`max = 1 + retry.max_retries`). `planned cells =
-task count × repetitions × arm count` — an arm is one comparison strategy in the experiment.
+task count × repetitions × arm count`, where an **arm** is one comparison strategy
+evaluated against the same workload under the same measurement plan.
 
 !!! danger "Approval is bound to the hash — a mismatch is rejected"
     A `--live` run requires `--approve-plan <plan_hash>`, and if that value differs from the
     freshly resolved plan's `plan_hash` **by even one character, it is rejected before
-    dispatch** (exit 1). Credentials are looked up only afterward. So a stale or mismatched
-    approval sends no paid call whatsoever; when a rate is missing, withhold the cost claim rather than guess (fail-closed).
+    dispatch** (exit 1). Credentials are looked up only afterward, so a stale or mismatched
+    approval sends no paid call at all. The gate fails closed: when the approval does not
+    match, nothing is dispatched.
 
 ## 4. The Model Router arm is explicit and cannot vanish
 
@@ -111,15 +116,15 @@ The same `plan_hash` runs through six points.
 4. **Manifest**: the sealed snapshot records the same `plan_hash`.
 5. **Replay**: `replay` reads the manifest's `plan_hash` back verbatim.
 6. **Browser run screen**: `dashboard --live --config` binds the same plan, so preview, approval, run,
-   abort, and snapshot are all bound to the same `plan_hash` (03C). The browser never supplies
+   abort, and snapshot are all bound to the same `plan_hash`. The browser never supplies
    plan content; it only steers the server-side plan.
 
 This identity is verified with a scripted offline client, so CI never sends.
 
 ## 6. The legacy config path is deprecated
 
-The earlier per-command env/flag configuration (`foundry live`, `foundry arena`, `measure
-run`, `measure catalog`) **still works but is deprecated**. Those paths have their own
+The earlier per-command environment/flag configuration (`foundry live`, `foundry arena`,
+`measure run`, `measure catalog`) **still works but is deprecated**. Those paths have their own
 independent resolution semantics that the canonical plan now owns, so calling them prints
 guidance to stderr. `dashboard --live` run without `--config` prints the same deprecation
 warning, for the same reason — a browser run screen that hasn't bound a plan falls back to the legacy
@@ -137,7 +142,7 @@ Use the canonical plan path for new work.
 
 ## Related documents
 
-- [Live measured bridge](foundry-live.md) — the seam for real Azure Model Router calls.
+- [Live measurement adapter](foundry-live.md) — the path for real Azure Model Router calls.
 - [Fleet registration & model selection](fleet.md) — the artifacts that become arms/rate cards.
 - [Audit ledger](ledger.md) — sealed snapshots and replay integrity.
 - [Experiment config (YAML)](experiments.md) — the experiment-artifact schema.

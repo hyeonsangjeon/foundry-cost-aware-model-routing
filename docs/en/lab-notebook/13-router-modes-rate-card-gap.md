@@ -2,23 +2,29 @@
 
 !!! abstract "One-line summary"
 
-    A third **paid 4-arm measured comparison** — an arm is one comparison strategy in the experiment — ran the router's Cost · Balanced ·
-    Quality modes and a direct `gpt-5.6-sol` arm on the same 24 coding tasks, this
-    time with the raised transport timeouts. The measurement itself came out clean —
-    **287 of 288 cells graded, every arm at pass rate 1.0** — and the preregistered
-    cost order held. What the run exposed was ours, not the router's: **our rate card
-    enumerated the wrong scope**, so 12 calls in the Balanced arm landed on
-    `gpt-5.6-terra`, a model with no row in the card. Those cells followed this rule: when a rate is missing, withhold the cost claim rather than guess (fail-closed), and that arm is **cost-incomplete**: it reports, but it carries no
-    savings claim.
+    An **arm** is one comparison strategy evaluated against the same workload under the
+    same measurement plan. A third **paid 4-arm measured comparison** ran the router's
+    Cost · Balanced · Quality modes and a direct `gpt-5.6-sol` arm on the same 24 coding
+    tasks — 24 tasks × 4 arms × 3 repeats = 288 planned cells — this time with the raised
+    transport timeouts. The measurement itself came out clean: **287 of 288 cells graded,
+    every arm at pass rate 1.0**, and the preregistered cost order held. What the run
+    exposed was ours, not the router's. **Our rate card enumerated the wrong scope**, so
+    12 calls in the Balanced arm landed on `gpt-5.6-terra`, a model with no row in the
+    card. The pricing guard withheld those cells rather than guessing at a missing rate,
+    so that arm is **cost-incomplete**: it reports a total, but it carries no savings
+    claim.
 
 !!! danger "This page records a real paid run"
 
-    Total spend **$4.196595 / budget $20.00**, keyless Entra, sequential execution in a
+    The **priced-cell total was $4.196595 against a $20.00 budget** — the sum over the
+    cells this run could price, excluding the **12 `router-balanced` cells withheld
+    unpriced**, and not an Azure invoice total. Keyless Entra, sequential execution in a
     deterministic dispatch order (task-major → repeat → arm). `max_output_tokens` is the only
     request parameter that comes from the plan; sampling temperature is the service default,
     which this repository neither sets nor records.
-    Preregistration — the workload, hypotheses, and pass/fail criteria committed before the paid run — `454c8159` was committed **before** the results;
-    `plan_hash sha256:33821119…6b0b50` matches the run manifest. Prompt and response
+    The preregistration — the workload, hypotheses and pass/fail criteria — was committed
+    as `454c8159` **before** the results; `plan_hash sha256:33821119…6b0b50` matches the
+    run manifest. Prompt and response
     text is not published — the sealed snapshot stays local (gitignored), and only
     `output_sha256` rides in the public trail.
 
@@ -54,16 +60,17 @@
   429 throttles **0** · **1 timeout** (HTTP 408).
 - **Preregistered cost order held**: `cost < balanced < premium ≤ quality`
   (`$0.075117 < $1.327674 < $1.387830 ≤ $1.405974`).
-- Run-level invalidation criteria (coverage < 90% for any arm; budget abort before 90%;
+- Run-level invalidation criteria (grading coverage < 90% for any arm; budget abort before 90%;
   attrition preventing 90%) — **none triggered**. The run is valid; one arm is
   claim-blocked.
 
 !!! warning "One number on this page is not the site's headline number"
 
-    The run summary's `savings_pct` (**94.7%**) compares the **cheapest cost-complete
-    arm against the most expensive one** — here Cost against Quality. The site's
-    published **95.2%** is a different comparison: Cost against `direct-premium`, in
-    [experiment 12](12-router-modes-measured.md). Two runs, two baselines. They are
+    This run's summary `savings_pct` (**94.7%**) compares `router-cost` against
+    `router-quality` — the cheapest cost-complete arm against the highest-cost
+    cost-complete arm in **this** run. The site's published **95.2%** is a different
+    comparison: `router-cost` against `direct-premium`, in
+    [experiment 12](12-router-modes-measured.md). Two runs, two comparators. They are
     not versions of each other and must not be swapped.
 
 ## Which backends actually answered
@@ -76,8 +83,11 @@
 | `direct-premium` | `gpt-5.6-sol` 100% (72/72) |
 
 The Balanced row is where the cost came from, and it is worth reading beside the same
-row in experiment 12, which ran the same workload, the same seed and the same
-deployments:
+row in experiment 12. That run used the same workload and requested the same deployment
+names, and its plan carried the same `random_seed`. Two cautions travel with that
+comparison: no seed value reaches the model API, so nothing here demonstrates controlled
+randomness, and the backends the router actually resolved to differ between the two runs.
+The served models were not identical:
 
 | `router-balanced` served by | experiment 12 | experiment 13 |
 |---|---|---|
@@ -88,8 +98,8 @@ deployments:
 
 Balanced mode sent every cell to the premium 5.6 family in this run and none to Grok;
 in run 2 it did the reverse. **We are not claiming a cause.** The timeout change
-lets slow calls finish, but it is not a routing knob, and the router's selection policy
-is not ours to inspect. What the two rows do establish is that **an arm's cost is not a
+lets slow calls finish, but it is not a routing knob; the plan's `random_seed` never
+reaches the model API; and the router's selection policy is not ours to inspect. What the two rows do establish is that **an arm's cost is not a
 stable property of its mode** — it is a property of what the roster happened to serve
 that day. That is the single most important caveat on any router cost figure here,
 including the published ones.
@@ -123,7 +133,7 @@ priced row:
 `DeepSeek-V4-Pro` · `Kimi-K2.6` · `Mistral-Large-3` · `Cohere-command-a-plus` · `Phi-4-reasoning`
 
 **DeepSeek is the instructive one.** The card listed `V3.1` and `V3.2`; the account runs
-`V4-Pro`. Similar names read as coverage, and a scan by eye passed over it.
+`V4-Pro`. Similar names read as if the card already covered it, and a scan by eye passed over it.
 
 One deployment is left unpriced **on purpose**: `text-embedding-3-large`. The region
 carries no meter for the plan in use, and an embedding model has no output tokens while a
@@ -146,7 +156,7 @@ correction is therefore a **new dated file**, and the old one stays exactly as i
 Both halves shipped as PRs: the dated card and the 5.6 family in **#104**, the
 deployed-set capture and the test that fails CI without it in **#105**.
 
-!!! warning "The new check is a floor, not full coverage"
+!!! warning "The new check enforces a floor; it does not prove that every routed model has a rate"
 
     Every one of these gaps was found **by hand, reading logs**. That is luck, not
     process — which is what the check replaces. But the check compares against
@@ -177,7 +187,7 @@ The single remaining timeout (`router-cost` · `align-frames` · repeat 1) recor
 `latency_ms 180096.8` — it hit the new read ceiling, not the 240 s overall budget, the
 same pattern the 90 s cells showed at 90.0–90.7 s.
 
-This supports a claim experiment 12 could only argue: its **4.17 pp pass-rate gap was a
+This supports a claim experiment 12 could only argue: its **4.17 percentage point pass-rate gap was a
 latency artefact, not a code-quality difference**. With the ceiling raised, every arm
 solved every task.
 
@@ -197,7 +207,7 @@ solved every task.
   the run was approved with.
 - **That the corrected card retroactively validates anything.** Nothing in an earlier
   run's record was recomputed, and no published figure moved.
-- **Full price coverage.** See the floor note above.
+- **A complete rate card.** See the floor note above.
 - **A general result.** 24 tasks · one tenant · one region · one run ·
   `evidence_tier = directional`. Routing is chosen per request and will differ between
   runs; the arm totals here are one observation of that behaviour, not its expectation.
@@ -215,5 +225,5 @@ solved every task.
 
 The cache tokens left in this run's sealed traces were re-aggregated after the fact, with
 zero paid calls — [Prompt cache observed in the sealed runs](../manual/prompt-cache-observed.md).
-It was observed after the preregistered analysis (post-hoc), outside the preregistration gate, and no figure on this page
-changed.
+That re-read happened after the preregistered analysis, outside the preregistration gate, and
+no figure on this page changed.

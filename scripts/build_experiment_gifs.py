@@ -5,10 +5,10 @@ Each experiment gets a *distinct* visual metaphor so they never look alike:
 
   hero          a live 100-task histogram stacking across the five tiers
   curated       five readable rows, each routed to its real cheapest-passing model
-  ensemble      a fan-out to every candidate -> compare -> winners, with the tax meter
-  adaptive      a rotating dial that collapses the fan-out and drains the tax to zero
-  limits        the honest wall: the cheap arm fails at 0% coverage, equal spend bars
-  model-router  two coverage gauges, single-call (52%) vs observe-and-escalate (100%)
+  ensemble      a fan-out to every candidate -> compare -> winners, with the extra-call meter
+  adaptive      a rotating knob that collapses the fan-out and drains the extra calls to zero
+  limits        the honest wall: the cheap arm fails at a 0% pass rate, equal spend bars
+  model-router  two pass-rate gauges, one up-front pick (52%) vs observe-and-escalate (100%)
 
 Every number is the offline projection (labels.measured=false) and is taken from
 `cost-router experiment run <name> --json/--ledger`. Frames are drawn with Pillow
@@ -204,7 +204,7 @@ def draw_hero(d, t, spec):
     base = 560
     max_h, max_c = 300, max(HERO_HIST)
     centers = [round(300 + i * (980 - 300) / 4) for i in range(5)]
-    d.text((70, 214), "naive puts all 100 on premium-max ($2.23).  routing spreads them —",
+    d.text((70, 214), "premium on every task puts all 100 on premium-max ($2.23) — routing spreads",
            font=font("mono", 13), fill=MUTED, anchor="lm")
     d.text((70, 234), "only 7 reach premium-max, 33 clear on a cheap tier.",
            font=font("mono", 13), fill=MUTED, anchor="lm")
@@ -296,14 +296,15 @@ def draw_ensemble(d, t, spec):
         x = pill(d, x, 488, f"{cnt}x {name}", INK, blend(BG, TIER_COLOR[name], 0.28),
                  font("monob", 12)) + 10
     tax = ease(min(1.0, t / 0.8)) * 3.74
-    meter(d, 150, 560, 360, tax / 4.0, AMBER, "fan-out tax (all calls / winners)",
+    meter(d, 150, 560, 360, tax / 4.0, AMBER, "extra candidate calls (all calls / winners)",
           sub=f"{tax:3.2f}x")
     d.text((540, 555), "winners $0.133  ·  all calls $0.497", font=font("mono", 12),
            fill=MUTED, anchor="lm")
 
 
 def draw_adaptive(d, t, spec):
-    panel(d, 40, 160, W - 40, 600, GREEN, "ADAPTIVE · one dial trades the fan-out tax away")
+    panel(d, 40, 160, W - 40, 600, GREEN,
+          "ADAPTIVE · one setting trades the extra candidate calls away")
     on = t < 0.5
     prog = min(1.0, max(0.0, (t - 0.5) / 0.5)) if not on else 0.0
     dial_prog = ease(min(1.0, t / 0.9))
@@ -317,8 +318,9 @@ def draw_adaptive(d, t, spec):
     node(d, 968, 360, 128, 50, "swift-coder", GREEN, sub="same winner", glow=True)
     flow(d, 850, 904, 360, t, GREEN, n=2)
     tax = 3.74 * (1 - prog) if not on else 3.74 * (t / 0.5)
-    meter(d, 470, 540, 360, tax / 4.0, accent, "fan-out tax", sub=f"{tax:3.2f}x")
-    d.text((850, 535), "savings -47% unchanged", font=font("monob", 13), fill=GREEN, anchor="lm")
+    meter(d, 470, 540, 360, tax / 4.0, accent, "extra candidate calls", sub=f"{tax:3.2f}x")
+    d.text((470, 578), "savings -47% vs premium on every task — unchanged",
+           font=font("monob", 13), fill=GREEN, anchor="lm")
 
 
 def draw_limits(d, t, spec):
@@ -331,14 +333,14 @@ def draw_limits(d, t, spec):
                             fill=blend(BG, RED, 0.10), outline=blend(BG, col, 0.5), width=2)
         d.text((cx, yy - 6), name, font=font("monob", 14), fill=INK, anchor="mm")
         d.text((cx, yy + 12), "FAIL", font=font("monob", 12), fill=RED, anchor="mm")
-    pill(d, 470, yy - 16, "coverage 0%  ·  cheap-only spend $0.020 buys nothing",
+    pill(d, 470, yy - 16, "pass rate 0%  ·  cheap-only spend $0.020 buys nothing",
          blend(INK, RED, 0.5), blend(BG, RED, 0.16), font("monob", 13))
     d.text((470, yy + 24), "the work truly needs the top model per task",
            font=font("mono", 13), fill=MUTED, anchor="lm")
-    panel(d, 40, 396, W - 40, 600, GREEN, "SO ROUTING == NAIVE · no free lunch")
+    panel(d, 40, 396, W - 40, 600, GREEN, "SO ROUTING COSTS THE SAME · no free lunch")
     prog = ease(min(1.0, t / 0.8))
-    for i, (lab, col) in enumerate((("naive · top model per task", RED),
-                                    ("routed · cost-aware", GREEN))):
+    for i, (lab, col) in enumerate((("premium on every task", RED),
+                                    ("routed · cheapest-first escalation", GREEN))):
         by = 470 + i * 60
         d.text((70, by), lab, font=font("mono", 13), fill=MUTED, anchor="lm")
         d.rounded_rectangle([360, by - 12, 360 + 560 * prog, by + 12], radius=6,
@@ -349,7 +351,7 @@ def draw_limits(d, t, spec):
 
 
 def draw_model_router(d, t, spec):
-    panel(d, 40, 160, W - 40, 600, BLUE, "COVERAGE · one pick vs observe-and-escalate")
+    panel(d, 40, 160, W - 40, 600, BLUE, "PASS RATE · one pick vs observe-and-escalate")
     prog = ease(min(1.0, t / 0.8))
     arc_gauge(d, 320, 400, 108, prog * 0.52, AMBER, f"{prog * 52:.0f}%", "single-call")
     arc_gauge(d, 800, 400, 108, prog * 1.00, GREEN, f"{prog * 100:.0f}%", "escalate")
@@ -359,7 +361,7 @@ def draw_model_router(d, t, spec):
            fill=MUTED, anchor="mm")
     d.text((800, 250), "observe, raise only on fail", font=font("monob", 14), fill=INK, anchor="mm")
     d.text((800, 272), "(this repo's layer on top)", font=font("mono", 12), fill=MUTED, anchor="mm")
-    d.text((800, 540), "$1.66 · reclaims full coverage", font=font("mono", 13),
+    d.text((800, 540), "$1.66 · every task passes", font=font("mono", 13),
            fill=MUTED, anchor="mm")
     d.text((560, 380), "+48", font=font("monob", 30), fill=GREEN, anchor="mm")
     d.text((560, 410), "points", font=font("mono", 12), fill=MUTED, anchor="mm")
@@ -368,39 +370,40 @@ def draw_model_router(d, t, spec):
 
 SPECS = {
     "hero": {
-        "title_a": "Hero —", "title_b": "same coverage, lower cost",
-        "subtitle": "100 synthetic tasks · premium-on-everything vs try-cheap-first",
-        "score": ("$2.23", "$1.66", RED, GREEN), "score_note": "-25.5% · 100% coverage",
+        "title_a": "Cheap-first —", "title_b": "same pass rate, lower cost",
+        "subtitle": "Experiment 01 · 100 synthetic tasks · premium on every task vs cheap-first",
+        "score": ("$2.23", "$1.66", RED, GREEN), "score_note": "-25.5% · 100% pass rate",
         "reproduce": "cost-router experiment run hero", "draw": draw_hero,
     },
     "curated": {
         "title_a": "Curated —", "title_b": "five tasks you can read",
-        "subtitle": "5 hand-labelled tasks · every routing decision, end to end",
-        "score": ("$0.127", "$0.055", RED, GREEN), "score_note": "-56.7% · 100% coverage",
+        "subtitle": "Experiment 02 · 5 hand-labelled tasks · every routing decision, end to end",
+        "score": ("$0.127", "$0.055", RED, GREEN), "score_note": "-56.7% · 100% pass rate",
         "reproduce": "cost-router experiment run curated", "draw": draw_curated,
     },
     "ensemble": {
         "title_a": "Ensemble —", "title_b": "best-of-N, at a real cost",
-        "subtitle": "6 high-value tasks · fan out to all candidates, keep the best",
-        "score": ("$0.251", "$0.133", RED, GREEN), "score_note": "-47% · tax 3.74x",
+        "subtitle": "Experiment 05 · 6 high-value tasks · fan out to all candidates, keep the best",
+        "score": ("$0.251", "$0.133", RED, GREEN), "score_note": "-47% vs premium · 3.74x calls",
         "reproduce": "cost-router experiment run ensemble", "draw": draw_ensemble,
     },
     "adaptive": {
-        "title_a": "Adaptive —", "title_b": "the fan-out dial, turned off",
-        "subtitle": "same workload · a dial drops the tax to zero, savings unchanged",
-        "score": ("3.74x", "0.00x", AMBER, GREEN), "score_note": "tax gone · -47% kept",
+        "title_a": "Adaptive —", "title_b": "the fan-out setting, turned off",
+        "subtitle": "Experiment 06 · same workload · one setting drops the extra calls to zero",
+        "score": ("3.74x", "0.00x", AMBER, GREEN), "score_note": "extra calls gone · -47% kept",
         "reproduce": "cost-router experiment run adaptive", "draw": draw_adaptive,
     },
     "limits": {
         "title_a": "Limits —", "title_b": "there is no free lunch",
-        "subtitle": "genuinely hard tasks · only the top model passes · routing saves 0%",
-        "score": ("$0.237", "$0.237", RED, RED), "score_note": "0.0% · 100% coverage",
+        "subtitle": "Experiment 04 · genuinely hard tasks · only the top model passes · saves 0%",
+        "score": ("$0.237", "$0.237", RED, RED), "score_note": "0.0% · 100% pass rate",
         "reproduce": "cost-router experiment run limits", "draw": draw_limits,
     },
     "model-router": {
-        "title_a": "Single-call routing —", "title_b": "pick once vs escalate",
-        "subtitle": "single-call tier pick vs observe-and-escalate, at one cost band",
-        "score": ("52%", "100%", AMBER, GREEN), "score_note": "+48%p · ~4% more cost",
+        "title_a": "Single-call —", "title_b": "pick once vs escalate",
+        "subtitle": "Experiment 07 · one up-front tier pick vs observe-and-escalate",
+        "score": ("52%", "100%", AMBER, GREEN),
+        "score_note": "+48 percentage points · ~4% more cost",
         "reproduce": "cost-router experiment run single-call", "draw": draw_model_router,
     },
 }

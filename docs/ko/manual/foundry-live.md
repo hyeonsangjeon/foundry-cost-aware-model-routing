@@ -5,10 +5,10 @@
 보내고 라우터가 고른 실제 모델과 **실제로 청구된 토큰 usage**를 읽어 그 usage로 비용을
 계산합니다.
 
-!!! danger "정직함 경계 — 일부러 엄격하게"
+!!! danger "주장 경계 — 일부러 엄격하게"
     - **지출은 측정할 수 있지만 품질은 (이 저장소로는) 측정할 수 없습니다.** 라이브 호출은
       실제 토큰을 돌려주므로 `total_cost_usd`는 진짜 측정된 지출입니다. 각 답이 *좋았는지*는
-      여러분이 주입하는 **grader**가 있어야만 측정되며 없으면 커버리지는 오프라인 신호
+      여러분이 주입하는 **grader**가 있어야만 측정되며 없으면 통과율은 오프라인 신호
       투영으로 떨어지고 `coverage_measured = false`로 라벨됩니다.
     - **`measured = true`는 방금 일어난 라이브 호출에만 부여됩니다.** 녹화된 usage 스냅샷을
       재생하면 동일한 스코어링 경로를 타지만 `provenance = recorded` · `measured = false`로
@@ -20,7 +20,7 @@
 !!! tip "실제로 돌린 실측 결과 — [실험 09](../lab-notebook/09-live-routing-proof.md)"
     이 실측 어댑터로 진짜 Foundry Model Router에 큐레이션 프롬프트를 보냈더니, 단일 `model-router`
     배포가 **`gpt-5.4`(3건)와 `grok-4-1-fast-reasoning`(2건)**으로 실제 분기했습니다 —
-    저장소 최초의 `measured = true` 실측 스냅샷(키리스 Entra). 태스크별 증거·정직함 경계는
+    저장소 최초의 `measured = true` 실측 스냅샷(키리스 Entra). 태스크별 증거·주장 경계는
     [실험 09 · 실측 라우팅](../lab-notebook/09-live-routing-proof.md)을 보세요.
 
 ## 1. Foundry 설정 처리
@@ -84,7 +84,7 @@ Azure AI Foundry — live measured Model Router bridge
 ### 1-bis. Microsoft Entra ID(keyless) 인증 {#1-bis-microsoft-entra-idkeyless}
 
 엔터프라이즈 테넌트는 API 키 인증을 꺼두는 경우가 많습니다(`disableLocalAuth=true`). 이때는
-키 대신 **여러분의 Azure 신원**(`az login`, 매니지드 아이덴티티, 환경 자격증명 등)에서 발급한
+키 대신 **여러분의 Azure 신원**(`az login`, 매니지드 아이덴티티, 환경 자격 증명 등)에서 발급한
 베어러 토큰으로 호출합니다. 실측 어댑터는 **API 키가 없으면 자동으로 Entra ID로 전환**하므로,
 설정은 사실상 "키를 비워 두는 것"이 전부입니다.
 
@@ -118,7 +118,7 @@ cost-router foundry status              # auth method : Microsoft Entra ID (keyl
 
 !!! note "시크릿을 다루지 않습니다"
     Entra 경로에는 `.env`에 넣을 키 자체가 없습니다. 토큰은 라이브 호출 순간 여러분의
-    신원에서 발급되고 메모리에만 존재하며 이 저장소는 어떤 자격증명도 저장하지 않습니다.
+    신원에서 발급되고 메모리에만 존재하며 이 저장소는 어떤 자격 증명도 저장하지 않습니다.
 
 ## 2. 실측 스코어링 경로
 
@@ -147,20 +147,20 @@ summary = measured_router_summary(
 
 - **비용**은 `outcome.usage`를 `pricing`으로 계산합니다. usage는 실측이지만 `model-router`
   배포로 간 호출의 금액은 **라우터 input 마크업이 빠져 불완전**합니다(아래 `†` 참조).
-- **커버리지**는 `grader`가 있으면 측정(`coverage_basis = "graded"`), 없으면 그 모델의
+- **통과율**는 `grader`가 있으면 측정(`coverage_basis = "graded"`), 없으면 그 모델의
   오프라인 신호 투영(`"offline-projection"`)입니다. 포착된 **실제 모델**은 오프라인 신호에
-  대응 행이 없으므로 커버리지는 정직하게 **미채점**(`coverage = null`,
+  대응 행이 없으므로 통과율은 정직하게 **미채점**(`coverage = null`,
   `coverage_basis = "ungraded"`)이 됩니다 — usage는 측정되지만 정확도는 아닙니다.
 - **`measured`**는 모든 outcome의 provenance가 `live`일 때만 `true`.
 - **`model_aliases`**는 `gpt-4o` 같은 벤더 이름을 요율/신호 키로 매핑합니다.
 
 ## 3. 라이브 실행
 
-크리덴셜 없이도 **녹화된 usage 스냅샷**을 재생해 스코어링 경로를 확인할 수 있습니다(기본).
+자격 증명 없이도 **녹화된 usage 스냅샷**을 재생해 스코어링 경로를 확인할 수 있습니다(기본).
 이 스냅샷(`samples/responses/model-router-usage.sample.json`)은 **진짜 Azure Model Router
 호출에서 포착한 실제 출력**입니다 — 라우터가 실제로 고른 모델(`gpt-5.4` · `grok-4-1-fast-reasoning`)과
 진짜 청구 토큰이 들어 있습니다. 재생이므로 `provenance = recorded` · `measured = false`로
-정직하게 라벨되고 실제 모델은 오프라인 신호에 대응 행이 없어 커버리지는 **미채점**입니다:
+정직하게 라벨되고 실제 모델은 오프라인 신호에 대응 행이 없어 통과율은 **미채점**입니다:
 
 ```bash
 cost-router foundry live
@@ -180,9 +180,9 @@ Azure Model Router — measured usage  (recorded snapshot (…/model-router-usag
 ```
 
 !!! danger "`†` — 라우터 파생 금액은 **불완전**합니다"
-    Model Router 과금은 합성입니다: **라우터 input 토큰 마크업** + 고른 하위 모델의
-    input·output. 요율 카드에 마크업 항목이 없어 라우팅된 호출의 금액에는 **청구 항목 하나가
-    빠져 있습니다** — 근사가 아니라 불완전입니다. 금액은 히스토리로 표시하되 비용·절감
+    Model Router 과금은 **복합 요율**(`composite-rate-card-v2`)입니다: **라우터 input 토큰
+    마크업** + 라우터가 고른 백엔드의 input·output. 요율 카드에 마크업 항목이 없어 라우팅된
+    호출의 금액에는 **청구 항목 하나가 빠져 있습니다** — 근사가 아니라 불완전입니다. 금액은 히스토리로 표시하되 비용·절감
     주장에는 쓰지 않으며 CLI가 이 각주를 **직접 강제**합니다: versioned annotation
     [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
     을 못 읽거나 해시가 어긋나면 더 엄격한 문구로 **fail-closed** 됩니다. 토큰 usage·모델
@@ -194,7 +194,7 @@ Azure Model Router — measured usage  (recorded snapshot (…/model-router-usag
 이 저장소가 싣는 녹화 스냅샷은 손으로 쓴 목업이 아니라 **실제 라우터 출력을 포착**한 것입니다.
 `load_recorded_usage`의 역함수인 `capture_recorded_usage`가 라이브 클라이언트를 프롬프트가 있는
 워크로드에 돌려 진짜 `task_id -> {model, usage}`를 기록합니다. CLI 한 줄로 다시 포착하세요
-(크리덴셜 + `--live` 필요; `--live` 없이는 거부하고 아무것도 쓰지 않습니다):
+(자격 증명 + `--live` 필요; `--live` 없이는 거부하고 아무것도 쓰지 않습니다):
 
 ```bash
 cost-router foundry live --live --capture samples/responses/model-router-usage.sample.json
@@ -219,7 +219,7 @@ foundry live — captured 5 real outcomes → …/model-router-usage.sample.json
 
 번들 텔레메트리에는 프롬프트가 없어 라이브로 못 보냅니다. 그래서 네 방식 비교의 큐레이션 5건을
 **보낼 수 있는 프롬프트와 함께** 담은 워크로드를 준비했습니다:
-`samples/telemetry/curated-arena-live.sample.jsonl`. 크리덴셜을 채운 뒤 이 한 명령이면
+`samples/telemetry/curated-arena-live.sample.jsonl`. 자격 증명을 채운 뒤 이 한 명령이면
 t-0001~t-0006 **전부**가 실제 Model Router 호출로 `measured = true`가 됩니다:
 
 ```bash
@@ -240,7 +240,7 @@ Azure Model Router — measured usage  (LIVE Azure Model Router)
   † Model Router-derived cost omits the router input-token markup component. …
 ```
 
-크리덴셜이 아직 없으면, **같은 워크로드를 녹화 스냅샷으로** 돌려 경로를 그대로 확인할 수
+자격 증명이 아직 없으면, **같은 워크로드를 녹화 스냅샷으로** 돌려 경로를 그대로 확인할 수
 있습니다(결정론·무송신, `measured = false`):
 
 ```bash
@@ -252,8 +252,8 @@ cost-router foundry live --workload samples/telemetry/curated-arena-live.sample.
     없어** 실제 엔드포인트로 보낼 수 없습니다. `curated-arena-live…`는 네 방식 비교 5건에 **저작한
     합성 프롬프트**(표시·전송용, `measured = false`인 입력)를 붙여 라이브 전송이 가능하게 한
     것입니다. 프롬프트는 저작-합성이지만 그걸 **실제로 보내 받은 usage·비용은 measured=true**
-    입니다 — 결과 생성 경로(provenance)는 live·recorded·test 중 하나입니다; 입력의 출처(저작)와 측정의 출처(라이브)는 별개입니다. 정확도(pass/fail)까지
-    측정하려면 `grader`를 주입하세요(없으면 커버리지는 오프라인 신호 투영으로 라벨).
+    입니다 — 입력의 출처(저작-합성)와 측정의 출처(라이브)는 별개입니다. 정확도(pass/fail)까지
+    측정하려면 `grader`를 주입하세요(없으면 통과율은 오프라인 신호 투영으로 라벨).
 
 ### 임의 워크로드로
 

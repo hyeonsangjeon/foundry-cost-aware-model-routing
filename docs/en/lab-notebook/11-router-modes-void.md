@@ -1,19 +1,29 @@
 # Experiment 11 · Comparing the router's three modes · run 1 (measurement failed)
 
 !!! abstract "One-line summary"
-    This first **paid 4-arm measured comparison** — an arm is one comparison strategy in the experiment — ran the router's Cost · Balanced ·
-    Quality modes and a direct `gpt-5.6-sol` arm on the same 24 coding tasks. The
-    preregistration — the workload, hypotheses, and pass/fail criteria committed before the paid run — required every arm to clear the
-    grading-coverage gate. Quality reached **79.2% < 90%**, so **the run is VOID** and
-    cannot support a savings comparison. The run still recorded that quality cost more
-    than premium, Cost mode used Grok, and reasoning consumed the output budget.
+    An **arm** is one comparison strategy evaluated against the same workload under the
+    same measurement plan. This first **paid 4-arm measured comparison** ran the router's
+    Cost · Balanced · Quality modes and a direct `gpt-5.6-sol` arm on the same 24 coding
+    tasks — 24 tasks × 4 arms × 3 repeats = 288 planned cells. The preregistration — the
+    workload, hypotheses and pass/fail criteria, committed before the paid run — required
+    every arm to clear the grading-coverage gate.
+
+    **The run is VOID on two independently sufficient grounds.** The `router-quality` arm
+    reached a grading coverage of **79.2%, below the 90% floor**. Separately, **43.4% of
+    the run's cells were unpriced**, so the run is cost-incomplete and could not carry a
+    cost comparison even at full grading coverage. Either failure alone voids the planned
+    comparison. The run still recorded that quality cost more than premium, that Cost mode
+    used Grok, and that reasoning consumed the output budget.
     [Experiment 09](09-live-routing-proof.md) records router choice, and
     [experiment 10](10-measured-ledger.md) records how measured usage is sealed.
 
 !!! warning "This page records a real paid run — the only approved spend"
     Unlike experiments 01–10, which were offline projections or re-seals of already-captured
     usage, this experiment is **a real Azure inference run executed after passing explicit
-    approval gates (STOP 1 · STOP 2)**. Total spend **$3.467533 / budget $20.00**, keyless
+    approval gates: operator approval, then approval of the hashed run plan**. The
+    **priced-cell total was $3.467533 against a $20.00 budget**. That total sums only the
+    cells this run could price: **125 of its 288 cells were withheld unpriced**, so their
+    charges are absent from it, and it is not an Azure invoice total. Keyless
     Entra, sequential execution in a deterministic dispatch order (task-major → repeat → arm).
     `max_output_tokens` is the only request parameter that comes from the plan; sampling
     temperature is the service default, which this repository neither sets nor records.
@@ -41,7 +51,7 @@
   **The timestamp is the proof** — it can't be edited later to fit the results.
 
 <figure markdown="span">
-  ![Cost vs pass-rate scatter (experiment 12 publishable re-run): direct-premium costs less and has a higher pass rate than router-quality; router-cost has the lowest cost at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
+  ![Cost vs pass-rate scatter (experiment 12, the publishable re-run): direct-premium costs less and has a higher pass rate than router-quality; router-cost has the lowest cost at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
   <figcaption>For contrast — this scatter is <strong>experiment 12's (the publishable re-run)</strong> cost vs pass rate. Experiment 11 is VOID at the grading-coverage gate and has no publishable chart of its own, so we show experiment 12's result — produced after fixing the two causes — as a contrast. Directly below is experiment 11's voided measured table.</figcaption>
 </figure>
 
@@ -49,16 +59,23 @@
 
 | arm | routing mode | grading coverage | task pass rate | unpriced share | measured cost |
 | --- | --- | --- | --- | --- | --- |
-| `router-cost` | Cost | 95.8% (69/72) | 95.8% (23/24) | **95.8%** (all Grok) | $0.00 · *cost-incomplete* |
+| `router-cost` | Cost | 95.8% (69/72) | 95.8% (23/24) | **95.8%** (all Grok) | — · *cost-incomplete* |
 | `router-balanced` | Balanced | 94.4% (68/72) | 95.8% (23/24) | **77.8%** (56/72 Grok) | $0.259 · *cost-incomplete* |
 | `router-quality` | Quality | **79.2% (57/72)** ❌ | 79.2% (19/24) | 0% | $1.791 |
 | `direct-premium` | — (`gpt-5.6-sol`) | 93.1% (67/72) | 91.7% (22/24) | 0% | $1.417 |
 
-- **Total spend $3.467533 / $20** · 288/288 cells completed (partial=false) · 429 throttles
+- **Priced-cell total $3.467533 / $20 budget** — the sum over the cells that could be
+  priced, excluding the **125 of 288 cells withheld unpriced**, and not an Azure invoice
+  total. · 288/288 cells completed (partial=false) · 429 throttles
   **0** · 7 timeouts (HTTP408, handled per the retry policy) · replay **byte-for-byte
   identical** (`cost_mismatches: []`).
+- The `router-cost` arm's amount reads **—**, not $0.00: every one of its priced cells was
+  withheld, so the arm has **no amount**, which is not the same as an amount of zero.
 - **Aggregate grading coverage is 90.6% (261/288), which just clears 90%**, but the gate is
-  *per-arm*. `router-quality` reached **79.2%**, so the whole comparison is voided.
+  *per-arm*. `router-quality` reached **79.2%**, so the whole comparison is voided on that
+  ground alone.
+- **43.4% of cells were unpriced** (125 of 288, all routed to Grok). That makes the run
+  cost-incomplete, which independently blocks the cost comparison the run was planned for.
 
 ## The preregistered prediction was wrong — **recorded as-is, not edited**
 
@@ -96,7 +113,7 @@ these 20 clustered in the quality arm, dragging quality grading coverage down to
 direct cause that voided the run**. (Grok, by contrast, used up to 5,400 reasoning tokens and
 still produced a gradable body — output accounting differed by provider.)
 
-### (3) The "missing rate" diagnosis was wrong; the missing-rate rule withheld Grok cost
+### (3) The "missing rate" diagnosis was wrong; the guard withheld Grok cost correctly
 
 Seeing the router go to Grok while cost was withheld, I first suspected
 "the card is missing a Grok rate," but investigation showed that was the **wrong
@@ -108,32 +125,34 @@ diagnosis**:
   has no cached meter for Grok** (0 rows across all regions and all services — confirmed
   authoritatively). So the card's `cached: null` is **correct**.
 - `composite_cost`'s **cached-token missing-rate guard** detected "there are cached tokens but no
-  cached rate" and followed this rule: when a rate is missing, withhold the cost claim rather than guess (fail-closed) — this is not a bug but the
-  [03Z-b honesty contract](10-measured-ledger.md) working as designed.
+  cached rate" and withheld the cost claim rather than guessing at the missing rate. That
+  fail-closed behaviour is not a bug: it is the
+  [rate-card honesty contract](10-measured-ledger.md) working as designed.
 
 ## Why the VOID result is still useful
 
 This run failed its preregistered gate but left usable evidence:
 
-- **The preregistration voided itself.** The gate I committed (any arm's grading coverage <90%
-  → void) fired on, of all things, the quality arm that looked most "expensive" on the surface.
-  Had it been after seeing the results, there'd have been a temptation to loosen this rule, but
-  the timestamp stopped that.
-- **Integrity is perfect.** 288/288 completed, within budget ($3.47/$20), replay byte-for-byte
+- **The preregistration voided itself.** The gate committed in advance (any arm's grading
+  grading coverage below 90% → void) fired on, of all things, the quality arm that looked most
+  "expensive" on the surface. Had the rule been written after the results were visible, there
+  would have been a temptation to loosen it; the timestamp stopped that.
+- **Integrity is perfect.** 288/288 completed, within budget (priced-cell total $3.47 against $20), replay byte-for-byte
   identical, zero tamper mismatches. The data is trustworthy — it's just that **this
   configuration** can't support a savings claim.
 - **The negative result and three findings identify the next changes.** They show what
   must be fixed before a valid comparison can run.
 
 !!! danger "What this run does not claim"
-    - **Savings rate**: `router-quality` grading coverage failed to clear the gate, so **the
-      comparison itself is void**. `savings_claim_allowed = false`.
+    - **Savings rate**: two separate failures block it. `router-quality` grading coverage did
+      not clear the gate, and 43.4% of cells were unpriced, so **the comparison itself is
+      void**. `savings_claim_allowed = false`.
     - **Mode ranking**: the cost and pass-rate order is contaminated by finding (2)'s grading
       loss, so it is not a conclusion.
     - **Grok cost**: the Grok cells in the cost and balanced arms were withheld fail-closed —
       no amount (not 0, but **unknown**).
 
-## Next — the two things 03D-2 must fix
+## Next — the two things the re-run ([experiment 12](12-router-modes-measured.md)) must fix
 
 | To fix | Why | Effect |
 | --- | --- | --- |

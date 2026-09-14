@@ -27,17 +27,34 @@ from the saved usage and rate card.
   deployment, scored against predictions registered before the run and sealed
   into a replay-verified snapshot.
 
-![Default experiment: premium-on-everything bills $2.23 while try-cheap-first routing bills $1.66 — 25.5% lower at 100% coverage over 100 synthetic tasks](docs/assets/gif/hero.gif)
+![Default experiment: premium-on-everything bills $2.23 while try-cheap-first routing bills $1.66 — 25.5% lower at a 100% pass rate over 100 synthetic tasks](docs/assets/gif/hero.gif)
 
 <sub>Generated deterministically from this repository's own verified numbers by
 [`scripts/build_experiment_gifs.py`](scripts/build_experiment_gifs.py). Offline
-projection over synthetic data — `labels.measured=false`. Reproduce with
-`cost-router experiment run hero`.</sub>
+projection over synthetic data — `labels.measured=false`. The figure reports the
+offline **pass rate**: tasks a model passed ÷ tasks counted, which the CLI prints
+as `coverage`. Reproduce with `cost-router experiment run hero`.</sub>
 
-> **Strongest evidence — a five-prompt end-to-end call-path check (experiment 09).** Wired to a
-> live Azure AI Foundry **Model Router** deployment over keyless Entra, one call
-> really split to `gpt-5.4` (×3) and `grok-4-1-fast-reasoning` (×2) — this repo's
-> first `measured=true` run, sealed into a hash-chained, replayable ledger.
+> **Strongest measured evidence — the paid router-mode comparison (experiments 12
+> and 13).** Four arms — an *arm* is one comparison strategy — over the same 24
+> coding tasks at n=3, so 288 planned cells per run (a *cell* is one task × arm ×
+> repeat), against a live Azure AI Foundry deployment over keyless Entra. Both runs
+> were scored against predictions and pass/fail gates committed before any paid
+> call. Their published priced-cell totals are **$3.27 and $4.20 against a $20
+> cap** — the sum of cells the pinned rate card could price, so run 13's figure
+> **excludes the 12 cells it withheld fail-closed** and neither figure is an Azure
+> invoice total. Both runs are sealed into replay-verified
+> snapshots. **Read them as directional:**
+> 24 prompts is below the ≥100-prompt bar Microsoft gives for statistically reliable
+> results, and fewer than 30 prompts is directional only, so every measured result
+> here carries `evidence_tier = directional`.
+> [Experiment 12 →](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/12-router-modes-measured/)
+> · [Experiment 13 →](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/13-router-modes-rate-card-gap/)
+>
+> **The first `measured=true` run — a five-prompt end-to-end call-path check
+> (experiment 09).** Connected to a live Azure AI Foundry **Model Router**
+> deployment over keyless Entra, one call really split to `gpt-5.4` (×3) and
+> `grok-4-1-fast-reasoning` (×2), sealed into a hash-chained, replayable ledger.
 > **Read it as a call-path check, not a benchmark:** five prompts is far below the
 > ≥100-prompt bar Microsoft gives for statistically reliable results (fewer than
 > 30 prompts is directional only), and the run measures routing, usage, latency,
@@ -65,7 +82,8 @@ Azure — only a fresh live call is ever labelled `measured`.
 `cost-router hero --json` segment was observed at **0.12 s** on both supported
 interpreters (CPython 3.11.15 / 3.12.13); a fresh clone plus install added
 roughly **6–9 s** on the same machine. Environment metadata and the full segment
-table → [install guide](docs/ko/manual/install.md).
+table → [install guide](docs/en/manual/install.md)
+([한국어](docs/ko/manual/install.md)).
 
 Both interpreters are held to that claim by CI: each run installs the package
 **non-editable** (`pip install .`) on 3.11 and on 3.12, then runs `cost-router`
@@ -75,22 +93,26 @@ nothing is published to PyPI; `git clone` is still the install path.
 
 ### Where to go next
 
-- **Methodology** — [measurement protocol](docs/ko/manual/measurement-protocol.md)
+- **Methodology** — [measurement protocol](docs/en/manual/measurement-protocol.md)
   (what may be called `measured`, sample-size tiers, snapshot/replay contract)
-  and [core concepts](docs/ko/manual/concept.md).
-- **Benchmark evidence** — the [ten experiments](#the-experiment-arc--honest-by-construction)
-  below, and the [experiment atlas](docs/ko/manual/experiment-atlas.md) for how each
+  and [core concepts](docs/en/manual/concept.md) (한국어:
+  [측정 프로토콜](docs/ko/manual/measurement-protocol.md) ·
+  [핵심 개념](docs/ko/manual/concept.md)).
+- **Benchmark evidence** — the [experiment arc](#the-experiment-arc--honest-by-construction)
+  below, and the [experiment atlas](docs/en/manual/experiment-atlas.md)
+  ([한국어](docs/ko/manual/experiment-atlas.md)) for how each
   one is built. The paid routing-mode track continues past that table:
   [experiment 13 · rate-card gap](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/13-router-modes-rate-card-gap/)
   is the run that found a hole in this repo's *own* rate card, withheld the affected
   arm's cost claim fail-closed, and pinned why that run's summary savings figure is
   not the site's published one.
-- **Full manual (한국어)** —
-  <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
+- **Full manual** — <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/>
+  (한국어: <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/ko/>)
 - **Interactive offline demo** (no install, no account, nothing is billed) —
   <https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/demo/?run=1>
-  — animated before/after, five cost-and-coverage strategies, and the coverage loss
-  after removing fallback models, all rendered from the same offline projection.
+  — animated before/after, five strategies scored on cost and pass rate, and the
+  pass rate lost after removing fallback models, all rendered from the same offline
+  projection.
 
 ---
 
@@ -122,11 +144,12 @@ diagrams stay outside Git.
 
 ## Offline preview in depth
 
-`cost-router hero` runs the default cost-and-coverage experiment as a **deterministic offline
-projection over synthetic data** (`labels.measured=false`) — a *preview*, not a
-measurement. It prints a before/after, a spotlight task, and a reproducibility
-self-check (it exits non-zero if the projection ever drifts below the contracted
-floor):
+`cost-router hero` runs the default experiment — cost against pass rate — as a
+**deterministic offline projection over synthetic data** (`labels.measured=false`)
+— a *preview*, not a measurement. It prints a before/after, one representative
+task, and a reproducibility self-check (it exits non-zero if the projection ever
+drifts below the contracted floor). In its output and in every `expect` field,
+`coverage` is the offline **pass rate**: tasks a model passed ÷ tasks counted.
 
 ```bash
 cost-router hero
@@ -142,11 +165,11 @@ cost-router hero --serve --port 8000   # dashboard; auto-falls back if the port 
 
 The preview above is synthetic. To route against **your** deployed Azure AI
 Foundry models, register them in a fleet config, pick which one plays each arm
-(router/cheapest/premium/ensemble), and run the live arena — real calls → real
-token usage → `measured=true`:
+(router/cheapest/premium/ensemble), and run the live four-way comparison — real
+calls → real token usage → `measured=true`:
 
 ```bash
-cost-router models list        # your deployed-model catalog + current slate
+cost-router models list        # your deployed-model catalog + current role assignment
 cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
 cost-router foundry arena --fleet .foundry-fleet.local.yaml --live
 ```
@@ -170,43 +193,68 @@ az login                      # keyless Entra — no credential field in the bro
 cost-router dashboard --live  # 127.0.0.1 + random port + a session-token URL
 ```
 
-Connection check → the exact prompts + dry-run cost → **approve & run** (the human
-gate) → live progress → snapshot replay — then seal and re-verify the spend with
-`cost-router ledger measured-replay`. This is the clone → `.env` → one-button path;
+Connection check → the exact prompts + dry-run cost → **approve and run** → live
+progress → snapshot replay — then seal and re-verify the spend with
+`cost-router ledger measured-replay`. Nothing is billed until you approve. This is
+the clone → `.env` → one-button path;
 the public page linked above is an **interactive offline demo** — a read-only
 replay of an already-measured run, not a live paid dashboard. Full recipe: the
-[local browser run screen & customization guide](docs/ko/manual/customize.md) and the
-[end-to-end Foundry setup](docs/ko/manual/foundry-setup.md).
+[local browser run screen & customization guide](docs/en/manual/customize.md) and the
+[end-to-end Foundry setup](docs/en/manual/foundry-setup.md) (한국어:
+[커스터마이징](docs/ko/manual/customize.md) ·
+[Foundry 설정](docs/ko/manual/foundry-setup.md)).
 
 ## The experiment arc — honest by construction
 
-Ten one-command experiments test when cost-aware routing lowers cost and when it
-does not. Experiments 01–08 are deterministic offline projections over synthetic
-data (`labels.measured=false`); 09–10 are real **measured** runs against a live
-Foundry Model Router:
+Thirteen write-ups test when cost-aware routing lowers cost and when it does not.
+Six of them are named YAML experiments you can run in one command
+(`cost-router experiment run <name>`); the rest are driven by `policy regression`,
+`foundry arena`, and the measured commands. Experiments 01–08 are deterministic
+offline projections over synthetic data (`labels.measured=false`); 09–13 are real
+**measured** runs against a live Foundry Model Router at
+`evidence_tier = directional`, one of which (11) is a measured run voided by its
+own grading-coverage gate. The table covers 01–10; the paid router-mode track
+continues below it.
 
 | # | Experiment | Question it answers | Result |
 | --- | --- | --- | --- |
-| 01 | [Try-cheap-first routing](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/01-hero/) | Routing on a realistic 100-task workload? | 100% coverage, **−25.5%** cost |
-| 02 | [Curated](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/02-curated/) | Five tasks you can follow by eye? | 100% coverage, **−56.7%** cost |
-| 03 | [Coverage cliff](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/03-coverage-cliff/) | Delete the expensive fallback to save more? | cost falls, but coverage drops **100% → 67%** |
-| 04 | [No free lunch](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/04-no-free-lunch/) | A workload where only the top model passes? | 100% coverage, **0%** saved |
-| 05 | [All-candidate call cost](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% coverage, **−47%** — all candidate calls cost **3.74×** the winner |
-| 06 | [Adaptive fan-out dial](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/06-fanout-dial/) | Can you keep the savings but drop the extra calls? | compared with experiment 05, one budget threshold keeps coverage/savings unchanged while the extra-call ratio falls **3.74× → $0** |
-| 07 | [Routing layer](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/07-model-router/) | Single-call routing — pick once, no escalation (the shape any per-prompt router has, including ours in ordered-only mode)? | 52% coverage; layering observe-then-escalate on top reaches 100% at ~the same cost (gain **+48%p**) — experiment 09 wires a real deployment in as this arm |
-| 08 | [Arena](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/08-arena/) *(one-task comparison)* | One problem, four ways — what does each cost, how long does it take, and does it pass? | router is the **cheapest correct** answer but the **slowest** (sequential escalation); latency is a **new illustrative projection** |
-| 09 | [Live routing proof](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/09-live-routing-proof/) *(measured)* | Wired to a real Foundry Model Router, what does it actually pick? | one `model-router` deployment really split to **`gpt-5.4` (×3) and `grok-4-1-fast-reasoning` (×2)** — the repo's **first `measured = true`** run, keyless Entra |
+| 01 | [Try-cheap-first routing](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/01-hero/) | Routing on a realistic 100-task workload? | 100% pass rate, **−25.5%** cost |
+| 02 | [Curated](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/02-curated/) | Five tasks you can follow by eye? | 100% pass rate, **−56.7%** cost |
+| 03 | [What you lose using only the cheapest model](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/03-coverage-cliff/) | Delete the expensive fallback to save more? | cost falls, but the pass rate drops **100% → 67%** |
+| 04 | [No free lunch](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/04-no-free-lunch/) | A workload where only the top model passes? | 100% pass rate, **0%** saved |
+| 05 | [All-candidate call cost](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/05-ensemble-fanout/) | What does "just ensemble every model" really cost? | 100% pass rate, **−47%** — all candidate calls cost **3.74×** the winner |
+| 06 | [When it is worth calling several models](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/06-fanout-dial/) | Can you keep the savings but drop the extra calls? | compared with experiment 05, one budget threshold keeps the pass rate and the savings unchanged while the extra-call ratio falls **3.74× → 0.00×** ($0.36 → $0.00) |
+| 07 | [One pick vs observe-then-escalate](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/07-model-router/) | Pick one model per prompt and never escalate — the shape any per-prompt router has, including ours in ordered-only mode? | 52% pass rate; checking the result and escalating on top of it reaches 100% at ~the same cost, a gain of **48 percentage points** — experiment 09 puts a real deployment in as this arm |
+| 08 | [One problem, four routing strategies](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/08-arena/) *(one-task comparison)* | One problem, four ways — what does each cost, how long does it take, and does it pass? | router is the **cheapest correct** answer but the **slowest** (sequential escalation); unlike the cost figures, the latency here is an **illustrative projection**, not measured |
+| 09 | [Live routing proof](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/09-live-routing-proof/) *(measured)* | Connected to a real Foundry Model Router, what does it actually pick? | one `model-router` deployment really split to **`gpt-5.4` (×3) and `grok-4-1-fast-reasoning` (×2)** — the repo's **first `measured = true`** run, keyless Entra |
 | 10 | [Measured ledger](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/10-measured-ledger/) *(measured)* | Once it's measured, can anyone re-verify the record wasn't tampered with? | the live run is sealed into a **hash-chained, cost-replayable** ledger — `measured-replay` re-derives every amount from token usage × a pinned rate card; **one edited byte fails it**, the offline ledger stays untouched. Integrity, not a cost claim: the router arm's amounts are **pricing-incomplete** and carry a versioned annotation that every renderer enforces |
 
+**The paid router-mode track — experiments 11, 12 and 13.** Three runs of the same
+comparison: the Model Router's Cost, Balanced and Quality modes against calling
+`gpt-5.6-sol` directly, over the 24 coding tasks in
+[`benchmarks/original-coding/`](benchmarks/original-coding/README.md) at n=3.
+
+| # | Run | Outcome |
+| --- | --- | --- |
+| 11 | [Router three modes · run 1](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/11-router-modes-void/) *(measured)* | **VOID**, and the void is kept published. Two independently sufficient failures: the quality arm graded **79.2% (57/72)**, below the 90% floor, and **43.4% of cells** were unpriced, leaving two arms cost-incomplete |
+| 12 | [Router three modes · run 2](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/12-router-modes-measured/) *(measured)* | the publishable run — every gate passed, `cost < balanced < premium < quality`, and the site's published **95.2%** savings figure comes from here |
+| 13 | [Router three modes · run 3](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/13-router-modes-rate-card-gap/) *(measured)* | the raised timeout worked (11 → 1 timeout cells), **and** the run found a gap in this repo's *own* rate card — 12 cells landed on a model with no priced row, so that arm's cost claim was withheld fail-closed |
+
 Experiments 01–02 show lower cost; 03–07 test ways that result can fail or cost
-more; 08 compares four approaches on one task and adds illustrative latency. Each
-`expect` contract fails CI if the projection drifts, including a ceiling that rejects
-an implausibly large saving and a floor that requires escalation to recover coverage.
+more; 08 compares four approaches on one task and adds illustrative latency; 09–13
+leave the projection track and spend real money. Each `expect` contract fails CI if
+the projection drifts, including a ceiling that rejects an implausibly large saving
+and a floor that requires escalation to recover the pass rate; the measured runs are held
+instead by preregistered gates, and a run that misses one is published as void
+rather than dropped.
 Read them in order in the
-[**story arc**](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc/)
-([EN summary](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc-en/)),
+[**story arc**](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/story-arc/),
 or dive into the full
-[Korean lab notebook](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/).
+[lab notebook](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/lab-notebook/)
+(한국어:
+[스토리 아크](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/ko/lab-notebook/story-arc/)
+·
+[실험노트](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/ko/lab-notebook/)).
 
 ## Bring your own deployments
 
@@ -238,9 +286,10 @@ cost-router evals --synth       # routed vs. always-most-expensive baseline
 ### Experiments
 
 A named experiment is a small YAML (`experiments/*.yaml`) that pins a workload,
-its offline signals, pricing, and policy, plus an `expect` reproducibility
-contract. See [`experiments/`](experiments/) and the
-[Korean manual](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/experiments/).
+its offline signals, pricing, and policy, plus an `expect` block of
+reproducibility criteria. See [`experiments/`](experiments/) and the
+[experiment configuration reference](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/manual/experiments/)
+([한국어](https://hyeonsangjeon.github.io/foundry-cost-aware-model-routing/ko/manual/experiments/)).
 
 ```bash
 cost-router experiment list          # list available experiments
@@ -248,17 +297,18 @@ cost-router experiment run curated   # run one by name
 cost-router experiment run hero --json
 ```
 
-The hard-workload boundary: only the top model passes, so routing keeps full
-coverage but saves **0%**. A two-sided `expect` contract fails CI if a future change
+The hard-workload boundary: only the top model passes, so routing keeps a full
+pass rate but saves **0%**. A two-sided `expect` contract fails CI if a future change
 reports a saving here (lab notebook:
-실험 04 · 공짜 점심은 없다):
+[Experiment 04 · When every task is hard, there is no saving](docs/en/lab-notebook/04-no-free-lunch.md)):
 
 ```bash
 cost-router experiment run limits    # coverage 100.0% · saved 0.0%
 ```
 
 The honest counter-example — deleting the expensive fallback models looks
-cheaper but drops coverage from 100% to 67% (lab notebook: 실험 03 · 커버리지 절벽):
+cheaper but drops the pass rate from 100% to 67% (lab notebook:
+[Experiment 03 · What you lose by using only the cheapest model](docs/en/lab-notebook/03-coverage-cliff.md)):
 
 ```bash
 cost-router policy regression --candidate experiments/policies/cost-cut.yaml --synth
@@ -267,7 +317,8 @@ cost-router policy regression --candidate experiments/policies/cost-cut.yaml --s
 All-candidate call cost: compare mode calls every candidate on high-value tasks but
 stores only the winner in the routing bill. `src/router/metrics.py` also sums every
 candidate call and records the difference for the web app and historical dashboard
-(lab notebook: 실험 05 · 전체 후보 호출 비용):
+(lab notebook:
+[Experiment 05 · Calling several models at once multiplies the cost](docs/en/lab-notebook/05-ensemble-fanout.md)):
 
 ```bash
 cost-router experiment run ensemble          # 100% coverage, −47% — but fan-out is 3.74× the winner
@@ -277,37 +328,41 @@ cost-router metrics history --store runs.jsonl
 ```
 
 The `compare_min_value` threshold controls how many tasks call every candidate.
-Raising it reduces fan-out tasks. Coverage (100%) and savings (47%) stay unchanged
-while the extra-call ratio falls **3.74× → $0**. Experiment 06 pins this with a
-`max_tax_ratio` ceiling (lab notebook: 실험 06 · 적응형 팬아웃 다이얼):
+Raising it reduces fan-out tasks. The pass rate (100%) and the savings (47%) stay
+unchanged while the extra-call ratio falls **3.74× → 0.00×**, which is
+**$0.36 → $0.00** on this workload. Experiment 06 pins this with a
+`max_tax_ratio` ceiling (lab
+notebook:
+[Experiment 06 · When is it worth calling several models](docs/en/lab-notebook/06-fanout-dial.md)):
 
 ```bash
 cost-router experiment run adaptive          # 100% coverage, −47% — extra candidate-call cost held at 0.00×
 ```
 
-The routing layer — single-call routing picks one model per prompt, up front,
-with no escalation. That's the shape any per-prompt router has, including Azure
-AI Foundry's built-in **Model Router** and this repo's own ordered-only mode.
-Selection is the product's job; everything below is the layer on top of it. A
+Picking one model per prompt, up front, with no escalation is the shape any
+per-prompt router has, including Azure AI Foundry's built-in **Model Router** and
+this repo's own ordered-only mode. Selection is the product's job; everything
+below is the layer on top of it. A
 dependency-free, env-gated adapter (`FOUNDRY_*`) lets a live deployment's
-decisions replace the offline proxy, and experiment 09 wires that real
+decisions replace the offline proxy, and experiment 09 puts that real
 deployment in as the arm and proves it `measured=true`.
 
 Experiment 07 adds a generic **single-call** arm over synthetic tasks
-(`measured=false`), not a product measurement. It reaches **52%** coverage; the
-observe-then-escalate path reaches **100%** at about the same cost. The
-`min_escalation_gain` contract pins the **+48%p** difference (lab notebook: 실험 07 ·
-라우팅 레이어):
+(`measured=false`), not a product measurement. It reaches a **52%** pass rate;
+checking the result and escalating on failure reaches **100%** at about the same
+cost. The `min_escalation_gain` contract pins that **48 percentage point**
+difference, which the CLI prints as `+48.0 percentage points` (lab notebook:
+[Experiment 07 · One pick vs observe-then-escalate](docs/en/lab-notebook/07-model-router.md)):
 
 ```bash
-cost-router experiment run single-call       # 100% coverage, −25.5% — single-call vs escalate gain +48%p
+cost-router experiment run single-call       # 100% coverage, −25.5% — escalation gain +48.0 percentage points
 ```
 
-The live measured bridge — turning that env-gated adapter into **measured
+The live measurement adapter — turning those env-gated decisions into **measured
 usage**. `cost-router foundry live` prices a Model Router run on the endpoint's
 **real token usage** (not synthetic tokens): the recorded snapshot reports
-`$0.02` (avg `$0.0041`/task) as **pricing-incomplete historical output**,
-coverage ungraded — usage is measured; correctness needs a grader. Model
+`$0.02` (avg `$0.0041`/task) as **pricing-incomplete historical output**, with no
+pass rate at all — usage is measured; correctness needs a grader. Model
 Router billing is composite (a router input-token markup **plus** the resolved
 model's charges) and the pinned rate card declares no markup, so every routed
 amount omits one billed component. The CLI marks those figures `†` and refuses
@@ -318,7 +373,8 @@ closed**. Direct-model arms are never charged the markup and are unaffected.
 `measured=true` is reserved for a genuine
 live call; without credentials it replays a recorded snapshot so the path stays
 offline/deterministic. Secrets are never printed — `foundry status` masks them
-(manual: 라이브 실측 브릿지):
+(manual: [the live measurement adapter](docs/en/manual/foundry-live.md) ·
+[한국어](docs/ko/manual/foundry-live.md)):
 
 ```bash
 cost-router foundry status                   # redacted config + live-call readiness
@@ -330,9 +386,10 @@ cost-router foundry live --live --workload my-prompts.jsonl \
 
 ### The 30-second before / after
 
-`make replay-all` (and `cost-router replay --synth`) end with a naive-vs-routed
-block: the naive column bills the most expensive candidate for every task, the
-routed column is cost-aware routing (cheapest candidate that passes its own
+`make replay-all` (and `cost-router replay --synth`) end with a before/after
+block: one column is the **premium-on-every-task baseline**, which bills the most
+expensive candidate for every task and which the output labels `naive`; the other
+column is cost-aware routing (cheapest candidate that passes its own
 checks, escalate only on failure). Over the full 100-row synthetic workload:
 
 ```bash
@@ -391,7 +448,7 @@ router's internal implementation.
 
 ## Fleet — register & select your models
 
-The live head-to-head (`cost-router foundry arena`) and the dashboard build
+The live four-way comparison (`cost-router foundry arena`) and the dashboard build
 their four strategy arms from a **fleet config**: which *deployed* Azure AI
 Foundry model plays each role — the **router (main)**, the **cheapest** floor,
 the **premium** ceiling, and the **ensemble** fan-out. This is the "register
@@ -420,10 +477,10 @@ interactive `/model` picker, or non-interactive flags). The choice is saved to a
 gitignored `.foundry-fleet.local.yaml`:
 
 ```bash
-cost-router models list          # catalog + current slate + live readiness
+cost-router models list          # catalog + current role assignment + live readiness
 cost-router models select        # interactive: enter a number or name per arm
 cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
-cost-router foundry arena --fleet .foundry-fleet.local.yaml --live   # measure YOUR slate
+cost-router foundry arena --fleet .foundry-fleet.local.yaml --live   # measure YOUR models
 ```
 
 **Select from the dashboard** — the "Fleet & live routing" panel lists the same
@@ -455,8 +512,8 @@ Endpoints (all JSON, all deterministic and network-free):
 | ------ | -------------- | -------------------------------------------------------- |
 | GET    | `/healthz`     | Liveness probe.                                          |
 | GET    | `/policy`      | Policy version and ordered candidates per task class.    |
-| GET    | `/fleet`       | Model catalog, current slate, and live readiness.        |
-| POST   | `/fleet/run`   | Validate a selected slate; replay the recorded arena.    |
+| GET    | `/fleet`       | Model catalog, current role assignment, and live readiness. |
+| POST   | `/fleet/run`   | Validate a selected role assignment; replay the recorded four-way comparison. |
 | POST   | `/route`       | Route one task payload, return its routing trace.        |
 | POST   | `/batch-route` | Route many task payloads, return traces plus a summary.  |
 
@@ -487,8 +544,8 @@ make docker-run            # serves on http://127.0.0.1:8000
 
 ## Policy ops & regression guard
 
-Inspect, validate, diff, and simulate routing policies — and check cost/coverage
-regressions before changing one:
+Inspect, validate, diff, and simulate routing policies — and check cost and
+pass-rate regressions before changing one:
 
 ```bash
 cost-router policy show
@@ -509,11 +566,11 @@ the signals are synthesized once from the *union* of both policies' candidates:
 shared models keep the base policy's prior, and the most expensive model in the
 union is the guaranteed clean fallback. Raising a candidate's `prior_pass` alone
 therefore leaves the signals untouched (zero delta), while dropping an expensive
-fallback exposes the coverage risk it creates instead of hiding it. Over the
+fallback exposes the pass-rate risk it creates instead of hiding it. Over the
 synthetic 100-row workload the bundled candidate (which removes the `premium-max`
-fallback from `repo_patch`) routes for `$1.34` vs the seed's `$1.66`, but
-coverage drops to `93%` (base `100%`). The report shows both the lower cost and lower
-coverage. The result is deterministic for a given workload, and all models
+fallback from `repo_patch`) routes for `$1.34` vs the seed's `$1.66`, but its
+pass rate drops to `93%` (base `100%`). The report shows both the lower cost and the
+lower pass rate. The result is deterministic for a given workload, and all models
 stay generic placeholders.
 
 ---

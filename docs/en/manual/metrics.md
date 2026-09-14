@@ -18,8 +18,8 @@ recompute the numbers by hand.
 
 | Name | Role |
 | --- | --- |
-| `fanout_stats(traces)` | Recovers the **ensemble cost to call several candidate models in parallel (fan-out)** from compare (ensemble) traces (`fanout_usd` · `winner_usd` · `ensemble_tax_usd` · `tax_ratio`) |
-| `ExperimentMetrics` | Normalized snapshot of a single run (immutable dataclass) — cost, pass rate (the `coverage` field), fan-out cost, plus `run_id` |
+| `fanout_stats(traces)` | Recovers the **full fan-out cost** — every candidate call, not just the winner — from compare (ensemble) traces (`fanout_usd` · `winner_usd` · `ensemble_tax_usd` · `tax_ratio`) |
+| `ExperimentMetrics` | Normalized snapshot of a single run (immutable dataclass) — cost, pass rate (emitted as the `coverage` field), fan-out cost, plus `run_id` |
 | `ExperimentMetrics.to_metric_records()` | Renders a list of Azure Monitor / OTel metric data points |
 | `extract_experiment_metrics(result)` | `ExperimentResult` → `ExperimentMetrics` (pure and deterministic) |
 | `JsonlMetricsStore` | Append-only JSONL history store (`record` · `history` · `latest_per_experiment`) |
@@ -30,7 +30,8 @@ recompute the numbers by hand.
 
 Cost-aware routing calls every candidate in compare mode **only on high-value
 tasks**, and bills only the winning model. A trace's `cost_usd` records the winner alone,
-so the fan-out cost stays hidden. `fanout_stats` recovers that hidden cost.
+so the cost of the discarded candidate calls does not appear there. `fanout_stats`
+recovers it.
 
 ```python
 from router.metrics import fanout_stats

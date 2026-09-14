@@ -1975,15 +1975,18 @@ def format_compare_text(payload: dict[str, object]) -> str:
     approaches = arena["approaches"]
     labels = {a["approach"]: a["label"] for a in approaches}
 
+    # The approach labels are shared with the demo, so the column sizes itself
+    # rather than truncating a reworded strategy name.
+    label_w = max(8, *(len(str(a["label"])) for a in approaches))
     lines = [
-        "one problem, four ways   (measured = false)",
+        "one problem, four routing strategies   (measured = false)",
         f"task  {task_id}   class={arena['class']}   difficulty={arena['difficulty']}",
     ]
     lines += _format_problem_block(arena.get("problem"))
     lines += [
         "",
-        f"{'approach':<19} {'model(s)':<28} {'cost':>11} {'latency*':>11}  result",
-        f"{'-' * 19} {'-' * 28} {'-' * 11} {'-' * 11}  {'-' * 6}",
+        f"{'approach':<{label_w}} {'model(s)':<28} {'cost':>11} {'latency*':>11}  result",
+        f"{'-' * label_w} {'-' * 28} {'-' * 11} {'-' * 11}  {'-' * 6}",
     ]
     winners = arena["winners"]
     axes = (("cost", "$"), ("latency", "@"))
@@ -1991,7 +1994,7 @@ def format_compare_text(payload: dict[str, object]) -> str:
         marks = "".join(tag for axis, tag in axes if winners.get(axis) == a["approach"])
         result = "✓ pass" if a["passed"] else "✗ fail"
         lines.append(
-            f"{a['label']:<19} {_compact_models(a):<28} "
+            f"{a['label']:<{label_w}} {_compact_models(a):<28} "
             f"{format_usd(a['cost_usd']):>11s} {a['latency_ms']:>9.0f}ms  {result} {marks}".rstrip()
         )
     acc = winners["accuracy"]

@@ -1,13 +1,15 @@
 # Fleet · model catalog & role assignment
 
-The measured four-way comparison (the `arena` command, `cost-router foundry arena`) and the dashboard run **four
-strategy arms — an arm is one comparison strategy in the experiment** — **router (the main one)**, **cheapest (the floor)**, **premium
-(the ceiling)**, and **ensemble (call several candidate models in parallel (fan-out))**. Which **real deployed model** backs
+The measured four-way comparison (the `arena` command, `cost-router foundry arena`) and
+the dashboard run **four strategy arms**, an **arm** being one comparison strategy
+evaluated against the same workload under the same measurement plan: **router (the main
+one)**, **cheapest (the floor)**, **premium (the ceiling)**, and **ensemble (a parallel
+fan-out to several candidates)**. Which **real deployed model** backs
 each arm used to be hardcoded in the code. `src/router/fleet.py` promotes that
 mapping into a small **environment file (the fleet config)** that you own — this is
 exactly the "register the models you will use in an environment file" step.
 
-!!! note "Fleet — the deployment model catalog plus role assignment"
+!!! note "Fleet — the catalog of deployed models plus role assignment"
     - **Catalog**: the list of models you have actually deployed. Each entry has the
       logical `name` used in the pricing table and reports, the Azure `deployment`
       name the live client calls, and a free-form `tier`.
@@ -76,10 +78,10 @@ models:
     that offline experiments use. The `benchmark`/paid-measurement path, by contrast,
     bills with a **v2 rate card** (`schema_version: 2`; e.g.
     `samples/pricing/foundry-ext-router.yaml`) — its core is a synthetic formula that
-    adds an input-token markup on the router arm, plus a **fail-closed** rule that
-    seals any backend with no rate as unpriced instead of filling it with an
-    arbitrary rate. For the path split between the two schemas see
-    [measurement protocol §6.1](measurement-protocol.md#61-rate-card-schema-v1-offline-experiments-vs-v2-benchpaid-measurement).
+    composes the router's input-token markup with the resolved backend's rates, plus a
+    **fail-closed** rule that seals any backend with no priced row as unpriced instead of
+    filling it with an arbitrary rate. For the path split between the two schemas see
+    [measurement protocol §6.1](measurement-protocol.md#61-v1-vs-v2).
 
 !!! note "Where the `provider` tag matters"
     The Model Router arm already routes many of these partner models **cross-provider,
@@ -88,15 +90,16 @@ models:
     matters when an arm that calls **directly** without going through the router —
     cheapest · premium · ensemble fan-out — calls a partner surface. Multi-provider
     routing itself is a built-in feature (table stakes), and this repository's value
-    sits on the validation · ensemble · governor · audit axes above it.
+    sits on the validation · ensemble · spending-rule · audit axes above it.
 
 !!! warning "`provider: foundry` is scoped out of benchmarks (retiring SDK, 2026-08-26)"
     The partner surface (`provider: foundry`) runs on the beta SDK
-    `azure-ai-inference`. That SDK has a **documented retirement on 2026-08-26**, so
-    BOLT-03B **scoped it out rather than migrating it** — the golden path (Model
+    `azure-ai-inference`. That SDK has a **documented retirement on 2026-08-26**, so this
+    repository **scoped it out rather than migrating it** — the golden path (Model
     Router + the direct gpt-5.x arms) is already the `openai` v1 surface, and the
     partner arm enters no benchmark arm, so migrating would only widen the scope
-    without changing the measured result. This scope-out is **enforced in code**: if a
+    without changing the measured result. The paid runs recorded here (2026-08-06 and
+    2026-08-14) all predate that retirement date. This scope-out is **enforced in code**: if a
     `provider=foundry` arm enters benchmark mode or a publishable path,
     `router.foundry_live.assert_provider_benchmark_safe` blocks it fail-closed
     (opt-in integration smoke tests are still allowed). To carry a measured cost claim

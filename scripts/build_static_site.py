@@ -15,9 +15,10 @@ no network, no secrets, generic placeholder models only. Numbers are identical
 to ``make replay`` / the live service by construction (same pipeline call).
 
 Each locale renders in its own language. ``render_dashboard(locale)`` resolves
-the per-locale prose from ``router.demo_i18n`` and injects the matching
-measured-tab payload, and the experiment/metrics JSON is localized per locale,
-so ``/demo/`` (en) is fully English and ``/ko/demo/`` (ko) fully Korean. The
+the per-locale prose from ``router.demo_i18n``, injects the matching measured-tab
+payload and the table of strings the browser builds at render time, and the
+compare / experiment / metrics JSON is localized per locale, so ``/demo/`` (en)
+is fully English and ``/ko/demo/`` (ko) fully Korean. The
 ``<html lang>``, reciprocal ``canonical``/``hreflang`` metadata, and a visible
 EN<->KO switch link differ too, so a Korean reader who follows the demo link
 from ``/ko/`` stays inside the Korean locale context.
@@ -36,7 +37,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from router.dashboard import render_dashboard  # noqa: E402
-from router.demo_i18n import localize_experiments  # noqa: E402
+from router.demo_i18n import (  # noqa: E402
+    localize_compare,
+    localize_experiments,
+    localize_policy,
+)
 from router.server import RouterService  # noqa: E402
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -64,10 +69,45 @@ window.__ENDPOINTS__ = {
   compare: "compare.json",
   experiments: "experiments.json",
   metricsHistory: "metrics-history.json",
-  measured: "published.json"
+  measured: "published.json",
+  fleet: null,
+  fleetRun: null
 };
 </script>
 """
+
+
+# Reader-facing prose fields in the localized payloads. Everything else in those
+# JSON files is an identifier, a model name, a number or a label flag, and stays
+# Latin in both locales by design.
+_PROSE_FIELDS = (
+    "title", "summary", "detail", "label", "teaches", "prompt", "acceptance",
+    "class", "difficulty", "tier", "role", "reasoning",
+)
+# A Korean prose field may still embed code (``parse_duration``), a model name
+# (``swift-coder``) or a literal (``"1h30m" -> 5400``). It is only a leak when a
+# run of ordinary English *words* survives — two or more in a row, including a
+# hyphenated prose word such as ``observe-then-escalate`` but excluding identifiers.
+_WORD = r"(?<![\w./_(])[A-Za-z]{2,}(?:-[A-Za-z]{2,})*(?![\w./_)])"
+_ENGLISH_RUN = re.compile(rf"{_WORD}[ ,]+{_WORD}")
+_HANGUL_RE = re.compile(r"[\uac00-\ud7a3]")
+
+
+def _english_prose_leaks(payload: object, path: str = "") -> list[str]:
+    """Return every Korean-locale prose field that still reads as English."""
+    out: list[str] = []
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            here = f"{path}.{key}" if path else str(key)
+            if isinstance(value, str) and key in _PROSE_FIELDS and value.strip():
+                if not _HANGUL_RE.search(value) and _ENGLISH_RUN.search(value):
+                    out.append(f"{here}={value[:60]!r}")
+            else:
+                out.extend(_english_prose_leaks(value, here))
+    elif isinstance(payload, list):
+        for i, value in enumerate(payload):
+            out.extend(_english_prose_leaks(value, f"{path}[{i}]"))
+    return out
 
 
 def _payload(service: RouterService, path: str) -> object:
@@ -117,27 +157,42 @@ def build(output_dir: Path, locale: str = "en") -> None:
 
     files = {
         "healthz.json": _payload(service, "/healthz"),
-        "policy.json": _payload(service, "/policy"),
+        "policy.json": localize_policy(_payload(service, "/policy"), locale),
         "replay-curated.json": _payload(service, "/replay?synth=false"),
         "replay-synth.json": _payload(service, "/replay?synth=true"),
         "regression.json": _payload(service, "/regression"),
         "fanout-sweep.json": _payload(service, "/fanout-sweep"),
-        "compare.json": _payload(service, "/compare"),
+        "compare.json": localize_compare(_payload(service, "/compare"), locale),
         "experiments.json": localize_experiments(_payload(service, "/experiments"), locale),
         "metrics-history.json": localize_experiments(
             _payload(service, "/metrics/history"), locale
         ),
     }
     # R4 for data: the English demo must never leak Korean through client-side
-    # rendered JSON (experiment cards, history titles). A missing per-locale
-    # translation fails the build rather than shipping mixed language.
+    # rendered JSON (experiment cards, history titles, the compare panel). A
+    # missing per-locale translation fails the build rather than shipping mixed
+    # language.
+    _LOCALIZED_JSON = (
+        "experiments.json", "metrics-history.json", "compare.json", "policy.json",
+    )
     if locale == "en":
         hangul = re.compile(r"[\uac00-\ud7a3]")
-        for name in ("experiments.json", "metrics-history.json"):
+        for name in _LOCALIZED_JSON:
             if hangul.search(json.dumps(files[name], ensure_ascii=False)):
                 raise SystemExit(
                     f"en demo {name} still contains Korean — add the missing "
-                    "EXPERIMENT_I18N entry in router.demo_i18n"
+                    "translation entry in router.demo_i18n"
+                )
+    else:
+        # The mirror check: a Korean payload must not ship English sentences.
+        # Only reader-facing prose fields are scanned; identifiers, model names,
+        # code snippets and numbers legitimately stay Latin.
+        for name in _LOCALIZED_JSON:
+            leaks = _english_prose_leaks(files[name])
+            if leaks:
+                raise SystemExit(
+                    f"ko demo {name} still carries untranslated English prose: "
+                    + "; ".join(leaks[:3])
                 )
     for name, payload in files.items():
         (output_dir / name).write_text(

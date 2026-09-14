@@ -130,6 +130,15 @@ def test_static_export_keeps_cockpit_dark(site: Path) -> None:
         assert leaked not in html, f"static export must not carry {leaked}"
 
 
+def test_static_export_does_not_fetch_live_fleet_routes(site: Path) -> None:
+    """The static page must not turn a missing live endpoint into `/undefined`."""
+    html = (site / "index.html").read_text(encoding="utf-8")
+    assert "fleet: null" in html
+    assert "fleetRun: null" in html
+    assert "if (!EP.fleet) return;" in html
+    assert "if (!EP.fleetRun) return;" in html
+
+
 def test_exported_json_is_valid_and_carries_spotlight(site: Path) -> None:
     for name in ("healthz.json", "policy.json"):
         json.loads((site / name).read_text(encoding="utf-8"))

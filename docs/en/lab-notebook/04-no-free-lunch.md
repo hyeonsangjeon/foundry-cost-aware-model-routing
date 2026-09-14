@@ -1,7 +1,7 @@
 # Experiment 04 · When every task is hard, there is no saving
 
 !!! abstract "One-line summary — 'there is no free lunch'"
-    On a workload where every task is genuinely hard and **only the most expensive model passes**, routing tries all the cheap models, fails, and climbs to the top. The result is **100% coverage · 0.0% savings** — routing cost is **exactly the same** as naive (always premium). Routing does not invent savings that aren't there. All numbers are `measured = false`.
+    On a workload where every task is genuinely hard and **only the most expensive model passes**, routing tries all the cheap models, fails, and climbs to the top. The result is a **100% pass rate · 0.0% savings** — routing cost is **exactly the same** as the **premium-on-every-task baseline**, which sends every task to the most expensive candidate. Routing does not invent savings that aren't there. All numbers are `measured = false`. This experiment is the `limits` configuration (`experiments/limits.yaml`).
 
 <figure markdown="span">
   ![Limits loop animation — the cheap tiers fail one after another, climbing all the way to the top](/foundry-cost-aware-model-routing/assets/gif/limits.gif)
@@ -12,7 +12,7 @@
 
 - **Situation (when):** the moment the expectation lands — "turn routing on and it always gets cheaper, right?" — and you need to draw the **boundary** of that expectation honestly.
 - **Task (what):** on 6 hand-picked hard tasks, attach offline signals where **only the top candidate passes** each task (`samples/responses/hard-tasks-signals.sample.json`) and run routing.
-- **Experiment (what it tests):** that on this workload routing (1) **holds coverage at 100%** while (2) saving **0%** — that is, it honestly spends top-tier cost on hard work.
+- **Experiment (what it tests):** that on this workload routing (1) **holds the pass rate at 100%** while (2) saving **0%** — that is, it honestly spends top-tier cost on hard work. The offline CLI emits that pass rate under the field name `coverage` ([glossary](../manual/glossary.md)).
 
 Experiments 01 · 02 save money, and experiment 03 shows that removing fallback
 models loses solved tasks. Here the policy is correct, but every task reaches the
@@ -23,6 +23,9 @@ top model, so the saving is zero.
 Each task's signals are defined for **every candidate** in the class; the cheap candidates fail their checks (`compiles=false` or `tests_pass=false`) and **only the most expensive candidate** passes them all. The router evaluates the cheap candidates first but, since none pass, escalates to the top.
 
 - **Workload:** the 6 hard tasks in `samples/telemetry/mixed-coding-workload.sample.jsonl`
+  — these signals are **authored synthetic signals written to produce the "only the top
+  passes" outcome**. The input was constructed after the intervention existed, to expose
+  this boundary; it was not observed and then measured.
 - **Signals:** [`samples/responses/hard-tasks-signals.sample.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/responses/hard-tasks-signals.sample.json) (only the top is clean)
 - **Policy · pricing:** bundled seed policy · pricing (`measured = false`)
 
@@ -32,7 +35,7 @@ Each task's signals are defined for **every candidate** in the class; the cheap 
 cost-router experiment run limits
 ```
 
-## Result — 0% savings, 100% coverage
+## Result — 0% savings, a 100% pass rate
 
 ```text
 before / after  (offline projection over synthetic data; labels.measured=false)
@@ -58,26 +61,26 @@ For each task the router evaluates a cheap candidate → fails → climbs to the
 | t-0024 | repo_patch | swift-coder ✗ · balanced-pro ✗ · deep-reasoner ✗ · **premium-max ✓** | premium-max | $0.08 |
 | t-0029 | repo_patch | swift-coder ✗ · balanced-pro ✗ · deep-reasoner ✗ · **premium-max ✓** | premium-max | $0.07 |
 
-Total routing cost **$0.24** = naive cost **$0.24** → savings **$0.00 (0.0%)**.
+Total routing cost **$0.24** = premium-baseline cost **$0.24** → savings **$0.00 (0.0%)**.
 
 ## Reading this number honestly
 
-Routing did not "fail." Its promise is *"same coverage, lower cost,"* not
+Routing did not "fail." Its promise is *"same pass rate, lower cost,"* not
 *"always lower cost."* A saving appears **only when a cheap model actually passes**. Here every
 cheap model fails, so the router reaches the top model on every task and spends the
-same amount as naive. Unlike [experiment 03](03-coverage-cliff.md), it does not lower
-coverage to make cost look smaller.
+same amount as the premium baseline. Unlike [experiment 03](03-coverage-cliff.md), it does not lower
+the pass rate to make cost look smaller.
 
 !!! success "Two-sided reproducibility criteria (`max_delta_pct`)"
     This experiment's `expect` block pins **both** sides:
 
-    - `min_coverage: 1.0` — routing must hold coverage at 100% (even if it has to spend), and
+    - `min_coverage: 1.0` — routing must hold the pass rate at 100% (even if it has to spend), and
     - `max_delta_pct: 0.0` — on this workload **savings must not exceed 0%.**
 
-    The second ceiling is a newly added guard. If a future change makes this hard
-    workload look "cheaper" because signals weakened or cost calculation broke, the
-    `savings_ceiling` check fails. It prevents the page from reporting a saving where
-    every task still requires the top model.
+    That second bound is the guard this experiment contributes. If a future change makes
+    this hard workload look "cheaper" because the signals weakened or the cost
+    calculation broke, the `savings_ceiling` check fails. It prevents the page from
+    reporting a saving where every task still requires the top model.
 
 ## When to use this experiment
 

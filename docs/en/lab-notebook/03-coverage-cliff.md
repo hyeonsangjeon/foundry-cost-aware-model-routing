@@ -1,16 +1,16 @@
 # Experiment 03 · What you lose by using only the cheapest model
 
 !!! abstract "One-line summary"
-    "Wouldn't deleting the expensive models entirely save even more?" — the policy built that way looks cheaper on paper, but coverage collapses **100% → 67% (−33%p)**. **Cost is only comparable once coverage is pinned.** All numbers are `measured = false`.
+    "Wouldn't deleting the expensive models entirely save even more?" — the policy built that way looks cheaper on paper, but the **pass rate** collapses **100% → 67% (−33 percentage points)**. **Cost is only comparable once the pass rate is pinned.** All numbers are `measured = false`.
 
-!!! info "Terminology — 'coverage' on this page means pass rate"
-    In this experiment, **coverage** means the **pass rate** — the share of tasks that pass (are resolved) (the offline CLI's `coverage` field). It differs from the **grading coverage** (the share of graded cells) used separately in the measured results (experiments 11 · 12 · 03D) → [glossary](../manual/glossary.md).
+!!! info "Field names — the CLI prints this pass rate as `coverage`"
+    The **pass rate** on this page is the share of tasks that pass (are resolved). The offline CLI and the experiment contract emit it under the field name `coverage`, so the two words name one quantity here. It differs from **grading coverage** (the share of planned cells that were graded), which the measured experiments 11, 12 and 13 report separately → [glossary](../manual/glossary.md).
 
 ## What this experiment is
 
 - **Situation (when):** the moment an optimization proposal lands — "wouldn't deleting the expensive fallback model save more?"
 - **Task (what):** run a regression comparison of a candidate policy with the expensive fallback deleted (`experiments/policies/cost-cut.yaml`) against the bundled seed policy on the **same shared signals**.
-- **Experiment (what it tests):** how badly a naive cost cut breaks coverage (100% → 67%) — that is, why a cost comparison that doesn't pin coverage is meaningless.
+- **Experiment (what it tests):** how badly an unexamined cost cut breaks the pass rate (100% → 67%) — that is, why a cost comparison that doesn't pin the pass rate is meaningless.
 
 Experiments 01 · 02 showed *"routing pays off,"* and this experiment removes the
 expensive fallback and records what stops passing.
@@ -45,7 +45,7 @@ regression (candidate vs base):
 | Metric | base (seed) | candidate (cost-cut) |
 | --- | --- | --- |
 | Tasks | 100 | 100 |
-| **Coverage** | **100.0%** | **67.0%** (−33%p) |
+| **Pass rate** | **100.0%** | **67.0%** (−33 percentage points) |
 | Routing cost | $1.66 | $0.73 |
 
 > The default experiment's baseline for this comparison ($2.23 → $1.66, −25.5%) is canonically in [offline experiment results](../manual/projection-results.md).
@@ -57,23 +57,23 @@ of tasks, every remaining model fails its checks. Removing the expensive fallbac
 removed the "guaranteed clean last candidate" that could pass those tasks.
 
 !!! danger "Don't compare delta_pct at face value"
-    The report's `delta_pct vs baseline` compares **each policy against its own naive baseline**. Because cost-cut deleted the expensive models, even that baseline drops     (`$1.19` vs the seed's `$2.23`). So "38.9% > 25.5%" is **not a better saving**.
+    The report's `delta_pct vs baseline` compares **each policy against its own premium-on-every-task baseline**. Because cost-cut deleted the expensive models, even that baseline drops (`$1.19` vs the seed's `$2.23`). So "38.9% > 25.5%" is **not a better saving**.
     It compares against a smaller baseline while fewer tasks pass. **A cost comparison
-    that doesn't pin coverage is meaningless.**
+    that doesn't pin the pass rate is meaningless.**
 
 This is why the seed policy keeps the expensive fallback. Most tasks do not use it,
 so it adds little to their cost. Hard tasks use it when cheaper models fail, which
-keeps coverage at 100%. The core claim is *"same coverage, lower cost,"* so a result
-with lower coverage does not qualify.
+keeps the pass rate at 100%. The core claim is *"same pass rate, lower cost,"* so a
+result with a lower pass rate does not qualify.
 
 ## When to use this experiment
 
-- When you want to check for a **coverage regression** before touching a policy.
+- When you want to check for a **pass-rate regression** before touching a policy.
 - When a "let's delete the expensive model" proposal lands and you want to show its cost **in numbers**.
 - When explaining that lowering cost by removing fallback models also removes solved tasks.
 
 !!! note "Use it as a regression guard"
-    `cost-router policy regression` also works as a guard that protects policy changes in CI — if a candidate policy drops coverage, it shows up immediately in review. For the field descriptions, see [experiment config (YAML)](../manual/experiments.md) and `cost-router policy regression --help`.
+    `cost-router policy regression` also works as a guard that protects policy changes in CI — if a candidate policy drops the pass rate, it shows up immediately in review. For the field descriptions, see [experiment config (YAML)](../manual/experiments.md) and `cost-router policy regression --help`.
 
 ## Reproduce this experiment
 

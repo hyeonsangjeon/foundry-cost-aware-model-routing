@@ -16,6 +16,7 @@ catches nothing and still reports OK.
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -79,38 +80,45 @@ REINTRODUCTIONS = (
     ("exec-signals", "| pass rate 95.8–100% | 결정론적 exec-signals 채점기를 통과함 |"),
     ("void 런", "결과는 직전 void 런과 이번 publishable 런에서 두 번 재현됐다."),
     ("scope-out", "이 scope-out은 **코드로 강제**됩니다: 벤치마크 모드에서 막습니다."),
+    ("스냅숏", "봉인된 스냅숏을 다시 읽습니다."),
+    ("자격증명", "자격증명은 환경 변수로 전달합니다."),
+    ("크리덴셜", "크리덴셜을 저장소에 넣지 않습니다."),
 )
 
-REINTRODUCTION_IDS = ("arm", "prereg", "pinned-rate", "exec-signals", "void-run", "scope-out")
+REINTRODUCTION_IDS = (
+    "arm",
+    "prereg",
+    "pinned-rate",
+    "exec-signals",
+    "void-run",
+    "scope-out",
+    "snapshot",
+    "credentials-spacing",
+    "credentials-transliteration",
+)
 
 # Direction 2 — the keep list must pass. These are PR #132's 존치 10건 (code
 # fence 1, 파일명 7, 스키마 키 2) plus the uppercase ``VOID`` status value and the
 # ``무효(VOID)`` first-mention pattern: 12 sites that look like a retired term but
-# are a name, a status value, or code. They are addressed by (file, line) and read
-# from the tree rather than transcribed, so the probe tests the real text — and
-# fails loudly if the line moves instead of silently checking a blank.
+# are a name, a status value, or code. They are located by a stable token rather
+# than a line number, so prose edits can move them without weakening the probe.
 KEEP_SITES = (
-    ("manual/fleet.md", 101, "코드 펜스", "아암마다"),
-    ("lab-notebook/11-router-modes-void.md", 35, "파일명", "prereg-03d-router-modes.md"),
-    ("lab-notebook/11-router-modes-void.md", 133, "파일명", "prereg-03d-router-modes.md"),
-    ("lab-notebook/12-router-modes-measured.md", 34, "파일명", "prereg-03d2-router-modes.md"),
-    ("lab-notebook/12-router-modes-measured.md", 143, "파일명", "prereg-03d2-router-modes.md"),
-    ("lab-notebook/13-router-modes-rate-card-gap.md", 205, "파일명", "prereg-03d3-router-modes.md"),
-    ("manual/measurement-protocol.md", 66, "파일명", "prereg.md"),
-    ("manual/measurement-protocol.md", 92, "파일명", "`prereg.md`"),
-    ("manual/measurement-protocol.md", 77, "스키마 키", "`prereg`"),
-    ("manual/measurement-protocol.md", 227, "스키마 키", "benchmark.preregistration"),
-    ("manual/prompt-cache-observed.md", 97, "상태값 VOID", "(VOID)"),
-    ("lab-notebook/11-router-modes-void.md", 7, "무효(VOID) 최초 등장", "무효(VOID)"),
+    ("lab-notebook/11-router-modes-void.md", "파일명", "prereg-03d-router-modes.md"),
+    ("lab-notebook/12-router-modes-measured.md", "파일명", "prereg-03d2-router-modes.md"),
+    ("lab-notebook/13-router-modes-rate-card-gap.md", "파일명", "prereg-03d3-router-modes.md"),
+    ("manual/measurement-protocol.md", "파일명", "prereg.md"),
+    ("manual/measurement-protocol.md", "스키마 키", "`prereg`"),
+    ("manual/measurement-protocol.md", "스키마 키", "benchmark.preregistration"),
+    ("manual/prompt-cache-observed.md", "상태값 VOID", "(VOID)"),
+    ("lab-notebook/11-router-modes-void.md", "무효(VOID) 최초 등장", "무효(VOID)"),
 )
 
-KEEP_SITE_IDS = tuple(f"{rel}:{lineno}" for rel, lineno, _, _ in KEEP_SITES)
+KEEP_SITE_IDS = tuple(f"{rel}:{token}" for rel, _, token in KEEP_SITES)
 
 
-def _doc_line(rel: str, lineno: int) -> str:
+def _doc_token_lines(rel: str, token: str) -> list[tuple[int, str]]:
     lines = (REPO_ROOT / "docs" / "ko" / rel).read_text(encoding="utf-8").splitlines()
-    assert lineno <= len(lines), f"{rel} has no line {lineno}"
-    return lines[lineno - 1]
+    return [(lineno, text) for lineno, text in enumerate(lines, 1) if token in text]
 
 
 @pytest.mark.parametrize(("retired", "line"), REINTRODUCTIONS, ids=REINTRODUCTION_IDS)
@@ -126,14 +134,17 @@ def test_the_failure_names_what_to_write_instead(retired: str, line: str):
     assert replacement and retired not in replacement
 
 
-@pytest.mark.parametrize(("rel", "lineno", "reason", "token"), KEEP_SITES, ids=KEEP_SITE_IDS)
-def test_keep_site_is_not_flagged(rel: str, lineno: int, reason: str, token: str):
-    text = _doc_line(rel, lineno)
-    assert token in text, f"{rel}:{lineno} no longer holds the {reason} keep case"
-    flagged = [
-        v for v in terminology.check_no_retired_terminology() if v.startswith(f"{rel}:{lineno} ")
-    ]
-    assert flagged == [], f"false positive on the {reason} keep case:\n" + "\n".join(flagged)
+@pytest.mark.parametrize(("rel", "reason", "token"), KEEP_SITES, ids=KEEP_SITE_IDS)
+def test_keep_site_is_not_flagged(rel: str, reason: str, token: str):
+    matches = _doc_token_lines(rel, token)
+    assert matches, f"{rel} no longer holds the {reason} keep case {token!r}"
+    violations = terminology.check_no_retired_terminology()
+    for lineno, _ in matches:
+        flagged = [v for v in violations if v.startswith(f"{rel}:{lineno} ")]
+        assert flagged == [], (
+            f"false positive on the {reason} keep case at {rel}:{lineno}:\n"
+            + "\n".join(flagged)
+        )
 
 
 def test_rule_d_covers_exactly_the_six_retired_terms():
@@ -142,17 +153,17 @@ def test_rule_d_covers_exactly_the_six_retired_terms():
     ]
 
 
-def test_the_fence_is_what_saves_the_models_select_comment():
-    """fleet.md:101 passes because of the fence, not a weak pattern.
-
-    Both directions in one probe: read as bare prose the comment *would* be
-    flagged, so the keep case is genuinely load-bearing on fence detection.
-    """
-    rel, lineno = "manual/fleet.md", 101
-    lines = (REPO_ROOT / "docs" / "ko" / rel).read_text(encoding="utf-8").splitlines()
-    assert terminology.retired_terms_in(lines[lineno - 1]), "would be flagged as prose"
-    assert lineno in terminology.fenced_line_numbers(lines)
-    assert (rel, lineno) not in {(r, n) for r, n, _ in terminology._iter_rule_d_lines()}
+def test_rule_d_skips_fenced_blocks(tmp_path, monkeypatch):
+    """A retired word in a command example is code, but the same prose is not."""
+    page = tmp_path / "manual"
+    page.mkdir()
+    (page / "fleet.md").write_text(
+        "```text\n각 아암마다 번호를 입력합니다.\n```\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(terminology, "DOCS", tmp_path)
+    assert terminology.check_no_retired_terminology() == []
+    assert terminology.retired_terms_in("각 아암마다 번호를 입력합니다.")
 
 
 def test_masking_does_not_hide_prose_beside_a_code_span():
@@ -177,10 +188,10 @@ def test_uppercase_void_run_is_caught_but_a_bare_status_value_is_not():
     assert terminology.retired_terms_in("| 런 상태 | VOID | 채점 커버리지 79.2% |") == []
 
 
-def test_rule_d_skips_the_devlog_while_rules_abc_still_read_it():
+def test_rule_d_scans_the_devlog_with_the_other_korean_pages():
     devlog = "lab-notebook/devlog.md"
-    assert devlog in terminology.RULE_D_EXCLUDED
-    assert devlog not in {rel for rel, _, _ in terminology._iter_rule_d_lines()}
+    assert devlog not in terminology.RULE_D_EXCLUDED
+    assert devlog in {rel for rel, _, _ in terminology._iter_rule_d_lines()}
     assert devlog in {rel for rel, _, _ in terminology._iter_doc_lines()}
 
 
@@ -209,7 +220,16 @@ FIRST_SCREEN_REINTRODUCTIONS = (
     ("cockpit", "The local cockpit runs the same screen live against your Foundry."),
     ("콕핏", "로컬 콕핏은 같은 화면을 실시간으로 실행합니다."),
     ("ensemble tax", "It totals the extra candidate-call cost (**ensemble tax**)."),
+    ("fan-out tax", "The fan-out tax counts the calls whose outputs are discarded."),
     ("앙상블 세금", "선택하지 않은 후보까지 포함한 호출 비용(**앙상블 세금**)을 합산합니다."),
+    ("팬아웃 세금", "선택하지 않은 후보가 만든 팬아웃 세금을 합산합니다."),
+    ("naive", "The naive baseline sends every task to the premium model."),
+    ("나이브", "나이브 기준선은 모든 과제에 프리미엄 모델을 씁니다."),
+    ("cost-aware mix", "The cost-aware mix escalates after a failed check."),
+    ("비용 인지", "비용 인지 라우팅은 실패한 과제만 상위 모델로 보냅니다."),
+    ("governor", "The governor stops additional calls at the spending limit."),
+    ("거버너", "비용 거버너가 추가 호출을 막습니다."),
+    ("폴백", "실패하면 폴백 모델을 호출합니다."),
     ("cost governor", "It stops at the approved spending limit (**cost governor**)."),
     ("비용 거버너", "승인한 지출 한도에서 멈춥니다(**비용 거버너**)."),
     ("wiring", "Read it as a five-prompt wiring proof, not a benchmark."),
@@ -231,7 +251,10 @@ FIRST_SCREEN_REINTRODUCTIONS = (
 )
 
 FIRST_SCREEN_IDS = (
-    "cockpit-en", "cockpit-ko", "ensemble-tax-en", "ensemble-tax-ko",
+    "cockpit-en", "cockpit-ko", "ensemble-tax-en", "fanout-tax-en",
+    "ensemble-tax-ko", "fanout-tax-ko",
+    "naive-en", "naive-ko", "cost-aware-mix-en", "cost-aware-mix-ko",
+    "governor-en", "governor-ko", "fallback-ko",
     "cost-governor-en", "cost-governor-ko", "wiring-en", "wiring-ko",
     "human-gate-en", "human-gate-ko", "flagship-en", "flagship-ko",
     "hero-workload-en", "hero-baseline-en", "hero-loop-en", "hero-loop-ko",
@@ -314,10 +337,26 @@ def test_rule_e_is_clean_on_the_repository():
     assert violations == [], "\n".join(violations)
 
 
-def test_rule_e_now_scans_inner_pages_tree_wide(tmp_path, monkeypatch):
+def test_rule_e_catches_a_retired_phrase_split_across_a_soft_wrap(tmp_path, monkeypatch):
+    page = tmp_path / "home.md"
+    page.write_text(
+        "Nothing runs until a person chooses approve and run (the human\n"
+        "gate).\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "FIRST_SCREEN_SURFACES", ("home.md",))
+    monkeypatch.setattr(terminology, "REPOSITORY_PROSE_SURFACES", ())
+    monkeypatch.setattr(terminology, "INNER_PAGE_LOCALES", ())
+    violations = terminology.check_no_retired_first_screen_terms()
+    assert len(violations) == 1, violations
+    assert "human gate" in violations[0] and ":1-2" in violations[0]
+
+
+def test_rule_e_scans_inner_pages_and_their_h1_titles(tmp_path, monkeypatch):
     """BOLT-12 widened Rule E from the first screen to every docs page: a BOLT-10
     coinage on an inner manual page must fail now, where before it was out of
-    scope. The H1 is still skipped, so only the body line is flagged."""
+    scope. The H1 is reader-visible and is checked with the body."""
     page = tmp_path / "docs" / "en" / "manual" / "concept.md"
     page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text(
@@ -330,8 +369,11 @@ def test_rule_e_now_scans_inner_pages_tree_wide(tmp_path, monkeypatch):
     monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("manual",))
     monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
     violations = terminology.check_no_retired_first_screen_terms()
-    assert len(violations) == 1, violations       # the body line, not the H1
-    assert ":3" in violations[0] and "flagship" in violations[0]
+    assert len(violations) == 2, violations
+    assert {re.search(r":(\d+) reintroduces", v).group(1) for v in violations} == {
+        "1",
+        "3",
+    }
 
 
 def test_wiring_moved_from_rule_f_to_rule_e():
@@ -354,7 +396,7 @@ def test_wiring_moved_from_rule_f_to_rule_e():
 # below can pair them one-to-one.
 INNER_PAGE_REINTRODUCTIONS = (
     ("measured/measurement bridge", "The router's decision plugs in through the measured bridge."),
-    ("측정 브리지/브릿지", "실제 라우터의 결정을 측정 브리지로 끼워 넣습니다."),
+    ("측정/실측 브리지/브릿지", "실제 라우터의 결정을 실측 브릿지로 끼워 넣습니다."),
     ("spotlight", "The experiment spotlight shows the representative task."),
     ("스포트라이트", "실험 스포트라이트는 대표 태스크를 보여줍니다."),
     ("coverage cliff", "The coverage cliff shows the tasks a cheap-only router loses."),
@@ -426,9 +468,8 @@ def test_rule_f_masks_the_spotlight_card_ui_label():
     assert bare == ["spotlight"]
 
 
-def test_rule_f_skips_the_h1_page_title(tmp_path, monkeypatch):
-    """A page's H1 title is BOLT-12's surface — foundry-live.md keeps "measured
-    bridge" there — so Rule F skips the H1 but still catches the body prose."""
+def test_rule_f_scans_the_h1_page_title(tmp_path, monkeypatch):
+    """Page titles and body prose use the same reader-facing vocabulary."""
     page = tmp_path / "docs" / "en" / "manual" / "foundry-live.md"
     page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text(
@@ -440,8 +481,11 @@ def test_rule_f_skips_the_h1_page_title(tmp_path, monkeypatch):
     monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("manual",))
     monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
     violations = terminology.check_no_retired_inner_page_terms()
-    assert len(violations) == 1, violations       # the body line only, not the H1
-    assert ":3" in violations[0]
+    assert len(violations) == 2, violations
+    assert {re.search(r":(\d+) reintroduces", v).group(1) for v in violations} == {
+        "1",
+        "3",
+    }
 
 
 def test_rule_f_skips_fenced_blocks(tmp_path, monkeypatch):
@@ -491,10 +535,8 @@ def test_rule_f_masks_inline_code_across_line_wraps(tmp_path, monkeypatch):
     ],
     ids=["heading", "bold-inline", "korean", "plain-inline"],
 )
-def test_rule_f_skips_the_related_documents_footer(tmp_path, monkeypatch, footer):
-    """The Related-documents footer links between pages (nav — BOLT-12), so a link
-    there to a page whose retired title is kept does not fail Rule F. The same
-    term in body prose above the footer is still caught, so the skip is scoped."""
+def test_rule_f_scans_the_related_documents_footer(tmp_path, monkeypatch, footer):
+    """Navigation labels are reader-visible and follow the same vocabulary."""
     page = tmp_path / "docs" / "en" / "manual" / "page.md"
     page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text(
@@ -506,8 +548,13 @@ def test_rule_f_skips_the_related_documents_footer(tmp_path, monkeypatch, footer
     monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("manual",))
     monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
     violations = terminology.check_no_retired_inner_page_terms()
-    assert len(violations) == 1, violations       # the body line, not the footer
-    assert "coverage cliff" in violations[0]
+    assert len(violations) == 2, violations
+    assert any("coverage cliff" in violation for violation in violations)
+    assert any(
+        "measured/measurement bridge" in violation
+        or "측정/실측 브리지/브릿지" in violation
+        for violation in violations
+    )
 
 
 def test_rule_f_is_wired_into_find_violations(tmp_path, monkeypatch):
@@ -523,21 +570,42 @@ def test_rule_f_is_wired_into_find_violations(tmp_path, monkeypatch):
     assert any("retired 'coverage cliff'" in v for v in terminology.find_violations())
 
 
-def test_rule_f_excludes_the_devlog(tmp_path, monkeypatch):
-    """The ko devlog is out of BOLT-11 scope (a dated journal), like Rule D."""
+def test_rule_f_scans_the_devlog(tmp_path, monkeypatch):
+    """Historical chronology does not exempt reader-facing terminology."""
     devlog = tmp_path / "docs" / "ko" / "lab-notebook" / "devlog.md"
     devlog.parent.mkdir(parents=True, exist_ok=True)
     devlog.write_text("# devlog\n\n측정 브리지로 연결했습니다.\n", encoding="utf-8")
     monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "REPOSITORY_PROSE_SURFACES", ())
     monkeypatch.setattr(terminology, "INNER_PAGE_LOCALES", ("docs/ko",))
     monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("lab-notebook",))
     monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
-    assert terminology.check_no_retired_inner_page_terms() == []
+    violations = terminology.check_no_retired_inner_page_terms()
+    assert len(violations) == 1, violations
+    assert "측정/실측 브리지/브릿지" in violations[0]
 
 
 def test_rule_f_is_clean_on_the_repository():
     violations = terminology.check_no_retired_inner_page_terms()
     assert violations == [], "\n".join(violations)
+
+
+def test_rule_f_catches_a_retired_phrase_split_across_a_soft_wrap(tmp_path, monkeypatch):
+    page = tmp_path / "docs" / "en" / "manual" / "page.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "# Title\n\nTurn the fan-out\n"
+        "dial only after measuring the extra calls.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(terminology, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(terminology, "REPOSITORY_PROSE_SURFACES", ())
+    monkeypatch.setattr(terminology, "INNER_PAGE_LOCALES", ("docs/en",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_DIRS", ("manual",))
+    monkeypatch.setattr(terminology, "INNER_PAGE_EXTRA", ())
+    violations = terminology.check_no_retired_inner_page_terms()
+    assert len(violations) == 1, violations
+    assert "fan-out dial" in violations[0] and ":3-4" in violations[0]
 
 
 # --- Rule G — Korean "replay" prose left untranslated (BOLT-17 / #150) -------
@@ -579,14 +647,16 @@ def test_rule_g_is_korean_only():
     assert terminology.DOCS.parent.name == "docs"
 
 
-def test_rule_g_excludes_the_devlog(tmp_path, monkeypatch):
-    """The ko devlog is a dated journal, out of scope like Rules D and F."""
+def test_rule_g_scans_the_devlog(tmp_path, monkeypatch):
+    """The dated journal keeps chronology, not outdated reader terminology."""
     devlog = tmp_path / "lab-notebook" / "devlog.md"
     devlog.parent.mkdir(parents=True, exist_ok=True)
     devlog.write_text("측정은 replay 없이 진행했습니다.\n", encoding="utf-8")
     monkeypatch.setattr(terminology, "DOCS", tmp_path)
-    assert "lab-notebook/devlog.md" in terminology.RULE_D_EXCLUDED
-    assert terminology.check_no_untranslated_replay() == []
+    assert "lab-notebook/devlog.md" not in terminology.RULE_D_EXCLUDED
+    violations = terminology.check_no_untranslated_replay()
+    assert len(violations) == 1, violations
+    assert "leaves English 'replay'" in violations[0]
 
 
 def test_rule_g_is_wired_into_find_violations(tmp_path, monkeypatch):

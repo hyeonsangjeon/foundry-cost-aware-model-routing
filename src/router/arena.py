@@ -1,24 +1,22 @@
-"""Head-to-head arena: one problem, four ways — cost × latency × accuracy.
+"""One problem, four routing strategies — cost × latency × accuracy.
 
 The rest of the dashboard compares strategies *in aggregate* over a whole
-workload. This module answers the more visceral question a newcomer actually
-asks first: **for this one task, what does each approach cost, how slow is it,
-and does it even get the right answer?** It is the "pick a problem, press go,
-watch four columns fill in" surface — the five-minute wow.
+workload. This module answers the narrower question: **for this one task, what
+does each strategy cost, how slow is it, and does it pass the checks?** It is
+the "pick a problem, press go, watch four columns fill in" surface.
 
 Four approaches are scored on a single task, reusing the exact offline
 machinery the aggregate panels use so the numbers line up by construction:
 
 * ``cheapest`` — always the cheapest candidate for the task's class. Fast and
   cheap, but may fail the checks.
-* ``premium`` — always the most expensive candidate. The naive "just use the
-  best model" ceiling.
-* ``ensemble`` — fan out to *every* candidate and keep the best answer. Highest
-  coverage, but pays the full fan-out bill (the sum of all candidates) — the
-  ensemble tax, on one task.
-* ``router`` — cheapest-capable-first with escalation on failure
-  (:func:`router.select.ordered_select`). The repo's hero: it bills only the
-  winning attempt, so it reaches premium-grade accuracy at close to cheap cost.
+* ``premium`` — always the most expensive candidate, with no attempt at a
+  cheaper one.
+* ``ensemble`` — fan out to *every* candidate and keep the best answer. It
+  reaches the highest task pass rate but pays the full fan-out bill (the sum of
+  all candidates), including the calls it discards.
+* ``router`` — cheapest-capable-first, escalating only after a failed check
+  (:func:`router.select.ordered_select`). It bills the winning attempt only.
 
 Honesty (kept consistent with the rest of the repo):
 
@@ -27,13 +25,13 @@ Honesty (kept consistent with the rest of the repo):
   ``cost_usd`` and the spotlight), while the ensemble bills *all* candidates.
 * **Accuracy** is the router's own :func:`router.select.is_clean` predicate — a
   task is "passed" when every offline check is clean. It is a projection over
-  synthetic signals, not a graded live answer.
+  synthetic signals, not a graded live answer. Across a workload the share of
+  passing tasks is the task pass rate.
 * **Latency is an illustrative projection**, not a measurement. There is no
   timing in the bundled telemetry, so a deterministic per-tier throughput model
   turns token counts into milliseconds purely to give the third axis a shape.
   It is labelled ``measured = false`` everywhere and must not be read as real
-  wall-clock. A live run (the measured bridge) is where real latency would come
-  from.
+  wall-clock. Real timings come only from a live measured run.
 """
 
 from __future__ import annotations
@@ -224,7 +222,7 @@ def _cheapest(
     passed = _passed(task_signals, model)
     return ApproachResult(
         approach="cheapest",
-        label="Cheapest model",
+        label="Cheapest model only",
         models=(model,),
         chosen_model=model,
         cost_usd=pricing.cost_usd(model, tokens),
@@ -232,7 +230,7 @@ def _cheapest(
         passed=passed,
         detail=(
             f"One call to the cheapest tier ({model})."
-            + ("" if passed else " Fails the checks here — cheap but wrong.")
+            + ("" if passed else " It does not pass the checks on this task.")
         ),
     )
 
@@ -248,13 +246,16 @@ def _premium(
     passed = _passed(task_signals, model)
     return ApproachResult(
         approach="premium",
-        label="Premium model",
+        label="Premium model only",
         models=(model,),
         chosen_model=model,
         cost_usd=pricing.cost_usd(model, tokens),
         latency_ms=project_latency_ms(index, tokens),
         passed=passed,
-        detail=f"One call to the most expensive tier ({model}) — the naive ceiling.",
+        detail=(
+            f"One call to the most expensive tier ({model}), with no attempt at a "
+            "cheaper candidate first."
+        ),
     )
 
 
@@ -271,15 +272,16 @@ def _ensemble(
     passed = any(_passed(task_signals, model) for model in models)
     return ApproachResult(
         approach="ensemble",
-        label="Ensemble (fan-out)",
+        label="Every candidate (fan-out)",
         models=models,
         chosen_model=None,
         cost_usd=cost,
         latency_ms=latency,
         passed=passed,
         detail=(
-            f"Fans out to all {len(models)} candidates and keeps the best — "
-            "highest coverage, but pays for every model (the fan-out tax)."
+            f"Calls all {len(models)} candidates and keeps the best answer. It reaches the "
+            "highest task pass rate but pays for every candidate, including the ones it "
+            "discards \u2014 the extra candidate-call cost."
         ),
     )
 
@@ -302,19 +304,20 @@ def _router(
     escalated = len(attempted) > 1
     return ApproachResult(
         approach="router",
-        label="Cost-aware router",
+        label="Cheapest-first, escalate on failure",
         models=tuple(attempted),
         chosen_model=chosen,
         cost_usd=cost,
         latency_ms=latency,
         passed=result.accepted,
         detail=(
-            f"Escalates cheapest-first: {steps}. "
+            f"Tries the cheapest candidate first and escalates only after a failed "
+            f"check: {steps}. "
             + (
-                f"Landed on {chosen} — premium-grade accuracy near cheap cost."
+                f"{chosen} passed, and only that call is billed."
                 if escalated and result.accepted
                 else (
-                    f"Cheapest tier {chosen} passed on the first try."
+                    f"The cheapest tier {chosen} passed on the first try."
                     if result.accepted
                     else "No candidate passed."
                 )
@@ -405,7 +408,7 @@ def _teaches(arena: Mapping[str, Any]) -> str:
     by = {a["approach"]: a for a in arena["approaches"]}
     cheapest, router = by.get("cheapest"), by.get("router")
     if cheapest and router and not cheapest["passed"] and router["passed"]:
-        return "cheap fails · router recovers"
+        return "cheapest fails · escalation recovers"
     if cheapest and cheapest["passed"]:
         return "easy · cheapest already passes"
     return "mixed"

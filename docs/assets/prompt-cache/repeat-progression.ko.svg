@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-labelledby="chart-title chart-desc">
-  <title id="chart-title">봉인된 세 런의 회차별 캐시 기록 비율, Cost 모드</title>
-  <desc id="chart-desc">런마다 한 묶음, 회차마다 한 막대인 묶음 막대 그래프이고 세로축은 0에서 100퍼센트입니다. 실험 11(무효)은 83.64, 95.67, 100.00입니다. 실험 12는 89.61, 100.00, 100.00입니다. 실험 13은 90.79, 100.00, 100.00입니다. 세 런이 같은 모양으로 올라가고 되돌아 내려간 런은 없습니다. 1회차는 콜드 기준선이 아닙니다.</desc>
+  <title id="chart-title">봉인된 실측 세 실행의 회차별 캐시 기록 비율, Cost 모드</title>
+  <desc id="chart-desc">실행마다 한 묶음, 회차마다 한 막대인 묶음 막대 그래프이고 세로축은 0에서 100퍼센트입니다. 실험 11(무효)은 83.64, 95.67, 100.00입니다. 실험 12는 89.61, 100.00, 100.00입니다. 실험 13은 90.79, 100.00, 100.00입니다. 세 실행이 같은 모양으로 올라가고 되돌아 내려간 실행은 없습니다. 1회차는 콜드 기준선이 아닙니다.</desc>
   <rect x="0" y="0" width="760" height="420" fill="#ffffff"/>
-  <text x="24.0" y="34.0" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">세 번의 반복에 걸친 캐시 기록 비율 — Cost 모드</text>
-  <text x="24.0" y="56.0" font-size="11" fill="#7b8794" text-anchor="start">HTTP 200 행에 대한 sum(cached) / sum(input) · 세 런 모두 행이 100% Grok인 router-cost</text>
+  <text x="24.0" y="34.0" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">회차별 캐시 비율 — Cost 모드, 봉인된 실측 세 실행</text>
+  <text x="24.0" y="56.0" font-size="11" fill="#7b8794" text-anchor="start">API가 보고한 sum(cached) / sum(input) · HTTP 200 행 기준 · 세 실행 모두 행이 100% Grok인 router-cost</text>
   <line x1="76.0" y1="306.0" x2="700.0" y2="306.0" stroke="#9aa5b1" stroke-width="1"/>
   <text x="64.0" y="310.0" font-size="11" fill="#7b8794" text-anchor="end">0%</text>
   <line x1="76.0" y1="255.5" x2="700.0" y2="255.5" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>
@@ -69,5 +69,5 @@
   <text x="652.0" y="95.0" font-size="11" fill="#1f2933" text-anchor="middle" font-weight="700">100.00</text>
   <text x="652.0" y="324.0" font-size="10" fill="#52606d" text-anchor="middle">3회차</text>
   <text x="596.0" y="348.0" font-size="12" fill="#1f2933" text-anchor="middle" font-weight="600">실험 13</text>
-  <text x="24.0" y="386.0" font-size="11" fill="#52606d" text-anchor="start">1회차는 콜드 기준선이 아닙니다. 세 런 모두 런의 최초 유료 호출이 이미 cached = 149 / input = 155로 기록됐습니다(§3-5).</text>
+  <text x="24.0" y="386.0" font-size="11" fill="#52606d" text-anchor="start">1회차는 콜드 기준선이 아닙니다. 세 실행 모두 그 실행의 최초 유료 호출이 이미 cached = 149 / input = 155로 기록됐습니다(§3-5).</text>
 </svg>

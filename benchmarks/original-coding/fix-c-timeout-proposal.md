@@ -1,22 +1,45 @@
 # Fix C — transport read/overall timeout proposal (03D-2 follow-up)
 
-> **Status: APPLIED for the 03D-3 run — but not as a repo default.** The proposed
-> values (`read 180 / overall 240`) were set in the operator's `.foundry.local.yaml`,
-> which is gitignored (`.gitignore:98`); the committed defaults in
-> `src/router/run_plan.py`, `src/router/foundry_live.py` and `foundry.example.yaml`
-> are still **90 / 120**, so a fresh clone does not inherit this run's timeouts. What
-> shipped in the repo is the **plumbing**: PR #101 makes the resolved plan's timeouts
-> actually reach the socket (`eafc1a1`) — before it, an operator-approved timeout
-> change was a silent no-op that the sealed manifest nonetheless reported as applied.
+> **Status: applied for the 03D-3 run, and not as a repository default.** Four
+> separate facts sit behind that, and they are easy to run together:
 >
-> Raising the timeout changes `benchmark.retry`, which is part of the resolved run
-> plan, so it **changed `plan_hash`** and therefore required a **new preregistration +
-> re-approval** (the same discipline used for Fix A / Fix B). That is `454c8159`, and
-> the run it approved is
-> [experiment 13](../../docs/en/lab-notebook/13-router-modes-rate-card-gap.md)
-> (`plan_hash sha256:33821119…6b0b50`). **Everything below this banner is the
-> proposal as written before the run** — the evidence and the predictions are kept
-> unedited so they can be read against what actually happened.
+> - **Where the values were applied.** The proposed `read 180 / overall 240` were
+>   set in the operator's `.foundry.local.yaml`, which is gitignored
+>   (`.gitignore:98`). The committed defaults in `src/router/run_plan.py`,
+>   `src/router/foundry_live.py` and `foundry.example.yaml` are still **90 / 120**,
+>   so a fresh clone does not inherit this run's timeouts.
+> - **What shipped in the repository.** Not the values — the **timeout propagation
+>   code**. PR #101 makes the resolved plan's timeouts actually reach the socket
+>   (`eafc1a1`). Before it, an operator-approved timeout change was a silent no-op
+>   that the sealed manifest nonetheless reported as applied.
+> - **Why a new approval was required.** Raising the timeout changes
+>   `benchmark.retry`, which is part of the resolved run plan, so it **changed
+>   `plan_hash`**. That forced a **new preregistration and re-approval**, the same
+>   discipline used for Fix A (pinning Grok's cached-input rate) and Fix B (raising
+>   `max_output_tokens` 2048 → 8192) before the previous run. The new
+>   preregistration is `454c8159`.
+> - **Where the run is written up.**
+>   [Experiment 13](../../docs/en/lab-notebook/13-router-modes-rate-card-gap.md)
+>   (`plan_hash sha256:33821119…6b0b50`), with the predictions it was approved
+>   against in
+>   [`prereg-03d3-router-modes.md`](prereg-03d3-router-modes.md).
+>
+> **Everything below this banner is the proposal as written before the run** — the
+> evidence and the predictions are kept unedited so they can be read against what
+> actually happened. Two reading notes for that frozen text:
+>
+> - Where it says "coverage 90%", that is the grading-coverage floor, and `pp`
+>   means percentage points. `arm`, `cell`, `pass rate`, `grading coverage` and
+>   `cost-complete` are defined in the
+>   [benchmark suite README](README.md#terms-these-runs-use).
+> - **The sentence "That worked for coverage (79.2% → 96.18%)" compares two
+>   different denominators.** 79.2% is the `router-quality` arm's grading coverage
+>   in experiment 11 (57 of its 72 cells); 96.18% is the *aggregate* across all
+>   four arms in experiment 12 (277 of 288 cells). Like for like, the two
+>   corrections are: **quality arm 79.2% → 94.4%** (57/72 → 68/72), and
+>   **aggregate 90.6% → 96.18%** (261/288 → 277/288). Both figures in the frozen
+>   sentence are individually correct; only pairing them is not, and the direction
+>   it reports — coverage recovered — holds on either denominator.
 
 ## Problem — the 8192 cap surfaced a fixed-timeout constraint
 
@@ -123,10 +146,10 @@ values themselves) was done in the operator's gitignored `.foundry.local.yaml`;
 steps 2–4 (new `plan_hash`, new preregistration `454c8159`, re-run) are PR #101
 and the run it approved. Doing step 1 first exposed a second defect: the resolved
 plan's transport timeouts were never handed to the live client, so raising them in
-config alone changed nothing. That plumbing fix (`eafc1a1`) is the part of Fix C
-that is actually committed.
+config alone changed nothing. That timeout propagation fix (`eafc1a1`) is the part
+of Fix C that is actually committed.
 
-| | 03D-2 (read 90 s) | 03D-3 (read 180 s) |
+| | Experiment 12 · `03D-2` (read 90 s) | Experiment 13 · `03D-3` (read 180 s) |
 | --- | --- | --- |
 | timeout cells | 11 / 288 | **1 / 288** |
 | aggregate grading coverage | 96.18% | **99.65%** |
@@ -134,9 +157,31 @@ that is actually committed.
 
 The prediction above — that the 4.17 pp router-vs-premium pass-rate gap was the
 timeouts and not code quality — held: with the ceiling raised, every arm solved
-every task. The one remaining timeout recorded `latency_ms 180096.8`, i.e. it hit
-the new read ceiling and not the 240 s overall budget, the same shape the 90 s
-cells showed at 90.0–90.7 s. Streaming stays out of scope and unproposed.
+every task. The one remaining timeout recorded `latency_ms 180096.8`, i.e. it was
+cut off at the read ceiling and never reached the 240 s overall budget — the same
+place the 90 s cells stopped, at 90.0–90.7 s. Streaming stays out of scope and
+unproposed.
+
+### What this proposal did not predict
+
+Fix C was a transport change and says nothing about pricing, so the run it
+justified is not fully described by the table above. The preregistration approved
+for that run,
+[`prereg-03d3-router-modes.md`](prereg-03d3-router-modes.md), predicted
+`cost_complete = true` with an unpriced share of **0% for all four arms**. That
+prediction was **wrong**.
+
+`router-balanced` had **12 of its 72 cells (16.7%) unpriced** and ended
+**cost-incomplete**. Those 12 calls were served by **`gpt-5.6-terra`**, which had
+no row in the pinned v2 rate card, so the fail-closed guard **withheld the cost**
+(`cost_usd = null`, never `0.0`) and that arm carries **no savings claim** for the
+run. The cause was on our side rather than the router's: the card recorded
+`gpt-5.6` as one model when it is three (`sol` · `terra` · `luna`).
+
+Nothing here changes the timeout result. The two findings are independent: the
+read ceiling did what this document proposed it would do, and the same run
+separately exposed a gap in the rate card. [Experiment
+13](../../docs/en/lab-notebook/13-router-modes-rate-card-gap.md) reports both.
 
 This document is **not** amended to reflect the outcome anywhere above this
 section. The 03D-2 latency evidence and the reasoning that followed from it are

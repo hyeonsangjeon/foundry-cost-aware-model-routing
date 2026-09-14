@@ -1,18 +1,19 @@
-# hero.yaml — the flagship "install and it just works" experiment.
+# hero.yaml — the default cost-and-pass-rate experiment.
 #
 # Route the whole synthetic workload (100 tasks) cost-aware and compare it to
-# the naive arm (the most expensive candidate on every task). The `expect`
-# block is a reproducibility contract: `cost-router hero` fails loudly if this
+# the premium-on-every-task baseline (the most expensive candidate on every task).
+# The `expect` block defines reproducibility criteria: `cost-router hero` fails if this
 # offline projection ever drifts below the floor.
 #
 # Everything is offline and deterministic. Every number is a projection over
 # synthetic data (labels.measured = false), not a measured saving.
 
 name: hero
-title: "같은 커버리지, 더 낮은 비용 — 30초 히어로 실행"
+title: "통과율 100%를 유지하며 비용을 줄이는 기본 실험"
 summary: >-
   합성 워크로드 100건을 '통과하는 가장 싼 모델 먼저, 실패할 때만 상위 모델로'
-  라우팅해 모든 태스크에 프리미엄 모델을 쓰는 나이브 방식과 비교합니다.
+  라우팅합니다. 모든 태스크에 가장 비싼 모델을 쓰는 프리미엄 기준선과 비교하며,
+  결과는 실제 호출 비용이 아니라 고정된 합성 데이터와 예시 요율을 사용한 투영입니다.
 
 dataset:
   workload: samples/telemetry/mixed-coding-workload.sample.jsonl

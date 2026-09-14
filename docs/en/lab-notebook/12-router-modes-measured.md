@@ -1,13 +1,17 @@
 # Experiment 12 · Comparing the router's three modes · run 2 (measurement succeeded)
 
 !!! abstract "One-line summary"
-    [Experiment 11](11-router-modes-void.md) was **VOID** because quality grading
-    coverage was 79.2% < 90%. This run changed **only the two causes** identified
-    there (Fix A · Fix B), then repeated the same 4-arm comparison — an arm is one comparison strategy in the experiment — with the same gate
-    and estimand. Grading coverage rose from 79.2% to **96.18%**, so **all four arms
+    [Experiment 11](11-router-modes-void.md) was **VOID** on two independently
+    sufficient grounds: its `router-quality` arm reached a grading coverage of 79.2%,
+    below the 90% floor, and 43.4% of its cells were unpriced. This run changed **only
+    the two causes** identified there (Fix A · Fix B), then repeated the same 4-arm
+    comparison — an **arm** being one comparison strategy evaluated against the same
+    workload under the same measurement plan — with the same gate and estimand.
+    Grading coverage improved on both denominators: the **run aggregate rose 90.6% →
+    96.18%**, and the **`router-quality` arm rose 79.2% → 94.4%**. **All four arms
     cleared the gate — publishable.**
     The measured cost order matched the preregistered order
-    (`cost < balanced < premium ≤ quality`). Spend was **$3.27 / $20**, replay was
+    (`cost < balanced < premium ≤ quality`). The priced-cell total was **$3.27 / $20**, replay was
     byte-for-byte identical, and unpriced was **0%**. Experiment 11 recorded
     "discipline forced a void". This experiment recorded
     "a valid result came out under discipline". Both use **the same gate twice,
@@ -15,7 +19,9 @@
 
 !!! warning "This page also records a real paid run — spend the operator approved"
     Just like experiment 11, this re-run is **a real Azure inference run executed after passing
-    explicit approval gates**. Total spend **$3.269553 / budget $20.00**, keyless Entra,
+    explicit approval gates**. The **priced-cell total was $3.269553 against a $20.00
+    budget**; unlike experiments 11 and 13, no cell was withheld, so it covers all 288
+    cells. It is still a priced-cell total, not an Azure invoice total. Keyless Entra,
     sequential execution in a deterministic dispatch order (task-major → repeat → arm; the arm
     order is the same on every task and every repeat). `max_output_tokens` is the only request
     parameter that comes from the plan; sampling temperature is the service default, which this
@@ -30,15 +36,15 @@ run**. The gate, estimand, workload, and dispatch order were **not changed at al
 
 | Fixed | Why it was a problem in experiment 11 | Effect in this re-run |
 | --- | --- | --- |
-| **Fix A — `grok-4-1-fast.cached: 0.2`** (rate card) | Grok returned cached input, but Azure Retail has no cached meter, so cost followed this rule: when a rate is missing, withhold the cost claim rather than guess (fail-closed) → unpriced 43.4% | **unpriced 0%.** the cost and balanced arms are priced cost-complete |
-| **Fix B — `max_output_tokens` 2048 → 8192** (config) | reasoning models spent the budget on reasoning and emitted no code → quality grading coverage 79.2% | **grading coverage recovered to 96.18%.** every arm clears the 90% gate |
+| **Fix A — `grok-4-1-fast.cached: 0.2`** (rate card) | Grok returned cached input, but Azure Retail had no cached meter, so the guard failed closed and withheld the cost rather than guessing at a missing rate → unpriced 43.4% | **unpriced 0%.** The cost and balanced arms are priced cost-complete |
+| **Fix B — `max_output_tokens` 2048 → 8192** (config) | reasoning models spent the budget on reasoning and emitted no code → `router-quality` grading coverage 79.2% | **`router-quality` grading coverage recovered to 94.4%, and the run aggregate to 96.18%.** Every arm clears the 90% gate |
 
 Both fixes change the config / rate card, so **`plan_hash` changes**, and the [new
 preregistration (`prereg-03d2-router-modes.md`)](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/prereg-03d2-router-modes.md)
 was re-committed and re-approved **before seeing the results** — the failure criteria
-(coverage 90%, min_pass 0.60, max_drop 10pp, budget $20) are **kept as-is, without loosening.**
+(grading coverage 90%, min_pass 0.60, max_drop 10 percentage points, budget $20) are **kept as-is, without loosening.**
 
-## Result — coverage · pass rate · cost · cost-per-pass per arm
+## Result — grading coverage · pass rate · cost · cost-per-pass per arm
 
 **Arm labels:** `router-cost` (Model Router in Cost mode) · `router-balanced` (Model Router
 in Balanced mode) · `router-quality` (Model Router in Quality mode) · `direct-premium`
@@ -56,7 +62,8 @@ in Balanced mode) · `router-quality` (Model Router in Quality mode) · `direct-
 | `direct-premium` | — (`gpt-5.6-sol`) | 100% (72/72) | 100% (24/24) | $1.340535 | ✅ | $0.05586 |
 | `router-quality` | Quality | 94.4% (68/72) | 95.8% (23/24) | $1.558659 | ✅ | $0.06777 |
 
-- **Total spend $3.269553 / $20** · 288/288 completed (partial=false) · 429 throttles **0** ·
+- **Priced-cell total $3.269553 / $20 budget**, covering all 288 cells because none was
+  withheld · 288/288 completed (partial=false) · 429 throttles **0** ·
   11 timeouts (HTTP408) · aggregate grading coverage **96.18% (277/288)** · unpriced **0%** ·
   replay **byte-for-byte identical** (`cost_mismatches: []`).
 - **Cost order: `cost ($0.065) < balanced ($0.305) < premium ($1.341) < quality ($1.559)`.**
@@ -72,16 +79,19 @@ in Balanced mode) · `router-quality` (Model Router in Quality mode) · `direct-
 | --- | --- | --- |
 | grading coverage (per arm) | ≥ 90% | lowest arm 94.4% → **PASS** |
 | minimum pass rate (per arm) | ≥ 0.60 | lowest 0.958 → **PASS** |
-| pass-rate drop vs premium | ≤ 10 pp | router 0.958 vs premium 1.000 = **4.17 pp** → **PASS** |
+| pass-rate drop vs premium | ≤ 10 percentage points | router 0.958 vs premium 1.000 = **4.17 percentage points** → **PASS** |
 | budget | ≤ $20 | $3.27 → **PASS** |
 
-The **grading-coverage gate that voided the comparison in experiment 11 passed on every arm**
-this time, and the remaining gates were met too, so this run is **publishable as a savings
-comparison.**
+The **grading-coverage gate that helped void the comparison in experiment 11 passed on every
+arm** this time, the unpriced share fell to zero, and the remaining gates were met, so this
+run is **publishable as a savings comparison.** Its headline savings figure is 95.2%,
+`router-cost` against `direct-premium`; the bundle's `savings_pct` of 95.8% compares the
+cheapest cost-complete arm with the highest-cost cost-complete arm
+([glossary](../manual/glossary.md)).
 
 ## The preregistered prediction was **right** — write the prediction first, the result after
 
-The cost-direction prediction written into the re-run preregistration — the workload, hypotheses, and pass/fail criteria committed before the paid run — was **`cost < balanced <
+The cost-direction prediction written into the re-run preregistration was **`cost < balanced <
 direct-premium ≤ quality`** (a prediction updated to reflect experiment 11's measurement, where
 quality cost more than premium). The measurement **confirmed it exactly**: `cost ($0.065) <
 balanced ($0.305) < premium ($1.341) < quality ($1.559)`.
@@ -92,8 +102,8 @@ balanced ($0.305) < premium ($1.341) < quality ($1.559)`.
     hypothesis (`premium ≤ quality`) that **learned from** that overturning, and this time it was
     right. Each document pins its prediction of the moment with a timestamp — experiment 11's
     account was **not edited.** The reason Quality mode costs more than direct premium is the
-    same: **the router markup rides on top of the premium sub-model choice** and exceeds the
-    direct call.
+    same in both runs: **the router's input markup rides on top of the premium backend it
+    resolves to**, so the composite amount exceeds the direct call.
 
 ## A reproduced finding — **Cost mode 100% Grok, two runs in a row**
 
@@ -113,7 +123,7 @@ Cost mode sent **every cell to Grok** in both experiment 11 (void) and this re-r
 The preregistration said it "expects the same routing
 behavior", and the second measurement produced that behavior again.
 
-## The 11 timeout cells — counted in coverage and pass rate
+## The 11 timeout cells — counted in grading coverage and pass rate
 
 When the 8192 cap (Fix B) was on, reasoning cells took longer to generate, and 11 cells exceeded
 the **fixed timeouts (read 90s / overall 120s)** — **all in router arms** (cost 4 · balanced 3 ·
@@ -122,11 +132,11 @@ quality 4), with direct-premium at 0 (its longest was 33.5s). By task: `toll-sch
 
 Each timeout affects two metrics:
 
-- **Excluded from coverage** — with no body, `output_sha256 = None` → dropped from the
+- **Excluded from grading coverage** — with no body, `output_sha256 = None` → dropped from the
   grading-coverage numerator.
 - **And simultaneously failed on pass rate** — counted as `pass = False`, docking pass rate too.
 
-The router arms' **4.17 pp pass-rate drop is entirely due to timeouts, not code
+The router arms' **4.17 percentage point pass-rate drop is entirely due to timeouts, not code
 quality**. The gate was not changed to remove that penalty; the run passed with the
 timeouts counted as written.
 
@@ -138,7 +148,8 @@ timeouts counted as written.
       these numbers to another workload, time, or region.
     - **Timeout asymmetry**: the fixed timeout works against **the router arms only** (a structural
       trait: the router goes to slower reasoning backends with routing latency added on top). Do not
-      read the pass-rate gap as a "quality difference."
+      read the pass-rate gap as a "quality difference." [Experiment 13](13-router-modes-rate-card-gap.md)
+      later raised the ceiling and every arm then solved every task.
     - **The savings narrative is specific to this configuration**: clearing the gate does not
       guarantee savings on an arbitrary workload.
 
@@ -168,5 +179,5 @@ whether to apply it; this page records the proposal only.
 
 The cache tokens left in this run's sealed traces were re-aggregated after the fact, with
 zero paid calls — [Prompt cache observed in the sealed runs](../manual/prompt-cache-observed.md).
-It was observed after the preregistered analysis (post-hoc), outside the preregistration gate, and no figure on this page
-changed.
+That re-read happened after the preregistered analysis, outside the preregistration gate, and
+no figure on this page changed.

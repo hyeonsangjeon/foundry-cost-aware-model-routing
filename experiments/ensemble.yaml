@@ -1,28 +1,28 @@
-# ensemble.yaml — the ensemble fan-out lens: quality-by-vote, at a real cost.
+# ensemble.yaml — call every candidate and account for every call.
 #
 # A curated set of high-value tasks that all route in *compare* (fan-out) mode:
 # the router runs every candidate and keeps the best result. Because several
-# models pass the offline checks on each task, best-of-N settles on the CHEAPEST
-# passing model — the sweet spot — so routing still lands 47% under the naive
-# "premium on every task" arm at full coverage.
+# models pass the offline checks on each task, best-of-N keeps the cheapest
+# passing model. Routing therefore costs 47% less than the
+# premium-on-every-task baseline while retaining a 100% pass rate.
 #
-# The honest catch this experiment exists to surface is the **ensemble tax**:
-# fanning out means paying to run the losers too. Here the winners cost
-# ~$0.13 but the fan-out actually spends ~$0.50 (3.7x) to run all 20 candidate
-# calls. A naive "ensemble everything" strategy pays that tax on every task;
-# cost-aware routing only fans out where the task value justifies it (see the
-# `all_ensemble` vs `mix` strategy arms and the `fanout` metrics).
+# The experiment measures the **extra candidate-call cost** of fan-out. Every
+# candidate call is billed, including calls whose outputs are discarded. Here
+# the winners cost ~$0.13, but fan-out spends ~$0.50 (3.7x) to run all 20
+# candidate calls. An "ensemble everything" strategy pays that extra cost on
+# every task. Cost-aware routing fans out only where the task value justifies it
+# (see the `all_ensemble` vs `mix` strategy arms and the `fanout` metrics).
 #
 # Everything is offline and deterministic. Every number is a projection over
 # synthetic data (labels.measured = false), not a measured saving.
 
 name: ensemble
-title: "앙상블 팬아웃 — 최선을 뽑되, 진짜 비용을 치른다"
+title: "팬아웃 — 모든 후보를 호출할 때 드는 추가 비용"
 summary: >-
-  가치가 높은 태스크를 모든 후보에 팬아웃(compare 모드)해 최선을 뽑습니다.
-  여러 모델이 통과하므로 best-of-N은 가장 싼 통과 모델(스위트 스팟)을 남겨
-  나이브 대비 절감하지만, 팬아웃은 진 모델까지 실행하므로 승자 비용의 3.7배를
-  지불합니다 — 이것이 앙상블 세금입니다. 라우팅은 가치가 높은 곳에서만 팬아웃합니다.
+  가치가 높은 태스크마다 모든 후보 모델을 병렬 호출하고, 오프라인 검사를 통과한
+  후보 중 비용이 가장 낮은 결과를 남깁니다. 통과율은 100%이고 비용은
+  프리미엄 기준선보다 약 47% 낮지만, 선택하지 않은 후보의 호출까지 합치면
+  승자 비용의 3.7배를 지불합니다. 이 값은 합성 데이터로 계산한 오프라인 투영입니다.
 
 dataset:
   workload: samples/telemetry/mixed-coding-workload.sample.jsonl
