@@ -1,28 +1,33 @@
 # 라우팅 모드 실측 결과
 
-> **`measured=true` 유료 실측.** 실제 Azure AI Foundry에서 같은 24개 코딩 과제에 네 arm을
-> n=3으로 돌렸다. 네 arm은 `router-cost`(Model Router의 Cost 모드), `router-balanced`(Model Router의
-> Balanced 모드), `router-quality`(Model Router의 Quality 모드), `direct-premium`(프리미엄
-> 모델 직접 호출 · `gpt-5.6-sol`)이다. 288셀, 봉인 스냅샷, 재생으로 byte-identical 검증됨.
-> 이 페이지의 모든 숫자는 오프라인 투영이 아니라 **한 번의 실제 측정**에서 나왔다 — 그래서
-> 강력하지만 좁다. 아래 한계를 먼저 읽어라.
+> **`measured=true` 유료 실측 — 실험 12(2차 유료 실측).** 실제 Azure AI Foundry에서 같은
+> 24개 코딩 과제에 네 arm을 n=3으로 돌렸습니다. 네 arm은 `router-cost`(Model Router의 Cost 모드),
+> `router-balanced`(Model Router의 Balanced 모드), `router-quality`(Model Router의 Quality 모드),
+> `direct-premium`(프리미엄 모델 직접 호출 · `gpt-5.6-sol`)입니다. 24과제 × 4arm × n=3 =
+> **288 계획 셀**이고, 봉인 스냅샷을 재생해 바이트 단위로 동일함을 확인했습니다.
+> 이 페이지의 모든 숫자는 오프라인 투영이 아니라 **한 번의 실제 측정**에서 나왔습니다 — 그래서
+> 강력하지만 좁습니다. 아래 한계를 먼저 읽어 주세요.
 
 !!! warning "먼저 읽을 한계 — 일반화 금지"
-    - **24 과제 = evidence_tier `directional`.** 방향성 신호이지 통계적 신뢰가 아니다. 통계적
-      결론에는 ~100문제가 필요하다.
-    - **단일 테넌트 · 단일 리전 · 1회 측정.** 재생으로 *재현*은 보장되지만 모집단 추정은 아니다.
-    - **타임아웃이 라우터 arm에만 불리하게 작용한다.** 라우터 백엔드는 지연이 길어(p50 12–16s)
-      고정 타임아웃에 걸리고, direct-premium(4.2s)은 걸리지 않는다. 아래 **4.17%p** 통과율 격차는
-      코드 품질이 아니라 이 지연 특성 차이에서 나온다.
-    - **다른 워크로드로 일반화하지 마라.** 이 결과는 이 워크로드·이 테넌트·이 1회 측정에 한한다.
+    - **24 과제 = evidence_tier `directional`.** 방향성 신호이지 통계적 신뢰가 아닙니다. 통계적
+      결론에는 ~100문제가 필요합니다.
+    - **단일 테넌트 · 단일 리전 · 1회 측정.** 재생으로 *재현*은 보장되지만 모집단 추정은 아닙니다.
+    - **타임아웃이 라우터 arm에만 불리하게 작용합니다.** 라우터 백엔드는 지연이 길어(p50 12–16s)
+      고정 타임아웃에 걸리고, direct-premium(4.2s)은 걸리지 않습니다. 아래 **4.17퍼센트포인트** 통과율 격차는
+      코드 품질이 아니라 이 지연 특성 차이에서 나옵니다.
+    - **다른 워크로드로 일반화하지 마세요.** 이 결과는 이 워크로드·이 테넌트·이 1회 측정에
+      한합니다.
 
 !!! info "정직 라벨"
-    - `measured=true` — 실제 Foundry 호출과 usage(토큰·지연). 합성/투영 아님.
-    - `unpriced 0%` — 모든 셀이 고정 요율로 가격화됨(`cost_complete=true`).
-    - `coverage 96.18%` (277/288) — content-graded 셀 비율(**채점 커버리지**). arm 최저 94.4% (모두 게이트 90% 통과).
+    - `measured=true` — 실제 Foundry 호출과 usage(토큰·지연). 합성 데이터나 투영이 아닙니다.
+    - `unpriced 0%` — 모든 셀이 고정 요율로 가격화됐습니다(`cost_complete=true`).
+    - `result.grading.coverage 96.18%` (277/288) — 계획된 셀 중 채점된 셀의 비율
+      (**채점 커버리지**). 비교 전략(arm) 최저 94.4%로 네 arm 모두 게이트 90%를 통과했습니다.
+      같은 스냅샷의 `result.coverage`(채점된 셀 중 수용된 셀)는 274/277 = **98.917%**로 다른
+      값입니다 — 분모가 다릅니다([용어집](glossary.md)).
     - `evidence_tier=directional` — 24 과제, 방향성.
-    - `replay verified` — 봉인 스냅샷 byte-identical 재생, `plan_hash sha256:d640dc07…`,
-      사전등록 커밋이 실행보다 앞섬.
+    - `replay verified` — 봉인 스냅샷을 바이트 단위로 동일하게 재생했고,
+      `plan_hash sha256:d640dc07…`, 사전등록 커밋이 실행보다 앞섭니다.
 
 실지출 **$3.27 / $20.00** 예산 · 288/288 셀 · 429 스로틀 **0건** · 타임아웃 11셀(HTTP 408).
 
@@ -30,11 +35,14 @@
 
 ## 1 · Arm 비교 — 비용 · 통과율 · cost-per-pass
 
-![arm별 총비용 가로 막대: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56. 각 막대에 통과율과 cost-per-pass 주석](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.svg)
+<figure markdown="span">
+  ![arm별 총비용 가로 막대: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56. 각 막대에 통과율과 cost-per-pass 주석](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.svg)
+  <figcaption>arm별 총비용 — router-cost가 가장 싸고 router-quality가 가장 비싸다. 각 막대에 통과율과 통과당 비용(cost-per-pass)을 함께 표기했다. 아래 표와 같은 실측 값이다.</figcaption>
+</figure>
 
-`router-cost`는 과제 통과율 95.8%를 유지하면서 direct-premium 기준선보다 비용이 **95.2%
-낮았다**(풀정밀도 계산). 통과율 차이는 **4.17%p** 이내였다. 아래 타임아웃 절에 따르면 이 차이
-전부가 코드 품질이 아니라 타임아웃에서 나왔다.
+실험 12에서 `router-cost`의 비용은 과제 통과율 95.8%를 유지한 채 `direct-premium` 기준선보다
+**95.2% 낮았습니다**(풀정밀도 계산). 통과율 차이는 **4.17퍼센트포인트** 이내였습니다. 아래 타임아웃
+절에 따르면 이 차이 전부가 코드 품질이 아니라 타임아웃에서 나왔습니다.
 
 | Arm | 모드 | 총비용 | 통과율 | $/pass | 채점 커버리지 |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -45,57 +53,72 @@
 
 *배포 매핑 — `router-cost`→`model-router-cost` · `router-balanced`→`model-router` ·
 `direct-premium`→`gpt-5.6-sol` · `router-quality`→`model-router-quality`. 모든 arm은
-`cost_complete=true`(unpriced 0%)로, 모든 셀이 고정 요율로 가격화됐다.*
+`cost_complete=true`(unpriced 0%)로, 모든 셀이 고정 요율로 가격화됐습니다.*
 
 !!! note "통과율과 채점 커버리지는 다른 지표 — 분모가 다르다"
-    표의 **통과율**(예: 23/24)은 *태스크* 기준 — 통과(해결)한 태스크 비율이다. **채점
-    커버리지**(예: 68/72)는 *셀* 기준 — 실제로 채점된 셀 비율(측정 완전성)이다. 타임아웃 셀은
-    채점 커버리지에서 빠지고 **동시에** 통과율에서 실패로 계상되므로, 오프라인과 달리 두 값이
-    갈린다 — 그래서 `router-cost`는 통과율 95.8%(23/24)와 채점 커버리지 94.4%(68/72)가 서로
-    다르다. 오타가 아니라 정의가 다른 별개의 값이다. 정의는 [용어집](glossary.md) 참고.
+    표의 **통과율**(예: 23/24)은 *과제* 기준 — 통과(해결)한 과제의 비율입니다. **채점
+    커버리지**(예: 68/72)는 *셀* 기준 — 계획된 셀 중 실제로 채점된 셀의 비율(측정 완전성)입니다.
+    타임아웃 셀은 채점 커버리지에서 빠지고 **동시에** 통과율에서 실패로 계상되므로, 오프라인과
+    달리 두 값이 갈립니다 — 그래서 `router-cost`는 통과율 95.8%(23/24)와 채점 커버리지
+    94.4%(68/72)가 서로 다릅니다. 오타가 아니라 정의가 다른 별개의 값입니다. 정의는
+    [용어집](glossary.md)을 참고하세요.
 
-!!! note "두 개의 절감 기준선 — 섞지 말 것"
-    - **헤드라인 95.2%** = `router-cost`($0.06) 대 **`direct-premium`**($1.34). 실무에서 흔한
-      "그냥 제일 좋은 모델 직접 호출"과 라우팅을 비교한다.
-    - 공개 번들(`published.json`)의 **`savings_pct=95.8%`** 는 다른 기준선이다 — best-arm 대
-      **naive/worst-arm**(`router-quality` $1.56), 비용이 가장 낮은 arm과 가장 높은 arm을
-      비교한다.
-    - 두 숫자는 서로 다른 쌍을 비교한다. 이 페이지는 실제 사용 방식에 가까운
-      **direct-premium 기준선**을 헤드라인으로 쓰고 번들 값도 그대로 공개한다. 두 값 모두 표시
-      반올림이 아니라 풀정밀도 금액으로 계산한다(표시 금액은 2자리, 서브센트·단가 평균은 4자리).
+!!! note "세 개의 절감 수치 — 실행과 비교 대상이 각각 다릅니다"
+    사이트에는 절감률이 셋 있습니다. 어느 실행에서 무엇과 무엇을 견줬는지가 셋 다 다르므로
+    바꿔 쓸 수 없습니다.
+
+    | 절감률 | 실행 | 비교 대상 |
+    | --- | --- | --- |
+    | **95.2%** (이 페이지 헤드라인) | 실험 12 | `router-cost` $0.06 대 `direct-premium` $1.34 |
+    | **95.8%** (공개 번들 `published.json`의 `savings_pct`) | 실험 12 | 비용이 가장 낮은 arm 대 가장 높은 arm(`router-cost` $0.06 대 `router-quality` $1.56) |
+    | **94.7%** (실험 13 실행 요약의 `savings_pct`) | 실험 13 | cost-complete인 arm 중 가장 싼 것 대 가장 비싼 것(Cost 대 Quality) |
+
+    이 페이지는 실무에서 흔한 "그냥 제일 좋은 모델을 직접 호출한다"에 가까운
+    **`direct-premium` 기준선**을 헤드라인으로 쓰고, 번들 값도 그대로 공개합니다. 세 값 모두
+    표시 반올림이 아니라 풀정밀도 금액으로 계산합니다(표시 금액은 2자리, 서브센트·단가 평균은
+    4자리). 실험 13의 값은 [실험 13](../lab-notebook/13-router-modes-rate-card-gap.md)에
+    있습니다.
 
 ---
 
 ## 2 · 비용 × 품질 — Quality 모드는 비용이 더 들고 덜 풀었다
 
-![비용 대 통과율 산점도: direct-premium은 router-quality보다 비용이 낮고 통과율이 높다. router-cost는 같은 통과율에서 비용이 가장 낮다](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
+<figure markdown="span">
+  ![비용 대 통과율 산점도: direct-premium은 router-quality보다 비용이 낮고 통과율이 높다. router-cost는 같은 통과율에서 비용이 가장 낮다](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.svg)
+  <figcaption>비용 대 통과율 산점도 — router-cost는 같은 통과율대에서 비용이 가장 낮다. router-quality는 direct-premium보다 비용이 높고 통과율이 낮다.</figcaption>
+</figure>
 
-`router-quality`의 비용은 $1.56이고 통과율은 95.8%였다. `direct-premium`의 비용은 $1.34이고
-통과율은 100.0%였다. **Quality 모드는 비용이 더 들고 푼 문제는 더 적었다.** 라우터의 "품질"
-모드가 프리미엄 백엔드로 올라가면 마크업이 붙지만 프리미엄 모델을 직접 부르면 그 비용이 없다.
-이 워크로드에서는 **direct-premium을 직접 부르는 편이 싸고 정확하다**.
+`router-quality`의 비용은 $1.56이고 통과율은 95.8%였습니다. `direct-premium`의 비용은
+$1.34이고 통과율은 100.0%였습니다. **Quality 모드는 `direct-premium`보다 비용이 더 들고 푼
+문제는 더 적었습니다.** 라우터의 Quality 모드가 프리미엄 백엔드로 올라가면 복합 요율의 라우터
+input 마크업이 얹히지만, 프리미엄 모델을 직접 부르면 그 마크업이 없습니다. 이 워크로드에서는
+**`direct-premium`을 직접 부르는 편이 싸고 정확했습니다**.
 
-`router-cost`는 다른 라우터 arm과 같은 통과율(95.8%)을 **1/20 이하 비용**으로 냈다. 이
-워크로드에서 라우터의 가치는 "품질 상향"이 아니라 "품질 유지 + 비용 급감"에 있다.
-
----
-
-## 3 · 백엔드 분포 — Cost 모드 100% Grok, 두 런 연속 재현
-
-![arm별 실제 라우팅된 백엔드 스택 막대: router-cost는 100% grok-4-1-fast-reasoning, router-quality는 gpt-5과 gpt-5.5로 분할되고 grok 없음, direct-premium은 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.svg)
-
-`router-cost`는 graded 셀 전부(100%)를 `grok-4-1-fast-reasoning`으로 보냈다. 이 **Cost 모드
-100% Grok** 결과는 직전 무효 처리된 실행과 이번 publishable 런 **두 번 연속 재현**됐다. 두 런 모두 Cost
-모드가 같은 저비용 백엔드를 골랐다. 이는 두 런에 대한 방향성 증거이지 일반적인 라우팅 보장은
-아니다. `router-quality`는 `gpt-5`(57%)와 `gpt-5.5`(43%)로 나뉘고 Grok은 전혀 쓰지 않았다.
-분포는 graded 셀만 대상으로 하며 타임아웃으로 백엔드가 확정되지 않은 셀은 제외한다.
+`router-cost`는 다른 라우터 arm과 같은 통과율(95.8%)을 **1/20 이하 비용**으로 냈습니다. 이
+워크로드에서 라우터의 가치는 "품질 상향"이 아니라 "통과율 유지 + 비용 급감"에 있습니다.
 
 ---
 
-## 4 · 타임아웃 11셀 — 숨기지 않는다
+## 3 · 백엔드 분포 — Cost 모드 100% Grok, 두 실행 연속 재현
 
-11셀이 HTTP 408로 타임아웃했다(전체의 3.8%). **모든 타임아웃이 라우터 arm에서 발생했다.**
-`direct-premium`은 0건이다.
+<figure markdown="span">
+  ![arm별 실제 라우팅된 백엔드 스택 막대: router-cost는 100% grok-4-1-fast-reasoning, router-quality는 gpt-5과 gpt-5.5로 분할되고 grok 없음, direct-premium은 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.svg)
+  <figcaption>arm별 실제 라우팅된 백엔드 분포 — Cost 모드는 전 셀을 Grok으로, Quality 모드는 gpt 계열로 분할되고 Grok이 없다. 아래 표를 그림으로 옮긴 것이다.</figcaption>
+</figure>
+
+`router-cost`는 채점된 셀 전부(100%)를 `grok-4-1-fast-reasoning`으로 보냈습니다. 이 **Cost 모드
+100% Grok** 결과는 직전 무효 처리된 실험 11과 이번 실험 12에서 **두 번 연속 재현**됐습니다. 두
+실행 모두 Cost 모드가 같은 저비용 백엔드를 골랐습니다. 이는 그 두 실행에 대한 방향성 증거이지
+일반적인 라우팅 보장은 아닙니다. `router-quality`는 `gpt-5`(57%)와 `gpt-5.5`(43%)로 나뉘고
+Grok은 전혀 쓰지 않았습니다. 분포는 채점된 셀만 대상으로 하며 타임아웃으로 백엔드가 확정되지
+않은 셀은 제외합니다.
+
+---
+
+## 4 · 타임아웃 11셀 — 숨기지 않습니다
+
+11셀이 HTTP 408로 타임아웃했습니다(계획 셀 288개의 3.8%). **모든 타임아웃이 라우터 arm에서
+발생했습니다.** `direct-premium`은 0건입니다.
 
 | 분해 | 내역 |
 | --- | --- |
@@ -103,51 +126,53 @@
 | 과제별 | `toll-schedule` 7 · `dedupe-stable` 3 · `weekday-label` 1 |
 | 상태 | 11셀 모두 HTTP 408 (read timeout) |
 
-타임아웃은 두 곳에 반영된다. (1) content가 없으므로 채점 커버리지에서 **제외**하고, (2)
-pass=False로 **실패 계상**한다. 이 타임아웃들이 라우터 arm과 direct-premium 사이의 통과율 차이
-전부를 만든다. **위 4.17%p 격차는 코드 품질 차이가 아니라 지연(latency) 차이다.** 라우터
-백엔드가 프리미엄보다 느려 고정 타임아웃(read 90s / overall 120s)에 먼저 걸렸다. 타임아웃 상향
-제안은 [Fix C 문서](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md)에 있다(적용 시 새 사전등록 + 재런 필요).
+타임아웃은 두 곳에 반영됩니다. (1) 응답 본문이 없으므로 채점 커버리지에서 **제외**하고, (2)
+`pass=False`로 **실패 계상**합니다. 이 타임아웃들이 라우터 arm과 `direct-premium` 사이의 통과율
+차이 전부를 만듭니다. **위 4.17퍼센트포인트 격차는 코드 품질 차이가 아니라 지연 차이입니다.** 라우터
+백엔드가 프리미엄보다 느려 고정 타임아웃(read 90s / overall 120s)에 먼저 걸렸습니다. 타임아웃
+상향 제안은 [Fix C 문서](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md)에 있고, 실험 13이 그 제안을 자기 사전등록 아래에서
+적용했습니다(적용에는 새 사전등록과 재실행이 필요합니다).
 
 ---
 
 ## 5 · 신호 분리 — 각 지표가 무엇을 증명하고, 무엇을 증명하지 않나
 
-측정 결과를 과대해석하지 않기 위해, 지표별로 경계를 명시한다.
+측정 결과를 과대해석하지 않도록 지표별로 경계를 명시합니다.
 
-| 지표 (이 런의 값) | 무엇을 **증명하나** | 무엇을 **증명하지 않나** |
+| 지표 (이 실행의 값) | 무엇을 **증명하나** | 무엇을 **증명하지 않나** |
 | --- | --- | --- |
 | `measured=true` | 실제 provider 호출과 usage(토큰·지연)가 실제로 일어나 기록됨 | 코드 품질을 증명하지 않음 |
 | `cost_complete=true` (unpriced 0%) | 모든 셀이 고정 요율로 가격화됨 | 청구서와의 정합(invoice reconciliation)을 증명하지 않음 |
 | pass rate 95.8–100% | 결정론적 실행 신호 기반 채점기를 통과함 | 일반적 코드 품질 평가가 아님 |
-| savings 95.2% | 이 워크로드·이 테넌트·1회 측정에서의 절감 | 다른 워크로드·테넌트로의 일반화가 아님 |
+| savings 95.2% (실험 12 · `router-cost` 대 `direct-premium`) | 이 워크로드·이 테넌트·1회 측정에서의 절감 | 다른 워크로드·테넌트·다른 비교 대상으로의 일반화가 아님 |
 
 ---
 
-## 6 · 재현과 결과 생성 경로(provenance)
+## 6 · 재현과 provenance
 
-- **데이터 소스**: 결과 생성 경로(provenance)는 live·recorded·test 중 하나입니다. 봉인 스냅샷을 `measure publish` 경로로 마스킹 추출한
-  [`docs/assets/03d/published.json`](/foundry-cost-aware-model-routing/assets/03d/published.json). **집계·arm별 수치·백엔드
-  분포만** 담는다 — 프롬프트·응답 원문, 엔드포인트, 테넌트 식별자는 포함하지 않는다(엔드포인트는
-  `***.cognitiveservices.azure.com`로 마스킹, 원문은 `output_sha256`만).
-- **차트**: 위 세 SVG는 `published.json`에서 `scripts/build_03d_dashboard.py`로 **정적 생성**된다.
-  브라우저에서 데이터를 페치하지 않는다.
-- **무결성**: `plan_hash sha256:d640dc07…91d2921e` · 사전등록 커밋이 실행보다 앞섬(D8 게이트) ·
-  재생 `summary_matches=true`, `cost_mismatches=[]`(byte-identical) · `partial=false`.
+- **데이터 소스**: 봉인 스냅샷을 `measure publish` 경로로 마스킹 추출한
+  [`docs/assets/03d/published.json`](/foundry-cost-aware-model-routing/assets/03d/published.json)입니다.
+  **집계·arm별 수치·백엔드 분포만** 담고 프롬프트·응답 원문, 엔드포인트, 테넌트 식별자는
+  포함하지 않습니다(엔드포인트는 `***.cognitiveservices.azure.com`로 마스킹, 원문은
+  `output_sha256`만). 이 실행의 provenance는 `live`입니다([측정 프로토콜 §1](measurement-protocol.md)).
+- **차트**: 위 세 SVG는 `published.json`에서 `scripts/build_03d_dashboard.py`로 **정적으로
+  생성**됩니다. 브라우저에서 데이터를 가져오지 않습니다.
+- **무결성**: `plan_hash sha256:d640dc07…91d2921e` · 사전등록 커밋이 실행보다 앞섭니다(D8 게이트) ·
+  재생 `summary_matches=true`, `cost_mismatches=[]`(바이트 단위 동일) · `partial=false`.
 - **품질 게이트 판정**(사전등록 고정 기준): 채점 커버리지 ≥ 90% **PASS** · min_pass ≥ 0.60 **PASS** ·
-  premium 대비 drop ≤ 10%p (실측 4.17%p) **PASS** · 예산 **PASS** → **publishable**.
+  premium 대비 drop ≤ 10퍼센트포인트 (실측 4.17퍼센트포인트) **PASS** · 예산 **PASS** → **발행 가능**.
 - **사전등록 예상 적중**: 갱신 예상은 `cost < balanced < premium ≤ quality`(비용 순서)였고
-  실측도 `$0.06 < $0.31 < $1.34 < $1.56`로 **맞았다**. Quality 모드가 premium보다 비싸다는
-  예상이 확인됐다.
+  실측도 `$0.06 < $0.31 < $1.34 < $1.56`로 **맞았습니다**. Quality 모드가 `direct-premium`보다
+  비싸다는 예상이 확인됐습니다.
 
-같은 런의 서술형 기록은 실험노트에 있다 —
-[실험 12 · 라우팅 모드 유료 실측 재런](../lab-notebook/12-router-modes-measured.md). 직전
+같은 실행의 서술형 기록은 실험노트에 있습니다 —
+[실험 12 · 라우팅 모드 유료 실측 재실행](../lab-notebook/12-router-modes-measured.md). 직전
 [실험 11 · 사전등록 VOID](../lab-notebook/11-router-modes-void.md)와 나란히 읽으면 무엇을
-고쳤고(요율 커버리지·출력 상한) 무엇이 달라졌는지 보인다. 이후 전송 타임아웃을 올린 3차 런이
-이어졌다 — [실험 13 · 라우터 세 모드 비교 · 3차](../lab-notebook/13-router-modes-rate-card-gap.md).
-이 페이지의 수치는 전부 2차 런의 것 그대로다. 3차 런은 자기 요약 절감을 다른 기준선으로 보고하며,
-그 기준선이 위에서 구분한 두 기준선 중 나머지 하나다.
+고쳤고(요율 행 누락·출력 상한) 무엇이 달라졌는지 보입니다. 이후 전송 타임아웃을 올린 3차
+실행이 이어졌습니다 — [실험 13 · 라우터 세 모드 비교 · 3차](../lab-notebook/13-router-modes-rate-card-gap.md).
+이 페이지의 수치는 전부 실험 12의 것 그대로입니다. 실험 13은 자기 요약 절감을 또 다른 비교
+대상으로 보고하며, 그 값이 위 표의 94.7%입니다.
 
 같은 봉인 traces에 남아 있던 캐시 토큰을 유료 호출 없이 사후 재집계한
-기록은 별도 해설에 있다 — [봉인된 런에서 관측된 프롬프트 캐시](prompt-cache-observed.md).
-사전등록 게이트 밖의 사후 관측이며, 이 페이지의 수치는 하나도 바뀌지 않았다.
+기록은 별도 해설에 있습니다 — [봉인된 실행에서 관측된 프롬프트 캐시](prompt-cache-observed.md).
+사전등록 게이트 밖의 사후 관측이며, 이 페이지의 수치는 하나도 바뀌지 않았습니다.

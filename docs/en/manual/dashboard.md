@@ -25,50 +25,60 @@ service's JSON endpoints.
 ## What it shows
 
 - **Policy table** — candidate models ranked per class, with their priors.
-- **before / after** — naive (premium on every task) vs. cost-aware routing.
-- **Cost × coverage frontier** — plots three strategies (all-mini / all-premium / cost-aware
-  mix) as a cost (x) × coverage (y) scatter. The cost-aware mix reaches full
-  coverage at lower cost than all-premium — the panel labels this "both-win" (same pass rate at lower cost).
-  all-mini costs less but has lower coverage.
-- **Representative-task card (the Spotlight card)** — highlights the one task where cost-aware routing beat the naive premium
-  arm by the most, with two cards (routing vs. naive) and a multiplier (e.g. `24.1×` cheaper).
+- **before / after** — the **premium-on-every-task baseline** vs. cost-aware routing.
+- **Cost × pass-rate frontier** — plots five strategies (`all-mini`, `single_call`,
+  `cost-aware mix`, `all-premium`, `all-ensemble`) as a cost (x) × pass rate (y) scatter,
+  under the chart's own axis label `coverage`.
+  Observe-then-escalate routing (`cost-aware mix`) reaches a 100% pass rate at lower cost
+  than all-premium — the panel labels this "both-win" (same pass rate at lower cost).
+  `all-mini` costs less but has a lower pass rate, and the two points added below
+  (`all-ensemble` and `single_call`) show the price of the other two shortcuts.
+- **Representative-task card** — highlights the one task where cost-aware routing beat the
+  premium baseline by the most, with two cards (routing vs. premium baseline) and a
+  multiplier (e.g. `24.1×` cheaper). The replay summary carries it in the `spotlight`
+  field.
 - **Four-way comparison (the `arena` command; one problem, four ways)** — Pick one task and send **the
-  same problem** four ways: the cheapest model · a premium model · an ensemble that calls several candidate models in parallel (fan-out) to
-  everyone · a cost-aware router that climbs up from the cheapest. Each card fills in three axes —
-  **cost · latency · accuracy** — and highlights the winner for each measure. On the default task
+  same problem** four ways: the cheapest model, a premium model, an ensemble that fans out
+  to every candidate in parallel, and a cost-aware router that climbs up from the cheapest.
+  Each card fills in three axes — **cost · illustrative latency · accuracy** — and
+  highlights the winner for each measure. On the default task
   (`t-0003`) the router is **the cheapest and also right** (premium and ensemble are right too) but
   the **slowest on latency** because escalation is sequential. It reads from `/compare`
   (live) or `compare.json` (static), and task switching is handled
   client-side with no round trip. For details, see [One problem, four ways](head-to-head.md).
 - **Pass-rate cliff (policy A/B)** — compares the same workload side by side against a `cost-cut`
   candidate that removes the seed policy's expensive fallback. The candidate costs less,
-  but coverage drops **100% → 67% (−33%p)**. This comes from `/regression`, independently of
+  but the pass rate drops **100% → 67% (−33 percentage points)**. This comes from `/regression`, independently of
   replay, and hides silently when there's no data. For the full reading, see [Experiment 03 ·
   Pass-rate cliff](../lab-notebook/03-coverage-cliff.md).
 - **Fan-out threshold (threshold sweep)** — sweeps the budget gate's `compare_min_value` from 0 → 1.01
-  and shows fan-out task count, coverage, savings, and extra candidate-call cost.
-  **Coverage (100%) and savings (47%) stay unchanged** while the extra-call ratio falls
-  **[3.74×](projection-results.md) → $0.0000**. It comes from `/fanout-sweep` and hides when there's no data.
+  and shows fan-out task count, pass rate, savings, and extra candidate-call cost.
+  **Pass rate (100%) and savings (47%) stay unchanged** while the extra-call ratio falls
+  **[3.74×](projection-results.md) → 0.00×** and the extra cost falls **$0.36 → $0.0000**.
+  It comes from `/fanout-sweep` and hides when there's no data.
   See [Experiment 06 · Adaptive fan-out threshold](../lab-notebook/06-fanout-dial.md).
 - **Experiments (click for statistics)** — click an experiment tab and that experiment's cost,
-  coverage, extra candidate-call cost, and reproducibility criteria appear at once. It reads
+  pass rate, extra candidate-call cost, and reproducibility criteria appear at once. It reads
   Azure-Foundry-shaped offline metrics from `GET /experiments` (live) or `experiments.json` (static
   export). To see **which models and how** each tab is built as an animated SVG, see [Experiment
-  atlas](experiment-atlas.md); for reading the extra candidate-call cost, see [Experiment 05 · Ensemble fan-out
-  tax](../lab-notebook/05-ensemble-fanout.md).
+  atlas](experiment-atlas.md); for reading the extra candidate-call cost, see
+  [Experiment 05 · Extra candidate-call cost](../lab-notebook/05-ensemble-fanout.md).
 - **Historical dashboard** — a table of recorded experiment-run history. On a live server, one row
   accumulates each time you run an experiment (`GET /metrics/history`); in the static demo, it shows
   a deterministic baseline snapshot per experiment.
-- The **cost × coverage frontier** also plots the "just run everything" strategy,
-  `all-ensemble`, which calls every model
-  on every task and reaches 100% coverage at the highest cost. `single_call` (**blue dot**) is an Azure
-  AI Foundry Model Router–shaped **single-call** routing layer — it picks one model per prompt in
-  advance with no escalation, so it has **low coverage**.
-  For the full reading, see [Experiment 07 · The routing layer](../lab-notebook/07-model-router.md).
+- Two of the frontier's five points deserve a note. `all-ensemble` is the
+  "just run everything" strategy: it calls every model on every task and reaches 100%
+  a 100% pass rate at the highest cost. `single_call` (**blue dot**) is Azure AI Foundry
+  Model Router–shaped **single-call routing** — it picks one model per prompt in advance
+  with no escalation, so it has a **lower pass rate**. It is a placeholder arm over
+  synthetic data, not a measurement of the built-in router.
+  For the full reading, see [Experiment 07 · Single-call routing vs observe-then-escalate](../lab-notebook/07-model-router.md).
 - **Per-task routing-decision animation** — class, selected model, reason, cost.
 - **Aggregates** — cost by class, model usage, mode/reason statistics.
-- **Fleet & live routing** — Fleet — the deployment model catalog plus role assignment; shows the registered deployment catalog and picks **which model goes
-  in each arm — an arm is one comparison strategy in the experiment —** via router (main)/cheapest/premium dropdowns and an ensemble checkbox. **Run
+- **Fleet & live routing** — the Fleet is the catalog of deployed models plus the
+  assignment of each model to a role. This panel shows that catalog and picks **which
+  model backs each arm** via router (main)/cheapest/premium dropdowns and an ensemble
+  checkbox. **Run
   selection** honestly re-labels a committed measured snapshot as `measured = false` · `provenance =
   recorded` and replays it (the web path **never makes a paid call**), and prints the exact terminal
   command to measure your selection live. It reads from `GET /fleet` · `POST /fleet/run` and hides
@@ -76,8 +86,9 @@ service's JSON endpoints.
   selection](fleet.md).
 
 Flip the `full synthetic workload (100 tasks)` toggle at the top and the whole synthetic workload
-replays, filling in before/after clearly within 20 seconds. The representative-task card (the Spotlight card) is rendered from the
-replay summary's `spotlight` field (an auto-selected representative task).
+replays, filling in before/after clearly within 20 seconds. The representative-task card is
+rendered from the replay summary's `spotlight` field, which names the task selected
+automatically.
 
 !!! tip "Autorun"
     Open the `http://127.0.0.1:8000/?run=1` address that `cost-router hero --serve` points you to,

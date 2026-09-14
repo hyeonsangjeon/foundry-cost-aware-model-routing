@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="380" viewBox="0 0 760 380" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Per-arm backend distribution stacked bars. router-cost routed 100% to grok-4-1-fast-reasoning; router-quality split gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol.">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="380" viewBox="0 0 760 380" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Experiment 12, one measured run. Per-arm backend distribution stacked bars. router-cost routed 100% to grok-4-1-fast-reasoning; router-quality split gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol.">
   <rect x="0" y="0" width="760" height="380" fill="#ffffff"/>
-<text x="24" y="34" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">백엔드 분포 — arm별 실제 라우팅된 모델 (graded 셀 기준)</text>
-<text x="24" y="56" font-size="11" fill="#7b8794" text-anchor="start">Cost 모드 100% Grok은 무효 처리된 실행과 이번 런 두 번 연속 재현됐다</text>
+<text x="24" y="34" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">실험 12 · 백엔드 분포 — 각 arm이 실제로 도달한 모델</text>
+<text x="24" y="56" font-size="11" fill="#7b8794" text-anchor="start">채점된 셀만 · Cost 모드 100% Grok은 무효 처리된 실험 11과 실험 12에서 연속 재현 — 보장이 아니라 반복 관측</text>
 <text x="140" y="113.0" font-size="12" fill="#1f2933" text-anchor="end" font-weight="600">router-cost</text>
 <text x="140" y="127.0" font-size="10" fill="#7b8794" text-anchor="end">(Cost)</text>
   <rect x="150.0" y="92" width="470.0" height="34" fill="#2bb0a4"/>

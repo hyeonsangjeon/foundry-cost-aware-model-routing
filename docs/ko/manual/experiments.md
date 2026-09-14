@@ -1,7 +1,7 @@
 # 실험 설정 (YAML)
 
 **명명된 실험**은 워크로드, 오프라인 신호(픽스처 또는 합성), 가격표, 정책을 고정하고
-여기에 `expect` **재현성 통과 기준**을 더한 작은 YAML 파일입니다. 하나를 실행하면 나이브 대 라우팅
+여기에 `expect` **재현성 통과 기준**을 더한 작은 YAML 파일입니다. 하나를 실행하면 프리미엄 기준선 대 라우팅
 before/after를 다시 유도하고 오프라인 투영이 통과 기준 하한 아래로 떨어지면 **크게 실패**합니다.
 
 저장소의 "설치하면 그냥 돌아간다"는 약속을 expect 블록이 검사합니다. 투영이 선언한 범위를
@@ -10,7 +10,7 @@ before/after를 다시 유도하고 오프라인 투영이 통과 기준 하한 
 파일은 `experiments/` 디렉터리에 둡니다.
 
 !!! tip "비주얼로 먼저 보고 싶다면 — Experiment Atlas"
-    각 실험이 **어떤 모델**로 **무엇을**, **어떤 방식**(순차 에스컬레이션 · 여러 후보 모델을 병렬로 호출합니다(fan-out) · 단일 콜)으로
+    각 실험이 **어떤 모델**로 **무엇을**, **어떤 방식**(순차 에스컬레이션 · 팬아웃 · 단일 호출)으로
     처리하는지 애니메이션 SVG로 한눈에 보려면 **[실험 아틀라스 · Experiment Atlas](experiment-atlas.md)**
     를 보세요. Azure Model Router 실제 구성(키리스 Entra) 따라하기까지 포함되어 있습니다.
 
@@ -18,10 +18,11 @@ before/after를 다시 유도하고 오프라인 투영이 통과 기준 하한 
 
 ```yaml title="experiments/hero.yaml"
 name: hero
-title: "같은 커버리지, 더 낮은 비용 — 30초 히어로 실행"
+title: "통과율 100%를 유지하며 비용을 줄이는 기본 실험"
 summary: >-
   합성 워크로드 100건을 '통과하는 가장 싼 모델 먼저, 실패할 때만 상위 모델로'
-  라우팅해 모든 태스크에 프리미엄 모델을 쓰는 나이브 방식과 비교합니다.
+  라우팅합니다. 모든 태스크에 가장 비싼 모델을 쓰는 프리미엄 기준선과 비교하며,
+  결과는 실제 호출 비용이 아니라 고정된 합성 데이터와 예시 요율을 사용한 투영입니다.
 
 dataset:
   workload: samples/telemetry/mixed-coding-workload.sample.jsonl
@@ -34,8 +35,8 @@ pricing: null          # null → 번들 예시 가격 (measured=false)
 spotlight: auto        # auto | <task_id> | none
 
 expect:
-  min_coverage: 1.0    # 라우팅은 커버리지를 유지해야 하고
-  min_delta_pct: 0.20  # …나이브 청구서를 최소 20% 낮춰야 한다
+  min_coverage: 1.0    # 라우팅은 통과율 100%를 유지해야 하고
+  min_delta_pct: 0.20  # …프리미엄 기준선의 청구서를 최소 20% 낮춰야 한다
   min_tasks: 100
 ```
 
@@ -51,11 +52,11 @@ expect:
     ```
 
 !!! tip "라이브 실측 어댑터 — Azure AI Foundry Model Router (선택)"
-    `single_call` arm은 단일 호출 라우팅 레이어의 오프라인 프록시입니다. 실제 Foundry Model
+    `single_call` arm은 단일 호출 라우팅의 오프라인 프록시입니다. 실제 Foundry Model
     Router의 **결정**을 끼워 넣으려면, 의존성 없는 게이트
     어댑터 `router.foundry_router.FoundryModelRouter`에 아래 환경 변수와 주입된 `client`
     콜러블을 줍니다(설정이 없으면 어댑터는 비활성, 오프라인 프록시가 대신). 라이브 결정을
-    넣어도 비용·커버리지는 여전히 오프라인 투영(`measured = false`)이며 모델 **선택**만
+    넣어도 비용·통과율은 여전히 오프라인 투영(`measured = false`)이며 모델 **선택**만
     라이브입니다 — [실험 07](../lab-notebook/07-model-router.md) 참고.
 
     | 환경 변수 | 의미 |
@@ -78,20 +79,20 @@ expect:
 | `budget.compare_min_value` | (선택) 팬아웃 임계값 — 태스크 가치가 이 값 이상일 때만 compare(팬아웃). 올릴수록 후보 추가 호출 감소 (`adaptive.yaml` 참고) |
 | `budget.min_compare_candidates` | (선택) compare로 가기 위한 최소 후보 수 |
 | `spotlight` | `auto`, 특정 `task_id`, 또는 `none` |
-| `expect.min_coverage` | 이 커버리지 이상을 유지해야 함 |
-| `expect.min_delta_pct` | 나이브 청구서를 이 비율 이상 낮춰야 함 |
+| `expect.min_coverage` | 이 통과율 이상을 유지해야 함 |
+| `expect.min_delta_pct` | 프리미엄 기준선의 청구서를 이 비율 이상 낮춰야 함 |
 | `expect.max_delta_pct` | (선택) **상한** — 절감이 이 비율을 넘으면 안 됨(지나치게 큰 절감 차단; `limits.yaml` 참고) |
 | `expect.max_tax_ratio` | (선택) **추가 호출 비율 상한** — 팬아웃 원가/승자 비율이 이 값을 넘으면 안 됨(`adaptive.yaml` 참고) |
-| `expect.min_escalation_gain` | (선택) **에스컬레이션 이득 하한** — mix 커버리지 − `single_call` arm 커버리지가 이 값 이상이어야 함(`single-call.yaml` 참고) |
+| `expect.min_escalation_gain` | (선택) **에스컬레이션 이득 하한** — `cost-aware mix` 통과율에서 `single_call` 통과율을 뺀 값이 이 값 이상이어야 함(`single-call.yaml` 참고) |
 | `expect.min_tasks` | 최소 이만큼의 태스크를 다뤄야 함 |
 
 경로는 저장소 루트 기준 상대 경로 또는 절대 경로로 씁니다.
 
 ## 대표 태스크 — 대표 태스크 강조
 
-`spotlight`는 비용 인지 라우팅이 나이브 프리미엄 arm을 눈에 띄게 이기는 한 태스크를 고릅니다.
+`spotlight`는 비용을 고려하는 라우팅이 프리미엄 기준선 arm을 눈에 띄게 이기는 한 태스크를 고릅니다.
 
-- `auto` — 수용된(accepted) 태스크 중 **나이브/라우팅 비용 비율**이 가장 큰 태스크
+- `auto` — 수용된(accepted) 태스크 중 **프리미엄 기준선/라우팅 비용 비율**이 가장 큰 태스크
 - `<task_id>` — 특정 태스크를 명시적으로 고정
 - `none` — 대표 태스크 비활성화
 
@@ -103,7 +104,7 @@ expect:
 - `delta_pct ≥ min_delta_pct`
 - `delta_pct ≤ max_delta_pct` (설정된 경우에만 — 지나치게 큰 절감을 막는 상한)
 - `tax_ratio ≤ max_tax_ratio` (설정된 경우에만 — 후보 추가 호출 비율 상한)
-- `escalation_gain ≥ min_escalation_gain` (설정된 경우에만 — mix가 단일 호출 `single_call`보다 커버리지를 이만큼 더 벌어야 함)
+- `escalation_gain ≥ min_escalation_gain` (설정된 경우에만 — `cost-aware mix`가 단일 호출 `single_call`보다 통과율을 이만큼 더 벌어야 함)
 - `tasks ≥ min_tasks`
 
 하나라도 실패하면 `cost-router hero`/`experiment run`이 **0이 아닌 코드**로 종료합니다.

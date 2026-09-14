@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Per-arm total cost bar chart. router-cost $0.06 versus direct-premium $1.34; each bar annotated with task pass-rate and cost-per-pass.">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Experiment 12, one measured run. Per-arm total cost bar chart. router-cost $0.06 versus direct-premium $1.34; each bar annotated with task pass-rate and cost-per-pass.">
   <rect x="0" y="0" width="760" height="360" fill="#ffffff"/>
-<text x="24" y="34" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">arm별 총비용 — 통과율 · cost-per-pass</text>
-<text x="24" y="56" font-size="11" fill="#7b8794" text-anchor="start">24 tasks × n=3 = 288 cells · 표시 금액 2자리(서브센트 4자리) · 절감은 풀정밀도 계산</text>
+<text x="24" y="34" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">실험 12 실측 · arm별 총비용 — 통과율 · cost-per-pass</text>
+<text x="24" y="56" font-size="11" fill="#7b8794" text-anchor="start">24 tasks × n=3 = 288 cells · measured=true · directional · 금액 2자리(서브센트 4자리) · 절감은 풀정밀도</text>
 <text x="140" y="102.0" font-size="12" fill="#1f2933" text-anchor="end" font-weight="600">router-cost</text>
 <text x="140" y="116.0" font-size="10" fill="#7b8794" text-anchor="end">(Cost)</text>
   <rect x="150" y="78" width="20" height="40" rx="4" fill="#2f9e44"/>
@@ -22,5 +22,5 @@
   <rect x="150" y="276" width="470" height="40" rx="4" fill="#5b7089"/>
 <text x="630" y="294.0" font-size="13" fill="#1f2933" text-anchor="start" font-weight="700">$1.56</text>
 <text x="630" y="310.0" font-size="10" fill="#52606d" text-anchor="start">pass 95.8% (23/24) · $/pass $0.0678</text>
-<text x="24" y="336" font-size="11" fill="#52606d" text-anchor="start">핵심 대비: router-cost는 direct-premium 대비 95.2% 저렴(풀정밀도), 품질 격차 4.17%p 이내.</text>
+<text x="24" y="336" font-size="11" fill="#52606d" text-anchor="start">실험 12: router-cost는 direct-premium 대비 95.2% 저렴(풀정밀도), 통과율 격차 4.17퍼센트포인트 이내.</text>
 </svg>

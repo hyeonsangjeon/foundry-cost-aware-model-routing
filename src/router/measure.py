@@ -1998,7 +1998,8 @@ def verify_contract(
             checks.append(
                 ContractCheck(
                     "escalation_gain", gain >= contract.min_escalation_gain,
-                    f"+{gain:.1%} ≥ {contract.min_escalation_gain:.1%}",
+                    f"{gain * 100:+.1f} percentage points "
+                    f"≥ {contract.min_escalation_gain * 100:.1f} percentage points",
                 )
             )
         else:

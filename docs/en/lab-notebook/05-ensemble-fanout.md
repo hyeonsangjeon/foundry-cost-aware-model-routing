@@ -4,8 +4,8 @@
     Compare mode calls every candidate on 6 high-value tasks. Those calls cost
     **$0.50**, while the selected winners cost **$0.13**. The discarded calls account
     for the remaining **$0.36 (3.74×)**. The trace's `cost_usd` records **only the
-    winner**, so this experiment calculates the full cost to call several candidate models in parallel (fan-out) separately. All
-    numbers are `measured = false`.
+    winner**, so this experiment totals the cost of every candidate call separately.
+    All numbers are `measured = false`.
 
 <figure markdown="span">
   ![Ensemble loop animation — a parallel fan-out to five candidates, then the cheapest passing candidate is adopted](/foundry-cost-aware-model-routing/assets/gif/ensemble.gif)
@@ -16,28 +16,28 @@
 
 - **Situation (when):** the moment the idea lands — "wouldn't running several models as an ensemble (best-of-N, OpenRouter-style) be better?" Fan-out can raise quality, but **the cost multiplies.** When you need to meter that cost honestly.
 - **Task (what):** on 6 hand-picked high-value tasks, attach offline signals where the cheap candidate fails one check and the **middle and top candidates pass completely (a tie)** (`samples/responses/ensemble-fanout-signals.sample.json`). A budget gate sends them into **compare mode**, evaluating every candidate (fan-out), and ties break to the **cheapest fully-passing model** by policy rank.
-- **Experiment (what it tests):** (1) routing holds **coverage at 100%**, (2) saves
-  **~47%** against naive, and (3) a shared metric records the difference between all
+- **Experiment (what it tests):** (1) routing holds a **100% pass rate**, (2) saves
+  **~47%** against the **premium-on-every-task baseline**, and (3) a shared metric records the difference between all
   candidate calls and the selected winner.
 
-Experiments 01 · 02 show savings, 03 shows lost coverage, and 04 shows a workload
-with no saving. This experiment records the additional calls made by an ensemble.
-The earlier summary, "an ensemble isn't free — fan-out carries a tax.", names that
-same additional cost.
+Experiments 01 · 02 show savings, 03 shows a lost pass rate, and 04 shows a workload
+with no saving. This experiment records the additional calls made by an ensemble and
+prices them. Calling every candidate is not free, and this page puts a number on what
+it adds.
 
 ## Why winner cost does not include every call
 
 When `route_tasks` uses compare mode, it evaluates every candidate but stores only
 the selected model in `cost_usd`. `total_cost_usd` is therefore the routing bill, not
-the cost of every ensemble call. The complete fan-out cost is the sum of every candidate tried on each compare task:
-the cost of "running every model as an ensemble."
+the cost of every ensemble call. The full fan-out cost — what "running every model as an
+ensemble" costs — is the sum of every candidate tried on each compare task.
 
 `router.metrics.fanout_stats(traces)` recovers exactly this sum:
 
-- `fanout_usd` — the sum of the costs of **all candidates** tried on the compare tasks (the fan-out cost)
-- `winner_usd` — the cost of **the winner** among them (what routing actually billed)
-- `ensemble_tax_usd` = `fanout_usd − winner_usd` — the cost of candidates that were not selected
-- `tax_ratio` = `fanout_usd / winner_usd` — how many times the winner the fan-out costs
+- `fanout_usd` — the summed cost of **all candidates** tried on the compare tasks
+- `winner_usd` — the cost of **the winner** among them, which is what routing actually billed
+- `ensemble_tax_usd` = `fanout_usd − winner_usd` — the cost of the candidates that were not selected
+- `tax_ratio` = `fanout_usd / winner_usd` — the fan-out cost expressed as a multiple of the winner cost
 
 ## Setup
 
@@ -85,32 +85,32 @@ Routing's bill is honestly cheap at **$0.13**, but fanning those 6 tasks out in 
 > Canonical: the extra candidate-call cost (3.74×) is collected in [offline experiment results](../manual/projection-results.md).
 
 !!! example "The representative task — t-0032 (test)"
-    Routing chose `swift-coder` ($0.0021) while the naive premium arm — an arm is one comparison strategy in the experiment — uses
-    `balanced-pro` ($0.01) → **5.14× cheaper**. Fanning out this task (mini · swift ·
-    balanced) costs **$0.01**, 6.5× the winner. The saving and extra fan-out cost
-    happen **at the same time**.
+    Routing chose `swift-coder` ($0.0021). The premium baseline calls the most
+    expensive candidate in the class, which for `test` is `balanced-pro` ($0.01) —
+    **5.14× more**. Fanning this task out (mini · swift · balanced) costs **$0.01**,
+    6.5× the winner. The saving and the extra fan-out cost happen **at the same time**.
 
 ## Calling every model — "run everything" is the most expensive strategy
 
 The 100-task synthetic default-experiment workload also includes an `all_ensemble` strategy that
 calls every model on every task:
 
-| Strategy | Cost | Coverage |
+| Strategy | Cost | Pass rate |
 | --- | --- | --- |
 | all-mini (cheapest model only) | $0.19 | 22% |
-| cost-aware mix (routing) | $1.66 | 100% |
+| observe-then-escalate routing | $1.66 | 100% |
 | all-premium (priciest model only) | $2.23 | 100% |
 | **all-ensemble (fan out everything)** | **$4.23** | 100% |
 
-The "just run everything" strategy, `all-ensemble`, reaches 100% coverage but costs
-the most: 1.9× even premium. Premium
-already reaches 100%, so the additional calls do not increase coverage here.
+The "just run everything" strategy, `all-ensemble`, reaches a 100% pass rate but costs
+the most: 1.9× even premium. Premium already reaches 100% on this workload, so
+the additional calls buy no extra passes here.
 
 ## The shared metric class — store and query in Foundry shape
 
 The reusable asset this experiment introduces is the **shared metric module** in `src/router/metrics.py`. Because the CLI, the HTTP service, and the dashboard all share this one module, per-experiment stats and the historical dashboard never recompute numbers by hand.
 
-- `ExperimentMetrics` — a normalized snapshot of one run (cost · coverage · extra
+- `ExperimentMetrics` — a normalized snapshot of one run (cost · pass rate · extra
   fan-out cost + a content-addressed `run_id`). Pure and deterministic.
 - `ExperimentMetrics.to_metric_records()` — renders **Azure Monitor / OpenTelemetry** metric-data-point shape (value · unit · `customDimensions`) — a payload you can push straight into Azure AI Foundry observability.
 - `JsonlMetricsStore` — an offline history store (append-only JSONL). The historical dashboard reads from here.
@@ -122,7 +122,7 @@ For usage details, see the [Metrics & Foundry](../manual/metrics.md) manual.
 
 We added two panels to the dashboard:
 
-- **Experiments** — click an experiment tab to see cost, coverage, extra fan-out
+- **Experiments** — click an experiment tab to see cost, pass rate, extra fan-out
   cost, and the reproducibility criteria. It reads Foundry-shaped metrics from
   `GET /experiments` (live) or `experiments.json` (static export).
 - **Historical dashboard** — a table of recorded run history. On a live server it accrues one row every time you run an experiment (`GET /metrics/history`); in the static demo it shows a deterministic reference snapshot per experiment.
@@ -132,7 +132,7 @@ We added two panels to the dashboard:
 ## Reading this number honestly
 
 Ensemble/fan-out **can raise quality**, but this experiment does not measure that.
-It measures offline cost: at the same coverage, calling every candidate costs more
+It measures offline cost: at the same pass rate, calling every candidate costs more
 than billing only the winner. A live quality experiment must determine whether the
 additional $0.36 and 3.74× ratio produce enough quality improvement.
 

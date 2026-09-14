@@ -1,11 +1,12 @@
 # Prompt cache observed in the sealed runs
 
-!!! note "measured = true · observed after the preregistered analysis (post-hoc) re-read · no new paid calls"
+!!! note "measured = true · a post-hoc re-read · no new paid calls"
     The data here comes from three real paid runs against Azure Foundry — the same
     sealed snapshots behind the measured results. This page adds no new calls: it
-    re-reads `traces.jsonl` after the results were already in. The preregistration — the workload, hypotheses, and pass/fail criteria committed before the paid run —
-    carried no cache prediction and no cache gate, so this is an observation after that preregistered analysis,
-    not a preregistered result. Nothing under `results/` changed and no published
+    re-reads `traces.jsonl` after the results were already in. The preregistration — the
+    workload, hypotheses and pass/fail criteria, committed before each paid run — carried
+    no cache prediction and no cache gate, so everything below is an observation made
+    after the preregistered analysis, not a preregistered result. Nothing under `results/` changed and no published
     figure moved. Measured results that passed a preregistration gate live on the
     [Routing-mode measured results dashboard](routing-measured-results.md); this page is
     deliberately kept out of that place because it is a different kind of claim.
@@ -42,15 +43,17 @@
 - Only HTTP 200 rows are aggregated: **845 rows** of 864. The 19 non-200 rows are all
   HTTP 408 and carry `tokens.input == 0`, so they cannot move a ratio.
 
-*Cells and rows here are one population counted two ways: a cell is one
-(task × arm × sample) measurement — an arm is one comparison strategy in the experiment — 24 × 4 × 3 = 288 per run
-([Glossary](glossary.md)) — and each cell recorded exactly one trace row, so the
-three runs together hold 864 rows.*
+*Cells and rows here are one population counted two ways. A cell is one
+(task × arm × sample) measurement, where an **arm** is one comparison strategy evaluated
+against the same workload under the same measurement plan: 24 tasks × 4 arms × 3 repeats
+= 288 planned cells per run ([Glossary](glossary.md)). Each cell recorded exactly one
+trace row, so the three runs together hold 864 rows.*
 
-**Experiment 11 is VOID, and every table below labels it so.** Experiment 11 fell
-below its preregistered **grading coverage** bar — the share of cells that returned an
-answer that could be graded. That verdict is about grading, not about token
-accounting: the cache figures here come from the same `usage` block that priced the
+**Experiment 11 is VOID, and every table below labels it so.** Experiment 11 was voided
+on two independently sufficient grounds: its `router-quality` arm fell below the
+preregistered **grading coverage** floor — the share of planned cells that returned an
+answer that could be graded — and 43.4% of its cells were unpriced. Both verdicts are
+about grading and pricing, not about token accounting: the cache figures here come from the same `usage` block that priced the
 run, and the void does not put them in question. What experiment 11 cannot support is
 the arm comparison it was planned for; what is re-read here is not that run's
 conclusion but the cache record its traces left behind. The run is kept and labelled
@@ -168,9 +171,10 @@ Composition per arm, with the ratio **inside** each slice in the last column:
 | 13 | `router-cost` | `grok-4-1-fast-reasoning` | 100.00% | 97.01% |
 | 13 | `router-balanced` | `gpt-5.6-sol` · `gpt-5.6-terra` | 83.33% · 16.67% | 0.00% |
 
-**With the backend held fixed, the arm that spread its requests is not the lower one.**
-Comparing only the Grok slices: `router-balanced` recorded 99.41% against
-`router-cost`'s 93.11% in experiment 11, and 99.10% against 96.47% in experiment 12.
+**With the backend held fixed, `router-balanced` — the arm that spread its requests
+across several backends — recorded the higher ratio, not the lower one.** Comparing only
+the Grok slices: `router-balanced` recorded 99.41% against `router-cost`'s 93.11% in
+experiment 11, and 99.10% against 96.47% in experiment 12.
 
 ![Grouped bars on a 0-100% axis comparing Cost mode with Balanced mode on Grok rows only. Experiment 11 (VOID): Cost mode 93.11%, Balanced mode 99.41%. Experiment 12: Cost mode 96.47%, Balanced mode 99.10%. In both runs the arm that spread its requests recorded the higher ratio once the backend is held fixed.](/foundry-cost-aware-model-routing/assets/prompt-cache/backend-fixed.en.svg)
 
@@ -327,10 +331,10 @@ The repository pins this absence itself:
 reader-less field that enters `plan_hash` and no model API.
 
 **The one mention of `prompt_cache_key` is documentation, not implementation.**
-[Core concepts](concept.md) lists `prompt_cache_key` bucketing under the Govern layer
-and states that the router "consumes this layer as a **dependency** from the companion
-toolkit instead of reimplementing its math." There is no such dependency in
-`pyproject.toml`, no bucketing code, and no call site. It is a declaration, not integration.
+[Core concepts](concept.md) lists `prompt_cache_key` bucketing under the Govern layer as
+design intent. There is no dependency for it in `pyproject.toml`, no bucketing code, and
+no call site. That page now states the gap directly; this section is the evidence behind
+it.
 
 The dispatch order in §3-5 is documented only as a determinism property
 (`run_plan.py:912`: `"task-major, then repeat, then arm; deterministic"`). Nothing in

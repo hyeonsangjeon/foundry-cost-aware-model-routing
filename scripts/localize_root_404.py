@@ -97,7 +97,7 @@ def build_404(home_html: str) -> str:
         # "Home - <site name>" -> "<site name>"; fall back to the whole title.
         parts = title_m.group(1).strip().split(" - ")
         site_name = parts[-1].strip() if len(parts) > 1 else title_m.group(1).strip()
-    new_title = "404 - Not found" + (f" - {site_name}" if site_name else "")
+    new_title = "404 - Page not found" + (f" - {site_name}" if site_name else "")
 
     html = TITLE_RE.sub("<title>" + new_title + "</title>", home_html, count=1)
     # A 404 must not self-canonicalize to the home page.
@@ -105,10 +105,11 @@ def build_404(home_html: str) -> str:
 
     body = (
         f'\n<h1 id="{CONTENT_ID}">404 - Page not found</h1>\n'
-        "<p>We could not find that page. It may have moved, or the link may be "
-        "incomplete.</p>\n"
-        f'<p><a href="{base}">Go to the home page</a>, or use the search box '
-        "above.</p>\n"
+        "<p>This site has no page at that address. The page may have been renamed "
+        "or moved, or the link you followed may be incomplete.</p>\n"
+        f'<p><a href="{base}">Go to the home page</a> for the English manual and lab '
+        f'notebook, open <a href="{base}ko/">the Korean site</a>, or use the search '
+        "box above.</p>\n"
     )
     html, n = ARTICLE_RE.subn(r"\1" + body + r"\2", html, count=1)
     if n != 1:

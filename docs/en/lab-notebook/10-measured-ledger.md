@@ -126,8 +126,9 @@ status: PASS
 
 `replayed == records` means the chain was intact across **all five rows** and every recorded
 call cost was re-derived from the sealed rate card to an exact match. The last two lines
-indicate the router arm — an arm is one comparison strategy in the experiment — is subject to the pricing annotation — if this ledger has a router row
-but the annotation can't be read, verification follows this rule: when a rate is missing, withhold the cost claim rather than guess (fail-closed), and returns **`status: FAIL`**.
+concern the `router` arm, which is subject to the pricing annotation. If this ledger has a
+router row but the annotation cannot be read, verification withholds the cost claim rather
+than guessing at a missing rate — it fails closed and returns **`status: FAIL`**.
 
 ## Catching tampering — two independent lines of defense
 
@@ -166,8 +167,8 @@ but the annotation can't be read, verification follows this rule: when a rate is
 
 !!! warning "What is measured · what is not"
     - **Measured (real):** the **model** the router picked and the per-call **token usage** —
-      the values actually billed by real keyless Entra calls in experiment 09 / the four-way comparison
-      (`provenance = live`, `spend_source = provider-usage`).
+      the values actually billed by experiment 09's real keyless Entra calls over its 5 curated
+      tasks (`provenance = live`, `spend_source = provider-usage`).
     - **The rates for cost are illustrative (list price).** The tokens are measured, but the
       rates are the public list price
       ([`foundry-5series.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/pricing/foundry-5series.yaml))
@@ -176,8 +177,9 @@ but the annotation can't be read, verification follows this rule: when a rate is
     - **The `router` arm amount is incomplete on top of that.** That rate card has **no router
       input-markup line item**, so a routed call's amount is missing one billing item. It is not
       an approximation but **incomplete**, so it's excluded from cost and savings claims (see the
-      § in the headline table above). `cheapest` · `premium` · `ensemble`, which call a single
-      deployment directly, are **unaffected**.
+      § in the headline table above). The later `composite-rate-card-v2` schema composes both
+      parts correctly; this capture predates it. `cheapest` · `premium` · `ensemble`, which call
+      a single deployment directly, are **unaffected**.
     - **Re-verification is valid regardless of this flaw.** `measured-replay` checks *"does this
       amount replay from the sealed rate card"* — the fact that the rate card itself is incomplete
       was attached as an annotation rather than by touching the ledger, so all existing hashes still
@@ -203,9 +205,9 @@ The models the router actually ran: **`gpt-5.4` × 3 · `grok-4-1-fast-reasoning
 experiment 08 comparison and the experiment 09 measurement.)
 
 !!! danger "§ The `router` row is **incomplete** — do not compare amounts across arms"
-    Model Router billing is composite: a **router input-token markup** plus the chosen sub-model's
-    input·output. This capture applied sub-model rates only, so the `router` total is a value
-    **missing one billing line item**. The ledger bytes, record hashes, and chain hashes are
+    Model Router billing is composite: a **router input-token markup** plus the input and output
+    of the backend the router resolved to. This capture applied backend rates only, so the
+    `router` total is a value **missing one billing line item**. The ledger bytes, record hashes, and chain hashes are
     **preserved exactly as the originals** (which is why `measured-replay` still returns `PASS`),
     and this fact was attached with a separate versioned annotation
     [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json).
@@ -253,6 +255,6 @@ heart of this experiment.
 ---
 
 **Related docs:** [experiment 09 · measured routing](09-live-routing-proof.md) (what it picked) ·
-[experiment 08 · arena](08-arena.md) (the offline comparison) ·
-[live measurement bridge](../manual/foundry-live.md) ·
-[Foundry hands-on configuration](../manual/foundry-setup.md) · [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)
+[experiment 08 · four-way comparison](08-arena.md) (the offline comparison) ·
+[live measurement adapter](../manual/foundry-live.md) ·
+[Foundry hands-on configuration](../manual/foundry-setup.md) · [dev log (Korean only)](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)

@@ -2,10 +2,11 @@
 
 !!! abstract "One-line summary"
     Experiments 01–08 used synthetic telemetry and placeholder models
-    (`measured = false`). This experiment sent five curated prompts to a real
-    **Azure AI Foundry Model Router** deployment using **Microsoft Entra ID, no key**.
-    The response recorded which model served each prompt, the billed token usage, and
-    wall-clock latency. One `model-router` deployment chose **`gpt-5.4` (3) and
+    (`measured = false`). This experiment is the repository's **first live Azure AI
+    Foundry Model Router run**: it sent **5 curated prompts** to a real
+    **`model-router`** deployment using **Microsoft Entra ID, no key**. The response
+    recorded which model served each prompt, the billed token usage, and wall-clock
+    latency. One `model-router` deployment chose **`gpt-5.4` (3) and
     `grok-4-1-fast-reasoning` (2)**. This is the repository's first
     `measured = true` experiment; unlike experiment 08, **latency here is real
     wall-clock too**.
@@ -20,8 +21,8 @@
 - **Situation (why):** all eight of the repository's experiments were honestly
   `measured = false` — deterministic projections over **placeholder** models like
   `mini-fast` and `premium-max`, with no network and no credentials. They could not
-  answer this question: *"so when it's wired to real Foundry, what model does the
-  router **actually** pick?"*
+  answer this question: *"so when it runs against real Foundry over the live call path,
+  what model does the router **actually** pick?"*
 - **Task (what):** for this work alone we provisioned a new **keyless (Entra-only)
   AIServices resource**, deployed one real **`model-router`** plus **GPT‑5.4-family
   candidates** (`gpt-5.4-nano` · `gpt-5.4-mini` · `gpt-5.4`), and then **really
@@ -64,8 +65,10 @@ field**.
   actually ran**. This value is the ground truth
   ([`_response_model`](../manual/foundry-live.md)).
 - **usage:** the response's **actual `usage`** tokens are recorded as-is
-  (`_usage_from_response`) — not synthetic tokens. Multiplying those by a rate yields
-  an amount that is incomplete for the router arm alone — an arm is one comparison strategy in the experiment (see below).
+  (`_usage_from_response`) — not synthetic tokens. Multiplying those by a backend rate
+  yields an amount that is incomplete for the router arm, because it omits the router's
+  own input markup (see below). An **arm** is one comparison strategy evaluated against
+  the same workload under the same measurement plan.
 - **Auth:** the resource has `disableLocalAuth=true` (key auth off), so calls go
   **without an API key** — only an Entra token for the `az login` identity
   (`https://cognitiveservices.azure.com/.default`).
@@ -74,9 +77,11 @@ field**.
 
 !!! danger "The cost column in this table is **incomplete** — do not use it for a cost claim"
     Model Router billing is **composite**: a **router input-token markup** plus the
-    **input·output** charges of the **sub-model** the router picked. This capture priced
-    it with sub-model rates only, so the `cost†` column below is **missing one billing
-    line item**. It is not an approximation — it is **incomplete**. We leave the original
+    **input·output** charges of the **backend model** the router resolved to. This capture
+    priced it with backend rates only, so the `cost†` column below is **missing one billing
+    line item**. It is not an approximation — it is **incomplete**. Later runs price the
+    composite correctly with the `composite-rate-card-v2` schema; this capture predates it.
+    We leave the original
     amounts as history and exclude them from any cost or savings claim. The rationale and
     scope are pinned in the versioned annotation
     [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json),
@@ -127,7 +132,7 @@ Answer text also came back with `finish_reason = stop` and no truncation:
       each answer was *correct* was not graded → `coverage_measured = false`. Only by
       integrating a real apply/compile/test harness does accuracy become measured too.
     - **Router-derived cost is incomplete.** The tokens are measured, but the amount for a
-      routed call is computed with **sub-model rates only** and is **missing the router
+      routed call is computed with **backend rates only** and is **missing the router
       input markup**. It is not an approximation but an **incomplete** value with one
       billing line item missing, so we keep it as history only and exclude it from cost and
       savings claims. The rates themselves are illustrative, too, so this is **not your
@@ -135,8 +140,8 @@ Answer text also came back with `finish_reason = stop` and no truncation:
       `premium` · `ensemble`), by contrast, are not subject to the markup and are
       **unaffected**.
     - **A live snapshot.** This resource was created for this work, and the numbers in the
-      table are a single measured snapshot. Re-run it and the routing decision stays the
-      same, but tokens, cost, and latency may change.
+      table are a single measured snapshot of 5 curated tasks. Re-run it and the routing
+      decision stays the same, but tokens, cost, and latency may change.
 
 ## Experiments 01–08 ↔ Experiment 09
 
@@ -145,7 +150,7 @@ Answer text also came back with `finish_reason = stop` and no truncation:
 | Data | synthetic telemetry | real prompts → real responses |
 | Models | placeholders (`mini-fast`…) | **real** (`gpt-5.4` · `grok-4-1-fast-reasoning`) |
 | Label | `measured = false` | **`measured = true`** |
-| Latency | illustrative projection (08) | **measured wall-clock** |
+| Latency | illustrative axis (08) | **measured wall-clock** |
 | Accuracy | offline signals (`is_clean`) | ungraded (`coverage_measured = false`) |
 | Reproduction | deterministic (pinned by CI) | live snapshot (varies per call) |
 
@@ -183,9 +188,9 @@ router-derived amount is **incomplete** for the reason above, and the summary's
 There's a new command that runs experiment 08's "one problem × four ways" entirely as
 **real Foundry calls**. It really calls the four arms `cheapest` · `premium` · `ensemble` ·
 `router` to **measure usage and latency** (accuracy ungraded — measurable by injecting a
-grader). The single-model arms' amounts have the rate card applied directly, but **the
-`router` arm's amount is incomplete because the router markup is missing**, so the report
-does not emit any router savings figure at all.
+grader). The single-model arms have the rate card applied directly, but **the `router` arm's
+amount is incomplete because the router markup is missing**, so the report emits no
+router savings figure at all.
 
 ```bash
 # 4-way live arena — real cost, real latency, saved to report/ledger
@@ -206,8 +211,7 @@ Measurement snapshot (captured):
     reasoning model** — two of the five calls went to the reasoning model (`grok`). This is
     an observation about **model selection**, evidenced by the response's `model` field.
     But **you cannot compare which side is cheaper here** — the router-derived amount is
-    missing the router input markup, so a cost contrast against an ensemble that calls several candidate models in parallel (fan-out) or a
-    single `gpt-5.4` doesn't hold. Structurally, the router is 1 call / 1 charge per prompt
+    missing the router input markup, so a cost contrast against a parallel ensemble fan-out, or against a single `gpt-5.4` call, does not hold. Structurally, the router is 1 call / 1 charge per prompt
     while fan-out is N calls / N charges — that **call-count** difference remains, but it
     doesn't by itself imply which is cheaper. For setup and rationale, see the
     [Foundry hands-on configuration manual](../manual/foundry-setup.md).
@@ -215,5 +219,5 @@ Measurement snapshot (captured):
 ---
 
 **Related docs:** [Foundry hands-on configuration · per-experiment setup](../manual/foundry-setup.md) ·
-[live measurement bridge](../manual/foundry-live.md) · [experiment 08 · arena](08-arena.md)
-(the offline comparison) · [dev log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)
+[live measurement adapter](../manual/foundry-live.md) · [experiment 08 · four-way comparison](08-arena.md)
+(the offline comparison) · [dev log (Korean only)](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/)

@@ -224,7 +224,7 @@ DASHBOARD_TEMPLATE = """<!DOCTYPE html>
     border-left: 3px solid var(--brand2); background: var(--brand-soft); border-radius: 8px; color: #124a2e;
   }
 
-  /* ---- cost x coverage frontier ---- */
+  /* ---- cost x task-pass-rate frontier ---- */
   .frontier { margin-top: 18px; }
   .frontier svg { width: 100%; height: auto; display: block; overflow: visible; }
   .fttl { font-size: 12.5px; color: var(--ink); font-weight: 600; margin: 2px 0 6px; }
@@ -944,7 +944,7 @@ const pct = (n) => (Number(n) * 100).toFixed(1) + "%";
 // anything less is a quality regression that must warn.
 function coverageState(cov) {
   if (Number(cov) >= 1) return { warn: false, note: "" };
-  return { warn: true, note: "\\u26A0 coverage dropped — savings came at a quality cost." };
+  return { warn: true, note: D.covWarn };
 }
 
 let MODEL_ORDER = [];   // cheapest first
@@ -954,9 +954,9 @@ let MODEL_META = {};    // model -> {tier, reasoning, role}
 async function loadHealth() {
   try {
     const h = await (await fetch(EP.health)).json();
-    $("health").textContent = h.status === "ok" ? "● healthy · offline" : "unhealthy";
+    $("health").textContent = h.status === "ok" ? D.healthOk : D.healthBad;
     if (h.status === "ok") $("health").classList.add("ok");
-  } catch (e) { $("health").textContent = "unreachable"; }
+  } catch (e) { $("health").textContent = D.healthErr; }
 }
 
 function tierTag(model) {
@@ -968,7 +968,7 @@ function tierTag(model) {
 
 async function loadPolicy() {
   const p = await (await fetch(EP.policy)).json();
-  $("polver").textContent = "policy v" + p.version;
+  $("polver").textContent = D.policyVer + p.version;
 
   const catalog = p.catalog || [];
   MODEL_ORDER = catalog.map((c) => c.model);
@@ -1012,11 +1012,12 @@ function renderByClass(byClass) {
     const fillPct = (100 * v.routed_usd / (v.baseline_usd || 1)).toFixed(2);
     return "<div class='aggrow'>" +
       "<div class='aggrow-h'><span>" + cls + "</span>" +
-      "<span style='color:var(--green)'>" + pct(v.saved_pct) + " saved</span></div>" +
+      "<span style='color:var(--green)'>" + esc(mfmt(D.clsSaved, { pct: pct(v.saved_pct) })) + "</span></div>" +
       "<div class='track' style='width:" + trackPct + "%'>" +
       "<span class='fill-routed' style='width:" + fillPct + "%'></span></div>" +
-      "<div class='aggrow-f'>routed " + usd(v.routed_usd) + " · naive " + usd(v.baseline_usd) +
-      " · " + v.tasks + " tasks</div></div>";
+      "<div class='aggrow-f'>" + esc(mfmt(D.clsFooter, {
+        routed: usd(v.routed_usd), base: usd(v.baseline_usd), n: v.tasks,
+      })) + "</div></div>";
   }).join("");
 }
 
@@ -1028,15 +1029,15 @@ function renderByModel(byModel) {
     const w = (100 * v.routed_usd / maxCost).toFixed(2);
     return "<div class='aggrow'>" +
       "<div class='aggrow-h'><span class='mdot m" + i + "'>" + m + tierTag(m) + "</span>" +
-      "<span>" + v.tasks + " tasks · " + usdSmart(v.routed_usd) + "</span></div>" +
+      "<span>" + esc(mfmt(D.modelTasks, { n: v.tasks, usd: usdSmart(v.routed_usd) })) + "</span></div>" +
       "<div class='track full'><span class='m" + i + "' style='width:" + w + "%'></span></div></div>";
   }).join("");
 }
 
 function renderModeReason(modeCounts, modeCost, reasonCounts) {
   $("byMode").innerHTML = Object.entries(modeCounts).map(([k, c]) =>
-    "<div class='chip'><b>" + k + "</b> " + c + " tasks <small>· " + usd(modeCost[k] || 0) +
-    "</small></div>").join("");
+    "<div class='chip'><b>" + esc(k) + "</b> " + esc(mfmt(D.modeTasks, { n: c })) +
+    " <small>\u00b7 " + usd(modeCost[k] || 0) + "</small></div>").join("");
   $("byReason").innerHTML = Object.entries(reasonCounts).map(([k, c]) =>
     "<span class='pill reason-" + k + "'>" + k + " · " + c + "</span>").join(" ");
 }
@@ -1072,20 +1073,20 @@ function renderUsageSplit(byModel) {
   const cheapTwo = MODEL_ORDER.slice(0, 2).filter((m) => byModel[m]);
   const cheapCount = cheapTwo.reduce((a, m) => a + tasksFor(m), 0);
   const top = used[used.length - 1];
-  el.innerHTML = "Cheap tiers carried the volume: <b>" + cheapTwo.join(", ") + "</b> handled <b>" +
-    cheapCount + "</b> tasks, while the premium tier <b>" + top + "</b> handled only the <b>" +
-    tasksFor(top) + "</b> hardest.";
+  el.innerHTML = mfmt(D.usageSplit, {
+    cheap: esc(cheapTwo.join(", ")), cheapN: cheapCount, top: esc(top), topN: tasksFor(top),
+  });
 }
 
 function setCov(id, cov) {
   const el = $(id);
   if (!el) return;
   const st = coverageState(cov);
-  el.textContent = "coverage " + pct(cov) + (st.warn ? " \\u26A0" : "");
+  el.textContent = D.covPill + pct(cov) + (st.warn ? " \\u26A0" : "");
   el.className = "covpill " + (st.warn ? "warn" : "ok");
 }
 
-// P1: three-way comparison — all-mini vs all-premium vs the cost-aware mix.
+// P1: three-way comparison — all-mini vs all-premium vs cheapest-first escalation.
 function renderStrategies(s) {
   const st = s.strategies || {};
   const prem = st.all_premium || { total_cost_usd: s.baseline_total_usd, coverage: 1 };
@@ -1098,17 +1099,16 @@ function renderStrategies(s) {
   $("miniBar").style.width = (100 * mini.total_cost_usd / scale).toFixed(2) + "%";
   setCov("miniCov", mini.coverage);
   setCov("mixCov", s.coverage);
-  $("takeaway").textContent =
-    "Cheapest-only is cheaper but drops coverage to " + pct(mini.coverage) +
-    " — the cheap tier fails the hard tasks. Premium-only holds " + pct(prem.coverage) +
-    " coverage but costs the most. The cost-aware mix is the only strategy that keeps " +
-    pct(s.coverage) + " coverage below premium cost.";
+  $("takeaway").textContent = mfmt(D.takeaway, {
+    mini: pct(mini.coverage), prem: pct(prem.coverage), mix: pct(s.coverage),
+  });
 }
 
 // Plot the three strategies as points in cost x coverage space. The desirable
-// corner is top-left (full coverage, low cost) — only the cost-aware mix lands
-// there; all-premium shares the coverage but sits far right (costlier), and
-// all-mini is cheap but collapses down the coverage axis. Inline SVG, no libs.
+// corner is top-left (a 100% pass rate at low cost) — only cheapest-first
+// escalation lands there; all-premium shares the pass rate but sits far right
+// (costlier), and all-mini is cheap but collapses down the pass-rate axis.
+// Inline SVG, no libs.
 function renderFrontier(s) {
   const host = $("frontier");
   if (!host) return;
@@ -1139,7 +1139,7 @@ function renderFrontier(s) {
     "<line class='faxis' x1='" + L + "' y1='" + T + "' x2='" + L + "' y2='" + yb + "'/>" +
     "<text class='fax-lbl' x='" + L + "' y='" + (yb + 15) + "' text-anchor='start'>$0</text>" +
     "<text class='fax-lbl' x='" + x1 + "' y='" + (yb + 15) + "' text-anchor='end'>cost \\u2192 " + usd(costMax) + "</text>" +
-    "<text class='fax-lbl' transform='rotate(-90 12 " + (T + ph / 2).toFixed(1) + ")' x='12' y='" + (T + ph / 2).toFixed(1) + "' text-anchor='middle'>coverage</text>";
+    "<text class='fax-lbl' transform='rotate(-90 12 " + (T + ph / 2).toFixed(1) + ")' x='12' y='" + (T + ph / 2).toFixed(1) + "' text-anchor='middle'>" + esc(D.frontierAxis) + "</text>";
   const conn =
     "<line class='fconn' x1='" + X(prem.total_cost_usd).toFixed(1) + "' y1='" + Y(prem.coverage).toFixed(1) +
     "' x2='" + X(mix.total_cost_usd).toFixed(1) + "' y2='" + Y(mix.coverage).toFixed(1) + "'/>";
@@ -1157,13 +1157,13 @@ function renderFrontier(s) {
     label(prem, "prem", "all-premium", "end", -10, -12) +
     (ens ? label(ens, "ens", "ensemble-all", "end", -10, -12) : "") +
     (mr ? label(mr, "mr", "single-call", "start", 11, 4) : "") +
-    label(mix, "mix", "cost-aware mix", "end", -12, 20);
+    label(mix, "mix", D.frontierMix, "end", -12, 20);
   host.innerHTML =
-    "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='cost versus coverage frontier: only the cost-aware mix reaches full coverage at low cost'>" +
+    "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='" + esc(D.frontierAria) + "'>" +
     g + zone + axes + conn + dots + labels + "</svg>";
 }
 
-// Coverage cliff (policy A/B): the bundled seed policy vs the naive cost-cut
+// Pass-rate cliff (policy A/B): the bundled seed policy vs the cost-cut
 // candidate over shared synthetic signals. Bars show coverage; the cost-cut arm
 // looks cheaper only because it dropped a third of the tasks. Data comes from
 // EP.regression (live /regression, or regression.json in the static export);
@@ -1174,22 +1174,22 @@ function renderCliff(r) {
   const b = r.base, c = r.candidate;
   $("cliffBaseCov").textContent = pct(b.coverage);
   $("cliffBaseBar").style.width = (100 * Math.max(0, Math.min(1, b.coverage))).toFixed(1) + "%";
-  $("cliffBaseCost").textContent = "routed " + usd(b.routed_total_usd);
+  $("cliffBaseCost").textContent = mfmt(D.cliffRouted, { usd: usd(b.routed_total_usd) });
   $("cliffCandCov").textContent = pct(c.coverage);
   $("cliffCandBar").style.width = (100 * Math.max(0, Math.min(1, c.coverage))).toFixed(1) + "%";
-  $("cliffCandCost").textContent = "routed " + usd(c.routed_total_usd);
+  $("cliffCandCost").textContent = mfmt(D.cliffRouted, { usd: usd(c.routed_total_usd) });
   const dropPts = Math.round((b.coverage - c.coverage) * 1000) / 10;
-  $("cliffDrop").textContent = "\\u2212" + dropPts + "%p coverage";
-  $("cliffTakeaway").textContent =
-    "cost-cut's routed bill (" + usd(c.routed_total_usd) + ") is lower than seed (" +
-    usd(b.routed_total_usd) + ") \\u2014 but only because it stopped covering " +
-    dropPts + "%p of tasks. That is dropped work, not savings. Cost is comparable only at fixed coverage.";
+  $("cliffDrop").textContent = mfmt(D.cliffDrop, { pts: dropPts });
+  $("cliffTakeaway").textContent = mfmt(D.cliffTake, {
+    cand: usd(c.routed_total_usd), seed: usd(b.routed_total_usd), pts: dropPts,
+  });
   panel.hidden = false;
 }
 
 // Fan-out dial sweep (experiment 05 vs 06): re-runs the ensemble workload across
-// a ladder of budget-gate thresholds. Purple bars = the ensemble tax (collapses
-// as fewer tasks fan out); dashed lines = coverage and savings (both flat). Data
+// a ladder of budget-gate thresholds. Purple bars = the extra candidate-call cost
+// (collapses as fewer tasks fan out); dashed lines = the task pass rate and the
+// savings (both flat). Data
 // comes from EP.fanoutSweep (live /fanout-sweep, or fanout-sweep.json in the
 // static export); the panel stays hidden if that endpoint is unavailable.
 function renderSweep(d) {
@@ -1216,8 +1216,8 @@ function renderSweep(d) {
     const zero = r.ensemble_tax_usd <= 0.0001 ? " zero" : "";
     bars += "<rect class='sweep-bar" + zero + "' x='" + x + "' y='" + y + "' width='" + bw.toFixed(1) + "' height='" + h + "' rx='3'/>";
     bars += "<text class='sweep-vlbl' x='" + cx(i).toFixed(1) + "' y='" + (Number(y) - 5).toFixed(1) + "' text-anchor='middle'>" + (r.tax_ratio > 0 ? r.tax_ratio.toFixed(2) + "\\u00d7" : "0") + "</text>";
-    bars += "<text class='sweep-xlbl' x='" + cx(i).toFixed(1) + "' y='" + (yb + 16) + "' text-anchor='middle'>" + r.fanout_tasks + "/" + (r.fanout_tasks + r.single_tasks) + " fan out</text>";
-    bars += "<text class='sweep-xsub' x='" + cx(i).toFixed(1) + "' y='" + (yb + 30) + "' text-anchor='middle'>thr " + r.threshold.toFixed(2) + "</text>";
+    bars += "<text class='sweep-xlbl' x='" + cx(i).toFixed(1) + "' y='" + (yb + 16) + "' text-anchor='middle'>" + esc(mfmt(D.swFanOut, { n: r.fanout_tasks, total: r.fanout_tasks + r.single_tasks })) + "</text>";
+    bars += "<text class='sweep-xsub' x='" + cx(i).toFixed(1) + "' y='" + (yb + 30) + "' text-anchor='middle'>" + esc(mfmt(D.swThreshold, { v: r.threshold.toFixed(2) })) + "</text>";
   });
   const flat = (val, cls) => {
     const y = (T + (1 - Math.max(0, Math.min(1, val))) * ph).toFixed(1);
@@ -1227,7 +1227,7 @@ function renderSweep(d) {
   const axis = "<line class='faxis' x1='" + L + "' y1='" + yb + "' x2='" + (W - R) + "' y2='" + yb + "'/>" +
     "<line class='faxis' x1='" + L + "' y1='" + T + "' x2='" + L + "' y2='" + yb + "'/>";
   host.innerHTML =
-    "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='fan-out dial: the ensemble tax collapses to zero while coverage and savings stay flat'>" +
+    "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='" + esc(D.sweepAria) + "'>" +
     g + axis + covLine + savLine + bars + "</svg>";
 
   const body = $("sweepBody");
@@ -1246,7 +1246,9 @@ function renderSweep(d) {
     body.appendChild(tr);
   });
   const top = rows[0], bot = rows[rows.length - 1];
-  $("sweepDrop").textContent = "tax " + usdSmart(top.ensemble_tax_usd) + " \\u2192 " + usdSmart(bot.ensemble_tax_usd);
+  $("sweepDrop").textContent = mfmt(D.sweepDrop, {
+    from: usdSmart(top.ensemble_tax_usd), to: usdSmart(bot.ensemble_tax_usd),
+  });
   panel.hidden = false;
 }
 
@@ -1281,19 +1283,19 @@ let ARENA = null;
 
 function arenaMs(ms) {
   const n = Number(ms);
-  return n >= 1000 ? (n / 1000).toFixed(1) + " s" : Math.round(n) + " ms";
+  return n >= 1000 ? (n / 1000).toFixed(1) + D.aUnitS : Math.round(n) + D.aUnitMs;
 }
 
 function arenaModels(a) {
   const models = (a.models || []).map(String);
   if (a.approach === "router") return models.length ? models.join(" \\u2192 ") : "\\u2014";
-  if (a.approach === "ensemble") return models.length + " models";
+  if (a.approach === "ensemble") return mfmt(D.aModels, { n: models.length });
   return a.chosen_model || models[0] || "\\u2014";
 }
 
 function arenaApproachCard(a, winners) {
   const passCls = a.passed ? "ok" : "no";
-  const passTxt = a.passed ? "\\u2713 pass" : "\\u2717 fail";
+  const passTxt = a.passed ? D.aPass : D.aFail;
   const hero = a.approach === "router" ? " hero" : "";
   const cw = winners.cost === a.approach, lw = winners.latency === a.approach;
   // Accuracy is binary — every passing approach wins it equally (not just one),
@@ -1308,9 +1310,9 @@ function arenaApproachCard(a, winners) {
     "<div class='acard-hd'><span class='atag'>" + a.label + "</span>" +
       "<span class='apass " + passCls + "'>" + passTxt + "</span></div>" +
     "<div class='amodel' title='" + arenaModels(a) + "'>" + arenaModels(a) + "</div>" +
-    row("", "cost", usdSmart(a.cost_usd), cw, "cheapest") +
-    row("", "latency*", arenaMs(a.latency_ms), lw, "fastest") +
-    row(passCls, "accuracy", passTxt, aw, "") +
+    row("", D.aRowCost, usdSmart(a.cost_usd), cw, D.aWinCost) +
+    row("", D.aRowLatency, arenaMs(a.latency_ms), lw, D.aWinLatency) +
+    row(passCls, D.aRowAccuracy, passTxt, aw, "") +
     "<div class='adetail'>" + a.detail + "</div>" +
   "</div>";
 }
@@ -1339,12 +1341,12 @@ function renderArenaProblem(arena) {
     const a = document.createElement("div");
     a.className = "apr-accept";
     const b = document.createElement("b");
-    b.textContent = "Acceptance: ";
+    b.textContent = D.aAcceptance;
     a.appendChild(b);
     a.appendChild(document.createTextNode(p.acceptance));
     box.appendChild(a);
   }
-  box.appendChild(el("apr-src", "input: authored synthetic problem \\u00b7 measured = false"));
+  box.appendChild(el("apr-src", D.aSource));
   box.hidden = false;
 }
 
@@ -1353,20 +1355,20 @@ function arenaVerdict(arena) {
   arena.approaches.forEach((a) => { by[a.approach] = a; });
   const w = arena.winners, cheapest = by.cheapest, premium = by.premium, router = by.router, ensemble = by.ensemble;
   if (cheapest && cheapest.passed && w.cost === "cheapest" && w.latency === "cheapest") {
-    return "On this " + arena.difficulty + " task the <b>cheapest</b> model already passes &mdash; the router correctly just picks it, so the premium and ensemble spend buys nothing extra. Routing earns its keep on the hard tasks, not this one.";
+    return mfmt(D.aVerdictEasy, { difficulty: esc(arena.difficulty) });
   }
   if (router && router.passed) {
     const ratio = premium && premium.cost_usd > 0 ? premium.cost_usd / Math.max(router.cost_usd, 1e-9) : null;
-    let s = "The <b>cost-aware router</b> reaches a passing answer" + (ratio ? " at <b>" + ratio.toFixed(1) + "\\u00d7</b> lower cost than the premium model" : "") + ".";
+    let s = D.aVerdictRouter + (ratio ? mfmt(D.aVerdictRatio, { ratio: ratio.toFixed(1) }) : "") + ".";
     if (ensemble && ensemble.passed && ensemble.cost_usd > router.cost_usd) {
-      s += " The ensemble also passes but pays for every model (<b>" + usdSmart(ensemble.cost_usd) + "</b>) &mdash; the fan-out tax.";
+      s += mfmt(D.aVerdictEnsemble, { usd: usdSmart(ensemble.cost_usd) });
     }
     if (w.latency !== "router") {
-      s += " No free lunch: the router is the <b>slowest</b> here because it escalates sequentially &mdash; you trade latency for cost.";
+      s += D.aVerdictLatency;
     }
     return s;
   }
-  return "No single-shot approach passes cleanly on this task &mdash; weigh the trade-offs above.";
+  return D.aVerdictNone;
 }
 
 function renderArena(payload, taskId) {
@@ -1410,6 +1412,18 @@ async function loadArena() {
 // missing so the core replay always works.
 let EXPERIMENTS = [];
 
+// Contract checks arrive with their raw key (``coverage``, ``fanout_tax_ceiling``).
+// The reader gets a label; the raw key stays beside it as code so the payload
+// schema and the screen agree.
+function checkLabel(name) {
+  return (D.checkLabels && D.checkLabels[name]) || String(name);
+}
+function checkDetail(detail) {
+  let out = String(detail == null ? "" : detail);
+  (D.checkTerms || []).forEach(function (pair) { out = out.split(pair[0]).join(pair[1]); });
+  return out;
+}
+
 function expKpi(value, key) {
   return "<div class='exp-kpi'><div class='v'>" + value + "</div><div class='k'>" + key + "</div></div>";
 }
@@ -1419,28 +1433,28 @@ function renderExperimentCard(c) {
   $("expTitle").textContent = c.title || c.name;
   $("expSummary").textContent = c.summary || "";
   const repro = $("expRepro");
-  repro.textContent = c.reproducible ? "reproducible \\u2713" : "contract FAIL";
+  repro.textContent = c.reproducible ? D.eRepro : D.eReproFail;
   repro.className = "badge " + (c.reproducible ? "ok" : "measured");
   $("expKpis").innerHTML =
-    expKpi(pct(m.coverage), "coverage") +
-    expKpi(usdSmart(m.routed_usd), "routed") +
-    expKpi(pct(m.delta_pct), "saved vs naive") +
-    expKpi(m.tasks, "tasks") +
-    expKpi(m.ensemble_tasks + "/" + m.tasks, "fan-out tasks");
+    expKpi(pct(m.coverage), D.eKpiPass) +
+    expKpi(usdSmart(m.routed_usd), D.eKpiRouted) +
+    expKpi(pct(m.delta_pct), D.eKpiSaved) +
+    expKpi(m.tasks, D.eKpiTasks) +
+    expKpi(m.ensemble_tasks + "/" + m.tasks, D.eKpiFanout);
   if (m.ensemble_tasks > 0) {
     $("expFanout").hidden = false;
-    $("expFanout").innerHTML =
-      "\\uD83D\\uDD00 <b>ensemble fan-out tax</b>: this run fanned out to every candidate on <b>" +
-      m.ensemble_tasks + "</b> task(s), spending <b>" + usdSmart(m.fanout_usd) +
-      "</b> to run all models but keeping only <b>" + usdSmart(m.fanout_usd - m.ensemble_tax_usd) +
-      "</b> worth of winners \\u2014 an extra <b>" + usdSmart(m.ensemble_tax_usd) + "</b> (" +
-      Number(m.tax_ratio).toFixed(1) + "\\u00d7) is the price of running the losers.";
+    $("expFanout").innerHTML = mfmt(D.eFanout, {
+      n: m.ensemble_tasks, spend: usdSmart(m.fanout_usd),
+      winners: usdSmart(m.fanout_usd - m.ensemble_tax_usd),
+      extra: usdSmart(m.ensemble_tax_usd), ratio: Number(m.tax_ratio).toFixed(1),
+    });
   } else {
     $("expFanout").hidden = true;
   }
   $("expChecks").innerHTML = (c.checks || [])
     .map((ch) => "<span class='chk " + (ch.ok ? "ok" : "no") + "'>" +
-      (ch.ok ? "\\u2713" : "\\u2717") + " " + ch.name + ": " + ch.detail + "</span>")
+      (ch.ok ? "\\u2713" : "\\u2717") + " " + esc(checkLabel(ch.name)) +
+      " <code>" + esc(ch.name) + "</code>: " + esc(checkDetail(ch.detail)) + "</span>")
     .join("");
   $("expDetail").hidden = false;
 }
@@ -1489,7 +1503,7 @@ async function loadHistory() {
   }
   const rows = data.history || [];
   if (!rows.length) {
-    body.innerHTML = "<tr><td colspan='8'><small style='color:var(--muted)'>no recorded runs yet</small></td></tr>";
+    body.innerHTML = "<tr><td colspan='8'><small style='color:var(--muted)'>" + esc(D.hEmpty) + "</small></td></tr>";
     return;
   }
   body.innerHTML = "";
@@ -1504,7 +1518,7 @@ async function loadHistory() {
       "<td class='num'>" + pct(r.delta_pct) + "</td>" +
       "<td class='num'>" + usdSmart(r.ensemble_tax_usd) + "</td>" +
       "<td class='num'>" + Number(r.tax_ratio).toFixed(1) + "\\u00d7</td>" +
-      "<td class='hstate " + (ok ? "pass" : "fail") + "'>" + (ok ? "PASS" : "FAIL") + "</td>";
+      "<td class='hstate " + (ok ? "pass" : "fail") + "'>" + esc(ok ? D.hPass : D.hFail) + "</td>";
     body.appendChild(tr);
   });
 }
@@ -1514,7 +1528,7 @@ async function runReplay() {
   running = true;
   const btn = $("run");
   btn.disabled = true;
-  $("progress").textContent = "routing\\u2026";
+  $("progress").textContent = D.progRouting;
   try {
     $("traceBody").innerHTML = "";
     const synth = $("synth").checked;
@@ -1522,7 +1536,7 @@ async function runReplay() {
     try {
       data = await (await fetch(EP.replay(synth))).json();
     } catch (e) {
-      $("progress").textContent = "error \\u2014 could not load replay";
+      $("progress").textContent = D.progError;
       return;
     }
     const s = data.summary;
@@ -1546,9 +1560,10 @@ async function runReplay() {
     const usedTop = MODEL_ORDER.filter((m) => byModel[m]).slice(-1)[0];
     const topCount = usedTop && byModel[usedTop] ? byModel[usedTop].tasks : 0;
     $("savedPct").textContent = pct(s.delta_pct);
-    $("savedAbs").textContent = "lower \\u2014 cheap-first routing; only " + topCount + " of " +
-      s.tasks + " tasks needed the top " + (usedTop || "premium") + " tier, held at " +
-      pct(s.coverage) + " coverage \\u00b7 saved " + usd(s.delta_usd) + ".";
+    $("savedAbs").textContent = mfmt(D.heroSub, {
+      topN: topCount, tasks: s.tasks, top: (usedTop || "premium"),
+      cov: pct(s.coverage), saved: usd(s.delta_usd),
+    });
 
     // animate the per-task trace, accumulating the mix cost against the premium scale
     const body = $("traceBody");
@@ -1570,12 +1585,12 @@ async function runReplay() {
       body.insertBefore(tr, body.firstChild);
       $("afterVal").textContent = usd(acc);
       $("afterBar").style.width = (100 * acc / (before || 1)).toFixed(2) + "%";
-      $("progress").textContent = "routed " + (i + 1) + "/" + data.traces.length;
+      $("progress").textContent = mfmt(D.progRouted, { i: i + 1, n: data.traces.length });
       if (step > 20 || i % 5 === 0) await sleep(step);
     }
     $("afterVal").textContent = usd(after);
     $("afterBar").style.width = (100 * after / (before || 1)).toFixed(2) + "%";
-    $("progress").textContent = "done \\u00b7 " + s.tasks + " tasks";
+    $("progress").textContent = mfmt(D.progDone, { n: s.tasks });
     revealJourney(s);
   } finally {
     running = false;
@@ -1591,9 +1606,10 @@ function revealJourney(s) {
   const panel = $("journeyPanel");
   if (!panel) return;
   const tasks = (s && typeof s.tasks === "number") ? s.tasks : null;
-  $("journeyVerdict").textContent = "Reproduction passed";
-  $("journeyMeta").innerHTML = (tasks === null ? "\\u2014" : String(tasks)) +
-    " tasks \\u00b7 replay verified \\u00b7 <code>measured=false</code>";
+  $("journeyVerdict").textContent = D.journeyVerdict;
+  $("journeyMeta").innerHTML = mfmt(D.journeyMeta, {
+    tasks: (tasks === null ? "\\u2014" : String(tasks)),
+  });
   panel.hidden = false;
 }
 
@@ -1610,6 +1626,7 @@ function fleetFill(sel, models, current) {
 }
 
 async function loadFleet() {
+  if (!EP.fleet) return;
   let d;
   try {
     const r = await fetch(EP.fleet);
@@ -1622,7 +1639,7 @@ async function loadFleet() {
   FLEET = d;
   $("fleetPanel").hidden = false;
   const src = String(d.source || "").split("/").slice(-1)[0] || "default";
-  $("fleetMeta").textContent = "\\u2014 " + d.models.length + " deployments \\u00b7 " + src;
+  $("fleetMeta").textContent = mfmt(D.setMeta, { n: d.models.length, source: src });
   const cat = $("fleetCatalog");
   cat.innerHTML = "";
   for (const m of d.models) {
@@ -1661,6 +1678,7 @@ function fleetSelectedEnsemble() {
 }
 
 async function runFleet() {
+  if (!EP.fleetRun) return;
   const btn = $("fleetRun");
   btn.disabled = true;
   btn.textContent = "running\\u2026";
@@ -1683,13 +1701,13 @@ async function runFleet() {
       $("fleetLabels").innerHTML = "";
       $("fleetRouterMix").textContent = "\\u2014";
       $("fleetLive").textContent = "\\u2014";
-      $("fleetNote").textContent = d.error || "fleet run failed";
+      $("fleetNote").textContent = d.error || D.setRunFailed;
       return;
     }
     renderFleetRun(d);
   } finally {
     btn.disabled = false;
-    btn.textContent = "Run selection (recorded)";
+    btn.textContent = D.setRunBtn;
   }
 }
 
@@ -1747,7 +1765,7 @@ function renderFleetRun(d) {
   }
   const mix = rep.router_model_mix || {};
   const mixStr = Object.entries(mix).map(([m, n]) => m + "\\u00d7" + n).join(", ");
-  $("fleetRouterMix").textContent = mixStr ? ("router picked: " + mixStr) : "\\u2014";
+  $("fleetRouterMix").textContent = mixStr ? mfmt(D.setPicked, { mix: mixStr }) : "\\u2014";
   $("fleetLive").textContent = d.live_command || "\\u2014";
   $("fleetNote").textContent = "\\u2020 " + (disc.short || "") + " " + (d.note || "");
 }
@@ -1992,6 +2010,7 @@ const M_ARMS = [
   { arm: "router-quality",  dep: "model-router-quality", css: "dom" },
 ];
 const M_STR = __MEASURED_JSON__;
+const D = __DYNAMIC_JSON__;
 function mfmt(tpl, v) {
   return String(tpl).replace(/\\{(\\w+)\\}/g, function (_, k) { return (k in v) ? v[k] : ""; });
 }
@@ -2193,7 +2212,7 @@ loadPolicy().then(() => {
 
 import json as _json  # noqa: E402
 
-from .demo_i18n import measured_payload, render_demo_prose  # noqa: E402
+from .demo_i18n import dynamic_payload, measured_payload, render_demo_prose  # noqa: E402
 
 
 def render_dashboard(locale: str = "en") -> str:
@@ -2205,8 +2224,11 @@ def render_dashboard(locale: str = "en") -> str:
     exactly one locale's measured strings (no cross-locale leak, no extra
     script block).
     """
-    payload = _json.dumps(measured_payload(locale), ensure_ascii=False).replace("</", "<\\/")
-    template = DASHBOARD_TEMPLATE.replace("__MEASURED_JSON__", payload)
+    def _inline(obj: object) -> str:
+        return _json.dumps(obj, ensure_ascii=False).replace("</", "<\\/")
+
+    template = DASHBOARD_TEMPLATE.replace("__MEASURED_JSON__", _inline(measured_payload(locale)))
+    template = template.replace("__DYNAMIC_JSON__", _inline(dynamic_payload(locale)))
     return render_demo_prose(template, locale)
 
 

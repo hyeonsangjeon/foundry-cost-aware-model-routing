@@ -2,7 +2,7 @@
 
 이 페이지는 **목업 시뮬레이션이 아니라 실제 Azure AI Foundry 실행**으로 각 실험을 돌리는
 방법을 처음부터 끝까지 따라 할 수 있게 정리합니다. 리소스 프로비저닝(`az`), 모델 선정,
-KB(그라운딩) 설정, system prompt, 여러 후보 모델을 병렬로 호출하는(fan-out) 앙상블 메커니즘, 그리고 실험별 세팅을 한 곳에
+KB(그라운딩) 설정, system prompt, 팬아웃 앙상블 메커니즘, 그리고 실험별 세팅을 한 곳에
 모았습니다.
 
 !!! note "먼저 필요한 것 — 선행 조건 3가지"
@@ -84,7 +84,7 @@ az cognitiveservices account create \
 Model Router는 **배포 하나로 알아서 되는** 선정 레이어입니다 — 그 하나만 배포하면 OpenAI
 GPT-5 계열뿐 아니라 xAI Grok · DeepSeek · Meta Llama · gpt-oss까지 **별도 배포 없이** 프롬프트마다
 분기합니다(Anthropic Claude만 예외적으로 직접 배포 필요). 아래 fleet 배포는 라우터가 아니라
-네 방식 비교의 **직접 호출/팬아웃 arm**(cheapest·premium·ensemble)이 쓰는 것으로, 이 데모의
+네 방식 비교의 **직접 호출·팬아웃 비교 전략(arm)** cheapest·premium·ensemble이 쓰는 것으로, 이 데모의
 `aoai-foundry-iq-demo-ext`에 실제로 올라간 배포를 그대로 재현합니다
 ([`samples/fleet/foundry-ext-full.fleet.yaml`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/fleet/foundry-ext-full.fleet.yaml)가 정본).
 
@@ -259,11 +259,17 @@ task = ArenaTask(
 네 가지 전략(arm)을 **하나의 문제**에 동시에 태워 비용·지연을 실측합니다. 각 arm은 실제 배포
 호출입니다.
 
+!!! note "이 네 arm은 실험 11·12·13의 네 arm과 다릅니다"
+    여기의 `cheapest` · `premium` · `ensemble` · `router`는 실험 09·10의 네 방식 비교 arm입니다.
+    실험 11·12·13이 쓰는 `router-cost` · `router-balanced` · `router-quality` ·
+    `direct-premium`과 이름도 구성도 다르므로 같은 표에 놓고 비교하지 마세요
+    ([용어집](glossary.md)).
+
 | arm | 배포 | 청구 방식 | 무엇을 보여주나 |
 | --- | --- | --- | --- |
 | `cheapest` | `gpt-5.4-nano` | single-call | 가장 싼 바닥 |
-| `premium` | `gpt-5.4` | single-call | 나이브한 프론티어 상한 |
-| `ensemble` | `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (병렬 팬아웃) | **sum-all-fanout** | 전부 호출→최고만 채택 = **팬아웃 세금** |
+| `premium` | `gpt-5.4` | single-call | 프리미엄 기준선한 프론티어 상한 |
+| `ensemble` | `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (병렬 팬아웃) | **sum-all-fanout** | 전부 호출→최고만 채택 = **팬아웃 추가 비용** |
 | `router` | `model-router` | winner-only | Foundry가 프롬프트별 1개 모델 선정 |
 
 - **팬아웃**은 후보 모델 세트 전원을 **병렬**(`ThreadPoolExecutor`)로 호출하므로 지연은 *가장 느린*
@@ -283,17 +289,17 @@ task = ArenaTask(
 | --- | --- | --- | --- |
 | `cheapest` | **$0.001191** | 9,079 ms | 프론티어 대비 ~13× 저렴 |
 | `premium` | $0.015368 | 4,112 ms | 추론 OFF 기본 배포 |
-| `ensemble` | $0.022046 | 8,325 ms | 최고가 = 팬아웃 세금 |
+| `ensemble` | $0.022046 | 8,325 ms | 최고가 = 팬아웃 추가 비용 |
 | `router` | $0.020806§ | 12,182 ms | grok×2 + gpt-5.4×3, 추론 ON |
 
 !!! danger "§ `router` 행의 금액은 **불완전**합니다 — 다른 arm과 금액을 비교하지 마세요"
-    Model Router 과금은 합성입니다: **라우터 input 토큰 마크업** + 고른 하위 모델의
-    input·output. 위 캡처는 하위 모델 요율만 적용했으므로 `router` 금액에는 **청구 항목 하나가
-    빠져 있습니다** — 근사가 아니라 불완전입니다. 원본 아티팩트·해시는 손대지 않고 versioned
+    Model Router 과금은 **복합 요율**입니다: **라우터 input 토큰 마크업** + 라우터가 고른 하위
+    모델의 input·output. 위 캡처는 하위 모델 요율만 적용했으므로 `router` 금액에는 **청구 항목
+    하나가 빠져 있습니다** — 근사가 아니라 불완전입니다. 원본 아티팩트·해시는 손대지 않고 versioned
     annotation
     [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
     으로 표시했고 CLI·리포트·대시보드·리플레이가 이를 강제합니다(없으면 fail-closed).
-    당시 마크업 요율이 저장소에 고정돼 있지 않아 **리프라이스하지 않았습니다** — 추정 대신
+    당시 마크업 요율이 저장소에 고정돼 있지 않아 **재산정하지 않았습니다** — 추정 대신
     원금액을 히스토리로 남기고 비용·절감 주장에서 제외합니다. 단일 배포를 직접 부르는
     `cheapest`·`premium`·`ensemble`은 마크업 대상이 아니라 **영향 없습니다**.
 
@@ -345,11 +351,13 @@ cost-router foundry live --live \
 
 ## 6. 실험별 세팅 {#6-per-experiment}
 
-여섯 실험 각각을 **어떤 모델로, 어떤 프롬프트로, 어떻게 실행**하는지입니다. `실측 상태`는
-지금 이 저장소에서 실제로 측정 가능한지를 뜻합니다.
+여섯 실험 설정(`hero` · `curated` · `ensemble` · `adaptive` · `limits` · `single-call`)
+각각을 **어떤 모델로, 어떤 프롬프트로, 어떻게 실행**하는지입니다. `실측 상태`는 지금 이
+저장소에서 실제로 측정 가능한지를 뜻합니다. 실험 번호와의 대응은 각 항목의 "관련" 줄에
+있습니다.
 
 ### 6-1. hero — 히어로(before/after)
-- **모델**: 라우팅 후(`model-router`) vs 나이브 상한(`gpt-5.4`).
+- **모델**: 라우팅 후(`model-router`) vs 프리미엄 기준선 상한(`gpt-5.4`).
 - **KB**: 없음. **system**: 시니어 엔지니어 역할(§3).
 - **실행(실측)**: `cost-router foundry arena --live` 의 `router` vs `premium` arm이 그대로
   before/after입니다.
@@ -364,12 +372,12 @@ cost-router foundry live --live \
 - **실측 상태**: ✅ 비용·지연 실측 / 정확도 미채점.
 - 관련: [실험 02 · 큐레이션 샘플](../lab-notebook/02-curated.md)
 
-### 6-3. ensemble — 앙상블 팬아웃 세금
+### 6-3. ensemble — 앙상블 팬아웃 추가 비용
 - **모델**: 후보 모델 세트 `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (병렬).
 - **KB**: 없음. **system**: 후보 모델 세트 전원 동일(공정 비교).
 - **메커니즘**: [§4](#4-fanout) — 전원 호출·합산 청구가 세금, 지연은 max.
 - **실측 상태**: ✅ 세금(합산 비용)·지연 실측. 실측치 $0.022046(최고가)로 세금이 실제로 보임.
-- 관련: [실험 05 · 앙상블 팬아웃 세금](../lab-notebook/05-ensemble-fanout.md)
+- 관련: [실험 05 · 앙상블 팬아웃 추가 비용](../lab-notebook/05-ensemble-fanout.md)
 
 ### 6-4. adaptive — 적응형 팬아웃 임계값
 - **모델**: 저가치 태스크는 라우터 단일콜, 고가치 태스크만 팬아웃으로 승격.
@@ -380,20 +388,24 @@ cost-router foundry live --live \
   (아래 [§7](#7-code) `FleetSlate`/가치 임계).
 - 관련: [실험 06 · 적응형 팬아웃 임계값](../lab-notebook/06-fanout-dial.md)
 
-### 6-5. limits — 레이트리밋/실패 벽
-- **모델**: 단일 티어에 동시 부하를 주어 429/스로틀을 관찰.
-- **KB**: 없음. **system**: 간결·idempotent(§3).
-- **주의**: 실제 429를 강제하면 비용·쿼터에 영향. 데모에서는 **동시성·재시도 백오프**를 코드로
-  시연하고 벽(fail-wall)은 낮은 `--sku-capacity` 배포에서 관찰하는 걸 권장합니다.
-- **실측 상태**: ⚙️ 지연/성공률은 실측 가능(부하 주입식). 기본은 안전하게 투영 유지.
-- 관련: [실험 07 · 라우팅 레이어](../lab-notebook/07-model-router.md)
+### 6-5. limits — 공짜 점심은 없다
+- **모델**: 클래스별 전체 사다리. 어려운 과제라 매번 최상위 후보까지 올라갑니다.
+- **KB**: 없음. **system**: 간결하게(§3).
+- **메커니즘**: 순차 에스컬레이션. 값싼 후보가 전부 실패해 통과율 100%에 절감 0%가 됩니다.
+- **실측 상태**: ⚙️ 오프라인 신호로 고정된 실험이라 라이브로 옮기려면 같은 난이도의
+  프롬프트 워크로드를 먼저 써야 합니다. 기본은 투영 유지.
+- 관련: [실험 04 · 공짜 점심은 없다](../lab-notebook/04-no-free-lunch.md)
 
-### 6-6. model-router — 라우팅 레이어(단일콜)
-- **모델**: `model-router` 단일 배포. 프롬프트별로 grok/gpt-5.4/gpt-oss 등 자동 선정([§5](#5-selection)).
+### 6-6. single-call — 단일 호출 라우팅
+- **오프라인 실험**: `single-call` arm은 프롬프트마다 모델을 한 번 고르고 멈추는 방식을 합성
+  데이터로 견줍니다 — [실험 07 · 단일 호출 라우팅](../lab-notebook/07-model-router.md).
+- **라이브 대응**: `model-router` 단일 배포. 프롬프트별로 grok/gpt-5.4/gpt-oss 등 자동
+  선정([§5](#5-selection)).
 - **KB**: 없음. **system**: 없음(라우터가 난이도로 고르게).
 - **실행(실측)**: `cost-router foundry live --live …` → `model_counts`에 실제 분기.
-- **실측 상태**: ✅ **저장소 최초 `measured = true`** — grok×2 + gpt-5.4×3. 단, **금액은
-  불완전**(라우터 input 마크업 누락 → 위 § 참조). 모델 선택·usage·지연·인증만 주장합니다.
+- **실측 상태**: ✅ **저장소 최초의 라이브 Model Router 실행(`measured = true`)** — 큐레이션
+  과제 5건에서 grok×2 + gpt-5.4×3. 단, **금액은 불완전**(라우터 input 마크업 누락 → 위 §
+  참조). 모델 선택·usage·지연·인증만 주장합니다.
 - 관련: [실험 09 · 실측 라우팅](../lab-notebook/09-live-routing-proof.md)
 
 ---
@@ -450,7 +462,7 @@ ledger.flush()                   # append-only JSONL
 - **오프라인 감사 원장**(`src/router/ledger/record.py`, [감사 원장](ledger.md))은 계약상 항상
   `measured = false`입니다.
 - **측정 원장**(`MeasuredArenaLedger`)은 **실 라이브 호출 전용**이라 `measured = true`
-  provenance가 사는 유일한 곳입니다. 둘을 분리해 정직함 경계를 코드로 강제합니다.
+  provenance가 사는 유일한 곳입니다. 둘을 분리해 주장 경계를 코드로 강제합니다.
 - 이제 측정 원장도 오프라인 원장과 **같은 두 가지 무결성 보장**을 가집니다
   (`src/router/ledger/measured.py`):
     - **변조 감지** — 각 줄은 정규 페이로드에 대한 `record_hash`로 봉인되고 `previous_hash`로
@@ -492,7 +504,7 @@ cost-router foundry live --live \
   --workload samples/telemetry/curated-arena-live.sample.jsonl --synth --json
 ```
 
-!!! danger "정직함 경계 요약"
+!!! danger "주장 경계 요약"
     - **비용·지연 = 실측**(실제 usage×요율, 실제 wall-clock). 요율은 공개 리스트가 기본이며
       정확한 테넌트 지출은 `--pricing`으로 테넌트 요율을 주입하세요.
     - **정확도 = 미채점**(`accuracy: ungraded`). 답의 정오는 그래더를 주입해야 측정됩니다.

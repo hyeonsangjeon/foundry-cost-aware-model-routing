@@ -72,7 +72,7 @@ def _dangling(html: str) -> list[str]:
 def test_output_is_english_and_titled() -> None:
     out = r404.build_404(HOME_HTML)
     assert '<html lang="en">' in out
-    assert "<title>404 - Not found - Foundry cost-aware model routing</title>" in out
+    assert "<title>404 - Page not found - Foundry cost-aware model routing</title>" in out
     assert "404 - Page not found" in out
 
 

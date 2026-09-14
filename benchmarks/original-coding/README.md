@@ -10,6 +10,65 @@ discriminates correct from incorrect solutions.
 - **Execution:** Python 3.12 standard library only, network blocked, per-task
   subprocess, fixed timeout, pinned `PYTHONHASHSEED` / locale / timezone / seed.
 
+## Where this suite is used
+
+This suite is the workload the repository calls **`curated-24`**, and
+`tasks.jsonl` is the file every paid run of the router-mode comparison was
+pointed at. Three such runs exist, each bound to its own preregistration:
+
+| Run | Preregistration | Published priced-cell total / cap | Outcome |
+| --- | --- | --- | --- |
+| **Experiment 11** (artifacts: `03D`) | [`prereg-03d-router-modes.md`](prereg-03d-router-modes.md) | $3.467533 / $20.00 — **excludes withheld cells** | **VOID** — [write-up](../../docs/en/lab-notebook/11-router-modes-void.md) |
+| **Experiment 12** (artifacts: `03D-2`) | [`prereg-03d2-router-modes.md`](prereg-03d2-router-modes.md) | $3.269553 / $20.00 — every arm cost-complete | publishable — [write-up](../../docs/en/lab-notebook/12-router-modes-measured.md) |
+| **Experiment 13** (artifacts: `03D-3`) | [`prereg-03d3-router-modes.md`](prereg-03d3-router-modes.md) | $4.196595 / $20.00 — **excludes withheld cells** | publishable, one arm claim-blocked — [write-up](../../docs/en/lab-notebook/13-router-modes-rate-card-gap.md) |
+
+**Read that column as priced cells only, not as a bill.** Each figure is the sum
+of the cells this repository could price from token usage × a pinned rate card. A
+cell whose backend had no row in the card is withheld rather than guessed
+(`cost_usd = null`, never `0.0`), so it contributes nothing to the total. Two of
+the three runs contain such cells: experiment 11 withheld **43.4% of its cells**
+(125 of 288, all routed to `grok-4-1-fast-reasoning`), and experiment 13 withheld
+**12 of the 72 cells in its `router-balanced` arm** (16.7%, routed to
+`gpt-5.6-terra`). For those runs the real charge is higher than the figure shown,
+by an amount this repository does not claim to know. **None of these totals is an
+Azure invoice total**, and the `$20.00` column is the run's own budget cap, not a
+billed amount.
+
+Each run sealed the same workload fingerprint,
+`sha256:391d2f705e8b52c3826d20d80ef2c37b3c1e8a6eb69e8bd41bb2685ce46c0656`, so a
+later change to any prompt is detectable as a different experiment rather than a
+different result for the same one.
+
+**24 tasks is below the threshold for a statistically reliable result.**
+Microsoft's Model Router evaluation guide advises 100 or more workload prompts
+for that, and says fewer than 30 give only a directional signal, so every
+measured result on this suite carries `evidence_tier = directional`
+([measurement protocol §3.4](../../docs/en/manual/measurement-protocol.md)).
+
+## Terms these runs use
+
+The preregistrations and the measured write-ups use six terms in a narrow
+sense. They are defined here because the preregistrations are byte-frozen and
+cannot define them in place.
+
+| Term | Meaning |
+| ---- | ------- |
+| **arm** | One comparison strategy evaluated against the same workload under the same measurement plan. The router-mode runs use four: `router-cost`, `router-balanced`, `router-quality`, `direct-premium`. |
+| **cell** | One (task × arm × repeat) attempt — the unit a run dispatches and grades. 24 tasks × 4 arms × 3 repeats = **288 planned cells** per run. |
+| **pass rate** | Tasks that passed ÷ tasks attempted. Denominator: 24 tasks per arm. |
+| **grading coverage** | Cells that produced an answer to grade ÷ cells planned. Denominator: 72 cells per arm. A timeout removes a cell from grading, so the two metrics diverge; see the [glossary](../../docs/en/manual/glossary.md). |
+| **cost-complete** | Every cell in the arm had a pinned rate. One cell without a rate makes the arm `cost_complete = false`; its cost is withheld (`cost_usd = null`, never `0.0`), and the arm reports but carries no savings claim. |
+| **pp** | Percentage points — the arithmetic difference between two percentages. A drop from 100% to 95.8% is 4.17 pp, not 4.17%. |
+
+The preregistrations also cite section numbers — `BOLT-03 §8`, `§9`, `§10`,
+`03B`, `03C`, `03Z-b` — from an internal working plan that is not published.
+Where a number matters to reading the document, the rule it names is written out
+beside it: `§8` is the four-step hash order each preregistration reproduces under
+"§8 hash order", `§10` is the rule that effective-parameter divergence marks a
+comparison `confounded=true`, and `03Z-b` is the fail-closed handling of unpriced
+cells that each preregistration states in full. Treat the numbers as filing
+labels, not as references you are expected to resolve.
+
 ## Difficulty and type mix
 
 | Difficulty | Count |
@@ -21,8 +80,10 @@ discriminates correct from incorrect solutions.
 Types: implementation (6), edge-case (5), bug-fix (5), refactor (4),
 test-writing (4).
 
-> Difficulty is a **design label, not a measurement.** Real pass rates come later
-> from a paid benchmark run; nothing here was calibrated against a model.
+> Difficulty is a **design label, not a measurement.** The three paid runs above
+> did measure pass rates on this suite, but none of them calibrated these labels:
+> no label was assigned or revised from a model's result. Read the mix as the
+> spread the tasks were written to, not as observed difficulty.
 
 ## Layout
 
@@ -71,8 +132,28 @@ self-contained, standard-library-only Python module**:
   implementation and **kill** a fixed set of mutants (each mutant must be failed
   by at least one test).
 
-Explicitly out of scope as grading signals: LLM judges, natural-language quality
-scoring, wall-clock performance, and any external network use.
+Explicitly out of scope **as grading signals**: LLM judges, natural-language
+quality scoring, wall-clock performance, and any external network use. A paid run
+still records per-cell latency as a diagnostic — that is how the 90-second read
+timeout in experiment 12 was found — but no latency figure ever decides whether a
+submission passed.
+
+## What validates the grader
+
+A grader that passes everything, or fails everything, would produce a clean-looking
+run that measures nothing. So every task ships two fixtures and the suite checks
+the grader against both before any model is called:
+
+- `fixtures/<task_id>/reference.py` — a correct solution, which **must PASS**;
+- `fixtures/<task_id>/wrong.py` — a deliberately incorrect solution, which **must FAIL**.
+
+`harness/verify.py` runs both directions across all 24 tasks and fails loudly if
+either expectation breaks, and `tests/test_benchmark_original_coding.py` runs it
+inside the repository's `pytest` suite so the check cannot rot unnoticed.
+
+This is what the preregistrations mean by `grader: {kind: exec-signals, version: 1}`.
+The grader is deterministic code reading execution signals, and the fixtures above
+are its validation; no model judges another model's output anywhere in this suite.
 
 ## Running the grader
 
@@ -92,10 +173,10 @@ python harness/verify.py
 python harness/spec_hash.py
 ```
 
-`verify.py` is the most important gate: a grader that passes everything (or fails
-everything) is worthless, so it fails loudly if any task's `reference.py` does
-not PASS and `wrong.py` does not FAIL. It also runs inside the repo's `pytest`
-suite (`tests/test_benchmark_original_coding.py`) to guard against drift.
+`verify.py` is the gate described under
+[What validates the grader](#what-validates-the-grader) above — every task's
+`reference.py` must PASS and its `wrong.py` must FAIL. Run it after editing any
+grader or fixture, and treat a failure there as blocking.
 
 ## `tasks.jsonl` schema
 
@@ -152,3 +233,7 @@ copied from any of these:
 - **public-calibration set** — a small, separately labeled slice drawn from
   permissively licensed public problems, to anchor difficulty against external
   baselines (planned; not included in this suite).
+
+Until that slice exists, a result on this suite supports a decision about
+**routing** — which arm costs less per passed task on these 24 tasks — and not a
+decision about how hard the tasks are relative to any published benchmark.

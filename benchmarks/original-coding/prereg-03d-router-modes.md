@@ -209,3 +209,49 @@ service choosing the backend, and the sampling temperature left at the service
 default, re-executing this plan is not expected to reproduce these outputs. What
 *is* byte-reproducible is the sealed artifact set, and `measure replay` re-verifies
 it against the recorded fingerprints.
+
+## Reader notes — appended 2026-09-15
+
+**A second append, below the 2026-08-15 errata. Nothing above this heading was
+changed, including the errata itself.** Both appends sit under the frozen
+preregistration text; the approved blob `2b9afe6706c7070ecdd4dffbe7e39814ff481e7a`
+at commit `1f0a334104d50dc74116a20071dffb3fa4b3d66a` is content-addressed and
+cannot be reached by either.
+
+### Terms this document uses without defining them
+
+`arm`, `cell`, `pass rate`, `grading coverage`, and `cost-complete` are defined in
+the [benchmark suite README](README.md#terms-these-runs-use), together with what
+the `BOLT-03 §8` / `§9` / `§10` / `03B` / `03Z-b` section numbers refer to. Those
+definitions were written after this document was frozen, which is why they live
+there and not here.
+
+### Where this run was reported
+
+This preregistration governed run **03D**, written up as
+[experiment 11](../../docs/en/lab-notebook/11-router-modes-void.md). The run
+completed 288/288 cells within budget ($3.47 / $20.00) and replayed byte-for-byte,
+and the **comparison is VOID**.
+
+**Two failures each independently sufficient to void it, both preserved:**
+
+1. **Grading coverage.** `router-quality` graded **79.2% (57/72)**, below the 90%
+   run-level floor fixed above. That floor is per required arm, so one arm below
+   it voids the comparison.
+2. **Cost-completeness.** **125 of 288 cells (43.4%)** resolved to
+   `grok-4-1-fast-reasoning`, whose cached-input rate was `null` in the rate card
+   of the day. The fail-closed guard withheld cost on every one of them
+   (`cost_usd = null`, never `0.0`), leaving `router-cost` and `router-balanced`
+   cost-incomplete and blocked from any savings claim.
+
+The errata above describes the second reason as "unrelated" to the errata's own
+subject — the seed and arm-ordering comments — and that remains accurate. It is
+not a claim that the two void reasons are alternatives to each other. Either one
+alone would have voided the comparison; the run met both.
+
+Neither reason involves `random_seed`. As the errata records, the seed is
+historical plan data that salts `plan_hash` and never reached the model API.
+
+Both causes were addressed in the re-run preregistered as
+[`prereg-03d2-router-modes.md`](prereg-03d2-router-modes.md), with the gates left
+unchanged.

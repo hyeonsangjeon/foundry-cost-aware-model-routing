@@ -147,11 +147,14 @@ RETIRED_TERMS = (
     (re.compile(r"void\s+런", re.IGNORECASE), "void 런", "무효 처리된 실행"),
     # scope-out has no single correct form — see the module docstring for the three.
     (re.compile(r"scope-out", re.IGNORECASE), "scope-out", "범위 제외 (자리별 형태는 위 참고)"),
+    (re.compile(r"스냅숏"), "스냅숏", "스냅샷"),
+    (re.compile(r"자격증명"), "자격증명", "자격 증명"),
+    (re.compile(r"크리덴셜"), "크리덴셜", "자격 증명"),
 )
 
-# A dated Korean journal: written at a point in time, never edited retroactively.
-# BOLT-06 skipped it, so Rule D must too. Rules A–C still read it.
-RULE_D_EXCLUDED = ("lab-notebook/devlog.md",)
+# The dated development log now follows the same reader-facing vocabulary while
+# retaining its chronology and recorded values, so it is checked like every page.
+RULE_D_EXCLUDED: tuple[str, ...] = ()
 
 # Rule E — jargon BOLT-10 (#137) retired, as (pattern, retired, replacement). The
 # confirmed wording replaced these coinages in place, first on the reader's first
@@ -171,6 +174,15 @@ FIRST_SCREEN_SURFACES = (
     "docs/ko/index.md",
 )
 
+# Reader-facing repository documents outside the MkDocs tree. They use the same
+# vocabulary as the public site and must not silently drift to a second glossary.
+REPOSITORY_PROSE_SURFACES = (
+    "experiments/README.md",
+    "samples/workloads/README.md",
+    "benchmarks/original-coding/README.md",
+    "benchmarks/original-coding/fix-c-timeout-proposal.md",
+)
+
 RETIRED_FIRST_SCREEN_TERMS = (
     (re.compile(r"cockpit", re.IGNORECASE), "cockpit",
      "the browser run screen (first mention: the local browser run screen)"),
@@ -178,8 +190,26 @@ RETIRED_FIRST_SCREEN_TERMS = (
      "브라우저 실행 화면 (최초 등장: 로컬 브라우저 실행 화면)"),
     (re.compile(r"ensemble\s+tax", re.IGNORECASE), "ensemble tax",
      "drop the coinage — 'extra candidate-call cost'"),
+    (re.compile(r"fan-?out\s+tax", re.IGNORECASE), "fan-out tax",
+     "extra candidate-call cost"),
     (re.compile(r"앙상블\s*세금"), "앙상블 세금",
      "조어 삭제 — '후보 호출 비용'"),
+    (re.compile(r"팬아웃\s*세금"), "팬아웃 세금",
+     "조어 삭제 — '추가 후보 호출 비용'"),
+    (re.compile(r"\bnaive\b", re.IGNORECASE), "naive",
+     "the premium-on-every-task baseline"),
+    (re.compile(r"나이브"), "나이브",
+     "모든 과제에 프리미엄 모델을 쓰는 기준선"),
+    (re.compile(r"cost-aware\s+mix", re.IGNORECASE), "cost-aware mix",
+     "observe-then-escalate routing"),
+    (re.compile(r"비용\s*인지"), "비용 인지",
+     "비용을 고려한 라우팅"),
+    (re.compile(r"\bgovernor\b", re.IGNORECASE), "governor",
+     "spending rule / budget gate"),
+    (re.compile(r"거버너"), "거버너",
+     "예산 규칙 / 지출 한도"),
+    (re.compile(r"폴백"), "폴백",
+     "대체 경로 / 실패 뒤 상위 모델 재시도"),
     (re.compile(r"cost\s+governor", re.IGNORECASE), "cost governor",
      "drop the coinage — 'spending limit'"),
     (re.compile(r"비용\s*거버너"), "비용 거버너",
@@ -193,7 +223,7 @@ RETIRED_FIRST_SCREEN_TERMS = (
     (re.compile(r"사람\s*게이트"), "사람 게이트",
      "조어 삭제 — '승인하고 실행'"),
     (re.compile(r"flagship", re.IGNORECASE), "flagship",
-     "the default cost-and-coverage experiment"),
+     "the default cost-and-pass-rate experiment"),
     (re.compile(r"플래그십"), "플래그십",
      "기본 비용·통과율 실험"),
     # BOLT-17 (#150) item ① — hero prose retired to the same BOLT-10 default-
@@ -246,13 +276,13 @@ RETIRED_FIRST_SCREEN_TERMS = (
 INNER_PAGE_LOCALES = ("docs/en", "docs/ko")
 INNER_PAGE_DIRS = ("manual", "lab-notebook")
 INNER_PAGE_EXTRA = ("honesty.md",)
-INNER_PAGE_EXCLUDED = ("lab-notebook/devlog.md",)
+INNER_PAGE_EXCLUDED: tuple[str, ...] = ()
 
 RETIRED_INNER_PAGE_TERMS = (
     # item 1 — measurement seam (grading stays "grading integration", from BOLT-10)
     (re.compile(r"measure(?:d|ment)\s+bridge", re.IGNORECASE), "measured/measurement bridge",
      "the live measurement adapter (later: the measurement adapter)"),
-    (re.compile(r"측정\s*브(?:릿|리)지"), "측정 브리지/브릿지",
+    (re.compile(r"(?:측정|실측)\s*브(?:릿|리)지"), "측정/실측 브리지/브릿지",
      "라이브 실측 어댑터 (이후: 실측 어댑터)"),
     # item 2 — wiring / 배선 is a BOLT-10 term owned by Rule E (gated tree-wide
     # since BOLT-12); it is not repeated here so no line is gated twice, and
@@ -453,8 +483,8 @@ def retired_terms_in(text: str) -> list[tuple[str, str]]:
 def _iter_rule_d_lines():
     """Yield (relpath, line_number, text) for the prose lines Rule D judges.
 
-    Skips the devlog and every line inside a fenced code block. Rules A–C keep
-    using ``_iter_doc_lines`` and are unaffected.
+    Skips every line inside a fenced code block. Rules A–C keep using
+    ``_iter_doc_lines`` and are unaffected.
     """
     for path in sorted(DOCS.rglob("*.md")):
         rel = path.relative_to(DOCS).as_posix()
@@ -520,16 +550,27 @@ def check_no_retired_first_screen_terms() -> list[str]:
                 f"{rel}:{lineno} reintroduces retired '{retired}' — "
                 f"use '{replacement}':\n    {text.strip()[:200]}"
             )
+    failures.extend(
+        _wrapped_term_failures(
+            _tree_wide_prose_files(),
+            retired_first_screen_terms_in,
+            "Rule E",
+        )
+    )
     return failures
 
 
 def _inner_page_files() -> list[Path]:
-    """Return the Rule F surfaces: manual + lab-notebook + honesty, both locales.
+    """Return Rule F prose: site pages plus the repository's reader-facing guides.
 
-    The ko-only ``lab-notebook/devlog.md`` is excluded (a dated journal, like Rule
-    D). docs/en has no devlog; the suffix match covers whichever locale carries it.
+    The Korean development log is included: its chronology is historical, but its
+    reader-facing vocabulary follows the current glossary.
     """
-    files: list[Path] = []
+    files = [
+        REPO_ROOT / rel
+        for rel in REPOSITORY_PROSE_SURFACES
+        if (REPO_ROOT / rel).is_file()
+    ]
     for locale in INNER_PAGE_LOCALES:
         base = REPO_ROOT / locale
         for sub in INNER_PAGE_DIRS:
@@ -554,7 +595,7 @@ def _nav_footer_start(lines: list[str]) -> int | None:
 
     The footer is either a ``## Related documents`` heading or an inline
     ``**Related docs:** [link]…`` paragraph; in every inner page it is the final
-    block, so Rule F skips from here to EOF (nav is BOLT-12's surface).
+    block.
     """
     for lineno, text in enumerate(lines, 1):
         if _NAV_FOOTER.match(text) and (re.match(r"\s*#{1,6}\s", text) or "](" in text):
@@ -583,25 +624,54 @@ def _iter_prose_lines(files: list[Path]):
     """Yield (relpath, line_number, raw, masked) prose lines for ``files``.
 
     Shared by Rule E (tree-wide) and Rule F (inner pages). Skips every line inside
-    a fenced code block, each page's H1 title line (``# …`` — page titles are nav
-    surface, some kept by design) and the Related-documents footer nav. ``masked``
-    has inline code spans blanked across line wraps; the raw line is kept for the
-    failure message.
+    a fenced code block. H1 titles and related-document footers are included
+    because they are reader-visible prose. ``masked`` has inline code spans
+    blanked across line wraps; the raw line is kept for the failure message.
     """
     for path in files:
         rel = path.relative_to(REPO_ROOT).as_posix()
         lines = path.read_text(encoding="utf-8").splitlines()
         fenced = fenced_line_numbers(lines)
         masked = _mask_inner_document(lines, fenced)
-        footer = _nav_footer_start(lines)
         for lineno, text in enumerate(lines, 1):
             if lineno in fenced:
                 continue
-            if re.match(r"#\s", text):  # H1 page title — nav surface
-                continue
-            if footer is not None and lineno >= footer:  # nav footer
-                continue
             yield rel, lineno, text, masked[lineno - 1]
+
+
+def _wrapped_term_failures(
+    files: list[Path],
+    detector,
+    rule_name: str,
+) -> list[str]:
+    """Find retired phrases split across adjacent Markdown source lines.
+
+    Line-oriented checks miss ``human`` at the end of one line followed by
+    ``gate`` on the next. Join only adjacent prose continuations; blank lines,
+    headings, table rows, new list items, and admonition starts remain boundaries.
+    """
+    failures: list[str] = []
+    rows = list(_iter_prose_lines(files))
+    boundary = re.compile(r"^\s*(?:#{1,6}\s|\||[-+*]\s|\d+[.)]\s|!!!|\?\?\?)")
+    for current, following in zip(rows, rows[1:], strict=False):
+        rel, lineno, raw, masked = current
+        next_rel, next_lineno, next_raw, next_masked = following
+        if rel != next_rel or next_lineno != lineno + 1:
+            continue
+        if not masked.strip() or not next_masked.strip() or boundary.match(next_raw):
+            continue
+        joined = masked.rstrip() + " " + next_masked.lstrip()
+        same_line = {name for name, _ in detector(masked)}
+        same_line.update(name for name, _ in detector(next_masked))
+        for retired, replacement in detector(joined):
+            if retired in same_line:
+                continue
+            failures.append(
+                f"{rel}:{lineno}-{next_lineno} splits retired '{retired}' across "
+                f"a soft wrap ({rule_name}) — use '{replacement}':\n"
+                f"    {raw.strip()[:100]} {next_raw.strip()[:100]}"
+            )
+    return failures
 
 
 def _iter_inner_page_lines():
@@ -639,6 +709,13 @@ def check_no_retired_inner_page_terms() -> list[str]:
                 f"{rel}:{lineno} reintroduces retired '{retired}' — "
                 f"use '{replacement}':\n    {text.strip()[:200]}"
             )
+    failures.extend(
+        _wrapped_term_failures(
+            _inner_page_files(),
+            retired_inner_page_terms_in,
+            "Rule F",
+        )
+    )
     return failures
 
 
@@ -657,8 +734,6 @@ def _iter_replay_lines():
     """Yield (relpath, lineno, raw, masked) Korean prose lines for Rule G."""
     for path in sorted(DOCS.rglob("*.md")):
         rel = path.relative_to(DOCS).as_posix()
-        if rel in RULE_D_EXCLUDED:
-            continue
         lines = path.read_text(encoding="utf-8").splitlines()
         fenced = fenced_line_numbers(lines)
         masked = _mask_inner_document(lines, fenced)

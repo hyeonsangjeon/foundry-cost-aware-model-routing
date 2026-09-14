@@ -15,7 +15,7 @@ CLI·HTTP 서비스·대시보드가 모두 이 **공용 클래스**를 공유�
 
 | 이름 | 역할 |
 | --- | --- |
-| `fanout_stats(traces)` | compare(앙상블) 트레이스에서 **앙상블 팬아웃 비용**을 회수합니다. 여러 후보 모델을 병렬로 호출합니다(fan-out) (`fanout_usd` · `winner_usd` · `ensemble_tax_usd` · `tax_ratio`) |
+| `fanout_stats(traces)` | compare(앙상블) 트레이스에서 팬아웃 비용을 회수합니다 — `fanout_usd` · `winner_usd` · `ensemble_tax_usd` · `tax_ratio` |
 | `ExperimentMetrics` | 실행 하나의 정규화 스냅샷(불변 dataclass) — 비용·통과율(`coverage` 필드)·팬아웃 비용 + `run_id` |
 | `ExperimentMetrics.to_metric_records()` | Azure Monitor / OTel 메트릭 데이터 포인트 리스트로 렌더 |
 | `extract_experiment_metrics(result)` | `ExperimentResult` → `ExperimentMetrics` (순수·결정론적) |
@@ -23,9 +23,9 @@ CLI·HTTP 서비스·대시보드가 모두 이 **공용 클래스**를 공유�
 | `FoundryMetricsEmitter` | 연결 문자열 인지 Foundry 이미터(오프라인 캡처 + 주입 sink) |
 | `record_experiment_metrics(...)` | 실행을 추출해 저장소·이미터로 보내는 공용 엔트리 포인트 |
 
-## 앙상블 팬아웃 비용
+## 팬아웃 추가 비용
 
-비용 인지 라우팅은 **가치 높은 태스크에서만** compare 모드로 모든 후보를 병렬 호출하고 이긴
+비용을 고려하는 라우팅은 **가치 높은 태스크에서만** compare 모드로 모든 후보를 병렬 호출하고 이긴
 모델만 청구합니다. 트레이스의 `cost_usd`는 승자만 기록하므로 팬아웃 원가는 숨어 있습니다.
 `fanout_stats`가 그 숨은 비용을 회수합니다.
 
@@ -37,8 +37,10 @@ stats = fanout_stats(report.traces)
 #  'ensemble_tax_usd': 0.364011, 'tax_ratio': 3.741, ...}
 ```
 
-`ensemble_tax_usd = fanout_usd − winner_usd` 는 **진 모델을 돌린 값**입니다. 자세한 실험은
-[실험 05 · 앙상블 팬아웃 비용](../lab-notebook/05-ensemble-fanout.md) 참고. 오프라인 대표 수치(3.74×)의 정본은 [오프라인 실험 결과](projection-results.md)입니다.
+`ensemble_tax_usd = fanout_usd − winner_usd` 는 **진 모델을 돌린 값**입니다. 세 필드 모두
+**compare 모드로 간 태스크만** 집계하므로, 팬아웃한 태스크가 없으면 `winner_usd`는 정의상
+0이고 이는 라우팅 총비용 `total_cost_usd`와 다른 값입니다. 자세한 실험은
+[실험 05 · 팬아웃 추가 비용](../lab-notebook/05-ensemble-fanout.md) 참고. 오프라인 대표 수치(3.74×)의 정본은 [오프라인 실험 결과](projection-results.md)입니다.
 
 ## Azure Foundry 형태로 내보내기
 
@@ -74,8 +76,8 @@ cost-router metrics emit ensemble --connection-string "$AZURE_AI_FOUNDRY_CONNECT
 
 ## 히스토리 저장·조회 (히스토리컬 대시보드)
 
-실험을 실행하며 메트릭을 히스토리 저장소에 기록하면 대시보드의 **Historical dashboard**
-패널과 `metrics history` 명령이 그 이력을 읽습니다.
+실험을 실행하며 메트릭을 히스토리 저장소에 기록하면 대시보드의
+**Historical dashboard(실행 이력)** 패널과 `metrics history` 명령이 그 이력을 읽습니다.
 
 ```bash
 cost-router experiment run ensemble --metrics-store runs.jsonl

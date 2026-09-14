@@ -1,12 +1,15 @@
 # Routing-mode measured results
 
-> **`measured=true`, a paid measured run.** Four arms — an arm is one comparison strategy in the experiment — ran against the same 24 coding tasks
-> at n=3 on real Azure AI Foundry: `router-cost` (Model Router in Cost mode),
-> `router-balanced` (Model Router in Balanced mode), `router-quality` (Model Router in
-> Quality mode), and `direct-premium` (calling the premium model directly ·
-> `gpt-5.6-sol`). 288 cells, sealed snapshot, replay-verified byte-identical.
+> **`measured=true`, a paid measured run — experiment 12.** An **arm** is one comparison
+> strategy evaluated against the same workload under the same measurement plan. Four of
+> them ran against the same 24 coding tasks at n=3 on real Azure AI Foundry:
+> `router-cost` (Model Router in Cost mode), `router-balanced` (Model Router in Balanced
+> mode), `router-quality` (Model Router in Quality mode), and `direct-premium` (calling
+> the premium model directly · `gpt-5.6-sol`). 24 tasks × 4 arms × 3 repeats = 288
+> planned cells, sealed snapshot, replay-verified byte-identical.
 > Every number on this page comes not from an offline projection but from **one real
-> measurement** — powerful, therefore, but narrow. Read the limits below first.
+> measurement**: it is direct evidence about that run, and nothing wider. Read the
+> limits below first.
 
 !!! warning "Limits to read first — do not generalize"
     - **24 tasks = evidence_tier `directional`.** A directional signal, not statistical
@@ -15,8 +18,14 @@
       *reproduction* but not a population estimate.
     - **Timeouts count against the router arms only.** The router backends have longer
       latency (p50 12–16s) and hit the fixed timeout; direct-premium (4.2s) does not.
-      The **4.17%p** pass-rate gap below comes from this latency-profile difference, not
-      from code quality.
+      The **4.17 percentage point (pp)** pass-rate gap below comes from this latency-profile difference, not
+      from code quality. [Experiment 13](../lab-notebook/13-router-modes-rate-card-gap.md)
+      later raised the ceiling, and every arm then solved every task.
+    - **An arm's cost is not a stable property of its mode.** Experiment 13 ran the same
+      workload and requested the same deployments, and its Balanced arm was served by an
+      entirely different set of backends, at four times the cost. Every router cost figure
+      on this page, including the headline, describes what the roster happened to serve on
+      that day.
     - **Do not generalize to other workloads.** This result is limited to this
       workload · this tenant · this one measurement.
 
@@ -24,13 +33,19 @@
     - `measured=true` — real Foundry calls and usage (tokens, latency). Not
       synthetic/projected.
     - `unpriced 0%` — every cell priced at pinned rates (`cost_complete=true`).
-    - `coverage 96.18%` (277/288) — the share of content-graded cells (**grading
-      coverage**). Arm low of 94.4% (all clear the 90% gate).
+    - **Grading coverage 96.18%** (277/288) — the share of planned cells that produced a
+      gradable answer (`result.grading.coverage`). Arm low of 94.4%; all clear the 90%
+      gate. The bundle also carries `result.coverage` = 274/277 = 98.917%, which is a
+      third metric, **accepted among graded cells**
+      ([glossary](glossary.md)).
     - `evidence_tier=directional` — 24 tasks, directional.
-    - `replay verified` — sealed-snapshot byte-identical replay, `plan_hash
-      sha256:d640dc07…`, the preregistration commit — the workload, hypotheses, and pass/fail criteria committed before the paid run — precedes the run.
+    - `replay verified` — the sealed snapshot replays byte-identically: re-running the
+      summary from `traces.jsonl` and the sealed rate card reproduces the same bytes.
+      `plan_hash sha256:d640dc07…`, and the preregistration commit — the workload,
+      hypotheses and pass/fail criteria — precedes the run.
 
-Actual spend **$3.27 / $20.00** budget · 288/288 cells · **0** 429 throttles · 11
+Priced-cell total **$3.27 / $20.00** budget, covering all 288 cells because none was
+withheld · 288/288 cells · **0** 429 throttles · 11
 timeout cells (HTTP 408).
 
 ---
@@ -41,7 +56,7 @@ timeout cells (HTTP 408).
 
 `router-cost` kept a 95.8% task pass rate while costing **95.2% less** than the
 direct-premium baseline (full-precision calculation). The pass-rate gap was within
-**4.17%p**. The timeout section below shows that every part of this gap came from
+**4.17 pp**. The timeout section below shows that every part of this gap came from
 timeouts, not code quality.
 
 | Arm | Mode | Total cost | Pass rate | $/pass | Grading coverage |
@@ -65,17 +80,18 @@ timeouts, not code quality.
     a typo, but separate values with different definitions. For the definitions see the
     [Glossary](glossary.md).
 
-!!! note "Two savings baselines — don't mix them"
-    - **The headline 95.2%** = `router-cost` ($0.06) vs **`direct-premium`** ($1.34).
+!!! note "Two savings comparators on this page — don't mix them"
+    - **The headline 95.2%** = `router-cost` ($0.06) against **`direct-premium`** ($1.34).
       This compares routing with the common real-world choice to "just call the best model directly."
     - The **`savings_pct=95.8%`** in the public bundle (`published.json`) is a different
-      comparison: the least expensive arm against **naive/worst-arm**
-      (`router-quality` $1.56).
+      comparison: the cheapest cost-complete arm against the highest-cost cost-complete
+      arm (`router-quality`, $1.56).
     - The two numbers compare different pairs. This page uses the **direct-premium
-      baseline** as the headline because it is closer to common practice. It also
+      comparator** for its headline because it is closer to common practice. It also
       publishes the bundle value unchanged. Both use full-precision amounts, not
       display rounding (displayed amounts to 2 places; sub-cent and unit-price averages
-      to 4).
+      to 4). A third figure, **94.7%**, belongs to experiment 13 and compares
+      `router-cost` with `router-quality` in that run.
 
 ---
 
@@ -84,9 +100,9 @@ timeouts, not code quality.
 ![Cost vs pass-rate scatter: direct-premium costs less and has a higher pass rate than router-quality; router-cost has the lowest cost at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
 
 `router-quality` cost $1.56 and reached a 95.8% pass rate. `direct-premium` cost $1.34
-and reached 100.0%. **Quality mode cost more and solved fewer tasks.** The router adds
-markup when its "quality" mode moves to the premium backend, while a direct premium
-call does not. On this workload, **calling direct-premium directly is cheaper and more
+and reached 100.0%. **Quality mode cost more and solved fewer tasks.** Routed calls are
+priced composite: the router's input markup is added on top of the backend rates it
+resolves to, while a direct premium call carries no markup. On this workload, **calling direct-premium directly is cheaper and more
 accurate** than using the router's quality mode.
 
 `router-cost` reached the same 95.8% pass rate as the other router arms at **under
@@ -123,7 +139,7 @@ router arm**; `direct-premium` had 0.
 Each timeout is handled in two ways: (1) no content means it is **excluded** from
 grading coverage, and (2) pass=False means it is **counted as a failure**. These
 timeouts account for the entire difference between the router arms and
-direct-premium. **The 4.17%p gap above is a latency difference, not a code-quality
+direct-premium. **The 4.17 pp gap above is a latency difference, not a code-quality
 one.** The router backends are slower than premium and reached the fixed timeout
 (read 90s / overall 120s) first. A proposal to raise the timeout is in the
 [Fix C doc](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/benchmarks/original-coding/fix-c-timeout-proposal.md) (applying it needs a new preregistration + re-run).
@@ -143,7 +159,9 @@ To avoid over-reading the measured result, we state the boundary per metric.
 
 ---
 
-## 6 · Reproduction and where a result came from — live, recorded, or test (provenance)
+## 6 · Reproduction and provenance
+
+Every figure records where it came from: a live call, a recorded snapshot, or a test.
 
 - **Data source**: [`docs/assets/03d/published.json`](/foundry-cost-aware-model-routing/assets/03d/published.json), a
   masked extract of the sealed snapshot via the `measure publish` path. It holds **only
@@ -153,10 +171,10 @@ To avoid over-reading the measured result, we state the boundary per metric.
 - **Charts**: the three SVGs above are **statically generated** from `published.json`
   by `scripts/build_03d_dashboard.py`. The browser fetches no data.
 - **Integrity**: `plan_hash sha256:d640dc07…91d2921e` · the preregistration commit precedes the
-  run (D8 gate) · replay `summary_matches=true`, `cost_mismatches=[]` (byte-identical) ·
-  `partial=false`.
+  run, which the preregistration gate enforces · replay `summary_matches=true`,
+  `cost_mismatches=[]` (byte-identical) · `partial=false`.
 - **Quality-gate verdict** (preregistration-fixed criteria): grading coverage ≥ 90% **PASS** ·
-  min_pass ≥ 0.60 **PASS** · drop vs premium ≤ 10%p (measured 4.17%p) **PASS** · budget
+  min_pass ≥ 0.60 **PASS** · drop vs premium ≤ 10 pp (measured 4.17 pp) **PASS** · budget
   **PASS** → **publishable**.
 - **Preregistration prediction hit**: the updated prediction was `cost < balanced < premium ≤
   quality` (by cost), and the measurement **matched** at `$0.06 < $0.31 < $1.34 <
@@ -167,7 +185,7 @@ The narrative record of the same run is in the lab notebook —
 [Experiment 12 · Routing-mode paid measured re-run](../lab-notebook/12-router-modes-measured.md).
 Read alongside the prior
 [Experiment 11 · preregistration VOID](../lab-notebook/11-router-modes-void.md) to see what was
-fixed (rate coverage · output ceiling) and what changed. A third run followed with the
+fixed (missing rate rows · output ceiling) and what changed. A third run followed with the
 raised transport timeouts —
 [Experiment 13 · router three modes · run 3](../lab-notebook/13-router-modes-rate-card-gap.md).
 Every figure on this page remains run 2's; run 3 reports its own summary savings against a
@@ -175,5 +193,5 @@ different baseline, which is the second of the two baselines flagged above.
 
 The cache tokens left in the same sealed traces were re-aggregated after the fact, with
 zero paid calls — [Prompt cache observed in the sealed runs](prompt-cache-observed.md).
-It was observed after the preregistered analysis (post-hoc), outside the preregistration gate, and no figure on this page
-changed.
+That re-read happened after the preregistered analysis, outside the preregistration gate, and
+no figure on this page changed.

@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="440" viewBox="0 0 760 440" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Cost versus pass-rate scatter. direct-premium costs less and has a higher pass rate than router-quality. router-cost has the lowest cost among the router arms with the same pass rate.">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="440" viewBox="0 0 760 440" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Experiment 12, one measured run. Cost versus pass-rate scatter. direct-premium costs less and has a higher pass rate than router-quality. router-cost has the lowest cost among the router arms with the same pass rate.">
   <rect x="0" y="0" width="760" height="440" fill="#ffffff"/>
-<text x="24" y="34" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">비용 × 통과율 — Quality 모드는 비용이 더 들고 덜 풀었다</text>
-<text x="24" y="56" font-size="11" fill="#7b8794" text-anchor="start">y축 확대(94–101%)로 4.17%p 격차 가시화 · x축 총비용(USD)</text>
+<text x="24" y="34" font-size="16" fill="#1f2933" text-anchor="start" font-weight="700">실험 12 · 비용 × 통과율 — Quality 모드는 비용이 더 들고 덜 풀었다</text>
+<text x="24" y="56" font-size="11" fill="#7b8794" text-anchor="start">y축 확대(94–101%)로 4.17퍼센트포인트 격차 가시화 · x축 총비용(USD) · 실측 1회, directional</text>
   <line x1="96" y1="92" x2="96" y2="360" stroke="#9aa5b1" stroke-width="1.4"/>
   <line x1="96" y1="360" x2="700" y2="360" stroke="#9aa5b1" stroke-width="1.4"/>
   <line x1="96" y1="360.0" x2="700" y2="360.0" stroke="#e1e6ec" stroke-width="1" stroke-dasharray="4 4"/>

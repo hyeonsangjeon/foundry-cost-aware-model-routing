@@ -1,11 +1,14 @@
 # Experiment Atlas — how each experiment is configured
 
-> **English visual manual.** The Experiment Atlas — how each experiment is configured — opens the hood. The dashboard's **Experiments — click for the metrics** strip has six
-> tabs — `adaptive`, `curated`, `ensemble`, `hero`, `limits`, `single-call`. Each one re-runs the
-> *same* router over a workload and prints cost · coverage · fan-out tax under reproducibility
-> criteria. This page opens the hood: **which models** each uses, **what it processes**, **which
-> selection mechanism** (ordered escalation, call several candidate models in parallel (fan-out), or single-call), and the **honest headline**.
-> It ends with the **measured track** (the live Foundry measurement adapter, experiments 09–13), linking out to the full Azure setup guide so you can stand the real thing up yourself.
+> **English visual manual.** The dashboard's **Experiments — click for the metrics** strip
+> has six tabs: `adaptive`, `curated`, `ensemble`, `hero`, `limits`, `single-call`. Each
+> one re-runs the *same* router over a workload and prints cost, pass rate and extra candidate-call cost
+> under reproducibility criteria. This page opens the hood on each: **which models** it
+> uses, **what it processes**, **which selection mechanism** it applies — ordered
+> escalation, parallel fan-out, or a single call — and its **honest headline**.
+> It ends with the **measured track** (the live Foundry measurement adapter, experiments
+> 09–13), linking out to the full Azure setup guide so you can stand the real thing up
+> yourself.
 
 !!! tip "The diagrams animate"
     The mechanism and architecture SVGs below are animated (they loop in your browser like a GIF) —
@@ -15,10 +18,12 @@
 
 ## At a glance
 
-![Six experiments at a glance: hero and curated use ordered escalation, ensemble fans out, adaptive turns fan-out off, limits shows the honest floor, single-call compares one up-front pick to the mix](/foundry-cost-aware-model-routing/assets/experiments-overview.svg)
+![Six experiments at a glance: hero and curated use ordered escalation, ensemble fans out, adaptive turns fan-out off, limits shows the honest floor, single-call compares one up-front pick to observe-then-escalate routing](/foundry-cost-aware-model-routing/assets/experiments-overview.svg)
 
-Same models, same pricing, same policy everywhere. Each experiment flips exactly **one dial** — the
-workload, the fan-out gate, or the comparison arm — an arm is one comparison strategy in the experiment — so you can read one idea at a time.
+Same models, same pricing, same policy everywhere. Each experiment flips exactly **one
+dial**: the workload, the fan-out gate, or the comparison arm. An **arm** is one
+comparison strategy evaluated against the same workload under the same measurement plan.
+One dial at a time means you can read one idea at a time.
 
 ---
 
@@ -86,7 +91,7 @@ Only **layer 3 (SELECT)** changes shape between experiments. There are exactly *
 === "Single-call"
 
     Bucket each prompt by predicted difficulty and commit to **one** model up front — no fan-out, no
-    escalation. It cannot correct a wrong up-front pick, so coverage drops. This is the *shape* of a
+    escalation. It cannot correct a wrong up-front pick, so the pass rate drops. This is the *shape* of a
     productized router; the real one's pick-skill is proprietary and **measured** (see the last
     section).
 
@@ -107,9 +112,11 @@ the **headline** (re-derived live by the command shown), and a link to the full 
     The built-in already "routes many providers". These experiments test what happens after
     selection: **① verification-based adoption**
     (`hero`, `curated`, `limits`) · **② all-candidate call accounting** (`ensemble`) ·
-    **③ the spending check before fan-out** (`adaptive`) · **④ the audit trace** (the live measurement adapter + the audit ledger — a hash-chained record of every decision that can replay its cost
-    below). The **single-call** card compares one up-front pick with no escalation
-    against observe-and-escalate. Its synthetic coverage numbers show the difference.
+    **③ the spending check before fan-out** (`adaptive`) · **④ the audit trace** — the
+    live measurement adapter plus the audit ledger, the hash-chained record of every
+    decision, which can replay its cost (both below). The **single-call** card compares
+    one up-front pick with no escalation against observe-and-escalate. Its synthetic
+    synthetic pass-rate numbers show the difference.
 
 Each card **opens with a looping animation** that traces its real mechanism — flow dots, the
 escalation ladder, or the fan-out — while the offline (`measured=false`) numbers count up live.
@@ -117,9 +124,9 @@ They are generated deterministically from the numbers above by
 [`scripts/build_experiment_gifs.py`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/scripts/build_experiment_gifs.py)
 (Pillow + ffmpeg).
 
-### `hero` — same coverage, lower cost
+### `hero` — same pass rate, lower cost
 
-![Animated default-experiment loop: a naive lane sends every task to premium-max ($2.23) while the cost-aware lane tries mini-fast first, escalates once on a failed check, and keeps swift-coder — landing 25.5% cheaper at the same 100% coverage](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
+![Animated default-experiment loop: a premium-on-every-task lane sends every task to premium-max ($2.23) while the cost-aware lane tries mini-fast first, escalates once on a failed check, and keeps swift-coder — landing 25.5% cheaper at the same 100% pass rate](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
 
 | | |
 | --- | --- |
@@ -127,15 +134,15 @@ They are generated deterministically from the numbers above by
 | **Models** | full ladder per class (mini-fast … premium-max) |
 | **Mechanism** | **Ordered escalation** |
 | **Dial** | none — the default configuration |
-| **Headline** | **100% coverage · −25.5%** vs premium-on-every-task ($2.23 → $1.66) |
+| **Headline** | **100% pass rate · −25.5%** vs premium-on-every-task ($2.23 → $1.66) |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100` |
 
 ```bash
 cost-router experiment run hero
 ```
 
-The naive arm puts the *most expensive* candidate on every task (100% coverage, $2.23). Ordered
-escalation keeps that 100% coverage but tries cheap-clean-first, landing 25.5% cheaper.
+The **premium-on-every-task baseline** puts the *most expensive* candidate on every task (100% pass rate, $2.23). Ordered
+escalation keeps that 100% pass rate but tries cheap-clean-first, landing 25.5% cheaper.
 → [Lab-notebook 01](../lab-notebook/01-hero.md) · canonical figures: [offline experiment results](projection-results.md)
 
 ### `curated` — five tasks you can read
@@ -148,7 +155,7 @@ escalation keeps that 100% coverage but tries cheap-clean-first, landing 25.5% c
 | **Models** | full ladder per class |
 | **Mechanism** | **Ordered escalation** |
 | **Dial** | none — smallest "does it work?" check |
-| **Headline** | **100% coverage · −56.7%** ($0.13 → $0.06) |
+| **Headline** | **100% pass rate · −56.7%** ($0.13 → $0.06) |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.30`, `min_tasks 3` |
 
 ```bash
@@ -168,7 +175,7 @@ Tiny enough to follow every routing decision by eye end-to-end.
 | **Models** | full ladder per class, **all** run per task |
 | **Mechanism** | **Fan-out (compare)** |
 | **Dial** | fan-out **on** for every task |
-| **Headline** | **−47%** vs naive ($0.25 → $0.13) · all candidate calls cost **≈3.7×** the winners (winners ≈ $0.13, all calls ≈ $0.50) |
+| **Headline** | **−47%** vs the premium baseline ($0.25 → $0.13) · all candidate calls cost **≈3.7×** the winners (winners ≈ $0.13, all calls ≈ $0.50) |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.40`, `min_tasks 6` |
 
 ```bash
@@ -176,7 +183,7 @@ cost-router experiment run ensemble
 ```
 
 Because several models pass each high-value task, best-of-N settles on the **cheapest passing**
-model — still 47% under naive — but fanning out means paying for the losing calls too.
+model — still 47% under the premium baseline — but fanning out means paying for the losing calls too.
 → [Lab-notebook 05](../lab-notebook/05-ensemble-fanout.md)
 
 ### `adaptive` — the fan-out threshold, turned off
@@ -189,14 +196,14 @@ model — still 47% under naive — but fanning out means paying for the losing 
 | **Models** | full ladder per class |
 | **Mechanism** | **Ordered escalation** (fan-out gated off) |
 | **Dial** | `budget.compare_min_value: 1.1` — above every task's value (max 1.0) → **never fans out** |
-| **Headline** | **identical −47% at 100% coverage**, with **extra-call ratio → 0.00×** |
+| **Headline** | **identical −47% at a 100% pass rate**, with **extra-call ratio 3.74× → 0.00×** |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.40`, `max_tax_ratio 0.01`, `min_tasks 6` |
 
 ```bash
 cost-router experiment run adaptive
 ```
 
-Same workload, savings, and coverage as `ensemble`, but extra candidate-call cost falls to ~$0.
+Same workload, savings, and pass rate as `ensemble`, but extra candidate-call cost falls to ~$0.
 On this deterministic projection, single-route escalation already reaches the same cheapest-passing
 winner as fan-out. A real best-of-N system can improve *quality*, so measure that improvement before
 paying for the additional calls.
@@ -212,7 +219,7 @@ paying for the additional calls.
 | **Models** | full ladder per class |
 | **Mechanism** | **Ordered escalation** (climbs to the top every time) |
 | **Dial** | none |
-| **Headline** | **0.0% savings at 100% coverage** — routing == naive here |
+| **Headline** | **0.0% savings at a 100% pass rate** — routing costs what the premium baseline costs here |
 | **Contract** | two-sided: `min_coverage 1.0`, `min_delta_pct 0.0`, **`max_delta_pct 0.0`** |
 
 ```bash
@@ -225,18 +232,18 @@ correctly escalates to the top model on every task. It does not invent savings �
 on hard work.
 → [Lab-notebook 04](../lab-notebook/04-no-free-lunch.md)
 
-### `single-call` — one pick vs observe-and-escalate { #model-router-one-pick-vs-observe-and-escalate }
+### `single-call` — single-call routing vs observe-then-escalate routing { #model-router-one-pick-vs-observe-and-escalate }
 
-![Animated single-call loop: a single-call lane picks one tier up front and stalls at 52% coverage, while the escalation lane observes cheap failures and raises only when needed to reach 100% coverage at the same cost band (+48 percentage points)](/foundry-cost-aware-model-routing/assets/gif/model-router.gif)
+![Animated single-call loop: a single-call lane picks one tier up front and stalls at a 52% pass rate, while the escalation lane observes cheap failures and raises only when needed to reach a 100% pass rate at the same cost band (+48 percentage points)](/foundry-cost-aware-model-routing/assets/gif/model-router.gif)
 
 | | |
 | --- | --- |
 | **Role** | ⭐ **Primary comparison** — the direct contrast that justifies the layer atop the built-in router |
 | **Processes** | 100 synthetic tasks |
 | **Models** | full ladder per class |
-| **Mechanism** | **Single-call** arm compared against the escalating **mix** |
-| **Dial** | surfaces a `single_call` strategy arm alongside the mix |
-| **Headline** | single-call **52%** coverage vs mix **100%** — an **escalation gain of +48%p** at comparable cost |
+| **Mechanism** | **Single-call routing** compared against **observe-then-escalate routing** |
+| **Dial** | surfaces a `single_call` strategy arm alongside observe-then-escalate routing |
+| **Headline** | single-call **52%** pass rate vs observe-then-escalate **100%** — an **escalation gain of +48 percentage points** at comparable cost |
 | **Contract** | `min_coverage 1.0`, `min_delta_pct 0.20`, `min_tasks 100`, **`min_escalation_gain 0.30`** |
 
 ```bash
@@ -244,8 +251,8 @@ cost-router experiment run single-call
 ```
 
 A single-call router commits before it sees any check, so a wrong pick can't be corrected and
-coverage of this synthetic arm drops to 52%. The observe-then-escalate mix reclaims full coverage
-for nearly the same cost.
+the pass rate of this synthetic arm drops to 52%. Observe-then-escalate routing reclaims a 100%
+pass rate for nearly the same cost.
 
 That figure is a projection of the generic *shape*, not a score for any shipped product. The real
 Foundry Model Router's pick-skill is proprietary — that gap is exactly what the **measured** live
@@ -254,22 +261,22 @@ measurement adapter captures next.
 
 ---
 
-## Compare five strategies by cost and coverage
+## Compare five strategies by cost and pass rate
 
-The dashboard places the single-call arms and routing strategies on one cost-and-coverage scatter:
+The dashboard places the single-call arms and routing strategies on one cost-and-pass-rate scatter, whose own axis label reads `coverage`:
 
-![Cost versus coverage scatter of five strategies](/foundry-cost-aware-model-routing/assets/frontier.svg)
+![Cost versus pass-rate scatter of five strategies, with the pass-rate axis labelled coverage](/foundry-cost-aware-model-routing/assets/frontier.svg)
 
-| Strategy | Selection | Cost | Coverage |
+| Strategy | Selection | Cost | Pass rate |
 | --- | --- | ---: | ---: |
 | `all-mini` | cheapest candidate on every task | **$0.19** | 22.0% |
 | `single-call` | single difficulty-tiered pick | $1.59 | 52.0% |
 | **`cost-aware mix`** | **cheapest-clean-first, escalate on fail** | **$1.66** | **100.0%** |
-| `all-premium` (naive) | priciest candidate on every task | $2.23 | 100.0% |
+| `all-premium` (the premium baseline) | priciest candidate on every task | $2.23 | 100.0% |
 | `ensemble-all` | fan out to every model, every task | $4.23 | 100.0% |
 
-The **cost-aware mix** reaches 100% coverage at the lowest cost among the strategies
-that reach full coverage. It costs less than `all-premium` and `ensemble-all`.
+**Observe-then-escalate routing** (`cost-aware mix`) reaches a 100% pass rate at the lowest
+cost among the strategies that reach 100%. It costs less than `all-premium` and `ensemble-all`.
 
 ---
 
@@ -291,8 +298,8 @@ returns which one in `response.model`.
 
 The complete keyless-Entra walkthrough — one `model-router` deployment, no API keys, setting up the repo measurement integration,
 and a single measured pass — is the copy-paste guide in [Foundry setup](foundry-setup.md). Once the
-repo is wired, `cost-router foundry live --live` turns every curated task into a real `measured=true`
-call. From there the **measured track** runs across four lab-notebook entries; the atlas lists them at
+repo's measurement path is configured, `cost-router foundry live --live` turns every curated
+task into a real `measured=true` call. From there the **measured track** runs across four lab-notebook entries; the atlas lists them at
 a glance and links out for the detail.
 
 ### `09` · live routing proof — `measured=true`
@@ -312,24 +319,30 @@ above.
 
 ### `11` · the paid router-mode run (VOID)
 
-The first paid four-arm comparison (**$3.47 / $20**) is **VOID** under the preregistration — the workload, hypotheses, and pass/fail criteria committed before the paid run — committed
-in advance — grading coverage came in at **79.2%**, below the **90%** per-arm floor. A negative result
-kept as an asset by discipline: the predictions were overturned (Grok at 100%, not Claude; reasoning
-tokens swallowing the output).
+The first paid four-arm comparison is **VOID** under its preregistration —
+the workload, hypotheses and pass/fail criteria, committed in advance — on two
+independently sufficient grounds. The `router-quality` arm's grading coverage came in at
+**79.2%**, below the **90%** per-arm floor, and **43.4% of cells were unpriced**, leaving
+the run cost-incomplete. Its **priced-cell total was $3.47 against a $20 budget** — the sum
+over the cells that could be priced, excluding the 125 of 288 withheld, and not an Azure
+invoice total. A negative result kept as an asset by discipline: the predictions
+were overturned (Grok at 100%, not Claude; reasoning tokens swallowing the output).
 
 **Arm labels:** `router-cost` (Model Router in Cost mode) · `router-balanced` (Model Router
 in Balanced mode) · `router-quality` (Model Router in Quality mode) · `direct-premium`
 (calling the premium model directly · `gpt-5.6-sol`).
 
-![Cost vs pass-rate scatter: direct-premium costs less and has a higher pass rate than router-quality; router-cost has the lowest cost at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
+![Cost vs pass-rate scatter (experiment 12, the publishable re-run): direct-premium costs less and has a higher pass rate than router-quality; router-cost has the lowest cost at the same pass rate](/foundry-cost-aware-model-routing/assets/03d/cost-vs-quality-scatter.en.svg)
 *This scatter is experiment **12**'s publishable result — experiment 11's own paid run is VOID, so it has no chart of its own.*
 → [Lab-notebook 11](../lab-notebook/11-router-modes-void.md)
 
 ### `12` · the paid router-mode re-run (publishable)
 
-Fix only the two causes experiment 11 identified, then re-run against the **same** preregistered gate:
-grading coverage recovers **79.2% → 96.18%** and **all four arms PASS → publishable** (**$3.27 / $20**,
-byte-identical replay). The three 03D charts below are this run's evidence.
+Fix only the two causes experiment 11 identified, then re-run against the **same**
+preregistered gate. Grading coverage recovers on both denominators — the run aggregate
+**90.6% → 96.18%**, and the `router-quality` arm **79.2% → 94.4%** — and **all four arms
+PASS → publishable** (priced-cell total **$3.27 / $20** with no cell withheld, byte-identical replay). The three charts below are
+this run's evidence.
 
 ![Horizontal bars of total cost per arm: router-cost $0.06, router-balanced $0.31, direct-premium $1.34, router-quality $1.56, each bar annotated with pass rate and cost-per-pass](/foundry-cost-aware-model-routing/assets/03d/arm-cost-comparison.en.svg)
 ![Stacked bars of the backends actually routed per arm: router-cost is 100% grok-4-1-fast-reasoning; router-quality splits across gpt-5 and gpt-5.5 with no grok; direct-premium is 100% gpt-5.6-sol](/foundry-cost-aware-model-routing/assets/03d/backend-distribution.en.svg)
@@ -339,10 +352,10 @@ byte-identical replay). The three 03D charts below are this run's evidence.
 
 Run the same four arms a third time with the raised transport timeouts, and the measurement comes out
 clean: grading coverage **96.18% → 99.65%**, every arm at pass rate 1.0, and
-`cost < balanced < premium ≤ quality` still holding (**$4.20 / $20**). What the run exposes is ours,
+`cost < balanced < premium ≤ quality` still holding (**priced-cell total $4.20 against a $20 budget**, excluding the 12 withheld `router-balanced` cells). What the run exposes is ours,
 not the router's — 12 of the Balanced arm's 72 calls were served by `gpt-5.6-terra`, a model with no
-row in the rate card, so those cells failed closed and that arm is **cost-incomplete**: it reports,
-but it carries no savings claim. The card was re-captured as a **new dated file** rather than edited,
+row in the rate card, so those cells failed closed and that arm is **cost-incomplete**: it reports a
+total, but it carries no savings claim. The card was re-captured as a **new dated file** rather than edited,
 because two sealed preregistrations pin the old one's digest.
 → [Lab-notebook 13](../lab-notebook/13-router-modes-rate-card-gap.md)
 
@@ -356,9 +369,9 @@ because two sealed preregistrations pin the old one's digest.
 | **Token usage** (billed input/output/reasoning) | ✅ measured — provider usage | synthetic |
 | **Wall-clock latency** | ✅ measured | not modeled |
 | **Keyless auth** | ✅ real Entra bearer token | n/a |
-| **Accuracy / coverage** | ⚠️ projected unless you inject a `grader` (`coverage_measured=false`) | projected |
+| **Accuracy / pass rate** | ⚠️ projected unless you inject a `grader` (`coverage_measured=false`) | projected |
 | **Cost *rate*** (USD per token) | ⚠️ illustrative rate × real tokens — **not** your Azure bill | illustrative |
 
 Every offline number on this page is `labels.measured=false`. Only the live measurement adapter's *selection,
-usage, latency, and auth* are `measured=true`. See the [Honesty compact](../honesty.md) for the full
+usage, latency, and auth* are `measured=true`. See the [Honesty Charter](../honesty.md) for the full
 boundary.

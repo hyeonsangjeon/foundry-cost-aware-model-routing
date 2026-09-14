@@ -1,4 +1,4 @@
-# Workload inventory — what can be measured (B1)
+# Workload inventory — what can be measured
 
 This table lays out the **workloads (task sets)** the repository currently holds, whether
 each one **carries prompts and validation**, and which experiments run on it. The purpose is
@@ -10,7 +10,7 @@ true`) and which are still projection only (`measured = false`)**.
 | Workload | Tasks | Prompts? | Machine validation (`validation`)? | Experiments using it | Measurable? |
 | --- | --- | --- | --- | --- | --- |
 | `samples/telemetry/mixed-coding-workload.sample.jsonl` | 100 | ❌ none | ❌ none | 01 Try-cheap-first routing · 02 Curated · 05 Ensemble · 06 Fan-out threshold · 07 Single-call · limits · adaptive | ❌ **projection only** |
-| `samples/telemetry/curated-arena-live.sample.jsonl` | 5 | ▲ separate fixture | ❌ (human-facing `acceptance` strings) | 08 Four-way comparison (the `arena` command) · 09·10 live routing | ✅ **measured (09·10)** · coverage ungraded |
+| `samples/telemetry/curated-arena-live.sample.jsonl` | 5 | ▲ separate fixture | ❌ (human-facing `acceptance` strings) | 08 Four-way comparison (the `arena` command) · 09·10 live routing | ✅ **measured (09·10)** · pass rate ungraded |
 | `samples/prompts/curated-arena.sample.json` | 5 | ✅ `{title, prompt, acceptance}` | ❌ | prompt source for the four-way comparison/live runs above | — (prompt fixture) |
 
 ### How to read it
@@ -21,7 +21,7 @@ true`) and which are still projection only (`measured = false`)**.
   (`measured = false`).
 - **Human-facing `acceptance`** = the curated four-way comparison fixture has acceptance-criteria
   sentences a person reads, not rules a machine uses to auto-decide pass/fail. Scoring
-  measured coverage needs **machine-readable `validation` rules** ([validation
+  a measured pass rate needs **machine-readable `validation` rules** ([validation
   rules](customize.md) · `router.validation`).
 
 ## So which experiments are measurable today?
@@ -29,16 +29,20 @@ true`) and which are still projection only (`measured = false`)**.
 **The projection track (experiments 01–08) is still projection** — the 100-task telemetry
 above has no prompts, so it can only *project* routing from offline signals (`measured =
 false`). But **the measured track (experiments 09·10·11·12·13) has already been measured with
-`measured = true`.** Experiments 09·10 captured and sealed real Foundry routing on
-`curated-arena-live` (5 tasks) above, and `curated-24` (24 tasks) — which carries prompts
-plus machine validation — is what experiments 11·12·13 used to run the paid 4-arm measurement — an arm is one comparison strategy in the experiment:
-experiment 11 actually spent $3.47 and experiment 12 spent $3.27 (budget $20 each). Here is
-the current state of the measured workloads:
+`measured = true`.** Experiments 09 and 10 captured and sealed real Foundry routing on
+`curated-arena-live` (5 tasks) above. `curated-24` (24 tasks) — which carries prompts
+plus machine validation — is what experiments 11, 12 and 13 used for the paid 4-arm
+measurement, an **arm** being one comparison strategy evaluated against the same workload
+under the same measurement plan. Each of those runs measured 24 tasks × 4 arms × 3
+repeats = 288 planned cells. Experiment 11's **priced-cell total was $3.47** (excluding
+the 125 of 288 cells it withheld unpriced) and experiment 12's was **$3.27** with nothing
+withheld; the budget was $20 each. A priced-cell total sums only the cells a run could
+price and is not an Azure invoice total. Here is the current state of the measured workloads:
 
 | Measured workload | Size | `evidence_tier` | Target experiments | State |
 | --- | --- | --- | --- | --- |
-| `curated-24` | medium (24) | **`directional`** | 11 · 12 (03D) | ✅ **measured** (11 $3.47 · 12 $3.27; 11 fell short of its preregistration and is VOID) |
-| `hero-100-prompts` | 100 | first candidate for a stronger tier | 01 | 🚧 **draft, pending approval** |
+| `curated-24` | medium (24 tasks → 288 planned cells per run) | **`directional`** | 11 · 12 · 13 | ✅ **measured** (priced-cell totals: 11 $3.47 with 125 cells withheld · 12 $3.27 with none withheld · 13 $4.20 with 12 withheld; 11 is VOID — its quality arm missed the grading-coverage floor and 43.4% of its cells were unpriced) |
+| `hero-100-prompts` | 100 (proposed) | would be the first candidate for a stronger tier | 01 | ⛔ **proposed — the file does not exist in this repository** |
 
 !!! quote "Where the sample-size threshold comes from"
     Microsoft's Model Router evaluation guide advises that **100 or more** workload prompts
@@ -46,7 +50,8 @@ the current state of the measured workloads:
     directional signal. That is why the 24-prompt `curated-24` is `evidence_tier =
     directional`.
     Source: <https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/model-router#evaluate-model-router-for-your-workload>
-    (accessed **2026-07-29**) · for the full rule, see [Measurement protocol §3.4](measurement-protocol.md)
+    (accessed **2026-07-29**) · for the full rule, see
+    [Measurement protocol §3.4](measurement-protocol.md)
 
 Because for these two workloads **the prompts are the experiment** (same pipeline, different
 prompts = a different experiment), the manifest seals a **workload fingerprint**
@@ -59,11 +64,13 @@ rules, candidates, and estimated cost with zero paid calls.
 
 !!! note "Honesty boundary"
     This table is the **current implemented state**. `curated-24` is approved and finalized,
-    so experiments 11·12·13 ran as paid measurement (`measured = true`) — experiment 11 was
-    judged **VOID** for falling short of its preregistration, but a void measurement is still a
-    measurement — and experiments 09·10 are `measured = true` from live routing capture. By
-    contrast, `hero-100-prompts` is still a draft pending approval, so the projection track's
-    (experiments 01–08) figures remain `measured = false` projections. The tasks and prompts
-    of a measured workload are content design, so they go up **as a draft and are finalized
-    only after operator approval** — we don't fix the tasks after seeing the results (the
-    lesson of exp04).
+    so experiments 11, 12 and 13 ran as paid measurement (`measured = true`). Experiment 11
+    was judged **VOID**, but a void measurement is still a measurement. Experiments 09 and 10
+    are `measured = true` from live routing capture.
+
+    `hero-100-prompts` is **a proposal, not a file**: no such workload exists in this
+    repository yet, so nothing can be measured against it and the projection track's
+    figures (experiments 01–08) remain `measured = false` projections. The tasks and
+    prompts of a measured workload are content design, so any such workload goes up **as a
+    draft and is finalized only after operator approval** — we do not fix the tasks after
+    seeing the results (the lesson of experiment 04).

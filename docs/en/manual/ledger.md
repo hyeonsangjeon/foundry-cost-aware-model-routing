@@ -1,6 +1,7 @@
 # Audit ledger
 
-Routing decisions are recorded in an **audit ledger** — a hash-chained record of every decision that can replay its cost — as an **append-only, hash-chained JSONL ledger**, and verified
+Routing decisions are recorded in an **audit ledger**: an append-only, hash-chained JSONL
+file that holds every decision and can replay each decision's cost. It is verified
 by replaying the stored selection inputs and comparing the canonical final payload **byte for
 byte**. Verification passes only when every decision reproduces and required-field completeness
 is at least 99%.
@@ -75,12 +76,14 @@ There is a real case of this:
 [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json)
 
 - **What was wrong** — Azure Model Router billing is **composite**: the router input-token
-  markup + the input/output of the chosen sub-model. The committed rate card **has no markup
-  line**, so a routed call's amount is missing one billing component. It's not an approximation
-  — it's **incomplete**.
+  markup plus the input and output of the backend the router resolved to. The committed rate
+  card **has no markup line**, so a routed call's amount is missing one billing component.
+  It's not an approximation — it's **incomplete**. The later `composite-rate-card-v2`
+  schema composes both parts; this annotation covers the captures that predate it.
 - **What is fine** — token usage, the model the router chose, latency, authentication, and the
-  hash-chain integrity. The arms — an arm is one comparison strategy in the experiment — that call a single deployment directly (`cheapest` · `premium` ·
-  `ensemble`) aren't subject to the markup, so their amounts are **unaffected**.
+  hash-chain integrity. The arms that call a single deployment directly (`cheapest` ·
+  `premium` · `ensemble`) aren't subject to the markup, so their amounts are
+  **unaffected**.
 - **Why it wasn't repriced** — the markup rate applicable at capture time is pinned nowhere in
   the repository. Back-solving it by estimate would be **inventing a historical cost**, so we
   keep the original amount as historical output and exclude it only from cost/savings claims.
@@ -130,9 +133,10 @@ The router currently selects one execution from **precomputed offline signals**.
 lookup is not a model call. So the ledger cost explicitly uses a `selected-execution-only` basis.
 
 !!! warning "Live fan-out needs separate accounting"
-    A future live layer that calls several candidate models in parallel (fan-out) (an ensemble that actually calls several candidates) must account
-    for every panel/judge call **separately, each one**. Don't mistake the offline projection's
-    `selected-execution-only` for a live cost. Every record keeps `labels.measured = false`.
+    A future live layer that fans out to several candidate models in parallel must account
+    for every panel and judge call **separately**. Don't mistake the offline projection's
+    `selected-execution-only` basis for a live cost. Every record keeps
+    `labels.measured = false`.
 
 ## The signal-source seam — the offline ledger's honesty boundary
 
@@ -171,7 +175,7 @@ stay uncontaminated.
 
 ## Why a ledger
 
-Routing's headline value isn't "the cheapest bill" but getting the same coverage at a lower cost
+Routing's headline value isn't "the cheapest bill" but getting the same pass rate at a lower cost
 **with an audit trail for every routing decision**. The ledger makes that audit trail
 **reproducible** — you must be able to remake the same decision from the stored inputs alone for
 verification to pass.

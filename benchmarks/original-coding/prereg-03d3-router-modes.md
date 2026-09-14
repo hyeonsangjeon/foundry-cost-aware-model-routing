@@ -311,3 +311,89 @@ deployments, and the same deterministic dispatch order sent Balanced's cells to 
 entirely different backend mix than experiment 12 did. What *is* byte-reproducible
 is the sealed artifact set, and `measure replay` re-verifies it against the
 recorded fingerprints.
+
+## Reader notes — appended 2026-09-15
+
+**A second append, below the 2026-08-15 errata. Nothing above this heading was
+changed, including the errata itself.** The approved blob
+`8584e1f8c6031d7be6b03d01a9e292c83d57bab5` at commit
+`454c8159e6e3666a6b24982ef30766ea73059f22` is content-addressed and cannot be
+reached by either append, and `plan_hash
+sha256:33821119558063e83d9d255fb3fd72130519fe597288e11fdce909e6346b0b50` is
+computed over literal values in the run config rather than over this file's
+current contents, so it still matches the sealed manifest.
+
+### Terms this document uses without defining them
+
+`arm`, `cell`, `pass rate`, `grading coverage`, and `cost-complete` are defined in
+the [benchmark suite README](README.md#terms-these-runs-use), together with what
+the `BOLT-03 §8` / `§9` / `§10` / `03B` / `03Z-b` section numbers refer to.
+
+Where the frozen text above calls change 2 "the wiring defect", read it as the
+**end-to-end call path**: the resolved plan's transport timeouts were not being
+handed to the live client, so a configured value never reached the socket.
+
+### Where this run was reported
+
+This preregistration governed run **03D-3**, written up as
+[experiment 13](../../docs/en/lab-notebook/13-router-modes-rate-card-gap.md). The
+published priced-cell total was **$4.196595 / $20.00**, excluding the 12
+`router-balanced` cells whose amounts were withheld fail-closed. It is not an
+Azure invoice total. The run dispatched 288 cells and completed 287, with **0**
+throttles, **1** timeout, and aggregate grading coverage **99.65% (287/288)**.
+None of the run-level invalidation criteria fixed above was triggered: the run
+is valid, and one arm is claim-blocked.
+
+### How the six predictions came out
+
+**Predictions 1, 2, 3 and 5 held.**
+
+- **Prediction 1 — timeouts.** 11 → **1**, aggregate grading coverage 96.18% →
+  **99.65%**, and every arm at or above 98.6%. The one remaining timeout recorded
+  `latency_ms 180096.8`, so it hit the new 180 s read ceiling rather than the
+  240 s overall budget.
+- **Prediction 2 — the direct test of experiment 12's published sentence.** Every
+  arm reached **100% (24/24)**, closing the 4.17 pp pass-rate gap to **0 pp**. The
+  gap was the timeouts, as the page claimed, so no correction to that page was
+  needed. The outcome is not simply "a stronger savings claim", though: the run's
+  own summary `savings_pct` (94.7%, Cost against Quality) is a different comparison
+  from the site's published 95.2% (Cost against `direct-premium`, from experiment
+  12), and one arm ended claim-blocked (below).
+- **Prediction 3 — cost order.** `cost < balanced < premium ≤ quality`
+  (`$0.075117 < $1.327674 < $1.387830 ≤ $1.405974`), so Quality mode again cost
+  more than calling premium directly. The priced-cell total was **$4.196595**,
+  inside the predicted $3.3–$4.5 band; it excludes the withheld cells described
+  below.
+- **Prediction 5 — wall-clock.** The run took longer than 03D-2, as expected, and
+  budget rather than time remained the gate.
+
+**Prediction 4 was falsified.**
+
+- **Prediction 4 — cost-completeness.** This document predicted `cost_complete =
+  true` with an unpriced share of 0% for all four arms, on the reasoning that
+  nothing had changed since 03D-2. Measured, **`router-balanced` had 12 of its 72
+  cells (16.7%) unpriced** and ended **cost-incomplete**. Those 12 calls resolved
+  to **`gpt-5.6-terra`**, which had no row in the pinned v2 card. The fail-closed
+  guard withheld the amount rather than guessing it (`cost_usd = null`, never
+  `0.0`), so that arm reports but carries **no savings claim** — the contract fixed
+  above, applied against the prediction rather than around it.
+
+  The gap was ours, not the router's: the card enumerated `gpt-5.6` as one model
+  when it is three (`sol` · `terra` · `luna`), and `gpt-5.6-terra`'s public retail
+  meters had been effective since 2026-07-01, 44 days before the run. Checking the
+  card against the account's deployments then found five further unpriced
+  deployments. Experiment 13 records the correction as a new dated card rather than
+  an edit to the pinned one.
+
+**Prediction 6 held in part.**
+
+- **Prediction 6 — the headline.** `router-cost` was the cheapest arm by a wide
+  margin, and every arm reached a 100% pass rate, so the cost order above is also
+  the cost-per-pass order — which makes `router-quality`, not `direct-premium`, the
+  worst on that measure. That is what prediction 3 in this same document expected
+  and what prediction 6 worded the other way round. `router-balanced` is excluded
+  from the comparison entirely because it is cost-incomplete.
+
+None of these outcomes depends on `random_seed`, which, as the errata above
+records, is historical plan data that salts `plan_hash` and never reached the
+model API.

@@ -6,15 +6,17 @@
     *"for this one problem, how much does each method spend, how slow is it, and does it even get it right?"* On `t-0003`,
     the router is the **cheapest correct answer** (1/2.5 of premium) and the
     **slowest** because escalation is sequential. Cost and accuracy use the same
-    offline calculation as experiments 01–07 (`measured = false`). **Latency is a
-    newly introduced illustrative projection**, not a measurement.
+    offline calculation as experiments 01–07 (`measured = false`). **Latency is an
+    illustrative axis** computed from authored synthetic token estimates, not a
+    measurement.
 
 ## What this experiment is
 
 - **Situation (when):** other dashboard panels summarize a 100-task workload. A new
-  user also needs to *"runs the same one problem several ways and compares cost, performance, and accuracy by eye."* That immediate view was missing.
-- **Task (what):** we built **the four-way comparison (the `arena` command)** that scores four approaches on a single task and put it in both the web app and the CLI. Cost and accuracy **reuse the existing offline machine** as-is (`classify_task` · `candidates_for` · `pricing.cost_usd` · `is_clean` · `ordered_select`), matching the aggregate panels by construction, and we newly added a **third axis, latency**, as an illustrative projection.
-- **Experiment (what it tests):** on the default `t-0003`, that (1) the router **wins on cost** (the cheapest correct answer), (2) **accuracy is shared by the three approaches that pass** (only the cheapest model fails), and yet (3) the router is **slowest on latency** (1.25× premium) — the router's hidden price.
+  user also wants to run the same single problem several ways and compare cost, speed
+  and correctness by eye. That immediate view was missing.
+- **Task (what):** we built **the four-way comparison (the `arena` command)** that scores four approaches on a single task and put it in both the web app and the CLI. Cost and accuracy **reuse the existing offline machine** as-is (`classify_task` · `candidates_for` · `pricing.cost_usd` · `is_clean` · `ordered_select`), matching the aggregate panels by construction, and we added a **third axis, latency**, as an illustrative comparison.
+- **Experiment (what it tests):** on the default `t-0003`, that (1) the router **wins on cost** (the cheapest correct answer), (2) **accuracy is shared by the three approaches that pass** (only the cheapest model fails), and yet (3) the router is **slowest on the latency axis** (1.25× premium) — the router's hidden price.
 
 This page applies the earlier comparisons to one task and adds **latency**, which the
 earlier experiments did not include.
@@ -25,7 +27,7 @@ It follows experiments 01 · 02, 03 · 04, and 05 · 06 · 07.
 | | Experiments 01–07 (aggregate) | Experiment 08 (four-way comparison) |
 | --- | --- | --- |
 | Unit | 100 tasks (or 5 curated) as **one point** | **one task** across four columns |
-| Axes | cost × coverage | cost × **latency** × accuracy (pass/fail) |
+| Axes | cost × pass rate | cost × **latency (illustrative)** × accuracy (pass/fail) |
 | Contract | the `expect` floor/ceiling in `experiments/*.yaml` | `tests/test_arena.py` pins the numbers |
 | Question | "which strategy wins across the whole workload" | "what does each method produce on this one problem" |
 
@@ -40,7 +42,7 @@ It follows experiments 01 · 02, 03 · 04, and 05 · 06 · 07.
 | Approach | What it does | Cost billed |
 | --- | --- | --- |
 | **Cheapest model** | calls only the single cheapest candidate in the class | that one call |
-| **Premium model** | calls only the priciest candidate (the naive ceiling) | that one call |
+| **Premium model** | calls only the priciest candidate — the premium-on-every-task ceiling | that one call |
 | **Ensemble (fan-out)** | fans out to **all** candidates and adopts the best | **the sum of all candidates** ([extra fan-out cost](05-ensemble-fanout.md)) |
 | **Cost-aware router** | cheapest first, escalate up on failure | **the winner only** |
 
@@ -86,8 +88,18 @@ The router saves cost here but adds **latency**. A real-time path may prefer one
 premium call, while a batch path may prefer the lower-cost router. The table shows
 both results for the same task.
 
-!!! warning "Latency is an illustrative projection (`measured = false`, not wall-clock)"
-    The bundled telemetry has no timing. So latency is an **illustrative projection** that turns token counts into ms with a per-tier throughput model — `latency = (150 + 90·tier) + 1000·(output+reasoning tokens)/(200 − 28·tier)`, ensemble = parallel (max), router = sequential (sum). It exists only to give the third axis a **shape**, not real wall-clock. Real latency has to be measured with real calls in the [live measurement adapter](../manual/foundry-live.md). We flag it consistently across UI · CLI · docs as a **different source** from cost/accuracy (offline projection).
+!!! warning "Latency is an illustrative axis (`measured = false`, not wall-clock)"
+    The bundled telemetry has no timing. Latency here is therefore **computed, not
+    measured**: a per-tier throughput model turns each task's **authored synthetic
+    `output` and `reasoning` token estimates** into milliseconds —
+    `latency = (150 + 90·tier) + 1000·(output+reasoning tokens)/(200 − 28·tier)`, with
+    ensemble as parallel (max) and router as sequential (sum). Both the token estimates
+    and the presentation constants in that formula are authored; **neither has been
+    validated against a measurement**. The axis exists to give the comparison a
+    **shape**, and it supports only relative statements between the four approaches on
+    the same task. Real latency has to be measured with real calls in the
+    [live measurement adapter](../manual/foundry-live.md). We flag it consistently
+    across UI · CLI · docs as a **different source** from cost and accuracy.
 
 ## Contrast — easy task `t-0001` (generate, easy)
 
@@ -104,7 +116,7 @@ $0.0065 · $0.0083, **up to 17×**, without changing the pass result.
 
 ## See it in the web app — the four-way comparison panel
 
-Below the dashboard's representative task card (Spotlight card) we added a **"one problem, four ways"** panel:
+Below the dashboard's representative-task card we added a **"one problem, four ways"** panel:
 
 - **Task chips** — click one of the 5 curated tasks (t-0001/0003/0004/0005/0006) to switch. One payload holds every task's four-way comparison, so it changes **without a round trip**.
 - **Four cards** — model · cost · latency · accuracy per approach. It **highlights the winner by axis** (cost = cheapest pass, latency = fastest pass, accuracy = all that pass) and gives the router card a prominent border.
@@ -116,7 +128,7 @@ Below the dashboard's representative task card (Spotlight card) we added a **"on
 
 1. **Cost and accuracy use the same offline calculation as the aggregate experiments.**
    The numbers match the strategy panels by construction. `measured = false`.
-2. **Latency is a new illustrative projection.** It shows only the **relative shape** between approaches (router = sequential sum, ensemble = parallel max); the absolute ms are not measured. Measure it for real before making a real-time decision.
+2. **Latency is an illustrative axis.** It shows only the **relative shape** between approaches (router = sequential sum, ensemble = parallel max). The absolute milliseconds are not measured: they come from authored synthetic token estimates and unvalidated presentation constants. Measure latency for real before making a real-time decision.
 3. **Accuracy is binary.** Approaches that pass are **equally** correct, so we don't crown only the router but credit all three that pass. Only the cheapest model fails.
 
 So the honest rule: *the four-way comparison meters "for this problem, each method's cost, (illustrative) latency, and whether it's correct" at a glance. Trust cost and accuracy as-is, but confirm latency with the measurement adapter.*
@@ -173,6 +185,6 @@ cost-router foundry live --live \
   --pricing  samples/pricing/your-tenant.yaml --store runs.jsonl
 ```
 
-Cost is computed from real billed usage and becomes `measured = true`, and the result is recorded on the historical dashboard. **Boundary:** the prompts are authored-synthetic, but the **usage and cost** you get by sending them are measured. To measure accuracy (pass/fail) as well, you must inject a `grader`; without one, coverage is labeled as an offline-signal projection. For details, see the [live measurement adapter](../manual/foundry-live.md).
+Cost is computed from real billed usage and becomes `measured = true`, and the result is recorded on the historical dashboard. **Boundary:** the prompts are authored-synthetic, but the **usage and cost** you get by sending them are measured. To measure accuracy (pass/fail) as well, you must inject a `grader`; without one, the pass rate is labeled as an offline-signal projection. For details, see the [live measurement adapter](../manual/foundry-live.md).
 
-For the full manual, see [one problem, four ways](../manual/head-to-head.md), and for the development context, the 2026-07-20 entry in the [development log](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).
+For the full manual, see [one problem, four ways](../manual/head-to-head.md), and for the development context, the 2026-07-20 entry in the [development log (Korean only)](/foundry-cost-aware-model-routing/ko/lab-notebook/devlog/).

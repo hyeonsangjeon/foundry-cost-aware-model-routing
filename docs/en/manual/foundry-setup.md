@@ -2,8 +2,9 @@
 
 This page lays out, start to finish, how to run each experiment as a **real Azure AI
 Foundry run rather than a mock simulation**. It gathers resource provisioning (`az`),
-model selection, KB (grounding) setup, system prompts, how to call several candidate models in parallel (fan-out) with the ensemble
-mechanism, and the per-experiment settings in one place.
+model selection, KB (grounding) setup, system prompts, how the ensemble mechanism fans
+out to several candidate models in parallel, and the per-experiment settings in one
+place.
 
 !!! note "What you need first — three prerequisites"
     On the Azure side, these three are all you need to begin:
@@ -13,9 +14,11 @@ mechanism, and the per-experiment settings in one place.
     3. **The `Cognitive Services OpenAI User` role** — grant it to the calling principal (user/service principal) and calls go out with keyless **Entra** auth. No API key is used.
 
     This repository **does not create infrastructure** — it attaches to an
-    already-deployed resource and measures. To point an ensemble arm — an arm is one comparison strategy in the experiment — directly at a
-    specific partner model, just add that deployment name to the fleet YAML (BYO). IaC
-    provisioning is a follow-up companion asset. For the full procedure see §1.
+    already-deployed resource and measures. To point an ensemble arm directly at a
+    specific partner model, add that deployment name to the fleet YAML. An **arm** is one
+    comparison strategy evaluated against the same workload under the same measurement
+    plan. Infrastructure-as-code provisioning is a follow-up companion asset. For the full
+    procedure see §1.
 
 !!! success "This is all measured (`measured = true`)"
     The numbers below come from calling real deployments with keyless **Microsoft
@@ -241,8 +244,8 @@ prompt is sent. Recommended system prompt per experiment:
 | curated | "Read each problem's acceptance criteria first, and give only answers that meet them." |
 | ensemble | (the same prompt per arm for a fair comparison — the same system to every member of the candidate set) |
 | adaptive | "For a high-value task, present the reasoning step by step; for a low-value one, be terse." |
-| limits | "Be terse. Assume retry/rate-limit conditions and answer idempotently." |
-| model-router | (no system — only the raw prompt, so the router picks the model by difficulty) |
+| limits | "Be terse. Give the minimal correct answer." |
+| single-call (live: `model-router`) | (no system — only the raw prompt, so the router picks the model by difficulty) |
 
 When using a KB, append a context block at the end of the system prompt:
 
@@ -275,8 +278,8 @@ measured. Each arm is a real deployment call.
 | arm | Deployment | Billing | What it shows |
 | --- | --- | --- | --- |
 | `cheapest` | `gpt-5.4-nano` | single-call | The cheapest floor |
-| `premium` | `gpt-5.4` | single-call | The naive frontier ceiling |
-| `ensemble` | `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (parallel fan-out) | **sum-all-fanout** | Call all → accept only the best = the **fan-out tax** |
+| `premium` | `gpt-5.4` | single-call | The premium-on-every-task frontier ceiling |
+| `ensemble` | `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (parallel fan-out) | **sum-all-fanout** | Call all → accept only the best = the **extra candidate-call cost** |
 | `router` | `model-router` | winner-only | Foundry selects one model per prompt |
 
 - **Fan-out** calls the whole candidate set in **parallel** (`ThreadPoolExecutor`), so latency
@@ -297,14 +300,15 @@ measured. Each arm is a real deployment call.
 | --- | --- | --- | --- |
 | `cheapest` | **$0.001191** | 9,079 ms | ~13× cheaper than frontier |
 | `premium` | $0.015368 | 4,112 ms | reasoning-OFF default deployment |
-| `ensemble` | $0.022046 | 8,325 ms | most expensive = the fan-out tax |
+| `ensemble` | $0.022046 | 8,325 ms | most expensive because every candidate is called |
 | `router` | $0.020806§ | 12,182 ms | grok×2 + gpt-5.4×3, reasoning ON |
 
 !!! danger "§ the `router` row's amount is **incomplete** — do not compare its amount with the other arms"
-    Model Router billing is synthetic: the **router input-token markup** + the input
-    and output of the chosen sub-model. The capture above applied only the sub-model
-    rates, so the `router` amount is **missing one billed component** — not an
-    approximation, but incomplete. We left the original artifact and hashes untouched
+    Model Router billing is composite: the **router input-token markup** plus the input
+    and output of the backend the router resolved to. The capture above applied only the
+    backend rates, so the `router` amount is **missing one billed component** — not an
+    approximation, but incomplete. The paid measurement path now prices this correctly
+    with the `composite-rate-card-v2` schema; this capture predates it. We left the original artifact and hashes untouched
     and marked it with the versioned annotation
     [`samples/annotations/legacy-router-pricing.annotation.json`](https://github.com/hyeonsangjeon/foundry-cost-aware-model-routing/blob/main/samples/annotations/legacy-router-pricing.annotation.json),
     which the CLI · reports · dashboard · replay enforce (fail-closed without it).
@@ -315,10 +319,10 @@ measured. Each arm is a real deployment call.
 
 !!! quote "An honest observation — projection and measurement differ"
     In the offline experiments (synthetic signals) the router is **cost-optimizing**,
-    so it comes out as 'the cheapest'. But the **real Foundry model-router is
-    quality-optimizing** — it sends most any coding problem to a reasoning model
-    (grok · gpt-5.4). This is an observation about **model selection**, confirmed by
-    the response's `model` field:
+    so it comes out as 'the cheapest'. In this capture, the **real Foundry model-router
+    sent ordinary coding problems to a reasoning model** (grok · gpt-5.4), which is what
+    a quality-optimizing selection looks like. This is an observation about **model
+    selection** over 5 curated tasks, confirmed by the response's `model` field:
 
     - `t-0006` (unit tests): the router chose `grok-4-1-fast-reasoning` while the
       premium arm called `gpt-5.4` directly — different backends
@@ -352,8 +356,8 @@ prompts of differing difficulty (measured):
 - **Nothing to configure** — the router selects automatically. You call once with
   `model=model-router`.
 - **Read the selection in code**: `RouterOutcome.model` (after normalization,
-  `gpt-5.4-2026-03-05` → `gpt-5.4`). The four-way comparison rates by this value and tallies it into
-  `router_model_mix`.
+  `gpt-5.4-2026-03-05` → `gpt-5.4`). The four-way comparison prices by this value and
+  tallies it into `router_model_mix`.
 
 ```bash
 # observe directly what the router picks per prompt (measured)
@@ -370,7 +374,7 @@ How each of the six experiments runs — **with which model, which prompt, and h
 `Measured status` means whether it is actually measurable in this repository right now.
 
 ### 6-1. hero — the hero (before/after)
-- **Model**: after routing (`model-router`) vs the naive ceiling (`gpt-5.4`).
+- **Model**: after routing (`model-router`) vs the premium-on-every-task ceiling (`gpt-5.4`).
 - **KB**: none. **system**: senior-engineer role (§3).
 - **Run (measured)**: the `router` vs `premium` arms of
   `cost-router foundry arena --live` are the before/after as-is.
@@ -386,14 +390,14 @@ How each of the six experiments runs — **with which model, which prompt, and h
 - **Measured status**: ✅ cost·latency measured / accuracy ungraded.
 - Related: [experiment 02 · the curated sample](../lab-notebook/02-curated.md)
 
-### 6-3. ensemble — the ensemble fan-out tax
+### 6-3. ensemble — the extra candidate-call cost
 - **Model**: the candidate set `gpt-5.4-nano + gpt-5.4-mini + gpt-5.4` (parallel).
 - **KB**: none. **system**: identical for the whole candidate set (fair comparison).
 - **Mechanism**: [§4](#4-fanout) — calling all and summing the bill is the tax; latency
   is the max.
 - **Measured status**: ✅ tax (summed cost) · latency measured. The measured
   $0.022046 (the most expensive) makes the tax actually visible.
-- Related: [experiment 05 · the ensemble fan-out tax](../lab-notebook/05-ensemble-fanout.md)
+- Related: [experiment 05 · the extra candidate-call cost](../lab-notebook/05-ensemble-fanout.md)
 
 ### 6-4. adaptive — the adaptive fan-out threshold
 - **Model**: a low-value task is a router single call; only a high-value task is
@@ -403,30 +407,37 @@ How each of the six experiments runs — **with which model, which prompt, and h
   the threshold, else the `router_arm`.
 - **KB**: none. **system**: value-based verbosity (§3).
 - **Measured status**: ⚙️ the router/fan-out arms are measurable. The threshold
-  policy is exposed as an input variable (the `FleetSlate`/value threshold in
-  [§7](#7-code) below).
+  policy is exposed as an input variable: the value threshold, plus the role assignment
+  carried by the `FleetSlate` object — the record of which deployment backs which arm —
+  in [§7](#7-code) below.
 - Related: [experiment 06 · the adaptive fan-out threshold](../lab-notebook/06-fanout-dial.md)
 
-### 6-5. limits — the rate-limit/failure wall
-- **Model**: apply concurrent load to a single tier to observe 429/throttling.
-- **KB**: none. **system**: terse · idempotent (§3).
-- **Caution**: forcing real 429s affects cost/quota. In the demo we recommend
-  demonstrating **concurrency · retry backoff** in code and observing the wall
-  (fail-wall) on a low-`--sku-capacity` deployment.
-- **Measured status**: ⚙️ latency/success-rate are measurable (load-injected). By
-  default it safely stays a projection.
-- Related: [experiment 07 · the routing layer](../lab-notebook/07-model-router.md)
+### 6-5. limits — no free lunch (the hard-workload floor)
+- **Model**: the full candidate ladder, on a workload where only the most expensive
+  candidate passes each task.
+- **KB**: none. **system**: terse (§3).
+- **What it shows**: routing tries every cheap candidate, watches each one fail, and
+  escalates to the top model on every task — a 100% pass rate, 0% savings. It is the
+  counter-weight to `hero`, not a throttling test.
+- **Measured status**: ⚙️ this configuration is offline by construction
+  (`experiments/limits.yaml`). Measuring it live would need a prompt-bearing workload
+  of equally hard tasks, which this repository does not ship.
+- Related: [experiment 04 · no free lunch](../lab-notebook/04-no-free-lunch.md)
 
-### 6-6. model-router — the routing layer (single call)
-- **Model**: a single `model-router` deployment. Auto-selects grok/gpt-5.4/gpt-oss and
-  so on per prompt ([§5](#5-selection)).
+### 6-6. single-call — one pick, no escalation
+- **Model**: offline, an arm that picks one model per prompt by difficulty and stops.
+  Live, a single `model-router` deployment, which selects grok/gpt-5.4/gpt-oss and so on
+  per prompt ([§5](#5-selection)).
 - **KB**: none. **system**: none (so the router picks by difficulty).
 - **Run (measured)**: `cost-router foundry live --live …` → the real branches in
   `model_counts`.
-- **Measured status**: ✅ **the repository's first `measured = true`** — grok×2 +
-  gpt-5.4×3. Note, though, that **the amount is incomplete** (missing the router input
-  markup → see § above). We claim only model selection · usage · latency · auth.
-- Related: [experiment 09 · live routing](../lab-notebook/09-live-routing-proof.md)
+- **Measured status**: ✅ **the repository's first live Model Router run and its first
+  `measured = true` result** — grok×2 + gpt-5.4×3 over 5 curated tasks. Note, though,
+  that **the amount is incomplete** (missing the router input markup → see § above). We
+  claim only model selection · usage · latency · auth.
+- Related: the offline comparison is
+  [experiment 07 · single-call routing vs observe-then-escalate](../lab-notebook/07-model-router.md); the live run is
+  [experiment 09 · live routing](../lab-notebook/09-live-routing-proof.md)
 
 ---
 
@@ -450,7 +461,8 @@ call  = fleet.call("gpt-5.4-nano", ArenaTask("t-1", "…"))   # any deployment b
   deployment by name, and measures usage · latency alongside.
 - **The strategies are pure functions**:
   `cheapest_arm/premium_arm/ensemble_arm/router_arm(fleet, task, slate, pricing) ->
-  ArmResult`. With no global state or hidden side effects, they test with no network by
+  ArmResult`. The `slate` parameter is the role assignment — which deployment backs which
+  arm. With no global state or hidden side effects, they test with no network by
   injecting a fake client.
 
 ### 7-2. Input variables — clear via types

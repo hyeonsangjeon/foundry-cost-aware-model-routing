@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Cost versus coverage scatter of five strategies: all-mini cheap but low coverage, single-call mid cost 52 percent, cost-aware mix full coverage at low cost, all-premium full coverage higher cost, ensemble-all full coverage highest cost">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Cost versus task pass rate scatter of five strategies: all-mini cheap but low pass rate, single-call mid cost 52 percent, cheapest-first escalation 100 percent pass rate at low cost, all-premium 100 percent at higher cost, ensemble-all 100 percent at the highest cost">
   <rect x="0" y="0" width="760" height="420" fill="#ffffff"/>
-  <text x="24" y="30" font-size="16" font-weight="700" fill="#1f2933">Cost × coverage — the trade-off frontier</text>
+  <text x="24" y="30" font-size="16" font-weight="700" fill="#1f2933">Cost × task pass rate — the trade-off frontier</text>
 
   <!-- axes -->
   <line x1="90" y1="96" x2="90" y2="360" stroke="#9aa5b1" stroke-width="1.4"/>
@@ -12,7 +12,7 @@
   <text x="80" y="104" font-size="11" fill="#7b8794" text-anchor="end">100%</text>
   <text x="80" y="234" font-size="11" fill="#7b8794" text-anchor="end">50%</text>
   <text x="80" y="364" font-size="11" fill="#7b8794" text-anchor="end">0%</text>
-  <text x="34" y="235" font-size="12" fill="#52606d" text-anchor="middle" transform="rotate(-90 34 235)">coverage</text>
+  <text x="34" y="235" font-size="12" fill="#52606d" text-anchor="middle" transform="rotate(-90 34 235)">task pass rate</text>
   <!-- x labels -->
   <text x="90" y="382" font-size="11" fill="#7b8794">$0</text>
   <text x="724" y="382" font-size="12" fill="#52606d" text-anchor="end">cost → $4.23</text>
@@ -33,9 +33,9 @@
   <text x="326" y="222" font-size="12.5" font-weight="700" fill="#2f6bc0">single-call</text>
   <text x="326" y="238" font-size="11.5" fill="#7b8794">$1.59 · 52.0%</text>
 
-  <!-- cost-aware mix $1.66 100% -> x317 y100 -->
+  <!-- cheapest-first escalation $1.66 100% -> x317 y100 -->
   <circle cx="317" cy="100" r="9" fill="#2e8b57"/>
-  <text x="300" y="70" font-size="12.5" font-weight="700" fill="#2e7d4f" text-anchor="middle">cost-aware mix</text>
+  <text x="300" y="70" font-size="12.5" font-weight="700" fill="#2e7d4f" text-anchor="middle">cheapest-first escalation</text>
   <text x="300" y="86" font-size="11.5" fill="#7b8794" text-anchor="middle">$1.66 · 100.0%</text>
 
   <!-- all-premium $2.23 100% -> x395 y100 -->
@@ -49,6 +49,6 @@
   <text x="690" y="86" font-size="11.5" fill="#7b8794" text-anchor="end">$4.23 · 100.0%</text>
 
   <!-- caption -->
-  <text x="24" y="406" font-size="11" fill="#52606d"><tspan font-weight="700" fill="#3b7dd8">single-call</tspan> commits up front (52%); the <tspan font-weight="700" fill="#2e7d4f">cost-aware mix</tspan> reclaims 100% at nearly the same cost.</text>
+  <text x="24" y="406" font-size="11" fill="#52606d"><tspan font-weight="700" fill="#3b7dd8">single-call</tspan> commits up front (52%); the <tspan font-weight="700" fill="#2e7d4f">cheapest-first escalation</tspan> reclaims 100% at nearly the same cost.</text>
   <text x="724" y="406" font-size="10.5" fill="#9aa5b1" text-anchor="end">labels.measured=false</text>
 </svg>

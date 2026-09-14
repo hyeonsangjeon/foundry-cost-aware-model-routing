@@ -1,25 +1,29 @@
 # Experiment 01 · Cheapest first, escalate only on failure
 
-!!! abstract "One-line summary — this repo's default cost-and-coverage experiment"
-    Run 100 synthetic-workload tasks in two ways. Cost-aware routing keeps coverage at
-    **100%** and costs **25.5% less** than sending every task to the premium model.
+!!! abstract "One-line summary — this repo's default cost-and-pass-rate experiment"
+    Run 100 synthetic-workload tasks in two ways. Cost-aware routing keeps the **pass
+    rate** — the share of tasks solved — at **100%** and costs **25.5% less** than
+    sending every task to the premium model.
     All numbers are `measured = false`.
 
 <figure markdown="span">
-  ![Default-experiment loop animation — a naive lane and a cost-aware lane running side by side](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
-  <figcaption>Default-experiment loop — the naive lane sends every task to premium; the cost-aware lane tries the cheapest candidate first and escalates one step only on a failed check.</figcaption>
+  ![Default-experiment loop animation — a premium-on-every-task lane and a cost-aware lane running side by side](/foundry-cost-aware-model-routing/assets/gif/hero.gif)
+  <figcaption>Default-experiment loop — the premium-on-every-task lane sends every task to premium; the cost-aware lane tries the cheapest candidate first and escalates one step only on a failed check.</figcaption>
 </figure>
 
 ## What this experiment is
 
 - **Situation (when):** the moment you first open the repo and want to confirm, in 30 seconds, that it "actually works." Assume a realistic coding-agent workload of mixed difficulty.
 - **Task (what):** route **100** synthetic tasks drawn from five classes — `plan`, `generate`, `test`, `validate`, `repo_patch`.
-- **Experiment (what it tests):** whether cost-aware routing lowers cost against naive (always premium) **while holding coverage at 100%**, and whether the result clears the floor of the reproducibility criteria (`expect`).
+- **Experiment (what it tests):** whether cost-aware routing lowers cost against the **premium-on-every-task baseline** — the comparator that sends every task to the most expensive candidate, called the premium baseline from here on — **while holding the pass rate at 100%**, and whether the result clears the floor of the reproducibility criteria (`expect`).
+
+The offline CLI and the experiment contract emit this pass rate under the field name
+`coverage` ([glossary](../manual/glossary.md)).
 
 - **Config file:** `experiments/hero.yaml`
 - **Data:** 100 synthetic-workload tasks (`--synth`, deterministic signals)
 - **Policy / pricing:** bundled seed policy / bundled example pricing
-- **Reproducibility criteria:** coverage ≥ 100%, savings ≥ 20%, tasks ≥ 100
+- **Reproducibility criteria:** pass rate ≥ 100%, savings ≥ 20%, tasks ≥ 100
 
 ## Run
 
@@ -39,8 +43,8 @@ before / after  (offline projection over synthetic data; labels.measured=false)
 | Metric | Value |
 | --- | --- |
 | Tasks | 100 |
-| Coverage | 100.0% |
-| Naive cost | $2.23 |
+| Pass rate | 100.0% |
+| Premium-baseline cost | $2.23 |
 | Routing cost | $1.66 |
 | Savings | $0.57 |
 | Savings rate | 25.5% |
@@ -49,7 +53,7 @@ before / after  (offline projection over synthetic data; labels.measured=false)
 
 ## The representative task
 
-The accepted task with the largest naive-to-routing ratio, chosen by `spotlight: auto`.
+The accepted task with the largest premium-baseline-to-routing cost ratio, selected automatically by the config field `spotlight: auto`.
 
 ```text
 spotlight  t-0078 · validate · clean-first
@@ -57,19 +61,22 @@ spotlight  t-0078 · validate · clean-first
   naive   deep-reasoner  $0.0071   (24.1x more)
 ```
 
-The `validate` task passed cleanly on the first try with the cheapest candidate (`mini-fast`). The naive approach would have spent **24.1×** more by using `deep-reasoner` on the same task.
+The `validate` task passed cleanly on the first try with the cheapest candidate (`mini-fast`). The premium baseline would have spent **24.1×** more by using `deep-reasoner` on the same task.
 
-## Why not "the cheapest bill" — arm comparison — an arm is one comparison strategy in the experiment
+## Why not "the cheapest bill" — comparing the arms
 
-| arm | Coverage | Cost | Note |
+An **arm** is one comparison strategy evaluated against the same workload under the same
+measurement plan. This experiment scores four of them.
+
+| arm | Pass rate | Cost | Note |
 | --- | --- | --- | --- |
-| cost | **22%** | $0.19 | cheapest, but coverage collapses |
+| cost | **22%** | $0.19 | cheapest, but the pass rate collapses |
 | balanced | 38% | $1.32 | middle |
-| quality (naive) | 100% | $2.23 | 100% coverage but maximum cost |
-| **cost-aware routing** | **100%** | **$1.66** | holds coverage + saves |
+| quality (premium baseline) | 100% | $2.23 | 100% pass rate but maximum cost |
+| **cost-aware routing** | **100%** | **$1.66** | holds the pass rate + saves |
 
 The cheapest arm solves only 22% of the tasks. Cost-aware routing moves to another
-model after a failed check and keeps full coverage at a lower cost than naive.
+model after a failed check and keeps a 100% pass rate at a lower cost than the premium baseline.
 
 ## Routing-strategy breakdown
 
@@ -77,7 +84,7 @@ model after a failed check and keeps full coverage at a lower cost than naive.
 strategy  single-route=74 ensemble=26  |  clean-first=19 compared=18 escalated=55 tie-broken=8
 ```
 
-- **single-route 74 / ensemble 26** — three-quarters resolve on a single route; the governor promotes the rest to an ensemble.
+- **single-route 74 / ensemble 26** — three-quarters resolve on a single route; the budget gate promotes the rest to an ensemble.
 - **clean-first 19** — the cheapest candidate passed on the first try.
 - **escalated 55** — a cheap route failed its check and moved to a higher candidate.
 - **compared 18 / tie-broken 8** — ensemble comparison and referee tie-breaks.
@@ -96,8 +103,8 @@ strategy  single-route=74 ensemble=26  |  clean-first=19 compared=18 escalated=5
 | medium | 41 | $0.86 |
 | easy | 37 | $0.17 |
 
-High-risk tasks account for most of the cost. Routing spends more on those tasks and
-less on the rest.
+High-risk tasks account for most of the cost: they are 32% of the tasks and $1.23 of the
+$1.66 total. Routing spends more on those tasks and less on the rest.
 
 ## Reproducibility self-check
 
@@ -110,7 +117,10 @@ reproducibility  PASS
 
 If it fails the contract, `cost-router hero` exits with a non-zero code.
 
-## Reproduce with the audit ledger — a hash-chained record of every decision that can replay its cost
+## Reproduce with the audit ledger
+
+The audit ledger is the hash-chained record of every routing decision, and it can
+replay each decision's cost from the stored inputs.
 
 ```bash
 cost-router hero --ledger reports/hero.jsonl

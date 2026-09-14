@@ -26,7 +26,7 @@ Policy precedence: `--policy` > environment variable `COST_ROUTER_POLICY` > bund
 
 ## hero — the hero run
 
-Runs the default cost-and-coverage experiment (`experiments/hero.yaml`) end to end and prints the
+Runs the default cost-and-pass-rate experiment (`experiments/hero.yaml`) end to end and prints the
 before/after, the representative task, and the reproducibility self-check. If it fails the
 reproducibility criteria it exits with a **non-zero code**.
 
@@ -45,9 +45,10 @@ required (about 20 seconds).
 ## compare — one problem, four ways
 
 Compares a **single** task four ways side by side and prints **cost · latency ·
-accuracy** as a table: the cheapest model · the premium model · the ensemble that
-calls several candidate models in parallel (fan-out) to everyone · the cost-aware router that climbs up from the cheapest.
-It is the CLI version of the dashboard's four-way comparison panel (the `arena` command).
+accuracy** as a table: the cheapest model, the premium model, an ensemble that fans out
+to every candidate in parallel, and the cost-aware router that climbs up from the
+cheapest. It is the CLI version of the dashboard's four-way comparison panel (the
+`arena` command).
 
 ```bash
 cost-router compare                    # the most instructive default task (t-0003)
@@ -56,9 +57,9 @@ cost-router compare --json             # that task's arena as JSON
 ```
 
 The router **bills only the winner** while the ensemble **bills every candidate**
-(the fan-out tax). Accuracy is the router's `is_clean` verdict; latency is an
-**illustrative projection** derived from token counts (not a measurement,
-`measured = false`). For the full reading see
+(the extra candidate-call cost). Accuracy is the router's `is_clean` verdict. Latency is an
+**illustrative axis** derived from authored synthetic token estimates, not a measurement
+(`measured = false`). For the full reading see
 [one problem, four ways](head-to-head.md).
 
 ## experiment — named experiments
@@ -82,7 +83,7 @@ cost-router replay --json          # the trace as JSON
 cost-router replay --synth --ledger reports/routing.jsonl
 ```
 
-A naive-vs-routing before/after block is appended at the end.
+A before/after block comparing the premium-on-every-task baseline with routing is appended at the end.
 
 ## route-once — a single trace
 
@@ -99,8 +100,8 @@ Prints the JSON trace for one task — its candidates, attempts, selection, and 
 cost-router evals --synth
 ```
 
-Produces a coverage/cost summary of the routing cost against the "always the most
-expensive" baseline.
+Produces a pass-rate and cost summary of the routing cost against the "always the most
+expensive" baseline. The summary prints that pass rate under the field name `coverage`.
 
 ## serve — offline HTTP service
 
@@ -123,7 +124,7 @@ cost-router policy simulate --policy samples/policy/candidate.example.yaml --syn
 cost-router policy regression --candidate samples/policy/candidate.example.yaml --synth
 ```
 
-`regression` compares the cost/coverage shift of the baseline policy against a
+`regression` compares the cost and pass-rate shift of the baseline policy against a
 candidate policy deterministically.
 
 ## ledger — replay/verify the audit ledger
@@ -160,8 +161,8 @@ cost-router models select        # interactive /model picker (enter a number or 
 cost-router models select --premium gpt-5.4 --ensemble gpt-5.4-nano,gpt-5.4-mini,gpt-5.4
 ```
 
-Registers and selects which deployed model backs each arm
-(router/cheapest/premium/ensemble). The selection is saved to the gitignored
+Registers and selects which deployed model backs each arm — one comparison strategy
+each: router, cheapest, premium, ensemble. The selection is saved to the gitignored
 `.foundry-fleet.local.yaml`. Every command can read a different fleet file with
 `--fleet PATH` (or `FOUNDRY_FLEET_PATH`). Then run the measured four-way comparison on that fleet:
 

@@ -5,18 +5,18 @@
 바꾸는 절차입니다 — 진짜 프롬프트를 실제 Azure 배포에 보내고 **실제로 청구된 토큰 usage**를
 읽어 그 usage × 단가로 비용을 계산한 뒤, **지문이 찍힌 결정론적 스냅샷**으로 봉인합니다.
 
-!!! danger "정직함 경계 — 일부러 엄격하게"
+!!! danger "주장 경계 — 일부러 엄격하게"
     - **`measured = true`는 방금 일어난 라이브 호출(`provenance = live`)에만 부여됩니다.**
       모킹·녹화·재생 경로는 `provenance = test|recorded`로 남아 `measured = false`입니다.
       커밋된 어떤 아티팩트도 `measured = true`를 사칭하지 않습니다.
-    - **지출은 측정하되, 품질은 grader가 있을 때만 측정합니다.** grader가 없으면 커버리지는
-      오프라인 신호 투영으로 떨어지고 그 사실이 summary에 라벨됩니다.
+    - **지출은 측정하되, 품질은 grader가 있을 때만 측정합니다.** grader가 없으면 채점된 셀 중
+      통과 비율은 오프라인 신호 투영으로 떨어지고 그 사실이 summary에 라벨됩니다.
     - **라이브 모드는 로컬 전용입니다.** CI·자동화 파이프라인은 `measure replay`(자격 불필요)만
-      실행합니다. 라이브 호출은 operator 승인 + 예산 상한 + 사전등록 게이트를 모두 통과해야 합니다.
+      실행합니다. 라이브 호출은 운영자 승인 + 예산 상한 + 사전등록 게이트를 모두 통과해야 합니다.
 
 ---
 
-## 1. 두 트랙 (D1) — 투영과 실측을 분리한다
+## 1. 두 트랙 (D1) — 투영과 실측의 분리
 
 | 트랙 | 라벨 | 출처 | 어디서 |
 | --- | --- | --- | --- |
@@ -25,6 +25,10 @@
 
 핵심 콘텐츠는 두 트랙의 **격차 자체**입니다. 실측이 투영과 어긋나면 그것을 숨기지 않고
 **사전등록에 미리 적어 둔 격차 방향**과 나란히 게시합니다.
+
+두 트랙을 가르는 라벨이 **provenance**입니다. 결과가 어느 경로에서 나왔는지를 가리키며
+`live`(방금 일어난 실제 호출) · `recorded`(포착해 둔 실측 결과의 재생) · `test`(주입한 가짜
+클라이언트) 셋 중 하나입니다. `measured = true`는 `provenance = live`에만 붙습니다.
 
 ---
 
@@ -37,10 +41,10 @@ cost-router measure run <experiment>
 # 2) 런 플랜을 해석해 plan_hash를 출력. 오프라인 — 아무것도 보내지 않음
 cost-router benchmark plan --config .foundry.local.yaml
 
-# 3) operator 승인 후에만: 실측 스윕 → §3 스냅샷
+# 3) 운영자 승인 후에만: 실측 스윕 → §3 스냅샷
 cost-router benchmark run --config .foundry.local.yaml --live --approve-plan sha256:<...>
 
-# 4) 자격 없이 스냅샷만으로 summary를 byte-동일하게 재계산(CI가 검사)
+# 4) 자격 없이 스냅샷만으로 summary를 바이트 단위 동일하게 재계산(CI가 검사)
 cost-router measure replay --run <artifacts.local_root>/run/<run-id>
 
 # 5) 실측 스냅샷을 범위/하한 계약에 대조(결정론)
@@ -59,14 +63,14 @@ cost-router measure verify --run <artifacts.local_root>/run/<run-id> --contract 
 
 ## 3. 스냅샷 규격 (§3)
 
-라이브 런은 `<artifacts.local_root>/run/<run-id>/` 아래 **5개 파일**을 씁니다.
+라이브 실행은 `<artifacts.local_root>/run/<run-id>/` 아래 **5개 파일**을 씁니다.
 
 ```
 manifest.json          # 실행 메타 + 모든 파일의 SHA-256 지문
-prereg.md              # 라이브 런 "이전"에 커밋된 사전 예상 (§3.3)
+prereg.md              # 라이브 실행 "이전"에 커밋된 사전 예상 (§3.3)
 traces.jsonl           # 원시 기록 1행 = 1 호출 시도
 summary.json           # coverage·cost·savings·전략 분해·latency·429/재시도/캐시·실패 목록
-pricing.snapshot.yaml  # 이 런에 쓰인 단가를 그대로 봉인
+pricing.snapshot.yaml  # 이 실행에 쓰인 단가를 그대로 봉인
 ```
 
 ### 3.1 `manifest.json` 필드
@@ -87,12 +91,12 @@ pricing.snapshot.yaml  # 이 런에 쓰인 단가를 그대로 봉인
 정책상 재시도 자체는 `fail_reason="throttled_429"`로 표시합니다.
 
 v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅된 셀은 금액을 지어내지 않고
-`cost_usd=null` + `pricing.priced=false`(이유 포함)로 **요율이 없으면 값을 추정하지 않고 비용 주장을 보류합니다(fail-closed)** 기록됩니다(§6.1).
+`cost_usd=null` + `pricing.priced=false`(이유 포함)로 **fail-closed** 기록됩니다(§6.1).
 
 ### 3.3 `prereg.md` 최소 내용 (D8)
 
-예상 coverage / 예상 절감률(범위) · **projection 대비 격차의 예상 방향과 이유 한 줄** ·
-이번 런에서 무엇이 나오면 "실패"인지 · 예산 상한.
+예상 통과율 / 예상 절감률(범위) · **투영 대비 격차의 예상 방향과 이유 한 줄** ·
+이번 실행에서 무엇이 나오면 "실패"인지 · 예산 상한.
 
 ### 3.4 표본 크기와 증거 등급 (`evidence_tier`)
 
@@ -111,7 +115,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 | 워크로드 | 프롬프트 수 | `evidence_tier` | 근거 |
 | --- | --- | --- | --- |
 | `curated-24` | 24 | **`directional`** | 30 미만 — 방향성 신호만 |
-| `hero-100-prompts` | 100 | 더 강한 등급의 **첫 후보** | 100 이상 권고를 충족 |
+| `hero-100-prompts` (제안 상태 · 파일 없음) | 100 (계획값) | 더 강한 등급의 **첫 후보** | 100 이상 권고를 충족하는 규모로 제안됐을 뿐, 워크로드 파일이 아직 저장소에 없습니다 |
 
 !!! note "인용 보존 규칙"
     위 URL과 **확인일(2026-07-29)** 은 이 임계값을 Microsoft에 귀속시키는 모든 자리에서
@@ -122,10 +126,10 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 
 ## 4. 결정론과 지문
 
-- **n = 3**(기본): 한 셀은 (task × arm × 표본 n)이며, 각 (task × arm) 조합을 n=3회 반복 측정해
+- **n = 3**(기본): 한 셀은 (과제 × 비교 전략(arm) × 표본 n)이며, 각 (과제 × arm) 조합을 n=3회 반복 측정해
   분산을 보고합니다.
 - **결정론적 재생(§3.4)**: `measure replay`가 `traces.jsonl` + `pricing.snapshot.yaml`만으로
-  `summary.json`을 **byte-동일**하게 재계산합니다(자격 불필요). CI는 이 재생만 검사합니다.
+  `summary.json`을 **바이트 단위 동일**하게 재계산합니다(자격 불필요). CI는 이 재생만 검사합니다.
 - **지문**: 모든 스냅샷 파일의 정확한 바이트를 SHA-256으로 해시해 `manifest.fingerprints`에
   기록합니다. 재생 시 지문이 어긋나면 변조로 판정합니다.
 - **직렬화**: JSON은 `indent=2, sort_keys=True, ensure_ascii=False` + 개행, traces는 한 줄에
@@ -138,7 +142,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 - **429 백오프**: 지수 백오프(기본 `max_retries=5`, `base_backoff_ms=500`, `backoff_factor=2`,
   상한 `max_backoff_ms=30000`). 파라미터는 manifest에 봉인되어 재생이 재시도 계상을 재현합니다.
 - **캐시 토큰**: `tokens.cached`를 입력 토큰과 **분리 기록**하고 캐시 단가로 별도 과금합니다.
-- **all-calls 과금 (D2)**: 여러 후보 모델을 병렬로 호출하는(fan-out) 앙상블 전략은 **진 후보까지 전부 합산**해 과금합니다
+- **all-calls 과금 (D2)**: 팬아웃 앙상블 전략은 **진 후보까지 전부 합산**해 과금합니다
   (`billing = sum-all-fanout`). "승자만 세는" 착시를 만들지 않습니다 — 이것이 후보 호출 비용의
   실측 근거입니다.
 - **예산 가드**: 누적 실측 비용이 `--budget-usd`에 도달하면 즉시 중단하고 부분 결과를 정상
@@ -151,27 +155,31 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 
 - 단가는 **공개 모델·공개 단가**만 씁니다. 번들 `samples/pricing/foundry-ext-full.yaml`의
   OpenAI 계열은 공개 Azure list price를 따르고 파트너 행은 계산을 투명히 하기 위한
-  **round-number placeholder(견적 아님)** 입니다 — 실제 회계는 협상 요율을 드롭인하세요.
+  **어림수 자리표시자(견적 아님)** 입니다 — 실제 회계에는 여러분의 협상 요율을 넣으세요.
 - 모든 게시 수치에는 **pricing snapshot 날짜**를 병기합니다. `measure verify`는 스냅샷이
   90일보다 오래되면 **비치명적 경고(freshness)**를 냅니다.
 
-### 6.1 요율 카드 스키마 — v1(오프라인 실험) vs v2(벤치/유료 측정)
+### 6.1 요율 카드 스키마 — v1(오프라인 실험) vs v2(벤치/유료 측정) {#61-v1-vs-v2}
 
 이 저장소는 **두 요율 카드 스키마**를 의도적으로 공존시킵니다. 어떤 경로가 어느 것을
 쓰는지는 고정돼 있습니다.
 
+여기가 **fail-closed**의 정의 자리입니다. 요율 행이 없는 셀에 값을 추정해 채우지 않고,
+금액을 보류한 채 그 arm의 절감 주장을 막는 규칙입니다. 다른 페이지는 이름만 쓰고 이곳으로
+링크합니다.
+
 | 경로 | 스키마 | 과금 방식 | 미확인 백엔드 |
 | --- | --- | --- | --- |
-| 오프라인 실험 01–08 (`replay`·`evals`·`hero`·`compare`·`experiment`) | v1 `PricingTable` (`samples/pricing/*.yaml`) | 표당 단순 in/out 단가, 마크업 없음 | `default` 폴백으로 **fail-open** (합성 실험이라 무방) |
-| 벤치/유료 측정 (`benchmark plan`·`benchmark run --live`·라이브 브라우저 실행 화면) | v2 `RateCardV2` (`schema_version: 2`, 예: `samples/pricing/foundry-ext-router.yaml`) | 정확한 alias map + Model Router **input-token 마크업**(라우터 arm) + 하위모델 in/out 합성 | rates에 없으면 **fail-closed**: `cost_usd=null`, `cost_complete=false`, 절감 주장에서 제외 |
+| 오프라인 실험 01–08 (`replay`·`evals`·`hero`·`compare`·`experiment`) | v1 `PricingTable` (`samples/pricing/*.yaml`) | 표당 단순 in/out 단가, 마크업 없음 | `default` 대체 요율으로 **fail-open** (합성 실험이라 무방) |
+| 벤치/유료 측정 (`benchmark plan`·`benchmark run --live`·라이브 브라우저 실행 화면) | v2 `RateCardV2` (`schema_version: 2`, 예: `samples/pricing/foundry-ext-router.yaml`) | 정확한 alias map + **복합 요율**(`composite-rate-card-v2`) — 라우터 arm은 Model Router input-token 마크업에 라우터가 고른 백엔드의 in/out을 더함 | rates에 없으면 **fail-closed**: `cost_usd=null`, `cost_complete=false`, 절감 주장에서 제외 |
 
 - **스키마 판정**: 카드에 최상위 `schema_version` 키가 있으면 v2, 없으면 v1로 해석합니다.
   v1의 `version:`은 자유 리비전 정수라 `plan_hash`에 영향 없이 그대로 보존됩니다.
-- **fail-closed의 이유**: v1 `default` 폴백을 유료 경로에 남기면 가격 미확인 백엔드(예:
-  Azure Retail에 요율이 없는 Claude 5종)에 임의 단가가 붙어, 03Z에서 폐기한 "출처 없는
+- **fail-closed의 이유**: v1 `default` 대체 요율을 유료 경로에 남기면 가격 미확인 백엔드(예:
+  Azure Retail에 요율이 없는 Claude 5종)에 임의 단가가 붙어, 앞선 작업에서 폐기한 "출처 없는
   절감 수치"가 되살아납니다. 그래서 벤치 경로는 **모르는 단가를 채우지 않고** 그 셀을
-  unpriced로 봉인하고 그 런의 절감 주장을 `savings_claim_allowed=false`로 막습니다.
-- **다섯 표면 동일 공식**: 같은 셀의 합성 비용이 dry-run 추정 · 예약 상한 · trace ·
+  unpriced로 봉인하고 그 실행의 절감 주장을 `savings_claim_allowed=false`로 막습니다.
+- **다섯 표면 동일 공식**: 같은 셀의 복합 요율 비용이 dry-run 추정 · 예약 상한 · trace ·
   summary · 재생에서 **동일**합니다. 회귀 테스트 `tests/test_rate_card_wiring.py`가
   이 동일성과 fail-closed(라우터 마크업 · Claude unpriced · v1 무변경)를 고정합니다.
 - **tier 처리**: v2 카드는 키마다 **보수적 long-tier 단가 하나**만 저장하고 예약을 그
@@ -179,7 +187,7 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
   유지합니다(보수적 예약).
 - 봉인된 스냅샷은 어느 엔진으로 과금했는지 함께 기록합니다(v2는 `pricing_engine:
   rate_card_v2` + 정규화된 카드). `measure replay`는 그 마커로 v1/v2 엔진을 되살려
-  byte-동일 재계산을 보장합니다.
+  바이트 단위 동일 재계산을 보장합니다.
 
 ---
 
@@ -187,21 +195,21 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 
 아래는 5-태스크 prompt-bearing 워크로드(`samples/telemetry/curated-arena-live.sample.jsonl`)를
 `--pricing samples/pricing/foundry-ext-full.yaml`(illustrative, 2025 snapshot), `--n 3`으로
-**dry-run**한 planning 수치입니다. 캡은 output-token 편차를 흡수하도록 추정치 위에 헤드룸을 둡니다.
+**dry-run**한 계획용 수치입니다. 캡은 output-token 편차를 흡수하도록 추정치 위에 헤드룸을 둡니다.
 
 | 실험 | 측정 기반(후보×태스크×n) | dry-run 추정 | 권장 `--budget-usd` 캡 |
 | --- | --- | --- | --- |
 | exp02 Curated (pilot) | 11×5×3 = 165 calls | $1.03 | **$2** |
-| exp07 Routing layer | `model-router` 1×5×3 = 15 | $0.21 | **$1** |
+| exp07 단일 호출 라우팅 | `model-router` 1×5×3 = 15 | $0.21 | **$1** |
 | exp03·04·06 Guardrails | 2–11 후보 ×5×3 | $0.22–$1.03 each | **$2 each** |
 | exp05 Fan-out (D2) | 11×5×3 = 165 | $1.03 | **$3** |
 | exp08 네 방식 비교 | 11×5×3 = 165 | $1.03 | **$2** |
-| exp01 저렴한 모델 우선 라우팅 (100 tasks) | ⚠ 100-task prompt 워크로드 **선작성 필요** | ≈$20.6 | **$25** |
+| exp01 저렴한 모델 우선 라우팅 (100 태스크) | ⚠ 100태스크 프롬프트 워크로드가 **아직 없습니다**(`hero-100-prompts.jsonl` 제안 상태·파일 없음) | ≈$20.6 | **$25** |
 
 !!! warning "이 수치의 성격"
-    dollar 값은 **illustrative** 단가(파트너 행 placeholder)에서 나온 planning 추정입니다.
+    dollar 값은 **illustrative** 단가(파트너 행 placeholder)에서 나온 계획용 추정입니다.
     exp01/exp08을 전체 태스크 수로 실측하려면 그 규모의 prompt-bearing 워크로드를 먼저
-    작성해야 합니다. 최종 예산 상한은 **operator가 승인 시 확정**합니다.
+    작성해야 합니다. 최종 예산 상한은 **운영자가 승인 시 확정**합니다.
 
 ---
 
@@ -212,57 +220,59 @@ v2 유료 경로에서 **단가가 확인되지 않은 백엔드**로 라우팅�
 
 | 키 | 의미 |
 | --- | --- |
-| `min_coverage` | 커버리지 하한 |
-| `min_savings_pct` / `max_savings_pct` | naive 대비 절감률 대역 |
-| `max_tax_ratio` | 팬아웃 세금(최고/최저 후보 비용비) 상한 |
-| `min_escalation_gain` | observe-then-escalate가 회수하는 커버리지 하한 |
+| `min_coverage` | 채점된 셀 중 통과 비율(`result.coverage`)의 하한 |
+| `min_savings_pct` / `max_savings_pct` | 프리미엄 기준선 대비 절감률 대역 |
+| `max_tax_ratio` | 후보 간 비용 폭의 상한 — 호출이 있었던 후보들의 `total_usd` 중 **최대 ÷ 최소**입니다(`src/router/measure.py`). 오프라인 실험의 동명 계약이 쓰는 팬아웃 원가÷승자 비용과는 계산이 다릅니다 |
+| `min_escalation_gain` | 실패를 확인한 뒤 상위 모델을 다시 호출하는 방식이 회수하는 통과율의 하한 |
 | `max_failure_rate` | 실패율 상한 |
 
 ---
 
-## 9. 라이브 런 절차 (operator 게이트)
+## 9. 라이브 실행 절차 (운영자 게이트)
 
 1. `cost-router foundry status`가 `credentialed: yes`(키리스 Entra)인지 확인.
 2. 사전등록을 작성해 **커밋한 뒤**, 그 `path`·`blob`·`commit`을 런 설정의
-   `benchmark.preregistration`에 못박는다. D8 게이트는 커밋된 blob을 다시 읽어 대조하므로
-   커밋 전이거나 커밋 뒤에 고친 파일은 디스패치 전에 거부된다. 못박는 순간 플랜이
-   달라지므로 이 단계가 3번보다 **앞**이다.
-3. `cost-router benchmark plan --config <파일>`로 플랜을 오프라인 해석한다. 아무것도 보내지
-   않는다. 승인 요약의 계획 셀 수·전송 시도 범위·**최악 예약액**을 보고
-   `benchmark.budget_usd`에 **예산 상한**을 정한다(`--budget-usd`로 덮어써도 된다).
-4. operator 승인 후 출력된 `plan_hash`를 그대로 옮겨
+   `benchmark.preregistration`에 못박습니다. D8 게이트는 커밋된 blob을 다시 읽어 대조하므로
+   커밋 전이거나 커밋 뒤에 고친 파일은 디스패치 전에 거부됩니다. 못박는 순간 플랜이
+   달라지므로 이 단계가 3번보다 **앞**입니다.
+3. `cost-router benchmark plan --config <파일>`로 플랜을 오프라인 해석합니다. 아무것도 보내지
+   않습니다. 승인 요약의 계획 셀 수·전송 시도 범위·**최악 예약액**을 보고
+   `benchmark.budget_usd`에 **예산 상한**을 정합니다(`--budget-usd`로 덮어써도 됩니다).
+4. 운영자 승인 후 출력된 `plan_hash`를 그대로 옮겨
    `cost-router benchmark run --config <파일> --live --approve-plan sha256:<...>` 실행.
-   해시가 한 글자만 달라도 자격 조회 이전에 거부되므로 낡은 승인으로는 아무것도 나가지 않는다.
-5. `measure replay --run <artifacts.local_root>/run/<run-id>`로 byte-동일 재생,
+   해시가 한 글자만 달라도 자격 조회 이전에 거부되므로 낡은 승인으로는 아무것도 나가지 않습니다.
+5. `measure replay --run <artifacts.local_root>/run/<run-id>`로 바이트 단위 동일 재생,
    `measure verify`로 계약 대조 후 스냅샷을 커밋.
 
-`measure run --live`는 이 절차의 단계가 아니다. 플랜을 해석하지 않으므로 거부하고
-`benchmark run --live`를 대신 안내한다. 플랜·승인 계약 전체는
-[해석된 런 플랜](run-plan.md) 참고.
+`measure run --live`는 이 절차의 단계가 아닙니다. 플랜을 해석하지 않으므로 거부하고
+`benchmark run --live`를 대신 안내합니다. 플랜·승인 계약 전체는
+[해석된 런 플랜](run-plan.md)을 참고하세요.
 
-## 10. 라이브 진행률 지표는 진단용이다 (판정 아님)
+## 10. 라이브 진행률 지표는 진단용입니다 (판정 아님)
 
-detached 라이브 런은 `progress.json`과 stdout 한 줄로 진척을 노출한다. 셀
-수·누적 비용·429·실패에 더해 **누적 grading coverage(게이트 기준선 표시)** 와
-**arm별 pass 현황**을 함께 싣는다. 예:
+분리 실행된 라이브 실행은 `progress.json`과 stdout 한 줄로 진척을 노출합니다. 셀
+수·누적 비용·429·실패에 더해 **누적 채점 커버리지(게이트 기준선 표시)** 와
+**arm별 pass 현황**을 함께 싣습니다. 예:
 
 ```
 progress: 142/288 cells  $1.83  429×0  fail×2  cov 96.5% [gate 90%]  [cell_done]
          cost 34/36 · balanced 34/35 · quality 33/36 · premium 36/36
 ```
 
-목적은 오직 하나 — **조기 중단(abort) 판단**이다. 지난 무효 처리된 실행에서 quality
-coverage가 79%로 무너지는 것을 30분 시점에 알았다면 abort할 수 있었다.
+목적은 오직 하나 — **조기 중단(abort) 판단**입니다. 실험 11에서 비교 전략 `router-quality`의
+채점 커버리지가 79.2%를 향해 떨어지고 있다는 것을 30분 시점에 알았다면 그 자리에서
+중단할 수 있었습니다. 79.2%는 실행이 끝난 뒤 확정된 값이며, 30분 시점에는 하락 추세만
+관측할 수 있습니다.
 
 !!! danger "중간 지표로 실험을 바꾸면 사전등록 위반"
-    이 값들은 **진단용이지 판정이 아니다.** coverage 게이트(90%)와 품질 게이트
-    (min_pass 0.60 / max_drop 10pp)는 **봉인된 스냅샷에 대해서만** `measure verify`
-    로 판정한다. 중간 값을 보고 워크로드·arm·게이트·denominator를 바꾸면
-    사전등록 위반이며 결과가 무효가 된다. 진행 중 허용되는 유일한 개입은
-    **abort(전체 중단 + partial 스냅샷)** 뿐이다.
+    이 값들은 **진단용이지 판정이 아닙니다.** 채점 커버리지 게이트(90%)와 품질 게이트
+    (min_pass 0.60 / max_drop 10퍼센트포인트)는 **봉인된 스냅샷에 대해서만** `measure verify`
+    로 판정합니다. 중간 값을 보고 워크로드·arm·게이트·분모를 바꾸면
+    사전등록 위반이며 결과가 무효가 됩니다. 진행 중 허용되는 유일한 개입은
+    **중단(전체 중단 + partial 스냅샷)** 뿐입니다.
 
-`progress.json`은 gitignored 런 디렉터리에만 쓰이고 지문 대상(§4)이 아니므로
-스냅샷 바이트나 `plan_hash`에 영향을 주지 않는다 — 재생은 여전히 byte-동일이다.
+`progress.json`은 gitignore된 실행 디렉터리에만 쓰이고 지문 대상(§4)이 아니므로
+스냅샷 바이트나 `plan_hash`에 영향을 주지 않습니다 — 재생은 여전히 바이트 단위로 동일합니다.
 
-관련 문서: [라이브 실측 브릿지](foundry-live.md) · [감사 원장](ledger.md) ·
+관련 문서: [라이브 실측 어댑터](foundry-live.md) · [감사 원장](ledger.md) ·
 [실험 09 · 실측 라우팅](../lab-notebook/09-live-routing-proof.md) · [정직함 규약](../honesty.md)

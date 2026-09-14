@@ -1,11 +1,13 @@
-# Customization guide — swap in your own workload (D13)
+# Customization guide — swap in your own workload
 
 This repository was built on one premise: **run it on your own Foundry, as is**.
 To do that you only change five places. Each one is a separate file, so you swap
 configuration without touching code. The `measured = false` projections run
 offline, right away; the `measured = true` measurements run after you set up `.env`
 + `az login` and press the approve button in the
-[local browser run screen](../lab-notebook/09-live-routing-proof.md).
+[browser run screen](#browser-run-screen) described
+below. That screen runs against the same
+[live measurement adapter](foundry-live.md) as the CLI.
 
 ## The five places you change
 
@@ -39,12 +41,12 @@ offline, right away; the `measured = true` measurements run after you set up `.e
 - If a rule is wrong (unknown type, bad regex) `validate_rule` **fails loudly
   before the run**.
 
-### 3. Fleet — the deployment model catalog plus role assignment
+### 3. Fleet — the catalog of deployed models plus role assignment
 - **Where:** `samples/fleet/*.fleet.yaml` (e.g. `foundry-ext-full.fleet.yaml`,
   `foundry-5series.fleet.yaml`).
 - **Selection:** `FOUNDRY_FLEET_PATH` (or `COST_ROUTER_FLEET`) in `.env`.
-- Defines which deployment each arm — an arm is one comparison strategy in the experiment — (cheapest/premium/router/ensemble) calls and
-  what the provider is.
+- Defines which deployment each arm calls — cheapest, premium, router, ensemble — and
+  which provider surface it uses.
 
 ### 4. Pricing
 - **Where:** `samples/pricing/*.yaml` (e.g. `foundry-ext-full.yaml`; for your own
@@ -94,7 +96,7 @@ offline, right away; the `measured = true` measurements run after you set up `.e
     calls). Only after "this is what goes out now" is visible on screen does the
     (paid) live call begin.
 
-## The browser run screen — `cost-router dashboard --live`
+## The browser run screen — `cost-router dashboard --live` {#browser-run-screen}
 
 If you would rather walk **the same gates in a browser** instead of the CLI, use
 the browser run screen. It follows exactly the same order as the five-step recipe
@@ -119,9 +121,9 @@ cost-router dashboard --live  # 127.0.0.1-only + random port + a session-token U
   candidate models · projected cost before the run (zero paid calls). It is the same
   catalog as the CLI's `measure catalog`.
 - **Approve and run.** Only after you enter the budget cap and press `Approve and
-  run` does the (paid) sweep begin — that button is the **human approval gate** of
-  BOLT-01 §8. If any of credentials · budget · approval · prereg is missing it
-  honestly refuses and shows the reason.
+  run` does the (paid) sweep begin. That button is the **human approval gate**: if
+  credentials, budget, approval or the preregistration is missing, it refuses and
+  shows the reason.
 - **Live progress · snapshot.** The progress and the cumulative-spend-vs-budget
   gauge stream, and it stops the instant the budget is reached (`partial=true`).
   When it finishes it **re-reads and renders** `results/cockpit/<run-id>/`

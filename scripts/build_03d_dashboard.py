@@ -322,18 +322,28 @@ def render_cost_chart(rows: list[dict]) -> str:
     max_cost = max(r["total_usd"] for r in rows)
     axis_w = 470
     label = (
-        "Per-arm total cost bar chart. router-cost "
+        "Experiment 12, one measured run. Per-arm total cost bar chart. router-cost "
         f"{format_usd(rows[0]['total_usd'])} versus direct-premium "
         f"{format_usd(next(r['total_usd'] for r in rows if r['label'] == 'direct-premium'))}; "
         "each bar annotated with task pass-rate and cost-per-pass."
     )
     out = [_svg_open(w, h, label)]
-    out.append(_txt(24, 34, "arm별 총비용 — 통과율 · cost-per-pass", size=16, fill=INK, weight=700))
+    out.append(
+        _txt(
+            24,
+            34,
+            "실험 12 실측 · arm별 총비용 — 통과율 · cost-per-pass",
+            size=16,
+            fill=INK,
+            weight=700,
+        )
+    )
     out.append(
         _txt(
             24,
             56,
-            "24 tasks × n=3 = 288 cells · 표시 금액 2자리(서브센트 4자리) · 절감은 풀정밀도 계산",
+            "24 tasks × n=3 = 288 cells · measured=true · directional · "
+            "금액 2자리(서브센트 4자리) · 절감은 풀정밀도",
             size=11,
             fill=MUTE,
         )
@@ -376,8 +386,8 @@ def render_cost_chart(rows: list[dict]) -> str:
         _txt(
             24,
             cy,
-            "핵심 대비: router-cost는 direct-premium 대비 95.2% 저렴(풀정밀도), "
-            "품질 격차 4.17%p 이내.",
+            "실험 12: router-cost는 direct-premium 대비 95.2% 저렴(풀정밀도), "
+            "통과율 격차 4.17퍼센트포인트 이내.",
             size=11,
             fill=SUB,
         )
@@ -402,7 +412,8 @@ def render_scatter(rows: list[dict]) -> str:
         return bot - (bot - top) * (rate - ymin) / (ymax - ymin)
 
     label = (
-        "Cost versus pass-rate scatter. direct-premium costs less and has a higher "
+        "Experiment 12, one measured run. Cost versus pass-rate scatter. "
+        "direct-premium costs less and has a higher "
         "pass rate than router-quality. router-cost has the lowest cost among the "
         "router arms with the same pass rate."
     )
@@ -411,14 +422,21 @@ def render_scatter(rows: list[dict]) -> str:
         _txt(
             24,
             34,
-            "비용 × 통과율 — Quality 모드는 비용이 더 들고 덜 풀었다",
+            "실험 12 · 비용 × 통과율 — Quality 모드는 비용이 더 들고 덜 풀었다",
             size=16,
             fill=INK,
             weight=700,
         )
     )
     out.append(
-        _txt(24, 56, "y축 확대(94–101%)로 4.17%p 격차 가시화 · x축 총비용(USD)", size=11, fill=MUTE)
+        _txt(
+            24,
+            56,
+            "y축 확대(94–101%)로 4.17퍼센트포인트 격차 가시화 · "
+            "x축 총비용(USD) · 실측 1회, directional",
+            size=11,
+            fill=MUTE,
+        )
     )
     # axes
     out.append(_line(left, top, left, bot, width="1.4"))
@@ -503,7 +521,8 @@ def render_backends(rows: list[dict]) -> str:
             if m not in models:
                 models.append(m)
     label = (
-        "Per-arm backend distribution stacked bars. router-cost routed 100% to "
+        "Experiment 12, one measured run. Per-arm backend distribution stacked bars. "
+        "router-cost routed 100% to "
         "grok-4-1-fast-reasoning; router-quality split gpt-5 and gpt-5.5 with no "
         "grok; direct-premium is 100% gpt-5.6-sol."
     )
@@ -512,7 +531,7 @@ def render_backends(rows: list[dict]) -> str:
         _txt(
             24,
             34,
-            "백엔드 분포 — arm별 실제 라우팅된 모델 (graded 셀 기준)",
+            "실험 12 · 백엔드 분포 — 각 arm이 실제로 도달한 모델",
             size=16,
             fill=INK,
             weight=700,
@@ -522,7 +541,8 @@ def render_backends(rows: list[dict]) -> str:
         _txt(
             24,
             56,
-            "Cost 모드 100% Grok은 무효 처리된 실행과 이번 런 두 번 연속 재현됐다",
+            "채점된 셀만 · Cost 모드 100% Grok은 무효 처리된 실험 11과 "
+            "실험 12에서 연속 재현 — 보장이 아니라 반복 관측",
             size=11,
             fill=MUTE,
         )
